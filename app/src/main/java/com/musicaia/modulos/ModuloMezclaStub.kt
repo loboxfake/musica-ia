@@ -16,7 +16,7 @@ class ModuloMezclaStub(private val context: Context) : ModuloIA {
 
     override fun ejecutar(entrada: Dato): Dato {
         if (!cargado) throw IllegalStateException("Modelo no cargado")
-        val ruta = java.io.File(context.cacheDir, "mezcla_silencio.wav").absolutePath
+        val ruta = java.io.File(context.getExternalFilesDir(null), "mezcla_silencio.wav").absolutePath
         escribirWavSilencio(ruta, 3)
         return Dato.Audio(ruta, 44100)
     }

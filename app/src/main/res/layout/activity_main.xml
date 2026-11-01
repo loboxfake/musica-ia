@@ -9,26 +9,39 @@
         android:id="@+id/titulo"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="MusicaIA - Generador de Música IA"
-        android:textSize="24sp"
+        android:text="MusicaIA"
+        android:textSize="22sp"
         android:textStyle="bold" />
 
-    <TextView
-        android:id="@+id/estado"
-        android:layout_width="wrap_content"
+    <EditText
+        android:id="@+id/editTema"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Listo para crear"
-        android:textColor="#666"
-        android:textSize="16sp" />
+        android:hint="Tema (ej: pop alegre)"
+        android:text="tema: pop alegre" />
+
+    <EditText
+        android:id="@+id/editEstilo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Estilo (ej: verano)"
+        android:text="estilo: verano" />
 
     <Button
         android:id="@+id/btnCrear"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Crear Muestra" />
+        android:text="Crear" />
+
+    <TextView
+        android:id="@+id/estado"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Listo"
+        android:textSize="14sp" />
 
     <ScrollView
-        android:id="@+id/scrollView"
+        android:id="@+id/scrollResultado"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1">
@@ -40,8 +53,19 @@
                 android:id="@+id/textoResultado"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Resultado de la creación..."
-                android:textSize="18sp" />
+                android:text="Resultado..."
+                android:textSize="14sp" />
+            <ImageView
+                android:id="@+id/imgPortada"
+                android:layout_width="200dp"
+                android:layout_height="200dp"
+                android:visibility="gone" />
+            <Button
+                android:id="@+id/btnReproducir"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Reproducir"
+                android:visibility="gone" />
         </LinearLayout>
     </ScrollView>
 

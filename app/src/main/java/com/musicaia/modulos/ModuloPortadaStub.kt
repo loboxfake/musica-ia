@@ -40,7 +40,7 @@ class ModuloPortadaStub(private val context: Context) : ModuloIA {
         paint.color = color
         canvas.drawRect(0f, 0f.toFloat(), ancho.toFloat(), alto.toFloat(), paint)
         
-        val archivo = java.io.File(context.cacheDir, "portada_ia.png")
+        val archivo = java.io.File(context.getExternalFilesDir(null), "portada_ia.png")
         try {
             val fos = FileOutputStream(archivo)
             bitmap.compress(Bitmap.CompressFormat.PNG, 90, fos)

@@ -16,7 +16,7 @@ class ModuloInstrumentalStub(private val context: Context) : ModuloIA {
 
     override fun ejecutar(entrada: Dato): Dato {
         if (!cargado) throw IllegalStateException("Modelo no cargado")
-        val ruta = java.io.File(context.cacheDir, "instrumental_silencio.wav").absolutePath
+        val ruta = java.io.File(context.getExternalFilesDir(null), "instrumental_silencio.wav").absolutePath
         escribirWavSilencio(ruta, 2)
         return Dato.Audio(ruta, 44100)
     }
