@@ -20,6 +20,8 @@ jobs:
             ~/.gradle/caches
             ~/.gradle/wrapper
           key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle.properties') }}
+      - name: Make gradlew executable
+        run: chmod +x gradlew
       - name: Build with Gradle
         uses: gradle/gradle-build-action@v3
         with:
