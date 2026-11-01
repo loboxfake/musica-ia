@@ -18,14 +18,14 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:hint="Tema (ej: pop alegre)"
-        android:text="tema: pop alegre" />
+         />
 
     <EditText
         android:id="@+id/editEstilo"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:hint="Estilo (ej: verano)"
-        android:text="estilo: verano" />
+         />
 
     <ProgressBar
         android:id="@+id/progreso"

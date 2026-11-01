@@ -2,6 +2,7 @@ package com.musicaia
 
 import android.media.MediaPlayer
 import android.os.Bundle
+import android.os.Handler
 import android.util.Log
 import android.widget.Button
 import android.widget.ProgressBar
@@ -13,9 +14,9 @@ import androidx.appcompat.app.AppCompatActivity
 import com.musicaia.modulos.*
 import com.musicaia.modelo.*
 import java.io.File
+import java.io.PrintWriter
 
 class MainActivity : AppCompatActivity(), Orquestador.ProgresoListener {
-
 
     private val TAG = "MainActivity"
     private lateinit var btnCrear: Button
@@ -28,22 +29,27 @@ class MainActivity : AppCompatActivity(), Orquestador.ProgresoListener {
     private lateinit var progreso: ProgressBar
     private lateinit var tvTiempo: TextView
     private val orquestador = Orquestador()
+    private val handler = Handler(android.os.Looper.getMainLooper())
     private var mediaPlayer: MediaPlayer? = null
+    private var startMs: Long = 0L
+    private var crashHandlerSaved: (Throwable -> Unit)? = null
+    private var timerRunnable: Runnable? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         try {
-            Thread.setDefaultUncaughtExceptionHandler { _, e ->
-                try {
-                    val dir = getExternalFilesDir(null)
+            crashHandlerSaved = Thread.setDefaultUncaughtExceptionHandler { _, e ->
+            try {
+                if (crashHandlerSaved != null) crashHandlerSaved(e)
+                else Log.e(TAG, "No prev handler")
+                val dir = getExternalFilesDir(null)
                     val crashFile = java.io.File(dir ?: return@setDefaultUncaughtExceptionHandler, "crash.txt")
-                    val st = e.stackTrace.take(5).joinToString("
-") { it.toString() }
-                    crashFile.writeText("Crash: ${e.javaClass.simpleName}: ${e.message}
-$st")
+                    val st = e.stackTrace.take(5).joinToString("\n") { it.toString() }
+                    crashFile.writeText("Crash: ${e.javaClass.simpleName}: ${e.message}\n$st")
                 } catch (ex: Exception) { Log.e(TAG, "crash save fail", ex) }
             }
         } catch (ex: Exception) { Log.e(TAG, "handler fail", ex) }
+
         setContentView(R.layout.activity_main)
 
         btnCrear = findViewById(R.id.btnCrear)
@@ -55,11 +61,20 @@ $st")
         imgPortada = findViewById(R.id.imgPortada)
         progreso = findViewById(R.id.progreso)
         tvTiempo = findViewById(R.id.tiempo)
+
+        // Guardar crash handler anterior y reemplazar
+        if (Thread.getDefaultUncaughtExceptionHandler() != null) {
+            // en Android Kotlin, guardar como null; usamos crashHandlerSaved para reemplazar
+        }
+        val prevH = Thread.defaultUncaughtExceptionHandler
+        crashHandlerSaved = { e -> if (prevH != null) prevH(null, e) else null }
+        Thread.setDefaultUncaughtExceptionHandler { _, e -> if (crashHandlerSaved != null) crashHandlerSaved(e) else null }
+
+        // Leer crash previo y mostrarlo
         try {
-            val crashFile = java.io.File(getExternalFilesDir(null) ?: return, "crash.txt")
+            val crashFile = java.io.File(getExternalFilesDir(null), "crash.txt")
             if (crashFile.exists()) {
-                val msg = crashFile.readText()
-                tvEstado.text = "Crash prev: ${msg.take(200)}"
+                tvResultado.text = "Crash previo:\n" + crashFile.readText()
                 crashFile.delete()
             }
         } catch (ex: Exception) { Log.e(TAG, "crash read fail", ex) }
@@ -68,14 +83,15 @@ $st")
 
         btnCrear.setOnClickListener {
             tvEstado.text = "Botón pulsado"
-            Log.d("MusicaIA", "click")
+            Log.d("MusicaIA", "click: ${System.currentTimeMillis()}")
             try {
                 if (orquestador.isRunning) return@setOnClickListener
                 iniciarCreacion()
             } catch (e: Exception) {
                 Log.e(TAG, "Error botón Crear", e)
                 tvEstado.text = "Error: ${e.message}"
-                tvResultado.text = "Fallo: ${e.message}"
+            } finally {
+                btnCrear.isEnabled = true
             }
         }
 
@@ -84,11 +100,7 @@ $st")
                 val ruta = tvResultado.tag?.toString()
                 if (ruta != null && File(ruta).exists()) {
                     mediaPlayer?.release()
-                    mediaPlayer = MediaPlayer().apply {
-                        setDataSource(ruta)
-                        prepare()
-                        start()
-                    }
+                    mediaPlayer = MediaPlayer().apply { setDataSource(ruta); prepare(); start() }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error reproducir", e)
@@ -98,76 +110,88 @@ $st")
     }
 
     private fun iniciarCreacion() {
+        startMs = System.currentTimeMillis()
         btnCrear.isEnabled = false
         btnReproducir.visibility = android.view.View.GONE
         imgPortada.visibility = android.view.View.GONE
         progreso.visibility = android.view.View.VISIBLE
-        tvEstado.text = "Iniciando..."
+        tvTiempo.visibility = android.view.View.VISIBLE
         tvTiempo.text = "Tiempo: 0s"
         tvResultado.text = ""
+        tvEstado.text = "Iniciando..."
+        tvEstado.text += " (Estimado: ~10 s)"
 
-        val tema = editTema.text.toString().ifBlank { "tema: pop alegre" }
-        val estilo = editEstilo.text.toString().ifBlank { "estilo: verano" }
+        val tema = editTema.text.toString().ifBlank { "pop alegre" }
+        val estilo = editEstilo.text.toString().ifBlank { "verano" }
         val entradaInicial = Dato.Texto("Tema: $tema Estilo: $estilo")
 
         val modulos = listOf(
-            ModuloLetraStub(),
-            ModuloInstrumentalStub(this),
-            ModuloVozStub(this),
-            ModuloPortadaStub(this),
-            ModuloMezclaStub(this)
+            ModuloLetraStub(), ModuloInstrumentalStub(this),
+            ModuloVozStub(this), ModuloPortadaStub(this), ModuloMezclaStub(this)
         )
+
+        timerRunnable = TimerTaskImpl(); handler.postDelayed(timerRunnable, 1000L)
 
         Thread {
             try {
-                val resultado = orquestador.ejecutarModulos(modulos, entradaInicial)
+                val resultados = orquestador.ejecutarModulos(modulos, entradaInicial)
                 runOnUiThread {
-                    btnCrear.isEnabled = true
-                    if (resultado != null) {
-                        progreso.visibility = android.view.View.GONE
-                tvEstado.text = "¡Completado! (~10 s)"
-                        when (resultado) {
-                            is Dato.Texto -> {
-                                tvResultado.text = "Letra:\n${resultado.texto}"
-                                tvResultado.tag = null
-                            }
-                            is Dato.Audio -> {
-                                tvResultado.text = "Audio: ${resultado.rutaWav} (${resultado.frecuenciaMuestreo} Hz)"
-                                tvResultado.tag = resultado.rutaWav
-                                btnReproducir.visibility = android.view.View.VISIBLE
-                            }
-                            is Dato.Imagen -> {
-                                tvResultado.text = "Portada: ${resultado.rutaPng}"
-                                tvResultado.tag = null
-                                imgPortada.visibility = android.view.View.VISIBLE
-                                imgPortada.setImageURI(android.net.Uri.fromFile(java.io.File(resultado.rutaPng)))
-                            }
-                        }
-                    } else {
-                        tvEstado.text = "Sin resultado"
-                    }
+                    if (timerRunnable != null) { handler.removeCallbacks(timerRunnable); timerRunnable = null }
+                    progreso.visibility = android.view.View.GONE
+                    imprimirResultados(resultados)
+                    estadoCompletado()
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error ejecución", e)
                 runOnUiThread {
-                    btnCrear.isEnabled = true
+                    if (timerRunnable != null) { handler.removeCallbacks(timerRunnable); timerRunnable = null }
                     progreso.visibility = android.view.View.GONE
-                tvEstado.text = "Error"
+                    tvEstado.text = "Error"
                     tvResultado.text = "Error: ${e.message}"
+                    btnCrear.isEnabled = true
                 }
             }
         }.start()
+    }
+
+    private fun imprimirResultados(resultados: List<Pair<String, Dato>>) {
+        for ((id, dato) in resultados) {
+            when (dato) {
+                is Dato.Texto -> Log.d("MusicaIA", "Resultado $id: letra con ${dato.texto.length} chars")
+                is Dato.Audio -> {
+                    Log.d("MusicaIA", "Resultado $id: audio ${dato.rutaWav}")
+                    tvResultado.tag = dato.rutaWav
+                    tvResultado.text = "Audio: ${dato.rutaWav} (${dato.frecuenciaMuestreo} Hz)"
+                    tvResultado.tag = dato.rutaWav
+                    btnReproducir.visibility = android.view.View.VISIBLE
+                }
+                is Dato.Imagen -> {
+                    Log.d("MusicaIA", "Resultado $id: portada ${dato.rutaPng}")
+                    tvResultado.tag = null
+                    tvResultado.text = "Portada: ${dato.rutaPng}"
+                    tvResultado.tag = null
+                    imgPortada.visibility = android.view.View.VISIBLE
+                    imgPortada.setImageURI(android.net.Uri.fromFile(java.io.File(dato.rutaPng)))
+                }
+            }
+        }
     }
 
     override fun onProgreso(paso: String, progreso: Float, mensaje: String) {
         runOnUiThread { tvEstado.text = "$paso ($mensaje)" }
     }
 
-    override fun onCompletado(resultado: Dato) {
+    override fun onCompletado(resultados: List<Pair<String, Dato>>) {
         runOnUiThread {
-            btnCrear.isEnabled = true
-            tvEstado.text = "¡Completado!"
+            estadoCompletado()
         }
+    }
+
+    private fun estadoCompletado() {
+        btnCrear.isEnabled = true
+        val elapsed = (System.currentTimeMillis() - startMs) / 1000.0
+        val totalEsperado = 10.0 // 5 módulos × 2 s, default
+        tvEstado.text = "¡Completado! (${String.format("%.1f", elapsed)}s / ~${totalEsperado}s)"
     }
 
     override fun onError(mensaje: String) {
@@ -175,21 +199,27 @@ $st")
             btnCrear.isEnabled = true
             tvEstado.text = "Error"
             tvResultado.text = "Error: $mensaje"
-            Toast.makeText(this, mensaje, Toast.LENGTH_LONG).show()
         }
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        handler.removeCallbacks(timerRunnable)
+        timerRunnable = null
+        mediaPlayer?.release()
         try {
-            val dir = getExternalFilesDir(null)
-            if (dir != null) {
-                val f = File(dir, "audio_ultimo.wav")
-                // Guardar referencia si aplica
+            getExternalFilesDir(null)?.let { dir ->
+                dir.listFiles { file -> file.name == "portada_*.png" || file.name == "silencio_*.wav" }.forEach { it.delete() }
             }
-            mediaPlayer?.release()
-        } catch (e: Exception) {
-            Log.e(TAG, "onDestroy error", e)
+        } catch (e: Exception) { Log.e(TAG, "cleanup fail", e) }
+    }
+
+    inner class TimerTaskImpl : Runnable {
+        override fun run() {
+            if (startMs == 0L || !orquestador.isRunning) return
+            val s = (System.currentTimeMillis() - startMs) / 1000
+            tvTiempo.text = "Tiempo: $s s"
+            handler.postDelayed(this, 1000L)
         }
     }
 }
