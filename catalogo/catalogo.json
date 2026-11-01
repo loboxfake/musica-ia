@@ -1,0 +1,28 @@
+[
+  {
+    "id": "musica-letra-v1",
+    "tipo": "LETRA",
+    "nombre": "Generador de letras",
+    "version": "1.0.0",
+    "tamano_mb": 350.0,
+    "ram_minima_mb": 1024,
+    "licencia": "MIT",
+    "uso_comercial": true,
+    "url_descarga": "https://ejemplo.com/modelos/letra-v1.bin",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "motor": "llamacpp"
+  },
+  {
+    "id": "musica-voz-v1",
+    "tipo": "VOZ",
+    "nombre": "Síntesis de voz",
+    "version": "1.0.0",
+    "tamano_mb": 500.0,
+    "ram_minima_mb": 2048,
+    "licencia": "MIT",
+    "uso_comercial": false,
+    "url_descarga": "https://ejemplo.com/modelos/voz-v1.bin",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "motor": "executorch"
+  }
+]
