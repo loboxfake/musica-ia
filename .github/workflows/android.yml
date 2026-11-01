@@ -25,7 +25,7 @@ jobs:
             ~/.gradle/wrapper
           key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle.properties') }}
       - name: Build (gradle sin wrapper)
-        run: gradle assembleDebug 2>&1 | tee build.log; if [ ${PIPESTATUS[0]} -ne 0 ]; then echo "=== ERROR EN BUILD ==="; grep -A 30 "What went wrong" build.log || true; exit 1; fi
+        run: gradle assembleDebug 2>&1 | tee build.log; if [ ${PIPESTATUS[0]} -ne 0 ]; then echo "=== ERROR EN BUILD ==="; grep -B 8 -A 30 "What went wrong" build.log || true; exit 1; fi
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
