@@ -13,7 +13,7 @@ class ManifiestoModelo(
     val usoComercial: Boolean,
     val urlDescarga: String,
     val sha256: String,
-    val tiempo_estimado_s: Int
+    val tiempo_estimado_s: Int = 10,
     val motor: String // llamacpp, onnx o executorch
 ) {
     fun aJson(): JSONObject {

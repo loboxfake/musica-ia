@@ -31,9 +31,15 @@ class MainActivity : AppCompatActivity(), Orquestador.ProgresoListener {
     private val orquestador = Orquestador()
     private val handler = Handler(android.os.Looper.getMainLooper())
     private var mediaPlayer: MediaPlayer? = null
-    private var startMs: Long = 0L
-    private var crashHandlerSaved: (Throwable -> Unit)? = null
-    private var timerRunnable: Runnable? = null
+    private var segundos: Int = 0
+    private val handler = Handler(Looper.getMainLooper())
+    private val timerRunnable = object : Runnable {
+        override fun run() {
+            segundos++
+            tvTiempo.text = "Tiempo: ${segundos}s"
+            handler.postDelayed(this, 1000)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -62,19 +68,22 @@ class MainActivity : AppCompatActivity(), Orquestador.ProgresoListener {
         progreso = findViewById(R.id.progreso)
         tvTiempo = findViewById(R.id.tiempo)
 
-        // Guardar crash handler anterior y reemplazar
-        if (Thread.getDefaultUncaughtExceptionHandler() != null) {
-            // en Android Kotlin, guardar como null; usamos crashHandlerSaved para reemplazar
-        }
-        val prevH = Thread.defaultUncaughtExceptionHandler
-        crashHandlerSaved = { e -> if (prevH != null) prevH(null, e) else null }
-        Thread.setDefaultUncaughtExceptionHandler { _, e -> if (crashHandlerSaved != null) crashHandlerSaved(e) else null }
 
         // Leer crash previo y mostrarlo
         try {
             val crashFile = java.io.File(getExternalFilesDir(null), "crash.txt")
             if (crashFile.exists()) {
                 tvResultado.text = "Crash previo:\n" + crashFile.readText()
+                crashFile.delete()
+            }
+        } catch (ex: Exception) { Log.e(TAG, "crash read fail", ex) }
+
+        // Leer crash previo al abrir
+        try {
+            val crashFile = java.io.File(getExternalFilesDir(null) ?: return, "crash.txt")
+            if (crashFile.exists()) {
+                val msg = crashFile.readText()
+                tvEstado.text = "Crash prev: \${msg.take(200)}"
                 crashFile.delete()
             }
         } catch (ex: Exception) { Log.e(TAG, "crash read fail", ex) }
@@ -110,7 +119,7 @@ class MainActivity : AppCompatActivity(), Orquestador.ProgresoListener {
     }
 
     private fun iniciarCreacion() {
-        startMs = System.currentTimeMillis()
+        segundos = 0
         btnCrear.isEnabled = false
         btnReproducir.visibility = android.view.View.GONE
         imgPortada.visibility = android.view.View.GONE
@@ -119,7 +128,7 @@ class MainActivity : AppCompatActivity(), Orquestador.ProgresoListener {
         tvTiempo.text = "Tiempo: 0s"
         tvResultado.text = ""
         tvEstado.text = "Iniciando..."
-        tvEstado.text += " (Estimado: ~10 s)"
+        tvEstado.text = tvEstado.text.toString() + " (Estimado: ~10 s)"
 
         val tema = editTema.text.toString().ifBlank { "pop alegre" }
         val estilo = editEstilo.text.toString().ifBlank { "verano" }
@@ -130,13 +139,13 @@ class MainActivity : AppCompatActivity(), Orquestador.ProgresoListener {
             ModuloVozStub(this), ModuloPortadaStub(this), ModuloMezclaStub(this)
         )
 
-        timerRunnable = TimerTaskImpl(); handler.postDelayed(timerRunnable, 1000L)
+        handler.postDelayed(timerRunnable, 1000)
 
         Thread {
             try {
                 val resultados = orquestador.ejecutarModulos(modulos, entradaInicial)
                 runOnUiThread {
-                    if (timerRunnable != null) { handler.removeCallbacks(timerRunnable); timerRunnable = null }
+                    handler.removeCallbacks(timerRunnable)
                     progreso.visibility = android.view.View.GONE
                     imprimirResultados(resultados)
                     estadoCompletado()
@@ -144,7 +153,7 @@ class MainActivity : AppCompatActivity(), Orquestador.ProgresoListener {
             } catch (e: Exception) {
                 Log.e(TAG, "Error ejecución", e)
                 runOnUiThread {
-                    if (timerRunnable != null) { handler.removeCallbacks(timerRunnable); timerRunnable = null }
+                    handler.removeCallbacks(timerRunnable)
                     progreso.visibility = android.view.View.GONE
                     tvEstado.text = "Error"
                     tvResultado.text = "Error: ${e.message}"
@@ -189,7 +198,7 @@ class MainActivity : AppCompatActivity(), Orquestador.ProgresoListener {
 
     private fun estadoCompletado() {
         btnCrear.isEnabled = true
-        val elapsed = (System.currentTimeMillis() - startMs) / 1000.0
+        val elapsed = segundos.toDouble()
         val totalEsperado = 10.0 // 5 módulos × 2 s, default
         tvEstado.text = "¡Completado! (${String.format("%.1f", elapsed)}s / ~${totalEsperado}s)"
     }
@@ -216,8 +225,8 @@ class MainActivity : AppCompatActivity(), Orquestador.ProgresoListener {
 
     inner class TimerTaskImpl : Runnable {
         override fun run() {
-            if (startMs == 0L || !orquestador.isRunning) return
-            val s = (System.currentTimeMillis() - startMs) / 1000
+            if (segundos == 0 || !orquestador.isRunning) return
+            val s = segundos
             tvTiempo.text = "Tiempo: $s s"
             handler.postDelayed(this, 1000L)
         }

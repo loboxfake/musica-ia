@@ -37,6 +37,7 @@ class Catalogo {
                     usoComercial = obj.getBoolean("uso_comercial"),
                     urlDescarga = obj.getString("url_descarga"),
                     sha256 = obj.getString("sha256"),
+                    tiempo_estimado_s = obj.optInt("tiempo_estimado_s", 10),
                     motor = obj.getString("motor")
                 )
                 modelos[modelo.id] = modelo
