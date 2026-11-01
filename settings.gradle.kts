@@ -2,12 +2,6 @@ root = 'MusicaIA'
 
 pluginManagement {
     repositories {
-        gradlePluginManagement {
-            repositories {
-                mavenCentral()
-                google()
-            }
-        }
         mavenCentral()
         google()
     }
