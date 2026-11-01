@@ -1,4 +1,4 @@
-package com.musicaia modelo
+package com.musicaia.modelo
 
 sealed class Entrada {
     data class Texto(val texto: String) : Entrada()
