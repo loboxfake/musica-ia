@@ -48,8 +48,8 @@ class MainActivity : AppCompatActivity(), ProgresoListener {
             ModuloMezclaStub(this)
         )
 
-        // Entrada inicial (tema/estilo vacío para prueba)
-        val entradaInicial = Entrada.Texto("tema: pop alegre, estilo: verano")
+        // Dato inicial (tema/estilo vacío para prueba)
+        val entradaInicial = Dato.Texto("tema: pop alegre, estilo: verano")
 
         // Ejecutar en hilo separado
         Thread {
@@ -59,9 +59,9 @@ class MainActivity : AppCompatActivity(), ProgresoListener {
                     btnCrear.isEnabled = true
                     tvEstado.text = "¡Completado!"
                     when (resultado) {
-                        is Salida.Texto -> tvResultado.text = "Letra generada:\n${resultado.texto}"
-                        is Salida.Audio -> tvResultado.text = "Audio generado: ${resultado.rutaWav}"
-                        is Salida.Imagen -> tvResultado.text = "Imagen generada: ${resultado.rutaPng}"
+                        is Dato.Texto -> tvResultado.text = "Letra generada:\n${resultado.texto}"
+                        is Dato.Audio -> tvResultado.text = "Audio generado: ${resultado.rutaWav}"
+                        is Dato.Imagen -> tvResultado.text = "Imagen generada: ${resultado.rutaPng}"
                     }
                 }
             }
@@ -75,14 +75,14 @@ class MainActivity : AppCompatActivity(), ProgresoListener {
         }
     }
 
-    override fun onCompletado(resultado: Salida) {
+    override fun onCompletado(resultado: Dato) {
         runOnUiThread {
             btnCrear.isEnabled = true
             tvEstado.text = "¡Completado!"
             when (resultado) {
-                is Salida.Texto -> tvResultado.text = "Letra generada:\n${resultado.texto}"
-                is Salida.Audio -> tvResultado.text = "Audio generado: ${resultado.rutaWav} (${resultado.frecuenciaMuestreo} Hz)"
-                is Salida.Imagen -> tvResultado.text = "Imagen generada: ${resultado.rutaPng}"
+                is Dato.Texto -> tvResultado.text = "Letra generada:\n${resultado.texto}"
+                is Dato.Audio -> tvResultado.text = "Audio generado: ${resultado.rutaWav} (${resultado.frecuenciaMuestreo} Hz)"
+                is Dato.Imagen -> tvResultado.text = "Imagen generada: ${resultado.rutaPng}"
             }
             Toast.makeText(this, "Creación finalizada", Toast.LENGTH_SHORT).show()
         }

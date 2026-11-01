@@ -14,9 +14,9 @@ class OrquestadorTest {
         assertNotNull(modulo.id)
         assertEquals(TipoModulo.LETRA, modulo.tipo)
         // Ejecutar con entrada de texto
-        val entrada = Entrada.Texto("prueba")
-        val salida = modulo.ejecutar(Entrada.Texto("prueba"))
-        assertTrue(salida is Entrada.Texto || salida is Entrada.Audio || salida is Entrada.Imagen)
+        val entrada = Dato.Texto("prueba")
+        val salida = modulo.ejecutar(Dato.Texto("prueba"))
+        assertTrue(salida is Dato.Texto || salida is Dato.Audio || salida is Dato.Imagen)
         modulo.descargar()
     }
 

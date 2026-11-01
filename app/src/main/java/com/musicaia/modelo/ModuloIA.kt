@@ -5,6 +5,6 @@ interface ModuloIA {
     val tipo: TipoModulo
 
     fun cargar(): Boolean
-    fun ejecutar(entrada: Salida): Entrada
+    fun ejecutar(entrada: Dato): Dato
     fun descargar(): Unit
 }

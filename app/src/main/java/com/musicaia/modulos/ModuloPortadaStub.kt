@@ -20,11 +20,11 @@ class ModuloPortadaStub(private val context: Context) : ModuloIA {
         return true
     }
 
-    override fun ejecutar(entrada: Salida): Entrada {
+    override fun ejecutar(entrada: Dato): Dato {
         if (!cargado) throw IllegalStateException("Modelo no cargado")
         // Generar PNG de color liso (azul pastel)
         val ruta = generarColorLisoPng(context, Color.parseColor("#87CEFA"))
-        return Entrada.Imagen(ruta)
+        return Dato.Imagen(ruta)
     }
 
     override fun descargar() {

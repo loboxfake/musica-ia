@@ -14,14 +14,14 @@ class ModuloLetraStub : ModuloIA {
         return true
     }
 
-    override fun ejecutar(entrada: Salida): Entrada {
+    override fun ejecutar(entrada: Dato): Dato {
         if (!cargado) throw IllegalStateException("Modelo no cargado")
         // Devuelve texto fijo
         val texto = "Verso 1: La noche brilla con luz de luna\n" +
                     "Coro: Bailamos hasta el amanecer\n" +
                     "Verso 2: El ritmo late en el corazón\n" +
                     "Coro: La música nos hace volar"
-        return Entrada.Texto(texto)
+        return Dato.Texto(texto)
     }
 
     override fun descargar() {
