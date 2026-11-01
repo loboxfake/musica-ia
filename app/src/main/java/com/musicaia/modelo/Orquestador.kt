@@ -1,13 +1,13 @@
 package com.musicaia.modelo
 
 import android.util.Log
-import java.io.File
 
 class Orquestador {
     private val TAG = "Orquestador"
     private var cancelado = false
-    private var progresoActual = 0f
     private var listener: ProgresoListener? = null
+
+    val isRunning: Boolean get() = cancelado == false // simplificado para el ejemplo
 
     interface ProgresoListener {
         fun onProgreso(paso: String, progreso: Float, mensaje: String)
@@ -23,61 +23,54 @@ class Orquestador {
         cancelado = true
     }
 
-    fun ejecutarModulos(modulos: List<ModuloIA>, entradaInicial: Entrada): Boolean {
+    fun ejecutarModulos(modulos: List<ModuloIA>, entradaInicial: Entrada): Salida? {
         cancelado = false
-        var entradaActual = entradaInicial
+        var entradaActual: Entrada = entradaInicial
         var salidaFinal: Salida? = null
 
         for (i in modulos.indices) {
             if (cancelado) {
                 listener?.onProgreso("cancelado", 0f, "Cancelado por usuario")
-                return false
+                return salidaFinal
             }
 
             val modulo = modulos[i]
             val paso = "${i + 1}/${modulos.size} ${modulo.tipo.name}"
 
-            // 1. Comprobar RAM libre
             val ramLibreMb = obtenerRamLibreMb()
-            // Asumimos que cada módulo declara su ram_minima_mb en su manifiesto o constante
-            val ramNecesaria = 500 // Valor por defecto si no hay manifiesto
+            val ramNecesaria = 500
             if (ramLibreMb < ramNecesaria) {
                 val msg = "RAM insuficiente: ${ramLibreMb} MB libre, se necesitan ${ramNecesaria} MB"
                 Log.e(TAG, msg)
                 listener?.onError(msg)
-                return false
+                return salidaFinal
             }
 
             listener?.onProgreso(paso, 0f, "Cargando modelo ${modulo.id}...")
 
-            // 2. Cargar modelo
             val cargado = modulo.cargar()
             if (!cargado) {
                 val msg = "Error cargando modelo ${modulo.id}"
                 Log.e(TAG, msg)
                 listener?.onError(msg)
-                return false
+                return salidaFinal
             }
 
             listener?.onProgreso(paso, 0.3f, "Ejecutando ${modulo.id}...")
 
-            // 3. Ejecutar
-            val salida = try {
+            val salida: Salida = try {
                 modulo.ejecutar(entradaActual)
             } catch (e: Exception) {
                 val msg = "Error ejecutando ${modulo.id}: ${e.message}"
                 Log.e(TAG, msg, e)
                 listener?.onError(msg)
                 modulo.descargar()
-                return false
+                return salidaFinal
             }
 
             listener?.onProgreso(paso, 0.8f, "Descargando modelo ${modulo.id}...")
-
-            // 4. Descargar modelo antes del siguiente
             modulo.descargar()
 
-            // 5. Preparar siguiente iteración
             salidaFinal = salida
             entradaActual = salida.comoEntrada()
 
@@ -85,13 +78,8 @@ class Orquestador {
         }
 
         salidaFinal?.let { listener?.onCompletado(it) }
-        return true
+        return salidaFinal
     }
 
-    private fun obtenerRamLibreMb(): Int {
-        // En Android real: ActivityManager.getMemoryInfo()
-        // Aquí devolvemos un valor fijo para pruebas
-        return 2048
-    }
-
+    private fun obtenerRamLibreMb(): Int = 2048
 }

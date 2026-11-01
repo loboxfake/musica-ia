@@ -53,7 +53,18 @@ class MainActivity : AppCompatActivity(), ProgresoListener {
 
         // Ejecutar en hilo separado
         Thread {
-            orquestador.ejecutarModulos(modulos, entradaInicial)
+            val resultado = orquestador.ejecutarModulos(modulos, entradaInicial)
+            if (resultado != null) {
+                runOnUiThread {
+                    btnCrear.isEnabled = true
+                    tvEstado.text = "¡Completado!"
+                    when (resultado) {
+                        is Salida.Texto -> tvResultado.text = "Letra generada:\n${resultado.texto}"
+                        is Salida.Audio -> tvResultado.text = "Audio generado: ${resultado.rutaWav}"
+                        is Salida.Imagen -> tvResultado.text = "Imagen generada: ${resultado.rutaPng}"
+                    }
+                }
+            }
         }.start()
     }
 
