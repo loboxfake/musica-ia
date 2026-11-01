@@ -4,6 +4,7 @@ import android.media.MediaPlayer
 import android.os.Bundle
 import android.util.Log
 import android.widget.Button
+import android.widget.ProgressBar
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.TextView
@@ -14,6 +15,8 @@ import com.musicaia.modelo.*
 import java.io.File
 
 class MainActivity : AppCompatActivity(), Orquestador.ProgresoListener {
+
+
     private val TAG = "MainActivity"
     private lateinit var btnCrear: Button
     private lateinit var btnReproducir: Button
@@ -22,11 +25,25 @@ class MainActivity : AppCompatActivity(), Orquestador.ProgresoListener {
     private lateinit var editTema: EditText
     private lateinit var editEstilo: EditText
     private lateinit var imgPortada: ImageView
+    private lateinit var progreso: ProgressBar
+    private lateinit var tvTiempo: TextView
     private val orquestador = Orquestador()
     private var mediaPlayer: MediaPlayer? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        try {
+            Thread.setDefaultUncaughtExceptionHandler { _, e ->
+                try {
+                    val dir = getExternalFilesDir(null)
+                    val crashFile = java.io.File(dir ?: return@setDefaultUncaughtExceptionHandler, "crash.txt")
+                    val st = e.stackTrace.take(5).joinToString("
+") { it.toString() }
+                    crashFile.writeText("Crash: ${e.javaClass.simpleName}: ${e.message}
+$st")
+                } catch (ex: Exception) { Log.e(TAG, "crash save fail", ex) }
+            }
+        } catch (ex: Exception) { Log.e(TAG, "handler fail", ex) }
         setContentView(R.layout.activity_main)
 
         btnCrear = findViewById(R.id.btnCrear)
@@ -36,10 +53,22 @@ class MainActivity : AppCompatActivity(), Orquestador.ProgresoListener {
         editTema = findViewById(R.id.editTema)
         editEstilo = findViewById(R.id.editEstilo)
         imgPortada = findViewById(R.id.imgPortada)
+        progreso = findViewById(R.id.progreso)
+        tvTiempo = findViewById(R.id.tiempo)
+        try {
+            val crashFile = java.io.File(getExternalFilesDir(null) ?: return, "crash.txt")
+            if (crashFile.exists()) {
+                val msg = crashFile.readText()
+                tvEstado.text = "Crash prev: ${msg.take(200)}"
+                crashFile.delete()
+            }
+        } catch (ex: Exception) { Log.e(TAG, "crash read fail", ex) }
 
         orquestador.setListener(this)
 
         btnCrear.setOnClickListener {
+            tvEstado.text = "Botón pulsado"
+            Log.d("MusicaIA", "click")
             try {
                 if (orquestador.isRunning) return@setOnClickListener
                 iniciarCreacion()
@@ -72,7 +101,9 @@ class MainActivity : AppCompatActivity(), Orquestador.ProgresoListener {
         btnCrear.isEnabled = false
         btnReproducir.visibility = android.view.View.GONE
         imgPortada.visibility = android.view.View.GONE
+        progreso.visibility = android.view.View.VISIBLE
         tvEstado.text = "Iniciando..."
+        tvTiempo.text = "Tiempo: 0s"
         tvResultado.text = ""
 
         val tema = editTema.text.toString().ifBlank { "tema: pop alegre" }
@@ -93,7 +124,8 @@ class MainActivity : AppCompatActivity(), Orquestador.ProgresoListener {
                 runOnUiThread {
                     btnCrear.isEnabled = true
                     if (resultado != null) {
-                        tvEstado.text = "¡Completado!"
+                        progreso.visibility = android.view.View.GONE
+                tvEstado.text = "¡Completado! (~10 s)"
                         when (resultado) {
                             is Dato.Texto -> {
                                 tvResultado.text = "Letra:\n${resultado.texto}"
@@ -119,7 +151,8 @@ class MainActivity : AppCompatActivity(), Orquestador.ProgresoListener {
                 Log.e(TAG, "Error ejecución", e)
                 runOnUiThread {
                     btnCrear.isEnabled = true
-                    tvEstado.text = "Error"
+                    progreso.visibility = android.view.View.GONE
+                tvEstado.text = "Error"
                     tvResultado.text = "Error: ${e.message}"
                 }
             }
