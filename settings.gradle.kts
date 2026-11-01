@@ -1,4 +1,4 @@
-root = 'MusicaIA'
+rootProject.name = "MusicaIA"
 
 pluginManagement {
     repositories {
@@ -15,4 +15,4 @@ dependencyResolutionManagement {
     }
 }
 
-include ':app'
+include(":app")
