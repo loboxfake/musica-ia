@@ -11,3 +11,8 @@ sealed class Salida {
     data class Audio(val rutaWav: String, val frecuenciaMuestreo: Int) : Salida()
     data class Imagen(val rutaPng: String) : Salida()
 }
+fun Salida.comoEntrada(): Entrada = when (this) {
+    is Salida.Texto -> Entrada.Texto(this.texto)
+    is Salida.Audio -> Entrada.Audio(this.rutaWav, this.frecuenciaMuestreo)
+    is Salida.Imagen -> Entrada.Imagen(this.rutaPng)
+}

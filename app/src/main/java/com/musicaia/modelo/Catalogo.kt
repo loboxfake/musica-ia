@@ -20,7 +20,7 @@ class Catalogo {
             val conn = urlObj.openConnection() as java.net.HttpURLConnection
             conn.connect()
             val stream: InputStream = conn.inputStream
-            val json = String(conn.inputStream.bufferedReader().useLines().toList().joinToString("\n"))
+            val json = conn.inputStream.bufferedReader().useLines { lines -> lines.joinToString("\n") }
             conn.disconnect()
 
             val array = JSONArray(json)

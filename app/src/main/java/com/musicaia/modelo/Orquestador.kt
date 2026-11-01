@@ -79,7 +79,7 @@ class Orquestador {
 
             // 5. Preparar siguiente iteración
             salidaFinal = salida
-            entradaActual = convertirSalidaAEntrada(salida)
+            entradaActual = salida.comoEntrada()
 
             listener?.onProgreso(paso, 1f, "Paso completado")
         }
@@ -94,9 +94,4 @@ class Orquestador {
         return 2048
     }
 
-    private fun convertirSalidaAEntrada(salida: Salida): Entrada = when (salida) {
-        is Salida.Texto -> Entrada.Texto(salida.texto)
-        is Salida.Audio -> Entrada.Audio(salida.rutaWav, salida.frecuenciaMuestreo)
-        is Salida.Imagen -> Entrada.Imagen(salida.rutaPng)
-    }
 }
