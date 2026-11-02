@@ -24,3 +24,6 @@
 - No se elige modelo sin comprobar licencia, tamaño y resultado en CPU del móvil.
 - Commit dcb9373; push verde; esperar_build.sh iniciado (timeout 20s, bucle de polling activo contra run #21)
 - No se afirma "hecho" sin compilar: verificado grep + git push; build de GitHub Actions pendiente de completar.
+# Fase 2c (autónoma, sin depender de RAM/GPU del móvil)
+- Modelo de lenguaje no cargado aún (Phase 2b pendiente en dispositivo); ModuloLetra implementado como estructura que recibe contexto y genera letra estructurada.
+- No se afirma resultado final sin ejecutar en móvil con modelo real.
