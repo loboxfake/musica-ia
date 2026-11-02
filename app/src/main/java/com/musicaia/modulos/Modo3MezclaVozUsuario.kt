@@ -46,7 +46,7 @@ class Modo3MezclaVozUsuario(context: Context) : ModuloIA {
         output.use { out ->
             FileInputStream(instrumental).use { ins ->
                 val buf = ByteArray(1024)
-                var n
+                var n: Int = 0
                 while (ins.read(buf).also { n = it } > 0) out.write(buf, 0, n)
             }
         }
