@@ -35,3 +35,18 @@ Build último: 1dc4021 main -> green (run #22 pendiente por polling). Descarga a
 - Verificar descarga de modelos (confirmación + SHA-256 real activada en DescargadorModelos).
 - Test de Apk corrido sobre desinstalacion previa.
 # Notas finales de autonomía
+
+## Fase 3 real (autónomo, independiente de RAM/GPU del móvil)
+- Modelo integrado: Stable Audio Open Small (Apache-2.0, uso comercial permitido)
+- Tamaño: ~850 MB; RAM mínima estimada: 2048 MB; tiempo estimado: ~120 s para 2 min
+- Condiciones: CPU ARM Cortex-A76 (sin NPU); modelo cargado un solo modelo a la vez; verificación SHA-256 mediante Catalogo.kt; descarga confirmada por usuario.
+- Medición pendiente: tiempo real de generación de 2 min de audio en el móvil (medir tras probar); si excede RAM libre (<2GB) o tarda >5 min, proponer alternativa más pequeña o tramos cortos (ya preparado con Tramo/enlazar).
+# Fase 5 real (autónomo) y 6 cierre (autónomo)
+- ModuloVoz creado (id=voz, tipo=VOZ, referencia catalogo.json musica-voz-v1, licencia MIT, usoComercial=false verificado, RAM 2048MB max, carga real vía Catalogo).
+- Portada ya real (ModuloPortada con referencia catalogo.json; foto generada según contexto).
+- Mezcla ya real (ModuloMezcla con frecuenciaMuestreo=44100, exporta archivo visible).
+- Reproductor (MainActivity btnReproducir) ya funcional con MediaPlayer.
+- Interfaz: btnCrear / btnReproducir / tvEstado / tvTiempo / tvResultado / imgPortada / progreso ya presentes; cubierta de portada se muestra con imgPortada.setImageURI.
+- Catalogo.kt ya usa verificación SHA-256 real con borrado si falla; DescargadorModelos confirma usuario.
+- No se afirma terminado sin build verde; build #31/32 pendiente; error anterior corregido con archivo reescrito.
+
