@@ -34,3 +34,9 @@
 - Medida pendiente: tiempo de generación de 2 min de música en CPU ARM Cortex-A76
 - Si tarda más de lo aceptable, proponer alternativa más pequeña o tramos más cortos
 - Licencia y soporte Android sin NPU: comprobar antes de cargar
+## Fase 4 - Canciones de 3 min o más (autónomo, independiente de RAM/GPU)
+- Método: generar por tramos (ej. 60-90 s) y enlazar con fundidos (crossfade)
+- Restricción: un solo modelo cargado; tramos se procesan secuencialmente para no exceder RAM
+- Tiempo estimado: variable según CPU; medir en móvil cuando sea posible
+- No se afirma resultado sin medir tiempo real de generación y fundido
+
