@@ -13,3 +13,14 @@
 
 ## Fase 2a - inicio (contexto compartido + descargador)
 - Pendiente: medir qué sistema de lenguaje cabe en RAM libre antes de elegir modelo.
+
+## Fase 2a medida (autónoma, 2026-11-02 09:05 UTC)
+- ContextoProyecto creado (letraProporcionadaPorUsuario, indicacionesEstilo, idioma, duracionSegundos, rutaVozReferencia)
+- DescargadorModelos creado (confirma usuario + verificación SHA-256 + descarga)
+## Fase 2b - medición pendiente en móvil
+- Modelo candidato: lenguaje pequeño cuantizado 1-3B
+- RAM libre variable (2-7 GB, a veces <2 GB)
+- Protocolo: cargar modelo pequeño, medir RAM, tiempo de carga, generar letra corta; anotar resultado exacto en docs/mediciones.md antes de pasar a 2c.
+- No se elige modelo sin comprobar licencia, tamaño y resultado en CPU del móvil.
+- Commit dcb9373; push verde; esperar_build.sh iniciado (timeout 20s, bucle de polling activo contra run #21)
+- No se afirma "hecho" sin compilar: verificado grep + git push; build de GitHub Actions pendiente de completar.
