@@ -34,3 +34,4 @@ Build último: 1dc4021 main -> green (run #22 pendiente por polling). Descarga a
 - Medir tiempo real en docs/mediciones.md.
 - Verificar descarga de modelos (confirmación + SHA-256 real activada en DescargadorModelos).
 - Test de Apk corrido sobre desinstalacion previa.
+# Notas finales de autonomía
