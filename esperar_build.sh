@@ -35,13 +35,13 @@ RUN_ID=""
 
 while [[ $ATTEMPT -le $MAX_ATTEMPTS ]]; do
   echo "[$ATTEMPT/$MAX_ATTEMPTS] Consultando GitHub Actions..."
-  RESPONSE=$(curl -s -H "Authorization: token $TOKEN" \
+  RESPONSE=$(curl -s -H "Authorization: Bearer $TOKEN" \
     "https://api.github.com/repos/$REPO/actions/runs?head_sha=$SHA")
   
   # Buscar el primer run que coincida con el SHA
-  RUN_ID=$(echo "$RESPONSE" | jq -r '.runs[0].id // empty')
-  STATUS=$(echo "$RESPONSE" | jq -r '.runs[0].status // empty')
-  CONCLUSION=$(echo "$RESPONSE" | jq -r '.runs[0].conclusion // empty')
+  RUN_ID=$(echo "$RESPONSE" | jq -r '.workflow_runs[0].id // empty')
+  STATUS=$(echo "$RESPONSE" | jq -r '.workflow_runs[0].status // empty')
+  CONCLUSION=$(echo "$RESPONSE" | jq -r '.workflow_runs[0].conclusion // empty')
   
   if [[ -z "$RUN_ID" ]]; then
     echo "Aún no hay run para este SHA. Reintentando en 20s..."
@@ -59,13 +59,13 @@ while [[ $ATTEMPT -le $MAX_ATTEMPTS ]]; do
         mkdir -p "$DEST_DIR"
         # Descargar el artefacto app-debug
         ARTIFACT_URL="https://api.github.com/repos/$REPO/actions/runs/$RUN_ID/artifacts"
-        ARTIFACT_ID=$(curl -s -H "Authorization: token $TOKEN" "$ARTIFACT_URL" \
+        ARTIFACT_ID=$(curl -s -H "Authorization: Bearer $TOKEN" "$ARTIFACT_URL" \
           | jq -r '.artifacts[] | select(.name == "app-debug") | .id // empty')
         if [[ -z "$ARTIFACT_ID" ]]; then
           echo "ERROR: no se encontró el artefacto app-debug"
           exit 1
         fi
-        curl -s -L -H "Authorization: token $TOKEN" \
+        curl -s -L -H "Authorization: Bearer $TOKEN" \
           -H "Accept: application/vnd.github.v3+json" \
           "https://api.github.com/repos/$REPO/actions/artifacts/$ARTIFACT_ID/zip" \
           -o /tmp/app-debug.zip
@@ -75,11 +75,11 @@ while [[ $ATTEMPT -le $MAX_ATTEMPTS ]]; do
       else
         echo "BUILD FALLIDO. Descargando logs..."
         JOBS_URL="https://api.github.com/repos/$REPO/actions/runs/$RUN_ID/jobs"
-        JOB_ID=$(curl -s -H "Authorization: token $TOKEN" "$JOBS_URL" \
+        JOB_ID=$(curl -s -H "Authorization: Bearer $TOKEN" "$JOBS_URL" \
           | jq -r '.jobs[0].id // empty')
         if [[ -n "$JOB_ID" ]]; then
           LOGS_URL="https://api.github.com/repos/$REPO/actions/jobs/$JOB_ID/logs"
-          curl -s -L -H "Authorization: token $TOKEN" "$LOGS_URL" -o /tmp/build.log
+          curl -s -L -H "Authorization: Bearer $TOKEN" "$LOGS_URL" -o /tmp/build.log
           echo "--- Líneas que empiezan por 'e: ' ---"
           grep '^e: ' /tmp/build.log || true
           echo "--- Bloque 'What went wrong' ---"
