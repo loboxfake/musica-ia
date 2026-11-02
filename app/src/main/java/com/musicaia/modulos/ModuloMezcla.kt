@@ -17,7 +17,10 @@ class ModuloMezcla(context: Context) : ModuloIA {
         val dir = ctx.getExternalFilesDir(null) ?: return entrada
         val archivo = File(dir, "mezcla_final.wav")
         archivo.writeText("mezcla de tramos con fundidos")
-        return Dato.Audio(rutaWav = archivo.absolutePath)
+        return Dato.Audio(
+            rutaWav = archivo.absolutePath,
+            frecuenciaMuestreo = 44100
+        )
     }
 
     override fun descargar() {}
