@@ -4,7 +4,7 @@
 App Android que crea música con y sin voz, letras de canciones y portadas de álbum o de canción, reuniendo varios modelos de IA que interactúan. Todo el cálculo ocurre en el móvil, sin nube al usarla. Los modelos se pueden actualizar o añadir en el futuro sin rehacer la app.
 
 ## Restricciones
-- Android, minSdk 26. El móvil tiene unos 7 GB de RAM (a veces menos de 2 GB libres), CPU ARM Cortex-A76 de 7 núcleos, sin NPU utilizable, y 46 GB de almacenamiento libre.
+- Android, minSdk 26. El móvil es un Xiaomi 11T Pro (Snapdragon 888, GPU Adreno 660, NPU Hexagon 780, 8 GB de RAM, a veces menos de 2 GB libres) y 46 GB de almacenamiento libre.
 - Un solo modelo cargado a la vez. Los modelos no van en el APK: se descargan desde la app, con confirmación del usuario y verificación SHA-256.
 - La compilación se hace solo en GitHub Actions. Cada APK debe poder instalarse encima del anterior (firma fija).
 - Cada modelo declara su licencia y si permite uso comercial.
