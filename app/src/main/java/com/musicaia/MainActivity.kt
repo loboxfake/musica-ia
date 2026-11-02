@@ -88,8 +88,8 @@ class MainActivity : AppCompatActivity() {
  val estilo = editEstilo.text.toString().trim().ifEmpty { "verano" }
  val entrada = Dato.Texto("Tema: $tema. Estilo: $estilo")
  val modulos = listOf(
- ModuloLetraStub(), ModuloInstrumentalStub(this),
- ModuloVozStub(this), ModuloPortadaStub(this), ModuloMezclaStub(this)
+ ModuloLetra(this), ModuloInstrumental(this),
+ ModuloVoz(this), ModuloPortada(this), ModuloMezcla(this)
  )
 
  Thread {
@@ -169,6 +169,16 @@ class MainActivity : AppCompatActivity() {
  f.delete()
  }
  } catch (_: Exception) {
+ }
+ }
+
+ private fun exportarCancion() {
+ val dirDest = File("/sdcard/Download/app música/apk/")
+ dirDest.mkdirs()
+ val fuente = File(getExternalFilesDir(null), "mezcla_final.wav")
+ if (fuente.exists()) {
+ fuente.copyTo(File(dirDest, "musica_ia_cancion_final.wav"), overwrite = true)
+ tvEstado.text = "Exportado a ${dirDest.absolutePath}"
  }
  }
 
