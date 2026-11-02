@@ -27,3 +27,10 @@ App Android que crea música con y sin voz, letras de canciones y portadas de á
 - Una fase cada vez. Antes de elegir un modelo, comprobar tamaño, licencia y si funciona en Android con CPU, y anotar en docs/mediciones.md la RAM, el tiempo y el resultado de cada prueba.
 - No afirmar que algo está hecho sin comprobarlo (build verde, grep o prueba).
 - Si un modelo no cabe en la RAM, avisar y proponer una alternativa más pequeña.
+
+## Modos de creación
+La app tendrá tres formas de crear, todas terminando en un «encargo» (ContextoProyecto) que ejecuta el orquestador:
+1. Conversación: el usuario habla con la IA (modelo de lenguaje local), que le pregunta género, ánimo, tema, idioma, tipo de voz y duración y, cuando el usuario da la orden final, genera el encargo.
+2. Letra + indicaciones: el usuario escribe o pega la letra completa y un texto con cómo quiere que suene (estilo, tempo, instrumentos, ánimo). En este modo la IA no escribe la letra.
+3. Con voz propia: el usuario sube un archivo de audio con su voz, que se guarda como referencia y se usa en el módulo de voz.
+Los modos pueden combinarse. ContextoProyecto incluirá: letraProporcionadaPorUsuario (Boolean), indicacionesEstilo (String), idioma, duracionSegundos y rutaVozReferencia (String?). Solo se usa audio del propio usuario o de alguien que haya dado su permiso.
