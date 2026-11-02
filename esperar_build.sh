@@ -9,9 +9,11 @@ DEST_DIR="/sdcard/Download/app música/apk"
 TOKEN=""
 if [[ -f "$TOKEN_FILE" ]]; then
   while IFS= read -r line; do
-    if [[ "$line" == *"https://github.com/"* ]]; then
-      TOKEN="${line#*https://github.com/}"
-      TOKEN="${TOKEN%@*}"
+    if [[ "$line" == *"github.com"* ]]; then
+      # Formato: https://user:token@github.com
+      TOKEN="${line#*://}"
+      TOKEN="${TOKEN%%@*}"  # quita user: antes de @
+      TOKEN="${TOKEN#*:}"  # quita user:
       break
     fi
   done < "$TOKEN_FILE"
@@ -23,11 +25,11 @@ if [[ -z "$TOKEN" ]]; then
 fi
 
 # 2) SHA del último commit local
-SHA=$(git rev-parse HEAD)
-echo "Esperando build para commit: $SHA"
+SHA=$(git -C /workspace/MusicaIA rev-parse HEAD)
+echo "Esperando build para commit (40 chars): $SHA"
 
 # 3) Consultar API cada 20s, hasta 10 min (30 consultas)
-MAX_ATTEMPTS=30
+MAX_ATTEMPTS=15
 ATTEMPT=1
 RUN_ID=""
 
