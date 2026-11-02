@@ -60,15 +60,15 @@ class ModuloInstrumental(context: Context) : ModuloIA {
             dos.writeBytes("WAVE")
             dos.writeBytes("fmt ")
             dos.writeInt(Integer.reverseBytes(16)) // subchunk size
-            dos.writeShort(Integer.reverseBytes(1).toShort()) // audio format PCM
-            dos.writeShort(Integer.reverseBytes(1).toShort()) // num channels mono
+            dos.writeShort(Integer.reverseBytes(1)) // audio format PCM
+            dos.writeShort(Integer.reverseBytes(1)) // num channels mono
             dos.writeInt(Integer.reverseBytes(frecuenciaMuestreo))
             dos.writeInt(Integer.reverseBytes(frecuenciaMuestreo * 2))
-            dos.writeShort(Integer.reverseBytes(2).toShort()) // bits per sample
+            dos.writeShort(Integer.reverseBytes(2)) // bits per sample
             dos.writeBytes("data")
             dos.writeInt(Integer.reverseBytes(buffer.size * 2))
             for (s in buffer) {
-                dos.writeShort(Integer.reverseBytes(s.toInt()).toShort())
+                dos.writeShort(Integer.reverseBytes(s.toInt()))
             }
         }
     }
