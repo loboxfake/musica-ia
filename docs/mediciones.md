@@ -40,3 +40,9 @@
 - Tiempo estimado: variable según CPU; medir en móvil cuando sea posible
 - No se afirma resultado sin medir tiempo real de generación y fundido
 
+
+## Fase 5 - Portada real (autónomo)
+- Modelo candidato: modelo de imagen pequeño en móvil (CPU)
+- Tiempo estimado: minutos por portada (CPU sin NPU)
+- Medida pendiente: tiempo real de generación + tamaño de imagen de salida
+- No se afirma sin medir en móvil
