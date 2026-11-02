@@ -1,84 +1,40 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="16dp">
-
-    <TextView
-        android:id="@+id/titulo"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="MusicaIA"
-        android:textSize="22sp"
-        android:textStyle="bold" />
-
-    <EditText
-        android:id="@+id/editTema"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="Tema (ej: pop alegre)"
-         />
-
-    <EditText
-        android:id="@+id/editEstilo"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="Estilo (ej: verano)"
-         />
-
-    <ProgressBar
-        android:id="@+id/progreso"
-        style="?android:attr/progressBarStyleHorizontal"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:visibility="gone" />
-    <TextView
-        android:id="@+id/tiempo"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Tiempo: 0s"
-        android:visibility="gone" />
-    <Button
-        android:id="@+id/btnCrear"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Crear" />
-
-    <TextView
-        android:id="@+id/estado"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Listo"
-        android:textSize="14sp" />
-
-    <ScrollView
-        android:id="@+id/scrollResultado"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1">
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical">
-            <TextView
-                android:id="@+id/textoResultado"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Resultado..."
-                android:textSize="14sp" />
-            <ImageView
-                android:id="@+id/imgPortada"
-                android:layout_width="200dp"
-                android:layout_height="200dp"
-                android:visibility="gone" />
-            <Button
-                android:id="@+id/btnReproducir"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Reproducir"
-                android:visibility="gone" />
-        </LinearLayout>
-    </ScrollView>
-
-</LinearLayout>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+ android:layout_width="match_parent"
+ android:layout_height="match_parent"
+ android:fillViewport="true">
+ <LinearLayout
+ android:layout_width="match_parent"
+ android:layout_height="wrap_content"
+ android:orientation="vertical"
+ android:padding="16dp">
+ <TextView android:id="@+id/titulo" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="MusicaIA" android:textSize="22sp" android:textStyle="bold" />
+ <RadioGroup android:id="@+id/grupoModo" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+ <RadioButton android:id="@+id/modoConversacion" android:layout_width="wrap_content" android:layout_height="wrap_content" android:checked="true" android:text="Conversar" />
+ <RadioButton android:id="@+id/modoLetra" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Mi letra" />
+ </RadioGroup>
+ <LinearLayout android:id="@+id/panelConversacion" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+ <TextView android:id="@+id/chatLog" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="8dp" android:textSize="15sp" />
+ <EditText android:id="@+id/chatEntrada" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Escribe tu respuesta" android:inputType="text" />
+ <Button android:id="@+id/btnEnviar" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Enviar" />
+ </LinearLayout>
+ <LinearLayout android:id="@+id/panelLetra" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
+ <EditText android:id="@+id/editLetra" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="top" android:hint="Pega aquí tu letra completa" android:inputType="textMultiLine" android:minLines="6" />
+ <EditText android:id="@+id/editIndicaciones" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Cómo quieres que suene (ej: pop alegre, rápido, verano)" android:inputType="text" />
+ </LinearLayout>
+ <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="12dp" android:text="Tu voz (opcional)" android:textStyle="bold" />
+ <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+ <Button android:id="@+id/btnGrabar" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Grabar mi voz" />
+ <Button android:id="@+id/btnElegirVoz" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Elegir archivo" />
+ </LinearLayout>
+ <TextView android:id="@+id/estadoVoz" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Sin voz: se creará solo el instrumental." />
+ <ProgressBar android:id="@+id/progreso" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="wrap_content" android:visibility="gone" />
+ <TextView android:id="@+id/tiempo" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Tiempo: 0s" android:visibility="gone" />
+ <Button android:id="@+id/btnCrear" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Crear canción" />
+ <TextView android:id="@+id/estado" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Listo" android:textSize="14sp" />
+ <TextView android:id="@+id/textoResultado" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="14sp" />
+ <ImageView android:id="@+id/imgPortada" android:layout_width="200dp" android:layout_height="200dp" android:visibility="gone" />
+ <Button android:id="@+id/btnReproducir" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Reproducir" android:visibility="gone" />
+ <Button android:id="@+id/btnGuardar" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Guardar canción" android:visibility="gone" />
+ </LinearLayout>
+</ScrollView>

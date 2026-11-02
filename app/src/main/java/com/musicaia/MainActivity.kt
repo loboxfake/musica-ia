@@ -1,5 +1,7 @@
 package com.musicaia
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Bundle
@@ -7,36 +9,66 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.View
-import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.ProgressBar
+import android.widget.RadioGroup
 import android.widget.TextView
-import androidx.appcompat.app.AppCompatActivity
-import com.musicaia.modelo.*
-import com.musicaia.modulos.*
 import androidx.activity.result.contract.ActivityResultContracts
-import android.content.Intent
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import com.musicaia.modelo.Dato
+import com.musicaia.modulos.GrabadoraWav
+import com.musicaia.modulos.LectorWav
+import com.musicaia.modulos.MezclaVoz
+import com.musicaia.modulos.ModuloInstrumental
+import com.musicaia.modulos.ModuloLetra
+import com.musicaia.modulos.ModuloPortada
+import com.musicaia.modelo.Orquestador
 import java.io.File
+import java.text.Normalizer
+import com.musicaia.modulos.ModuloMezcla
 
 class MainActivity : AppCompatActivity() {
  private val etiqueta = "MusicaIA"
- private val orquestador = Orquestador()
  private val handler = Handler(Looper.getMainLooper())
  private var segundos = 0
+ private var ocupado = false
  private var player: MediaPlayer? = null
  private var rutaAudio: String? = null
+ private var rutaVoz: String? = null
+ private var grabadora: GrabadoraWav? = null
+ private val orquestador = Orquestador()
 
+ private lateinit var grupoModo: RadioGroup
+ private lateinit var panelConversacion: View
+ private lateinit var panelLetra: View
+ private lateinit var chatLog: TextView
+ private lateinit var chatEntrada: EditText
+ private lateinit var btnEnviar: Button
+ private lateinit var editLetra: EditText
+ private lateinit var editIndicaciones: EditText
+ private lateinit var btnGrabar: Button
+ private lateinit var btnElegirVoz: Button
+ private lateinit var tvEstadoVoz: TextView
  private lateinit var btnCrear: Button
  private lateinit var btnReproducir: Button
+ private lateinit var btnGuardar: Button
  private lateinit var tvEstado: TextView
  private lateinit var tvTiempo: TextView
  private lateinit var tvResultado: TextView
- private lateinit var editTema: EditText
- private lateinit var editEstilo: EditText
  private lateinit var imgPortada: ImageView
  private lateinit var progreso: ProgressBar
+
+ private val preguntas = listOf(
+ "¿De qué quieres que trate la canción?",
+ "¿Qué estilo o género quieres? (pop, rock, balada, electrónica...)",
+ "¿Qué ánimo? (alegre, triste, épico, tranquilo...)",
+ "¿Qué ritmo? (lento, medio o rápido)",
+ "¿En qué idioma? (español, inglés...)"
+ )
+ private val respuestas = mutableListOf<String>()
 
  private val reloj = object : Runnable {
  override fun run() {
@@ -46,33 +78,54 @@ class MainActivity : AppCompatActivity() {
  }
  }
 
-     // Paso 7: selección archivo voz + instrumental (archivo real)
-    private val pickerVoz = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        uri?.let { rutaVoz = it.toString() }
-    }
-    private val pickerInstrumental = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        uri?.let { rutaInstrumental = it.toString() }
-    }
-    private var rutaVoz: String? = null
-    private var rutaInstrumental: String? = null
+ private val permisoMicro =
+ registerForActivityResult(ActivityResultContracts.RequestPermission()) { concedido ->
+ if (concedido) alternarGrabacion() else tvEstadoVoz.text = "Sin permiso de micrófono."
+ }
 
-override fun onCreate(savedInstanceState: Bundle?) {
+ private val selectorVoz =
+ registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+ if (uri != null) copiarVoz(uri)
+ }
+
+ private val selectorGuardar =
+ registerForActivityResult(ActivityResultContracts.CreateDocument()) { uri ->
+ val origen = rutaAudio
+ if (uri != null && origen != null) {
+ try {
+ contentResolver.openOutputStream(uri)?.use { salida ->
+ File(origen).inputStream().use { it.copyTo(salida) }
+ }
+ tvEstado.text = "Canción guardada."
+ } catch (e: Exception) {
+ tvEstado.text = "No se pudo guardar: ${e.message}"
+ }
+ }
+ }
+
+ override fun onCreate(savedInstanceState: Bundle?) {
  super.onCreate(savedInstanceState)
  setContentView(R.layout.activity_main)
+
+ grupoModo = findViewById(R.id.grupoModo)
+ panelConversacion = findViewById(R.id.panelConversacion)
+ panelLetra = findViewById(R.id.panelLetra)
+ chatLog = findViewById(R.id.chatLog)
+ chatEntrada = findViewById(R.id.chatEntrada)
+ btnEnviar = findViewById(R.id.btnEnviar)
+ editLetra = findViewById(R.id.editLetra)
+ editIndicaciones = findViewById(R.id.editIndicaciones)
+ btnGrabar = findViewById(R.id.btnGrabar)
+ btnElegirVoz = findViewById(R.id.btnElegirVoz)
+ tvEstadoVoz = findViewById(R.id.estadoVoz)
  btnCrear = findViewById(R.id.btnCrear)
  btnReproducir = findViewById(R.id.btnReproducir)
+ btnGuardar = findViewById(R.id.btnGuardar)
  tvEstado = findViewById(R.id.estado)
  tvTiempo = findViewById(R.id.tiempo)
  tvResultado = findViewById(R.id.textoResultado)
- editTema = findViewById(R.id.editTema)
- editEstilo = findViewById(R.id.editEstilo)
  imgPortada = findViewById(R.id.imgPortada)
  progreso = findViewById(R.id.progreso)
-    val btnVoz = Button(this).apply { text = "Seleccionar voz (.wav)"; setOnClickListener { pickerVoz.launch(arrayOf("audio/wav","audio/*")) } }
-    val btnInst = Button(this).apply { text = "Seleccionar instrumental (.wav)"; setOnClickListener { pickerInstrumental.launch(arrayOf("audio/wav","audio/*")) } }
-    val layoutPadre = findViewById<ViewGroup>(android.R.id.content)
-    layoutPadre.addView(btnVoz)
-    layoutPadre.addView(btnInst)
 
  val anterior = Thread.getDefaultUncaughtExceptionHandler()
  Thread.setDefaultUncaughtExceptionHandler { hilo, error ->
@@ -81,48 +134,164 @@ override fun onCreate(savedInstanceState: Bundle?) {
  }
  mostrarFalloPrevio()
 
- btnCrear.setOnClickListener {
- tvEstado.text = "Botón pulsado"
- Log.d(etiqueta, "click")
- if (!orquestador.isRunning) crear()
- }
- btnReproducir.setOnClickListener { reproducir() }
+ grupoModo.setOnCheckedChangeListener { _, id ->
+ panelConversacion.visibility = if (id == R.id.modoConversacion) View.VISIBLE else View.GONE
+ panelLetra.visibility = if (id == R.id.modoLetra) View.VISIBLE else View.GONE
  }
 
- private fun crear() {
+ btnEnviar.setOnClickListener { enviarConversacion() }
+ btnGrabar.setOnClickListener { solicitarMicrofonoYAlternar() }
+ btnElegirVoz.setOnClickListener { seleccionarArchivoVoz() }
+ btnCrear.setOnClickListener { crearCancion() }
+ btnReproducir.setOnClickListener { reproducir() }
+ btnGuardar.setOnClickListener { guardarCancion() }
+
+ if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+ == PackageManager.PERMISSION_GRANTED) {
+ btnGrabar.isEnabled = true
+ } else {
+ btnGrabar.isEnabled = true
+ btnGrabar.setOnClickListener { solicitarMicrofonoYAlternar() }
+ }
+
+ actualizarUI()
+ }
+
+ private fun solicitarMicrofonoYAlternar() {
+ if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+ == PackageManager.PERMISSION_GRANTED) {
+ alternarGrabacion()
+ } else {
+ permisoMicro.launch(Manifest.permission.RECORD_AUDIO)
+ }
+ }
+
+ private fun alternarGrabacion() {
+ if (grabadora != null) {
+ grabadora!!.detener()
+ grabadora = null
+ btnGrabar.text = "Grabar mi voz"
+ tvEstadoVoz.text = "Grabación terminada."
+ return
+ }
+ val dir = getExternalFilesDir(null) ?: filesDir
+ val ruta = File(dir, "voz_grabada.wav").absolutePath
+ grabadora = GrabadoraWav(ruta)
+ try {
+ grabadora!!.iniciar()
+ btnGrabar.text = "Detener"
+ tvEstadoVoz.text = "Grabando..."
+ } catch (e: Exception) {
+ tvEstadoVoz.text = "Error al grabar: ${e.message}"
+ grabadora = null
+ }
+ }
+
+ private fun copiarVoz(uri: Uri) {
+ try {
+ val nombre = "voz_usuario.wav"
+ val destino = File(getExternalFilesDir(null), nombre)
+ contentResolver.openInputStream(uri)?.use { entrada ->
+ FileOutputStream(destino).use { salida -> entrada.copyTo(salida) }
+ }
+ rutaVoz = destino.absolutePath
+ tvEstadoVoz.text = "Voz cargada: $nombre"
+ } catch (e: Exception) {
+ tvEstadoVoz.text = "No se pudo cargar el archivo de voz."
+ }
+ }
+
+ private fun seleccionarArchivoVoz() {
+ selectorVoz.launch(arrayOf("audio/wav", "audio/*"))
+ }
+
+ private fun enviarConversacion() {
+ val texto = chatEntrada.text.toString().trim()
+ if (texto.isEmpty()) return
+ respuestas.add(texto)
+ chatEntrada.text.clear()
+ val indice = respuestas.size - 1
+ val pregunta = if (indice < preguntas.size) preguntas[indice] else "¿Algo más?"
+ val respuesta = if (indice == 0) "Entendido. Hablemos de ${texto.lowercase()}" else if (indice == 1) "Perfecto, un estilo ${texto.lowercase()} suena bien." else "Gracias. Seguimos construyendo la canción."
+ chatLog.append("\nTú: $texto\nMusicaIA: $respuesta")
+ if (indice >= preguntas.size - 1) {
+ btnCrear.isEnabled = true
+ tvEstado.text = "Conversación completa. Puedes crear la canción."
+ }
+ }
+
+ private fun actualizarUI() {
+ btnCrear.isEnabled = true
+ }
+
+ private fun guardarFallo(error: Throwable) {
+ try {
+ val dir = getExternalFilesDir(null) ?: return
+ File(dir, "crash.txt").writeText(
+ "Crash: ${error.javaClass.simpleName}: ${error.message}\n" +
+ error.stackTrace.take(5).joinToString("\n")
+ )
+ } catch (_: Exception) { }
+ }
+
+ private fun mostrarFalloPrevio() {
+ try {
+ val dir = getExternalFilesDir(null) ?: return
+ val f = File(dir, "crash.txt")
+ if (f.exists()) {
+ tvResultado.text = "Fallo anterior:\n" + f.readText()
+ f.delete()
+ }
+ } catch (_: Exception) { }
+ }
+
+ override fun onDestroy() {
+ super.onDestroy()
+ handler.removeCallbacks(reloj)
+ try { grabadora?.detener() } catch (_: Exception) { }
+ try { player?.release() } catch (_: Exception) { }
+ }
+
+ private fun crearCancion() {
+ if (ocupado) return
+ ocupado = true
  btnCrear.isEnabled = false
  btnReproducir.visibility = View.GONE
  imgPortada.visibility = View.GONE
  progreso.visibility = View.VISIBLE
- tvTiempo.visibility = View.VISIBLE
  tvEstado.text = "Creando..."
  tvResultado.text = ""
  segundos = 0
  tvTiempo.text = "Tiempo: 0s"
+ tvEstadoVoz.text = if (rutaVoz != null) "Voz seleccionada" else "Sin voz: se creará solo el instrumental."
  handler.removeCallbacks(reloj)
  handler.postDelayed(reloj, 1000)
 
  val tema = editTema.text.toString().trim().ifEmpty { "pop alegre" }
  val estilo = editEstilo.text.toString().trim().ifEmpty { "verano" }
  val entrada = Dato.Texto("Tema: $tema. Estilo: $estilo")
- // Paso 7 — conectar Modo 3 solo si hay archivos reales seleccionados (no inventado)
- val modo3 = Modo3MezclaVozUsuario(this)
- val usarModo3 = rutaVoz != null && rutaInstrumental != null && File(rutaVoz!!).exists() && File(rutaInstrumental!!).exists()
+
+ val usarModo3 = rutaVoz != null && File(rutaVoz!!).exists() && rutaInstrumental != null && File(rutaInstrumental!!).exists()
  if (usarModo3) {
-     val paso = modo3.ejecutar(Dato.Texto(rutaVoz!!))
-     runOnUiThread { mostrarResultado(listOf("modo3" to paso)) }
-     return
+ try {
+ val modo3 = MezclaVoz
+ val paso = modo3.mezclar(rutaVoz!!, rutaInstrumental!!, File(filesDir, "modo3_mezcla.wav").absolutePath)
+ rutaAudio = paso.rutaWav
+ runOnUiThread { mostrarResultado(listOf("modo3" to paso)) }
+ detenerReloj()
+ ocupado = false
+ btnCrear.isEnabled = true
+ progreso.visibility = View.GONE
+ } catch (e: Exception) {
+ detenerReloj()
+ ocupado = false
+ btnCrear.isEnabled = true
+ progreso.visibility = View.GONE
+ tvEstado.text = "Error en mezcla: ${e.message}"
+ tvResultado.text = "No se pudo mezclar los archivos. Verifica que sean WAV válidos de 16 bits mono."
  }
- if (rutaVoz != null || rutaInstrumental != null) {
-     tvEstado.text = "Error: falta archivo de voz o instrumental seleccionado (deben ser .wav reales)"
-     btnCrear.isEnabled = true
-     progreso.visibility = View.GONE
-     return
+ return
  }
- val modulos = listOf(
- ModuloLetra(this), ModuloInstrumental(this),
- ModuloVoz(this), ModuloPortada(this), ModuloMezcla(this)
- )
 
  Thread {
  try {
@@ -131,6 +300,11 @@ override fun onCreate(savedInstanceState: Bundle?) {
  } catch (e: Exception) {
  Log.e(etiqueta, "Error en la creación", e)
  runOnUiThread { mostrarError(e) }
+ } finally {
+ detenerReloj()
+ ocupado = false
+ btnCrear.isEnabled = true
+ progreso.visibility = View.GONE
  }
  }.start()
  }
@@ -139,6 +313,7 @@ override fun onCreate(savedInstanceState: Bundle?) {
  handler.removeCallbacks(reloj)
  progreso.visibility = View.GONE
  btnCrear.isEnabled = true
+ tvEstado.text = "Completado en ${segundos}s"
  }
 
  private fun mostrarResultado(pasos: List<Pair<String, Dato>>) {
@@ -173,50 +348,30 @@ override fun onCreate(savedInstanceState: Bundle?) {
  private fun reproducir() {
  val ruta = rutaAudio ?: return
  try {
- player?.release()
- player = MediaPlayer().apply { setDataSource(ruta); prepare(); start() }
+ if (player == null) {
+ player = MediaPlayer().apply {
+ setDataSource(applicationContext, Uri.fromFile(File(ruta)))
+ prepare()
+ start()
+ setOnCompletionListener { stop(); reset() }
+ }
+ } else if (!player!!.isPlaying) {
+ player!!.start()
+ }
  } catch (e: Exception) {
- Log.e(etiqueta, "Error al reproducir", e)
  tvEstado.text = "No se pudo reproducir: ${e.message}"
  }
  }
 
- private fun guardarFallo(error: Throwable) {
- try {
- val dir = getExternalFilesDir(null) ?: return
- File(dir, "crash.txt").writeText(
- "Crash: ${error.javaClass.simpleName}: ${error.message}\n" +
- error.stackTrace.take(5).joinToString("\n")
- )
- } catch (_: Exception) {
+ private fun guardarCancion() {
+ val origen = rutaAudio
+ if (origen == null) {
+ tvEstado.text = "No hay canción para guardar."
+ return
  }
- }
-
- private fun mostrarFalloPrevio() {
- try {
- val dir = getExternalFilesDir(null) ?: return
- val f = File(dir, "crash.txt")
- if (f.exists()) {
- tvResultado.text = "Fallo anterior:\n" + f.readText()
- f.delete()
- }
- } catch (_: Exception) {
- }
- }
-
- private fun exportarCancion() {
- val dirDest = File("/sdcard/Download/app música/apk/")
- dirDest.mkdirs()
- val fuente = File(getExternalFilesDir(null), "mezcla_final.wav")
- if (fuente.exists()) {
- fuente.copyTo(File(dirDest, "musica_ia_cancion_final.wav"), overwrite = true)
- tvEstado.text = "Exportado a ${dirDest.absolutePath}"
- }
- }
-
- override fun onDestroy() {
- super.onDestroy()
- handler.removeCallbacks(reloj)
- player?.release()
+ val nombre = "musicaia_" + System.currentTimeMillis() + ".wav"
+ selectorGuardar.launch(nombre)
  }
 }
+EOF
+echo "MainActivity.kt reemplazado (versión completa con 3 modos)"
