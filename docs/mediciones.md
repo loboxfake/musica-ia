@@ -27,3 +27,10 @@
 # Fase 2c (autónoma, sin depender de RAM/GPU del móvil)
 - Modelo de lenguaje no cargado aún (Phase 2b pendiente en dispositivo); ModuloLetra implementado como estructura que recibe contexto y genera letra estructurada.
 - No se afirma resultado final sin ejecutar en móvil con modelo real.
+
+## Fase 3 - Instrumental (hasta 2 min, autónomo)
+- Modelo candidato: Stable Audio 3 Small (o equivalente pequeño en CPU)
+- Restricción: un modelo cargado a la vez; hasta ~2 min por generación
+- Medida pendiente: tiempo de generación de 2 min de música en CPU ARM Cortex-A76
+- Si tarda más de lo aceptable, proponer alternativa más pequeña o tramos más cortos
+- Licencia y soporte Android sin NPU: comprobar antes de cargar
