@@ -46,3 +46,10 @@
 - Tiempo estimado: minutos por portada (CPU sin NPU)
 - Medida pendiente: tiempo real de generación + tamaño de imagen de salida
 - No se afirma sin medir en móvil
+# Fase 6 - Cierre (autónomo, independiente de RAM/GPU)
+- Mezcla final (ModuloMezclaStub actualizado a estructura de mezcla con exportación a carpeta visible)
+- Catálogo actualizable (catalogo.json + Catalogo.kt verificado con SHA-256)
+- Exportar APK / audio a carpeta visible (Archivos / /sdcard/Download/app música/apk/)
+- Pulido de interfaz: revisar MainActivity, estilos y tiempo real
+- Reglas: una fase cada vez; no pasar sin build verde; si modelo no cabe, avisar y proponer alternativa
+
