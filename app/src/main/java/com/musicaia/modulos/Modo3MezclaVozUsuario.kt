@@ -41,7 +41,7 @@ class Modo3MezclaVozUsuario(context: Context) : ModuloIA {
         val lenVoz = voz.length().toInt()
         val lenIns = instrumental.length().toInt()
         val bytesDatos = (lenVoz + lenIns) / 2  // aproximación simple por suma de duración
-        val output = FileOutputStream(mezcla)
+        val output = java.io.FileOutputStream(mezcla)
         // Copiar cabecera de instrumental como referencia (mejor: reconstruir WAV con datos mezclados)
         output.use { out ->
             FileInputStream(instrumental).use { ins ->
