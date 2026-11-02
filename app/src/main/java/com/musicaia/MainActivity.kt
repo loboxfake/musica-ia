@@ -7,6 +7,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageView
@@ -15,6 +16,8 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.musicaia.modelo.*
 import com.musicaia.modulos.*
+import androidx.activity.result.contract.ActivityResultContracts
+import android.content.Intent
 import java.io.File
 
 class MainActivity : AppCompatActivity() {
@@ -43,7 +46,17 @@ class MainActivity : AppCompatActivity() {
  }
  }
 
- override fun onCreate(savedInstanceState: Bundle?) {
+     // Paso 7: selección archivo voz + instrumental (archivo real)
+    private val pickerVoz = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let { rutaVoz = it.toString() }
+    }
+    private val pickerInstrumental = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let { rutaInstrumental = it.toString() }
+    }
+    private var rutaVoz: String? = null
+    private var rutaInstrumental: String? = null
+
+override fun onCreate(savedInstanceState: Bundle?) {
  super.onCreate(savedInstanceState)
  setContentView(R.layout.activity_main)
  btnCrear = findViewById(R.id.btnCrear)
@@ -55,6 +68,11 @@ class MainActivity : AppCompatActivity() {
  editEstilo = findViewById(R.id.editEstilo)
  imgPortada = findViewById(R.id.imgPortada)
  progreso = findViewById(R.id.progreso)
+    val btnVoz = Button(this).apply { text = "Seleccionar voz (.wav)"; setOnClickListener { pickerVoz.launch(arrayOf("audio/wav","audio/*")) } }
+    val btnInst = Button(this).apply { text = "Seleccionar instrumental (.wav)"; setOnClickListener { pickerInstrumental.launch(arrayOf("audio/wav","audio/*")) } }
+    val layoutPadre = findViewById<ViewGroup>(android.R.id.content)
+    layoutPadre.addView(btnVoz)
+    layoutPadre.addView(btnInst)
 
  val anterior = Thread.getDefaultUncaughtExceptionHandler()
  Thread.setDefaultUncaughtExceptionHandler { hilo, error ->
@@ -87,6 +105,20 @@ class MainActivity : AppCompatActivity() {
  val tema = editTema.text.toString().trim().ifEmpty { "pop alegre" }
  val estilo = editEstilo.text.toString().trim().ifEmpty { "verano" }
  val entrada = Dato.Texto("Tema: $tema. Estilo: $estilo")
+ // Paso 7 — conectar Modo 3 solo si hay archivos reales seleccionados (no inventado)
+ val modo3 = Modo3MezclaVozUsuario(this)
+ val usarModo3 = rutaVoz != null && rutaInstrumental != null && File(rutaVoz!!).exists() && File(rutaInstrumental!!).exists()
+ if (usarModo3) {
+     val paso = modo3.ejecutar(Dato.Texto(rutaVoz!!))
+     runOnUiThread { mostrarResultado(listOf("modo3" to paso)) }
+     return
+ }
+ if (rutaVoz != null || rutaInstrumental != null) {
+     tvEstado.text = "Error: falta archivo de voz o instrumental seleccionado (deben ser .wav reales)"
+     btnCrear.isEnabled = true
+     progreso.visibility = View.GONE
+     return
+ }
  val modulos = listOf(
  ModuloLetra(this), ModuloInstrumental(this),
  ModuloVoz(this), ModuloPortada(this), ModuloMezcla(this)
