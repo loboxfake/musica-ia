@@ -13,6 +13,20 @@
     "motor": "llamacpp"
   },
   {
+    "id": "instrumental-stable-audio-open-small",
+    "tipo": "INSTRUMENTAL",
+    "nombre": "Stable Audio Open Small",
+    "version": "1.0.0",
+    "tamano_mb": 850.0,
+    "ram_minima_mb": 2048,
+    "licencia": "Apache-2.0",
+    "uso_comercial": true,
+    "url_descarga": "https://github.com/stability-ai/stable-audio-open-small/releases/download/v1.0.0/model-small.bin",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "tiempo_estimado_s": 120,
+    "motor": "stable-audio"
+  },
+  {
     "id": "musica-voz-v1",
     "tipo": "VOZ",
     "nombre": "Síntesis de voz",
