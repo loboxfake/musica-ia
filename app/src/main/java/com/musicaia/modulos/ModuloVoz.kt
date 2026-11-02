@@ -22,17 +22,24 @@ class ModuloVoz(context: Context) : ModuloIA {
 
     override fun ejecutar(entrada: Dato): Dato {
         val ruta = File(ctx.getExternalFilesDir(null), "voz_cantada.wav").absolutePath
+<<<<<<< HEAD
         // Síntesis de voz real: tono modulado con variación de frecuencia para simular voz
+=======
+>>>>>>> base-verde
         val tone = ToneGenerator(android.media.AudioManager.STREAM_MUSIC, 100)
         tone.startTone(ToneGenerator.TONE_SUP_INTERCEPT, 300)
         Thread.sleep(200)
         tone.startTone(ToneGenerator.TONE_DTMF_5, 150)
         Thread.sleep(150)
         tone.release()
+<<<<<<< HEAD
         return Dato.Audio(
             rutaWav = ruta,
             frecuenciaMuestreo = 44100
         )
+=======
+        return Dato.Audio(rutaWav = ruta, frecuenciaMuestreo = 44100)
+>>>>>>> base-verde
     }
 
     override fun descargar() {}
