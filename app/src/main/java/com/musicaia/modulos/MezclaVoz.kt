@@ -3,6 +3,7 @@ package com.musicaia.modulos
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import com.musicaia.modelo.Dato
 
 class AudioPcm(val muestras: ShortArray, val frecuencia: Int)
 
