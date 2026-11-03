@@ -62,6 +62,8 @@ class MainActivity : AppCompatActivity() {
  private lateinit var imgPortada: ImageView
  private lateinit var progreso: ProgressBar
 
+ private var rutaInstrumental: String? = null
+
  private val preguntas = listOf(
  "¿De qué quieres que trate la canción?",
  "¿Qué estilo o género quieres? (pop, rock, balada, electrónica...)",
@@ -268,10 +270,12 @@ class MainActivity : AppCompatActivity() {
  handler.removeCallbacks(reloj)
  handler.postDelayed(reloj, 1000)
 
- val tema = editTema.text.toString().trim().ifEmpty { "pop alegre" }
- val estilo = editEstilo.text.toString().trim().ifEmpty { "verano" }
+ val tema = editLetra.text.toString().trim().ifEmpty { "pop alegre" }
+ val estilo = editIndicaciones.text.toString().trim().ifEmpty { "verano" }
  val entrada = Dato.Texto("Tema: $tema. Estilo: $estilo")
 
+ val rutaInstPorDefecto = File(filesDir, "instrumental_2min.wav").absolutePath
+ if (rutaInstrumental == null && File(rutaInstPorDefecto).exists()) rutaInstrumental = rutaInstPorDefecto
  val usarModo3 = rutaVoz != null && File(rutaVoz!!).exists() && rutaInstrumental != null && File(rutaInstrumental!!).exists()
  if (usarModo3) {
  try {
@@ -294,6 +298,11 @@ class MainActivity : AppCompatActivity() {
  return
  }
 
+ val modulos: List<com.musicaia.modelo.ModuloIA> = listOf(
+ com.musicaia.modulos.ModuloLetra(this),
+ com.musicaia.modulos.ModuloPortada(this),
+ com.musicaia.modulos.ModuloInstrumental(this)
+ )
  Thread {
  try {
  val pasos = orquestador.ejecutarModulos(modulos, entrada)

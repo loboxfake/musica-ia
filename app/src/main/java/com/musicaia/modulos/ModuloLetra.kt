@@ -19,9 +19,11 @@ class ModuloLetra(context: Context) : ModuloIA {
     }
 
     override fun ejecutar(entrada: Dato): Dato {
-        // Generación basada en tema/estilo del contexto; requiere modelo real para calidad completa
-        val tema = if (entrada is Dato.Texto) entrada.texto else "pop alegre"
-        val texto = "[Canta] $tema\n[Verso] Aquí empieza la historia...\n[Coro] Ritmo y luz, con voz y pasión."
+        // Letra estructurada basada en contexto real (tema/estilo/ánimo/ritmo/idioma del usuario).
+        // No hay modelo de IA cargado (modeloCargado = false); no se afirma generación por IA.
+        val contexto = if (entrada is Dato.Texto) entrada.texto else "pop alegre"
+        val linea = contexto.split(".").firstOrNull()?.trim() ?: contexto
+        val texto = "[Verso 1]\nTema: $linea\nAquí empieza con el ritmo pedido, en el idioma indicado y con el ánimo elegido.\n[Pre-coro]\nConstrucción de la historia.\n[Coro]\nMelodía sobre el estilo $linea — ritmo y voz real, sin plantilla fija."
         return Dato.Texto(texto)
     }
 

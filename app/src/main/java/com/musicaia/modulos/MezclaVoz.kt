@@ -20,9 +20,8 @@ object LectorWav {
  var formato = 0
  while (pos + 8 <= bytes.size) {
  val id = texto(pos)
- val tam = bb.getInt(pos + 4)
+ val tam = (bb.getInt(pos + 4).toLong() and 0xffffffffL).toInt()
  val inicio = pos + 8
- if (tam < 0 && id != "data") break
  if (id == "fmt ") {
  formato = bb.getShort(inicio).toInt()
  canales = bb.getShort(inicio + 2).toInt()

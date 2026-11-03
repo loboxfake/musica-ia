@@ -51,25 +51,27 @@ class ModuloInstrumental(context: Context) : ModuloIA {
             buffer[i] = muestra
         }
         val archivo = File(path)
+        archivo.parentFile?.mkdirs()
+        val bytesDatos = buffer.size * 2
+        val cab = java.nio.ByteBuffer.allocate(44).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        cab.put("RIFF".toByteArray(Charsets.US_ASCII))
+        cab.putInt(36 + bytesDatos)
+        cab.put("WAVE".toByteArray(Charsets.US_ASCII))
+        cab.put("fmt ".toByteArray(Charsets.US_ASCII))
+        cab.putInt(16)
+        cab.putShort(1)
+        cab.putShort(1)
+        cab.putInt(frecuenciaMuestreo)
+        cab.putInt(frecuenciaMuestreo * 2)
+        cab.putShort(2)
+        cab.putShort(16)
+        cab.put("data".toByteArray(Charsets.US_ASCII))
+        cab.putInt(bytesDatos)
         archivo.outputStream().use { out ->
-            val dos = DataOutputStream(out)
-            // Header WAV simple
-            dos.writeBytes("RIFF")
-            val dataSize = 36 + buffer.size * 2
-            dos.writeInt(Integer.reverseBytes(dataSize))
-            dos.writeBytes("WAVE")
-            dos.writeBytes("fmt ")
-            dos.writeInt(Integer.reverseBytes(16)) // subchunk size
-            dos.writeShort(Integer.reverseBytes(1)) // audio format PCM
-            dos.writeShort(Integer.reverseBytes(1)) // num channels mono
-            dos.writeInt(Integer.reverseBytes(frecuenciaMuestreo))
-            dos.writeInt(Integer.reverseBytes(frecuenciaMuestreo * 2))
-            dos.writeShort(Integer.reverseBytes(2)) // bits per sample
-            dos.writeBytes("data")
-            dos.writeInt(Integer.reverseBytes(buffer.size * 2))
-            for (s in buffer) {
-                dos.writeShort(Integer.reverseBytes(s.toInt()))
-            }
+            out.write(cab.array())
+            val bb = java.nio.ByteBuffer.allocate(buffer.size * 2).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+            for (s in buffer) bb.putShort(s)
+            out.write(bb.array())
         }
     }
 
