@@ -27,6 +27,7 @@ import com.musicaia.modulos.ModuloLetra
 import com.musicaia.modulos.ModuloPortada
 import com.musicaia.modelo.Orquestador
 import java.io.File
+import java.io.FileOutputStream
 import java.text.Normalizer
 import com.musicaia.modulos.ModuloMezcla
 
@@ -373,5 +374,3 @@ class MainActivity : AppCompatActivity() {
  selectorGuardar.launch(nombre)
  }
 }
-EOF
-echo "MainActivity.kt reemplazado (versión completa con 3 modos)"

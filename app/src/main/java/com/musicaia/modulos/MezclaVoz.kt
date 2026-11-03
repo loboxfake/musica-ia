@@ -55,7 +55,7 @@ object MezclaVoz {
  private const val GANANCIA_VOZ = 1.0f
  private const val GANANCIA_INSTRUMENTAL = 0.5f
 
- fun mezclar(rutaVoz: String, rutaInstrumental: String, rutaSalida: String) {
+ fun mezclar(rutaVoz: String, rutaInstrumental: String, rutaSalida: String): Dato.Audio {
  val voz = LectorWav.leer(rutaVoz)
  val ins = LectorWav.leer(rutaInstrumental)
  val frec = ins.frecuencia
@@ -85,5 +85,6 @@ object MezclaVoz {
  AudioUtil.escribirWavMono16(rutaSalida, frec, total) { inicio, n ->
  ShortArray(n) { k -> (mezcla[inicio + k] * escala).toInt().toShort() }
  }
+ return Dato.Audio(rutaSalida, frec)
  }
 }
