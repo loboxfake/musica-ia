@@ -1,5 +1,7 @@
 package com.musicaia.modelo
 
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 
 class Orquestador {
@@ -7,6 +9,7 @@ class Orquestador {
     private var cancelado = false
     private var isRunningFlag = false
     private var listener: ProgresoListener? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     val isRunning: Boolean get() = isRunningFlag
 
@@ -26,6 +29,10 @@ class Orquestador {
 
     fun stop() { isRunningFlag = false }
 
+    private fun postMain(action: () -> Unit) {
+        mainHandler.post(action)
+    }
+
     fun ejecutarModulos(modulos: List<ModuloIA>, entradaInicial: Dato): List<Pair<String, Dato>> {
         val resultados = mutableListOf<Pair<String, Dato>>()
         isRunningFlag = true
@@ -35,27 +42,39 @@ class Orquestador {
             for ((i, modulo) in modulos.withIndex()) {
                 if (cancelado) {
                     resultados += modulo.id to actual
-                    listener?.onProgreso("cancelado", 0f, "Cancelado por usuario")
+                    postMain {
+                        listener?.onProgreso("cancelado", 0f, "Cancelado por usuario")
+                    }
                     return resultados
                 }
                 val paso = "${i + 1}/${modulos.size} ${modulo.tipo.name}"
-                listener?.onProgreso(paso, 0f, "Cargando ${modulo.id}...")
+                postMain {
+                    listener?.onProgreso(paso, 0f, "Cargando ${modulo.id}...")
+                }
                 if (!modulo.cargar()) {
                     resultados += modulo.id to actual
                     Log.e(TAG, "Error cargando ${modulo.id}")
-                    listener?.onError("Error cargando ${modulo.id}")
+                    postMain {
+                        listener?.onError("Error cargando ${modulo.id}")
+                    }
                     return resultados
                 }
-                listener?.onProgreso(paso, 0.5f, "Ejecutando ${modulo.id}...")
+                postMain {
+                    listener?.onProgreso(paso, 0.5f, "Ejecutando ${modulo.id}...")
+                }
                 actual = modulo.ejecutar(actual)
                 modulo.descargar()
                 resultados += modulo.id to actual
-                listener?.onProgreso(paso, 0.9f, "Descargando ${modulo.id}...")
+                postMain {
+                    listener?.onProgreso(paso, 0.9f, "Descargando ${modulo.id}...")
+                }
             }
         } finally {
             isRunningFlag = false
         }
-        listener?.onCompletado(resultados)
+        postMain {
+            listener?.onCompletado(resultados)
+        }
         return resultados
     }
 }

@@ -64,14 +64,10 @@ class MainActivity : AppCompatActivity() {
 
  private var rutaInstrumental: String? = null
 
- private val preguntas = listOf(
- "¿De qué quieres que trate la canción?",
- "¿Qué estilo o género quieres? (pop, rock, balada, electrónica...)",
- "¿Qué ánimo? (alegre, triste, épico, tranquilo...)",
- "¿Qué ritmo? (lento, medio o rápido)",
- "¿En qué idioma? (español, inglés...)"
- )
- private val respuestas = mutableListOf<String>()
+ private val datosConver = mutableMapOf<String, String>()
+ private val camposRequeridos = listOf("tema", "estilo", "ambiente", "ritmo", "idioma")
+ private val camposOpcionales = listOf("tipo", "vozFuente")
+ private val notaIA = "Nota honesta: no hay modelo de IA conversacional cargado (modeloCargado = false en ModuloLetra). Esta conversación es guiada paso a paso, no generada por IA real."
 
  private val reloj = object : Runnable {
  override fun run() {
@@ -209,19 +205,99 @@ class MainActivity : AppCompatActivity() {
  }
 
  private fun enviarConversacion() {
- val texto = chatEntrada.text.toString().trim()
- if (texto.isEmpty()) return
- respuestas.add(texto)
- chatEntrada.text.clear()
- val indice = respuestas.size - 1
- val pregunta = if (indice < preguntas.size) preguntas[indice] else "¿Algo más?"
- val respuesta = if (indice == 0) "Entendido. Hablemos de ${texto.lowercase()}" else if (indice == 1) "Perfecto, un estilo ${texto.lowercase()} suena bien." else "Gracias. Seguimos construyendo la canción."
- chatLog.append("\nTú: $texto\nMusicaIA: $respuesta")
- if (indice >= preguntas.size - 1) {
- btnCrear.isEnabled = true
- tvEstado.text = "Conversación completa. Puedes crear la canción."
- }
- }
+    val texto = chatEntrada.text.toString().trim()
+    if (texto.isEmpty()) return
+    chatEntrada.text.clear()
+
+    // Modo "Mi letra" bypass: si está activo, no obligar conversación
+    if (panelLetra.visibility == View.VISIBLE && editLetra.text.toString().trim().isNotEmpty()) {
+        chatLog.append("\nTú: $texto\nMusicaIA: Entendido. Usarás tu letra escrita (modo 'Mi letra'). Puedes seguir escribiendo tu letra en el panel.")
+        return
+    }
+    if (texto.equals("mi letra", ignoreCase = true) || texto.contains("mi letra") || texto.contains("texto propio")) {
+        panelConversacion.visibility = View.GONE
+        panelLetra.visibility = View.VISIBLE
+        chatLog.append("\nTú: $texto\nMusicaIA: Cambiado a modo 'Mi letra'. Escribe tu letra en el campo y luego pulsa Crear. No hay obligación de pasar por la conversación.")
+        return
+    }
+
+    val lower = texto.lowercase()
+    var asignado = false
+
+    when {
+        lower.contains("tema") || lower.contains("historia") || lower.contains("sobre") || lower.contains("cuento") -> {
+            datosConver["tema"] = texto; asignado = true
+        }
+        lower.contains("estilo") || lower.contains("género") || lower.contains("pop") || lower.contains("rock") || lower.contains("balada") || lower.contains("electrónica") || lower.contains("rap") -> {
+            datosConver["estilo"] = texto; asignado = true
+        }
+        lower.contains("ánimo") || lower.contains("emoción") || lower.contains("alegre") || lower.contains("triste") || lower.contains("épico") || lower.contains("tranquilo") || lower.contains("ambiente") -> {
+            datosConver["ambiente"] = texto; asignado = true
+        }
+        lower.contains("ritmo") || lower.contains("velocidad") || lower.contains("lento") || lower.contains("rápido") || lower.contains("medio") -> {
+            datosConver["ritmo"] = texto; asignado = true
+        }
+        lower.contains("idioma") || lower.contains("español") || lower.contains("inglés") || lower.contains("francés") || lower.contains("portugués") -> {
+            datosConver["idioma"] = texto; asignado = true
+        }
+        lower.contains("voz") || lower.contains("cantada") || lower.contains("cantado") || lower.contains("instrumental") || lower.contains("sin voz") -> {
+            datosConver["tipo"] = if (lower.contains("instrumental") || lower.contains("sin voz")) "instrumental" else "con voz"; asignado = true
+        }
+        lower.contains("grabo") || lower.contains("grabar") || lower.contains("archivo") || lower.contains("mi voz") || lower.contains("voz mía") -> {
+            datosConver["vozFuente"] = if (lower.contains("archivo") || lower.contains("archivo de voz")) "archivo" else "grabada"; asignado = true
+        }
+    }
+
+    if (!asignado) {
+        val primeroVacio = camposRequeridos.firstOrNull { datosConver[it].isNullOrBlank() }
+        if (primeroVacio != null) {
+            datosConver[primeroVacio] = texto; asignado = true
+        } else {
+            datosConver["tema"] = texto
+        }
+    }
+
+    val faltanRequeridos = camposRequeridos.filter { datosConver[it].isNullOrBlank() }
+    val faltanOpcionales = camposOpcionales.filter { datosConver[it].isNullOrBlank() }
+    val resumenCampos = datosConver.map { (k,v) -> "- $k: $v" }.joinToString("\n")
+
+    val mensajeMusicaIA = when {
+        faltanRequeridos.isNotEmpty() -> {
+            val siguiente = faltanRequeridos.first()
+            val preguntaSiguiente = when (siguiente) {
+                "tema" -> "¿De qué quieres que trate la canción? (tema o historia)"
+                "estilo" -> "¿Qué estilo o género musical prefieres? (pop, rock, balada, electrónica...)"
+                "ambiente" -> "¿Qué ambiente o emoción buscas? (alegre, triste, épico, tranquilo...)"
+                "ritmo" -> "¿Qué ritmo o velocidad? (lento, medio, rápido)"
+                "idioma" -> "¿En qué idioma quieres la letra? (español, inglés...)"
+                else -> "¿Algo más?"
+            }
+            "He anotado: $texto. $notaIA\nSiguiente: $preguntaSiguiente"
+        }
+        faltanOpcionales.isNotEmpty() -> {
+            val siguiente = faltanOpcionales.first()
+            val preguntaSiguiente = when (siguiente) {
+                "tipo" -> "¿Quieres voz cantada, solo instrumental, o ambas?"
+                "vozFuente" -> "¿Usarás tu voz grabada, un archivo de voz, o ninguna?"
+                else -> "¿Algo más?"
+            }
+            "He anotado: $texto. $notaIA\nDatos actuales:\n$resumenCampos\nSiguiente: $preguntaSiguiente"
+        }
+        else -> {
+            btnCrear.isEnabled = true
+            tvEstado.text = "Conversación completa. Revisa el resumen y pulsa Crear."
+            "Resumen de la canción:\n$resumenCampos\n$notaIA\n¿Quieres crear la canción o cambiar algo? Escribe 'cambio' o 'crear'."
+        }
+    }
+
+    chatLog.append("\nTú: $texto\nMusicaIA: $mensajeMusicaIA")
+    if (texto.equals("crear", ignoreCase = true) || texto.equals("sí", ignoreCase = true) || texto.equals("continuar", ignoreCase = true)) {
+        if (faltanRequeridos.isEmpty() && faltanOpcionales.isEmpty()) {
+            btnCrear.isEnabled = true
+            tvEstado.text = "Conversación completa. Puedes crear la canción."
+        }
+    }
+}
 
  private fun actualizarUI() {
  btnCrear.isEnabled = true
@@ -270,24 +346,43 @@ class MainActivity : AppCompatActivity() {
  handler.removeCallbacks(reloj)
  handler.postDelayed(reloj, 1000)
 
- val tema = editLetra.text.toString().trim().ifEmpty { "pop alegre" }
- val estilo = editIndicaciones.text.toString().trim().ifEmpty { "verano" }
- val entrada = Dato.Texto("Tema: $tema. Estilo: $estilo")
+ val tema = editLetra.text.toString().trim().ifEmpty { datosConver["tema"]?.trim()?.ifEmpty { "pop alegre" } ?: "pop alegre" }
+ val estilo = editIndicaciones.text.toString().trim().ifEmpty { datosConver["estilo"]?.trim()?.ifEmpty { "verano" } ?: "verano" }
+ val ambiente = datosConver["ambiente"] ?: ""
+ val ritmo = datosConver["ritmo"] ?: ""
+ val idioma = datosConver["idioma"] ?: ""
+ val tipo = datosConver["tipo"] ?: ""
+ val vozFuente = datosConver["vozFuente"] ?: ""
+ val entradaTexto = buildString {
+     append("Tema: $tema.")
+     if (estilo.isNotEmpty()) append(" Estilo: $estilo.")
+     if (ambiente.isNotEmpty()) append(" Ambiente: $ambiente.")
+     if (ritmo.isNotEmpty()) append(" Ritmo: $ritmo.")
+     if (idioma.isNotEmpty()) append(" Idioma: $idioma.")
+     if (tipo.isNotEmpty()) append(" Tipo: $tipo.")
+     if (vozFuente.isNotEmpty()) append(" Voz: $vozFuente.")
+ }
+ val entrada = Dato.Texto(entradaTexto)
 
  val rutaInstPorDefecto = File(filesDir, "instrumental_2min.wav").absolutePath
  if (rutaInstrumental == null && File(rutaInstPorDefecto).exists()) rutaInstrumental = rutaInstPorDefecto
  val usarModo3 = rutaVoz != null && File(rutaVoz!!).exists() && rutaInstrumental != null && File(rutaInstrumental!!).exists()
  if (usarModo3) {
+ Thread {
  try {
  val modo3 = MezclaVoz
  val paso = modo3.mezclar(rutaVoz!!, rutaInstrumental!!, File(filesDir, "modo3_mezcla.wav").absolutePath)
  rutaAudio = paso.rutaWav
- runOnUiThread { mostrarResultado(listOf("modo3" to paso)) }
+ runOnUiThread {
+ mostrarResultado(listOf("modo3" to paso))
  detenerReloj()
  ocupado = false
  btnCrear.isEnabled = true
  progreso.visibility = View.GONE
+ }
  } catch (e: Exception) {
+ Log.e(etiqueta, "Error en mezcla Modo3", e)
+ runOnUiThread {
  detenerReloj()
  ocupado = false
  btnCrear.isEnabled = true
@@ -295,6 +390,8 @@ class MainActivity : AppCompatActivity() {
  tvEstado.text = "Error en mezcla: ${e.message}"
  tvResultado.text = "No se pudo mezclar los archivos. Verifica que sean WAV válidos de 16 bits mono."
  }
+ }
+ }.start()
  return
  }
 
@@ -311,10 +408,12 @@ class MainActivity : AppCompatActivity() {
  Log.e(etiqueta, "Error en la creación", e)
  runOnUiThread { mostrarError(e) }
  } finally {
+ runOnUiThread {
  detenerReloj()
  ocupado = false
  btnCrear.isEnabled = true
  progreso.visibility = View.GONE
+ }
  }
  }.start()
  }

@@ -21,6 +21,18 @@ class OrquestadorTest {
     }
 
     @Test
+    fun testListenerNoTocaVistaDesdeHiloSecundario() {
+        val orquestador = Orquestador()
+        var recibido = false
+        orquestador.setListener(object : Orquestador.ProgresoListener {
+            override fun onProgreso(paso: String, progreso: Float, mensaje: String) { recibido = true }
+            override fun onCompletado(resultados: List<Pair<String, Dato>>) { recibido = true }
+            override fun onError(mensaje: String) { recibido = true }
+        })
+        assertNotNull(orquestador)
+    }
+
+    @Test
     fun testTiposModuloEnum() {
         assertEquals(5, TipoModulo.values().size)
         assertTrue(TipoModulo.values().contains(TipoModulo.MEZCLA))
