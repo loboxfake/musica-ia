@@ -805,7 +805,7 @@ class MainActivity : AppCompatActivity() {
          val manager = getSystemService(android.app.ActivityManager::class.java)
          val salida = manager.getHistoricalProcessExitReasons(packageName, pidTarea, 16)
              .asSequence()
-             .filter { it.processName == "\$packageName:audio" }
+             .filter { it.processName == "$packageName:audio" }
              .filter { it.pid == pidTarea && it.timestamp >= inicioTareaMs }
              .maxByOrNull { it.timestamp }
          if (salida == null) return@runCatching "Android no registra una salida reciente del proceso de audio correspondiente a esta tarea; no se atribuye un motivo antiguo."
@@ -815,10 +815,10 @@ class MainActivity : AppCompatActivity() {
              android.app.ApplicationExitInfo.REASON_CRASH -> "Android registró una excepción no controlada en el proceso de audio."
              android.app.ApplicationExitInfo.REASON_ANR -> "Android registró un bloqueo prolongado del proceso de audio."
              android.app.ApplicationExitInfo.REASON_PACKAGE_UPDATED -> "Android terminó el proceso porque se actualizó el paquete BARDO; esto no demuestra un fallo del motor."
-             else -> "Android registró el motivo de salida \${salida.reason} para el proceso de audio."
+             else -> "Android registró el motivo de salida ${salida.reason} para el proceso de audio."
          }
          val descripcion = salida.description?.take(240).orEmpty()
-         if (descripcion.isBlank()) motivo else "\$motivo Detalle: \$descripcion"
+         if (descripcion.isBlank()) motivo else "$motivo Detalle: $descripcion"
      }.getOrDefault("No se pudo consultar el motivo de salida del proceso de audio.")
  }
 
