@@ -374,11 +374,11 @@ class MainActivity : AppCompatActivity() {
      val acento = json.optString("accentColor", "#70D8FF")
          .takeIf { it.matches(Regex("^#[0-9A-Fa-f]{6}$")) } ?: "#70D8FF"
      accentColorUI = acento
-     findViewById<TextView>(R.id.tvBrandName).text = texto("brandName", "MUSICALIA", 24)
-     findViewById<TextView>(R.id.tvBrandSubtitle).text = texto("subtitle", "TU ESTUDIO MUSICAL INTELIGENTE", 48)
+     findViewById<TextView>(R.id.tvBrandName).text = texto("brandName", "BARDO", 24)
+     findViewById<TextView>(R.id.tvBrandSubtitle).text = texto("subtitle", "BINARY AUTOMATED RHYTHM AND DIGITAL ORCHESTRATION", 48)
      findViewById<TextView>(R.id.tvWelcomeTitle).text = texto("welcomeTitle", "¿Qué vamos a crear hoy?", 70)
      findViewById<TextView>(R.id.tvWelcomeDescription).text = texto("welcomeDescription",
-         "Habla con tu orquestador. Él coordina los modelos y herramientas para convertir tus ideas en música.", 220)
+         "BARDO coordina los modelos y herramientas de tu estudio musical, conserva el contexto autorizado y evoluciona mediante módulos verificados.", 220)
      val navigation = json.optJSONObject("navigation") ?: JSONObject()
      val ordenImportado = json.optJSONArray("navigationOrder")
      val ordenLeido = mutableListOf<String>()
@@ -541,13 +541,13 @@ class MainActivity : AppCompatActivity() {
     chatEntrada.text.clear()
 
     if (panelLetra.visibility == View.VISIBLE && editLetra.text.toString().trim().isNotEmpty()) {
-        anexarChat("\nTú: $texto\nMusicaIA: Estás en modo 'Mi letra'. Puedes seguir editando tu letra y después crearla.")
+        anexarChat("\nTú: $texto\nBARDO: Estás en modo 'Mi letra'. Puedes seguir editando tu letra y después crearla.")
         return
     }
     if (texto.equals("mi letra", ignoreCase = true) || texto.contains("texto propio", ignoreCase = true)) {
         grupoModo.check(R.id.modoLetra)
         panelLetra.visibility = View.VISIBLE
-        anexarChat("\nTú: $texto\nMusicaIA: Modo 'Mi letra' activado. Escribe o pega tu letra.")
+        anexarChat("\nTú: $texto\nBARDO: Modo 'Mi letra' activado. Escribe o pega tu letra.")
         actualizarUI()
         findViewById<TextView>(R.id.navCrear).performClick()
         return
@@ -930,7 +930,7 @@ class MainActivity : AppCompatActivity() {
                  destino.outputStream().buffered().use { salida -> entrada.copyTo(salida) }
              }
              pasos.firstOrNull { it.first == "letra" && it.second is Dato.Texto }?.let { (_, dato) ->
-                 File(carpeta, "MusicalIA_$marca.txt").writeText((dato as Dato.Texto).texto)
+                 File(carpeta, "BARDO_$marca.txt").writeText((dato as Dato.Texto).texto)
              }
              destinoFinal = destino
              Log.i(etiqueta, "Creación archivada: " + destino.name)
