@@ -30,6 +30,8 @@ import java.io.File
 import java.io.FileOutputStream
 import java.text.Normalizer
 import com.musicaia.modulos.ModuloMezcla
+import com.musicaia.modulos.AudioGenNative
+import com.musicaia.modulos.ModuloInstrumental
 import com.musicaia.modulos.DescargadorModelos
 import com.musicaia.modulos.litert.EngineLiteRT
 import com.musicaia.modulos.litert.LiteRTLMModule
@@ -401,13 +403,15 @@ class MainActivity : AppCompatActivity() {
  ocupado = true
  btnCrear.isEnabled = false
  btnReproducir.visibility = View.GONE
+ rutaAudio = null
+ rutaInstrumental = null
  imgPortada.visibility = View.GONE
  progreso.visibility = View.VISIBLE
  tvEstado.text = "Creando..."
  tvResultado.text = ""
  segundos = 0
  tvTiempo.text = "Tiempo: 0s"
- tvEstadoVoz.text = if (rutaVoz != null) "Voz seleccionada; el canto IA todavía no está integrado." else "Canto IA e instrumental generativo: integración pendiente."
+ tvEstadoVoz.text = if (rutaVoz != null) "Voz seleccionada. El perfil y el canto IA aún no están integrados." else if (AudioGenNative.available) "Instrumental IA local disponible; canto IA pendiente." else "Instrumental y canto IA local pendientes en esta compilación."
  handler.removeCallbacks(reloj)
  handler.postDelayed(reloj, 1000)
 
@@ -429,40 +433,11 @@ class MainActivity : AppCompatActivity() {
  }
  val entrada = Dato.Texto(if (letraManual.isNotEmpty()) "[LETRA_USUARIO]\n$letraManual\n\n$entradaTexto" else entradaTexto)
 
- val rutaInstPorDefecto = File(filesDir, "instrumental_2min.wav").absolutePath
- if (rutaInstrumental == null && File(rutaInstPorDefecto).exists()) rutaInstrumental = rutaInstPorDefecto
- val usarModo3 = rutaVoz != null && File(rutaVoz!!).exists() && rutaInstrumental != null && File(rutaInstrumental!!).exists()
- if (usarModo3) {
- Thread {
- try {
- val modo3 = MezclaVoz
- val paso = modo3.mezclar(rutaVoz!!, rutaInstrumental!!, File(filesDir, "modo3_mezcla.wav").absolutePath)
- rutaAudio = paso.rutaWav
- runOnUiThread {
- mostrarResultado(listOf("modo3" to paso))
- detenerReloj()
- ocupado = false
- btnCrear.isEnabled = true
- progreso.visibility = View.GONE
+ val modulos = mutableListOf<com.musicaia.modelo.ModuloIA>()
+ modulos.add(ModuloLetra(this, letraManual.isNotEmpty()))
+ if (AudioGenNative.available) {
+     modulos.add(ModuloInstrumental(this, entradaTexto))
  }
- } catch (e: Exception) {
- Log.e(etiqueta, "Error en mezcla Modo3", e)
- runOnUiThread {
- detenerReloj()
- ocupado = false
- btnCrear.isEnabled = true
- progreso.visibility = View.GONE
- tvEstado.text = "Error en mezcla: ${e.message}"
- tvResultado.text = "No se pudo mezclar los archivos. Verifica que sean WAV válidos de 16 bits mono."
- }
- }
- }.start()
- return
- }
-
- val modulos: List<com.musicaia.modelo.ModuloIA> = listOf(
-     ModuloLetra(this, letraManual.isNotEmpty())
- )
  Thread {
  try {
  val pasos = orquestador.ejecutarModulos(modulos, entrada)
@@ -497,6 +472,7 @@ class MainActivity : AppCompatActivity() {
  is Dato.Audio -> {
  sb.append("[$id] Audio: ${dato.rutaWav}\n\n")
  rutaAudio = dato.rutaWav
+ if (id == "instrumental") rutaInstrumental = dato.rutaWav
  btnReproducir.visibility = View.VISIBLE
  }
  is Dato.Imagen -> {
@@ -507,7 +483,13 @@ class MainActivity : AppCompatActivity() {
  }
  }
  tvResultado.text = sb.toString()
- tvEstado.text = if (editLetra.text.toString().isNotBlank()) "Letra propia cargada en ${segundos}s. Instrumental, canto y portada siguen pendientes." else "Letra generada con IA local en ${segundos}s. Instrumental, canto y portada siguen pendientes."
+ val tieneInstrumental = pasos.any { it.first == "instrumental" && it.second is Dato.Audio }
+ tvEstado.text = when {
+     tieneInstrumental && editLetra.text.toString().isNotBlank() -> "Letra propia e instrumental IA local generados en ${segundos}s. Canto IA y portada pendientes."
+     tieneInstrumental -> "Letra e instrumental IA local generados en ${segundos}s. Canto IA y portada pendientes."
+     editLetra.text.toString().isNotBlank() -> "Letra propia cargada en ${segundos}s. Instrumental, canto IA y portada pendientes."
+     else -> "Letra generada con IA local en ${segundos}s. Instrumental, canto IA y portada pendientes."
+ }
  }
 
  private fun mostrarError(e: Exception) {
