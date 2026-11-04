@@ -37,6 +37,7 @@ class BardoTaskService : Service() {
         const val KEY_STATE = "state"
         const val KEY_MESSAGE = "message"
         const val KEY_AUDIO = "audio_path"
+        const val KEY_HEARTBEAT = "heartbeat"
         private const val CHANNEL_ID = "bardo_audio_tasks"
         private const val NOTIFICATION_ID = 7314
 
@@ -56,6 +57,15 @@ class BardoTaskService : Service() {
     private var ejecutando = false
     private var inicioMs = 0L
     private var modoSolo = false
+    private val heartbeatHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val heartbeatFile by lazy { java.io.File(filesDir, "bardo_task_heartbeat") }
+    private val heartbeatTick = object : Runnable {
+        override fun run() {
+            if (!ejecutando) return
+            runCatching { heartbeatFile.writeText(System.currentTimeMillis().toString()) }
+            heartbeatHandler.postDelayed(this, 5_000L)
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -92,6 +102,9 @@ class BardoTaskService : Service() {
 
         ejecutando = true
         inicioMs = System.currentTimeMillis()
+        runCatching { heartbeatFile.writeText(inicioMs.toString()) }
+        heartbeatHandler.removeCallbacks(heartbeatTick)
+        heartbeatHandler.postDelayed(heartbeatTick, 5_000L)
         getSharedPreferences(PREFS, MODE_PRIVATE).edit()
             .putString(KEY_STATE, "running").putString(KEY_MESSAGE, "BARDO prepara los módulos locales.")
             .remove(KEY_AUDIO).apply()
@@ -140,6 +153,8 @@ class BardoTaskService : Service() {
                 publicarEstado(estado, "${error.javaClass.simpleName}: ${error.message ?: "Error sin detalle"}")
             } finally {
                 ejecutando = false
+                heartbeatHandler.removeCallbacks(heartbeatTick)
+                runCatching { heartbeatFile.delete() }
                 orquestador.stop()
                 android.os.Handler(mainLooper).post {
                     stopForeground(STOP_FOREGROUND_REMOVE)
@@ -176,6 +191,7 @@ class BardoTaskService : Service() {
     }
 
     override fun onDestroy() {
+        heartbeatHandler.removeCallbacks(heartbeatTick)
         if (ejecutando) getSharedPreferences(PREFS, MODE_PRIVATE).edit()
             .putString(KEY_STATE, "interrupted").putString(KEY_MESSAGE, "Android detuvo el servicio antes de completar la tarea.").apply()
         super.onDestroy()
