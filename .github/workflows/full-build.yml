@@ -92,6 +92,60 @@ jobs:
             exit 1
           fi
 
+      - name: Audit APK contents and integrity
+        run: |
+          set -euo pipefail
+          apk=$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n 1)
+          test -n "$apk"
+          python3 - "$apk" <<'PY'
+          import hashlib, pathlib, sys, zipfile
+          apk = pathlib.Path(sys.argv[1])
+          required = [
+              "assets/audio_model/conditioners_model.pte",
+              "assets/audio_model/dit_model.pte",
+              "assets/audio_model/autoencoder_model.pte",
+              "assets/audio_model/spiece.model",
+              "assets/audio_model/LICENSE",
+              "lib/arm64-v8a/libaudiogen.so",
+              "lib/arm64-v8a/libmp3encoder.so",
+              "lib/arm64-v8a/libmp3lame.so",
+          ]
+          report = [f"APK: {apk.name}", f"APK_BYTES: {apk.stat().st_size}"]
+          digest = hashlib.sha256()
+          with apk.open("rb") as f:
+              for chunk in iter(lambda: f.read(8 * 1024 * 1024), b""):
+                  digest.update(chunk)
+          report.append(f"APK_SHA256: {digest.hexdigest()}")
+          with zipfile.ZipFile(apk) as z:
+              bad = z.testzip()
+              if bad:
+                  raise SystemExit(f"ZIP_CORRUPT_ENTRY: {bad}")
+              names = set(z.namelist())
+              missing = [name for name in required if name not in names]
+              if missing:
+                  raise SystemExit("MISSING_APK_ENTRIES: " + ", ".join(missing))
+              for name in required:
+                  info = z.getinfo(name)
+                  if info.file_size <= 0:
+                      raise SystemExit(f"EMPTY_APK_ENTRY: {name}")
+                  report.append(f"ENTRY_OK: {name} ({info.file_size} bytes)")
+          pathlib.Path("full-apk-audit.txt").write_text("\n".join(report) + "\n")
+          print("\n".join(report))
+          PY
+          AAPT=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)
+          test -n "$AAPT"
+          "$AAPT" dump badging "$apk" | tee -a full-apk-audit.txt
+          grep -q "package: name='com.musicaia'" full-apk-audit.txt
+          grep -q "sdkVersion:'26'" full-apk-audit.txt
+
+      - name: Upload APK audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: musicaia-apk-audit
+          path: full-apk-audit.txt
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Upload full offline APK
         uses: actions/upload-artifact@v4
         with:
