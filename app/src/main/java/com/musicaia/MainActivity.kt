@@ -327,7 +327,7 @@ class MainActivity : AppCompatActivity() {
      if (descargaEnCurso) return
      AlertDialog.Builder(this)
          .setTitle("Descargar modelo local")
-         .setMessage("Se descargará Qwen3 0.6B (498 MB) al almacenamiento privado de la app. La descarga se puede reanudar y se comprobará tamaño y SHA-256. Después, la generación de letras se ejecutará en el teléfono sin nube.")
+         .setMessage("Se descargará Gemma 4 E2B (2,6 GB) al almacenamiento privado de la app. La descarga se puede reanudar y se comprobará tamaño y SHA-256. Después, la generación de letras se ejecutará en el teléfono sin nube.")
          .setNegativeButton("Cancelar", null)
          .setPositiveButton("Descargar") { _, _ -> iniciarDescargaModelo() }
          .show()
