@@ -146,7 +146,7 @@ object AudioAssembler {
         output.putShort(16)
         output.put("data".toByteArray(Charsets.US_ASCII))
         output.putInt(dataBytes)
-        samples.forEach(output::putShort)
+        for (sample in samples) output.putShort(sample)
         file.writeBytes(output.array())
     }
 
@@ -158,8 +158,8 @@ object AudioAssembler {
         fadeOutMs: Int
     ) {
         val frames = samples.size / channels
-        val fadeInFrames = min(frames, sampleRate.toLong() * fadeInMs / 1000L).toInt()
-        val fadeOutFrames = min(frames, sampleRate.toLong() * fadeOutMs / 1000L).toInt()
+        val fadeInFrames = min(frames.toLong(), sampleRate.toLong() * fadeInMs / 1000L).toInt()
+        val fadeOutFrames = min(frames.toLong(), sampleRate.toLong() * fadeOutMs / 1000L).toInt()
 
         for (frame in 0 until fadeInFrames) {
             val gain = frame.toFloat() / maxOf(1, fadeInFrames).toFloat()
