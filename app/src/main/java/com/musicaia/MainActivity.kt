@@ -53,6 +53,9 @@ class MainActivity : AppCompatActivity() {
  private lateinit var grupoModo: RadioGroup
  private lateinit var panelConversacion: View
  private lateinit var panelLetra: View
+ private lateinit var panelInstrumental: View
+ private lateinit var editPromptInstrumental: EditText
+ private var modoSoloInstrumental = false
  private lateinit var chatLog: TextView
  private lateinit var chatEntrada: EditText
  private lateinit var btnEnviar: Button
@@ -180,6 +183,8 @@ class MainActivity : AppCompatActivity() {
  grupoModo = findViewById(R.id.grupoModo)
  panelConversacion = findViewById(R.id.panelConversacion)
  panelLetra = findViewById(R.id.panelLetra)
+ panelInstrumental = findViewById(R.id.panelInstrumental)
+ editPromptInstrumental = findViewById(R.id.editPromptInstrumental)
  chatLog = findViewById(R.id.chatLog)
  chatEntrada = findViewById(R.id.chatEntrada)
  cargarMemoriaLocal()
@@ -210,13 +215,14 @@ class MainActivity : AppCompatActivity() {
  mostrarFalloPrevio()
 
  grupoModo.setOnCheckedChangeListener { _, id ->
- panelConversacion.visibility = if (id == R.id.modoConversacion) View.VISIBLE else View.GONE
- panelLetra.visibility = if (id == R.id.modoLetra) View.VISIBLE else View.GONE
- actualizarUI()
- actualizarEstadoModelo()
- if (chatLog.text.isNullOrBlank()) chatLog.text = "MusicaIA: Vamos a preparar tu canción. ¿De qué quieres que trate?"
- editLetra.addTextChangedListener { actualizarUI() }
+     modoSoloInstrumental = id == R.id.modoInstrumental
+     panelLetra.visibility = if (id == R.id.modoLetra) View.VISIBLE else View.GONE
+     panelInstrumental.visibility = if (modoSoloInstrumental) View.VISIBLE else View.GONE
+     btnCrear.text = if (modoSoloInstrumental) "Crear instrumental IA  ✦" else "Crear canción  ✦"
+     actualizarUI()
  }
+ editLetra.addTextChangedListener { actualizarUI() }
+ editPromptInstrumental.addTextChangedListener { actualizarUI() }
 
  btnEnviar.setOnClickListener { enviarConversacion() }
  findViewById<Button>(R.id.btnImportarConocimiento).setOnClickListener {
@@ -438,7 +444,7 @@ class MainActivity : AppCompatActivity() {
         return
     }
     if (texto.equals("mi letra", ignoreCase = true) || texto.contains("texto propio", ignoreCase = true)) {
-        panelConversacion.visibility = View.GONE
+        grupoModo.check(R.id.modoLetra)
         panelLetra.visibility = View.VISIBLE
         anexarChat("\nTú: $texto\nMusicaIA: Modo 'Mi letra' activado. Escribe o pega tu letra.")
         actualizarUI()
@@ -554,8 +560,12 @@ class MainActivity : AppCompatActivity() {
 }
 
  private fun actualizarUI() {
-     btnCrear.isEnabled = editLetra.text.toString().isNotBlank() ||
-         camposRequeridos.all { !datosConver[it].isNullOrBlank() }
+     btnCrear.isEnabled = if (modoSoloInstrumental) {
+         editPromptInstrumental.text.toString().isNotBlank() && AudioGenNative.available
+     } else {
+         editLetra.text.toString().isNotBlank() ||
+             camposRequeridos.all { !datosConver[it].isNullOrBlank() }
+     }
  }
 
 
@@ -669,13 +679,22 @@ class MainActivity : AppCompatActivity() {
  if (ocupado) return
  val letraManual = editLetra.text.toString().trim()
  val modelo = LiteRTLMModule.modelFile(this)
- if (letraManual.isBlank() && (!modelo.isFile || modelo.length() != LiteRTLMModule.EXPECTED_SIZE_BYTES)) {
+ if (!AudioGenNative.available) {
+     tvEstado.text = "Esta compilación no incluye el motor local completo de instrumental. Usa la APK offline."
+     return
+ }
+ if (!modoSoloInstrumental && letraManual.isBlank() &&
+     (!modelo.isFile || modelo.length() != LiteRTLMModule.EXPECTED_SIZE_BYTES)) {
      tvEstado.text = "Primero descarga el modelo local Gemma 4 E2B (2,6 GB)."
      return
  }
- if (panelConversacion.visibility == View.VISIBLE &&
+ if (!modoSoloInstrumental && letraManual.isBlank() &&
      camposRequeridos.any { datosConver[it].isNullOrBlank() }) {
-     tvEstado.text = "Completa tema, estilo, ambiente, ritmo e idioma antes de crear."
+     tvEstado.text = "Completa tema, estilo, ambiente, ritmo e idioma en el chat del orquestador."
+     return
+ }
+ if (modoSoloInstrumental && editPromptInstrumental.text.toString().isBlank()) {
+     tvEstado.text = "Describe el instrumental que quieres crear."
      return
  }
  ocupado = true
@@ -711,13 +730,16 @@ class MainActivity : AppCompatActivity() {
      if (vozFuente.isNotEmpty()) append(" Voz: $vozFuente.")
      if (instrucciones.isNotEmpty()) append(" Indicaciones: $instrucciones.")
  }
- val entrada = Dato.Texto(if (letraManual.isNotEmpty()) "[LETRA_USUARIO]\n$letraManual\n\n$entradaTexto" else entradaTexto)
+ val promptInstrumental = editPromptInstrumental.text.toString().trim()
+ val entrada = if (modoSoloInstrumental) {
+     Dato.Texto(promptInstrumental)
+ } else {
+     Dato.Texto(if (letraManual.isNotEmpty()) "[LETRA_USUARIO]\n$letraManual\n\n$entradaTexto" else entradaTexto)
+ }
 
  val modulos = mutableListOf<com.musicaia.modelo.ModuloIA>()
- modulos.add(ModuloLetra(this, letraManual.isNotEmpty()))
- if (AudioGenNative.available) {
-     modulos.add(ModuloInstrumental(this, entradaTexto))
- }
+ if (!modoSoloInstrumental) modulos.add(ModuloLetra(this, letraManual.isNotEmpty()))
+ modulos.add(ModuloInstrumental(this, if (modoSoloInstrumental) promptInstrumental else entradaTexto))
  Thread {
  try {
  val pasos = orquestador.ejecutarModulos(modulos, entrada)
@@ -767,7 +789,9 @@ class MainActivity : AppCompatActivity() {
  archivarCreacion(pasos)
  actualizarBiblioteca()
  val tieneInstrumental = pasos.any { it.first == "instrumental" && it.second is Dato.Audio }
- tvEstado.text = when {
+ tvEstado.text = if (modoSoloInstrumental) {
+     "Instrumental IA local generado en ${segundos}s. La voz cantada IA sigue pendiente."
+ } else when {
      tieneInstrumental && editLetra.text.toString().isNotBlank() -> "Letra propia e instrumental IA local generados en ${segundos}s. Canto IA y portada pendientes."
      tieneInstrumental -> "Letra e instrumental IA local generados en ${segundos}s. Canto IA y portada pendientes."
      editLetra.text.toString().isNotBlank() -> "Letra propia cargada en ${segundos}s. Instrumental, canto IA y portada pendientes."
