@@ -462,6 +462,7 @@ class MainActivity : AppCompatActivity() {
         btnCrear.isEnabled = true
         tvEstado.text = "Datos completos. Pulsa Crear."
         responderConOrquestador(texto, "Perfecto. Ya tengo los datos. Puedes crear la letra.")
+        findViewById<TextView>(R.id.navCrear).performClick()
         return
     }
 
@@ -499,6 +500,7 @@ class MainActivity : AppCompatActivity() {
         "Resumen de la canción:\n$resumen\n$notaIA\nEscribe 'crear' o cambia un campo indicando su nombre."
     }
     responderConOrquestador(texto, mensaje)
+    if (siguiente == null) findViewById<TextView>(R.id.navCrear).performClick()
 }
 
 
