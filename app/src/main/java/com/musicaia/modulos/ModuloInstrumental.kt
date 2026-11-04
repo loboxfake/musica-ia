@@ -73,16 +73,26 @@ class ModuloInstrumental(
         if (workDir.exists()) workDir.deleteRecursively()
         if (!workDir.mkdirs()) throw IllegalStateException("No se pudo crear el directorio temporal de audio.")
 
+        // Stable Audio Open Small generates at most 11 seconds per pass.
+        // Eighteen sections with 400 ms crossfades yield more than three minutes.
         val sectionNames = listOf(
             "intro: sparse opening with a clear musical motif",
-            "verse one: steady groove and restrained instrumentation",
-            "pre-chorus: gradual harmonic and rhythmic build",
-            "chorus: full energetic arrangement with a memorable hook",
-            "verse two: return to the groove with a subtle variation",
-            "pre-chorus: rising energy and layered percussion",
-            "chorus reprise: full wide arrangement and strong rhythm",
-            "bridge: contrasting breakdown with a fresh harmonic color",
-            "final chorus: biggest and most uplifting arrangement",
+            "verse one A: steady groove and restrained instrumentation",
+            "verse one B: continue the groove with a melodic variation",
+            "pre-chorus one: gradual harmonic and rhythmic build",
+            "chorus one A: full energetic arrangement with a memorable hook",
+            "chorus one B: repeat the hook with fuller instrumentation",
+            "verse two A: return to the groove with a subtle variation",
+            "verse two B: develop the verse melody and bass movement",
+            "pre-chorus two: rising energy and layered percussion",
+            "chorus two A: full wide arrangement and strong rhythm",
+            "chorus two B: repeat the chorus with added harmonic layers",
+            "bridge A: contrasting breakdown with a fresh harmonic color",
+            "bridge B: rebuild tension toward the final chorus",
+            "instrumental break: expressive lead motif over the rhythm section",
+            "final chorus A: biggest and most uplifting arrangement",
+            "final chorus B: maintain energy with a melodic variation",
+            "final chorus C: emphatic final hook and resolving harmony",
             "outro: resolved ending with a natural musical tail"
         )
 
@@ -98,7 +108,7 @@ class ModuloInstrumental(
                     (System.currentTimeMillis().toInt() + index * 37)
                 )
                 if (generated.isNullOrBlank() || !segment.isFile || segment.length() <= 44L) {
-                    throw IllegalStateException("El modelo de audio no generó el segmento ${index + 1}/10.")
+                    throw IllegalStateException("El modelo de audio no generó el segmento ${index + 1}/${sectionNames.size}.")
                 }
                 segments.add(segment)
             }
@@ -112,6 +122,10 @@ class ModuloInstrumental(
             )
             if (!output.isFile || output.length() <= 44L) {
                 throw IllegalStateException("El WAV instrumental final está vacío.")
+            }
+            val durationSeconds = (output.length() - 44L).toDouble() / (44100.0 * 2.0 * 2.0)
+            if (durationSeconds < 180.0) {
+                throw IllegalStateException("El instrumental generado dura menos de 3 minutos.")
             }
             return Dato.Audio(output.absolutePath, 44100)
         } finally {
