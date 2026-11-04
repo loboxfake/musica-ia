@@ -373,10 +373,7 @@ int audiogen_cli_main(int32_t argc, char** argv) {
         throw std::runtime_error("T5 model reports an empty token sequence");
     }
     const size_t safe_token_count = std::min(tokens.size(), static_cast<size_t>(t5_seq_len));
-    if (tokens.size() > safe_token_count) {
-        ET_LOG(Warning, "Prompt tokenized to %zu tokens; truncating to model limit %zu",
-               tokens.size(), safe_token_count);
-    }
+    // Excess prompt tokens are safely truncated to the model's fixed input size.
     std::vector<uint64_t> token_ids(t5_seq_len, 0);
     for (size_t i = 0; i < safe_token_count; ++i) {
         token_ids[i] = static_cast<uint64_t>(tokens[i]);
