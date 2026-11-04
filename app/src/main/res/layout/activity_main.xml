@@ -58,7 +58,7 @@
             <LinearLayout android:id="@+id/seccionCrear" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingTop="30dp">
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="ESTUDIO CREATIVO" android:textColor="#70D8FF" android:textSize="10sp" android:textStyle="bold" android:letterSpacing="0.16"/>
                 <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="5dp" android:paddingBottom="12dp" android:text="Tus herramientas musicales" android:textColor="#F3F7FF" android:textSize="21sp" android:textStyle="bold"/>
-                <RadioGroup android:id="@+id/grupoModo" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:visibility="visible">
+                <RadioGroup android:id="@+id/grupoModo" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="visible">
                     <RadioButton android:id="@+id/modoConversacion" android:layout_width="wrap_content" android:layout_height="wrap_content" android:checked="true" android:text="Canción completa"/>
                     <RadioButton android:id="@+id/modoLetra" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Mi letra"/>
                     <RadioButton android:id="@+id/modoInstrumental" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Solo instrumental"/>
@@ -92,7 +92,11 @@
                         <Button android:id="@+id/btnGrabar" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:text="Grabar voz" android:textAllCaps="false"/>
                         <Button android:id="@+id/btnElegirVoz" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:layout_marginStart="8dp" android:text="Importar audio" android:textAllCaps="false"/>
                     </LinearLayout>
-                    <TextView android:id="@+id/estadoVoz" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="7dp" android:text="Sin muestra vocal seleccionada." android:textColor="#9BAAC2" android:textSize="12sp"/>
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:paddingTop="5dp" android:paddingBottom="4dp"
+                    android:text="Para una canción completa, conversa primero con el orquestador. Para música sin voz, elige Solo instrumental."
+                    android:textColor="#8295B1" android:textSize="11sp"/>
+                <TextView android:id="@+id/estadoVoz" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="7dp" android:text="Sin muestra vocal seleccionada." android:textColor="#9BAAC2" android:textSize="12sp"/>
                 </LinearLayout>
                 <ProgressBar android:id="@+id/progreso" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:visibility="gone"/>
                 <TextView android:id="@+id/tiempo" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Tiempo: 0s" android:textColor="#9BAAC2" android:visibility="gone"/>
