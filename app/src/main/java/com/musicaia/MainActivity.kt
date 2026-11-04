@@ -699,6 +699,7 @@ class MainActivity : AppCompatActivity() {
      return
  }
  ocupado = true
+ grupoModo.isEnabled = false
  btnCrear.isEnabled = false
  btnReproducir.visibility = View.GONE
  rutaAudio = null
@@ -752,7 +753,9 @@ class MainActivity : AppCompatActivity() {
  runOnUiThread {
  detenerReloj()
  ocupado = false
+ grupoModo.isEnabled = true
  btnCrear.isEnabled = true
+ actualizarUI()
  progreso.visibility = View.GONE
  }
  }
