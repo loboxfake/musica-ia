@@ -417,18 +417,18 @@ class MainActivity : AppCompatActivity() {
          "lab" to R.id.navLaboratorio,
          "system" to R.id.navSistema
      )
+     val navViews = navIds.mapValues { (_, id) -> findViewById<TextView>(id) }
      val barra = findViewById<android.widget.LinearLayout>(R.id.bottomNavigation)
      barra.removeAllViews()
      navigationOrder.filter { it in visibleTabs }.forEach { key ->
-         val vista = findViewById<TextView>(navIds.getValue(key))
-         barra.addView(vista, android.widget.LinearLayout.LayoutParams(
+         barra.addView(navViews.getValue(key), android.widget.LinearLayout.LayoutParams(
              0, android.view.ViewGroup.LayoutParams.MATCH_PARENT, 1f
          ))
      }
      val idActivo = navIds.entries.firstOrNull { it.value == navActivoId }?.key
-     if (idActivo !in visibleTabs) {
+     if (idActivo == null || idActivo !in visibleTabs) {
          val primero = navigationOrder.firstOrNull { it in visibleTabs } ?: "orchestrator"
-         findViewById<TextView>(navIds.getValue(primero)).performClick()
+         navViews.getValue(primero).performClick()
      }
  }
 
