@@ -6,7 +6,7 @@
 
     <application
         android:allowBackup="true"
-        android:label="MusicaIA"
+        android:label="BARDO"
         android:supportsRtl="true"
         android:theme="@style/Theme.MusicalIA">
 
