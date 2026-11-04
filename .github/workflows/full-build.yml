@@ -1,0 +1,86 @@
+name: Build full offline APK
+
+on:
+  push:
+    branches:
+      - ruta-a-compile
+    paths:
+      - app/**
+      - .github/workflows/full-build.yml
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  full-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ruta-a-compile
+
+      - name: Download pinned local audio model pack
+        env:
+          GH_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+        run: |
+          run_id=$(gh run list --workflow prepare-audio-model.yml --branch ruta-a-compile --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+          if [ -z "$run_id" ] || [ "$run_id" = "null" ]; then
+            echo "No successful Stable Audio model export run found."
+            exit 1
+          fi
+          echo "Using model export run: $run_id"
+          mkdir -p app/src/main/assets/audio_model
+          gh run download "$run_id" --name stable-audio-open-small-executorch --dir app/src/main/assets/audio_model
+          ls -lh app/src/main/assets/audio_model
+          test -s app/src/main/assets/audio_model/conditioners_model.pte
+          test -s app/src/main/assets/audio_model/dit_model.pte
+          test -s app/src/main/assets/audio_model/autoencoder_model.pte
+          test -s app/src/main/assets/audio_model/spiece.model
+          test -s app/src/main/assets/audio_model/LICENSE
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Install Android CMake and NDK
+        run: |
+          set +o pipefail
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
+          set -o pipefail
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "cmake;3.31.6" "ndk;27.2.12479018"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: 8.10.2
+
+      - name: Run unit tests
+        run: |
+          gradle testDebugUnitTest 2>&1 | tee full-tests.log
+          status=\${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            grep -E "FAILED|Exception|error:" full-tests.log || true
+            exit 1
+          fi
+
+      - name: Build full APK with on-device audio model
+        run: |
+          gradle assembleDebug -PwithAudioNative=true 2>&1 | tee full-build.log
+          status=\${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            grep -E "error:|CMake Error|FAILED|What went wrong" full-build.log | tail -100 || true
+            exit 1
+          fi
+
+      - name: Upload full offline APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: musicaia-full-offline-apk
+          path: app/build/outputs/apk/debug/*.apk
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 30
