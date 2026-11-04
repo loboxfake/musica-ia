@@ -461,7 +461,7 @@ class MainActivity : AppCompatActivity() {
  }
 
  val modulos: List<com.musicaia.modelo.ModuloIA> = listOf(
-     ModuloLetra(this)
+     ModuloLetra(this, letraManual.isNotEmpty())
  )
  Thread {
  try {
