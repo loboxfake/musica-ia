@@ -154,27 +154,35 @@ class MainActivity : AppCompatActivity() {
      }
 
  private val selectorGuardar =
- registerForActivityResult(ActivityResultContracts.CreateDocument("audio/mpeg")) { uri ->
- val origen = rutaExportacion
- if (uri != null && origen != null) {
- try {
- val salida = contentResolver.openOutputStream(uri)
-     ?: throw IllegalStateException("No se pudo abrir el destino de exportación.")
- salida.use { destino ->
- File(origen).inputStream().use { it.copyTo(destino) }
- }
- tvEstado.text = "Canción exportada en MP3 a 320 kbps."
- } catch (e: Exception) {
- tvEstado.text = "No se pudo guardar el MP3: ${e.message}"
- } finally {
- File(origen).delete()
- rutaExportacion = null
- }
- } else {
- origen?.let { File(it).delete() }
- rutaExportacion = null
- }
- }
+     registerForActivityResult(ActivityResultContracts.CreateDocument("audio/mpeg")) { uri ->
+         val origen = rutaExportacion
+         if (uri != null && origen != null) {
+             tvEstado.text = "Guardando MP3 en el destino elegido..."
+             Thread({
+                 val error = runCatching {
+                     val salida = contentResolver.openOutputStream(uri)
+                         ?: throw IllegalStateException("No se pudo abrir el destino de exportación.")
+                     salida.use { destino ->
+                         File(origen).inputStream().buffered().use { it.copyTo(destino) }
+                     }
+                 }.exceptionOrNull()
+                 File(origen).delete()
+                 runOnUiThread {
+                     rutaExportacion = null
+                     if (!isFinishing && !isDestroyed) {
+                         tvEstado.text = if (error == null) {
+                             "Canción exportada en MP3 a 320 kbps."
+                         } else {
+                             "No se pudo guardar el MP3: ${error.message}"
+                         }
+                     }
+                 }
+             }, "MusicalIA-MP3-Save").start()
+         } else {
+             origen?.let { File(it).delete() }
+             rutaExportacion = null
+         }
+     }
 
  override fun onCreate(savedInstanceState: Bundle?) {
  super.onCreate(savedInstanceState)
