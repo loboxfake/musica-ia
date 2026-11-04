@@ -59,7 +59,7 @@ object DescargadorModelos {
             connection.connect()
 
             val status = connection.responseCode
-            if (status == HttpURLConnection.HTTP_REQUESTED_RANGE_NOT_SATISFIABLE) {
+            if (status == 416) {
                 return false
             }
 
