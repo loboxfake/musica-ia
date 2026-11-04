@@ -1,7 +1,7 @@
 name: Build full offline APK
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: bardo-full-build-${{ github.ref }}
   cancel-in-progress: true
 
 on:
