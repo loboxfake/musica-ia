@@ -73,6 +73,7 @@ class MainActivity : AppCompatActivity() {
  private lateinit var estadoModelo: TextView
  private lateinit var progresoModelo: ProgressBar
  private var descargaEnCurso = false
+ private var modeloChatVerificado = false
 
  private var rutaInstrumental: String? = null
 
@@ -370,9 +371,10 @@ class MainActivity : AppCompatActivity() {
      tvEstado.text = "El orquestador está consultando el modelo local..."
      Thread({
          val respuesta = runCatching {
-             if (!LiteRTLMModule.verificarModelo(modelo)) {
+             if (!modeloChatVerificado && !LiteRTLMModule.verificarModelo(modelo)) {
                  throw IllegalStateException("La verificación SHA-256 del modelo no coincide.")
              }
+             modeloChatVerificado = true
              EngineLiteRT.inicializar(modelo.absolutePath, File(cacheDir, "litert-cache").absolutePath)
              val memoria = datosConver.entries.joinToString("\\n") { it.key + ": " + it.value }
              val contexto = chatLog.text.toString().takeLast(5000)
