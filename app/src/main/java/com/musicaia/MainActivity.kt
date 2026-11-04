@@ -16,20 +16,23 @@ import android.widget.ProgressBar
 import android.widget.RadioGroup
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.widget.addTextChangedListener
 import com.musicaia.modelo.Dato
 import com.musicaia.modulos.GrabadoraWav
 import com.musicaia.modulos.LectorWav
 import com.musicaia.modulos.MezclaVoz
-import com.musicaia.modulos.ModuloInstrumental
 import com.musicaia.modulos.ModuloLetra
-import com.musicaia.modulos.ModuloPortada
 import com.musicaia.modelo.Orquestador
 import java.io.File
 import java.io.FileOutputStream
 import java.text.Normalizer
 import com.musicaia.modulos.ModuloMezcla
+import com.musicaia.modulos.DescargadorModelos
+import com.musicaia.modulos.litert.EngineLiteRT
+import com.musicaia.modulos.litert.LiteRTLMModule
 
 class MainActivity : AppCompatActivity() {
  private val etiqueta = "MusicaIA"
@@ -61,13 +64,17 @@ class MainActivity : AppCompatActivity() {
  private lateinit var tvResultado: TextView
  private lateinit var imgPortada: ImageView
  private lateinit var progreso: ProgressBar
+ private lateinit var btnDescargarModelo: Button
+ private lateinit var estadoModelo: TextView
+ private lateinit var progresoModelo: ProgressBar
+ private var descargaEnCurso = false
 
  private var rutaInstrumental: String? = null
 
  private val datosConver = mutableMapOf<String, String>()
  private val camposRequeridos = listOf("tema", "estilo", "ambiente", "ritmo", "idioma")
  private val camposOpcionales = listOf("tipo", "vozFuente")
- private val notaIA = "Nota honesta: no hay modelo de IA conversacional cargado (modeloCargado = false en ModuloLetra). Esta conversación es guiada paso a paso, no generada por IA real."
+ private val notaIA = "La conversación recoge tus preferencias; la letra se genera con un modelo de lenguaje local en el teléfono."
 
  private val reloj = object : Runnable {
  override fun run() {
@@ -125,6 +132,9 @@ class MainActivity : AppCompatActivity() {
  tvResultado = findViewById(R.id.textoResultado)
  imgPortada = findViewById(R.id.imgPortada)
  progreso = findViewById(R.id.progreso)
+ btnDescargarModelo = findViewById(R.id.btnDescargarModelo)
+ estadoModelo = findViewById(R.id.estadoModelo)
+ progresoModelo = findViewById(R.id.progresoModelo)
 
  val anterior = Thread.getDefaultUncaughtExceptionHandler()
  Thread.setDefaultUncaughtExceptionHandler { hilo, error ->
@@ -136,9 +146,14 @@ class MainActivity : AppCompatActivity() {
  grupoModo.setOnCheckedChangeListener { _, id ->
  panelConversacion.visibility = if (id == R.id.modoConversacion) View.VISIBLE else View.GONE
  panelLetra.visibility = if (id == R.id.modoLetra) View.VISIBLE else View.GONE
+ actualizarUI()
+ actualizarEstadoModelo()
+ if (chatLog.text.isNullOrBlank()) chatLog.text = "MusicaIA: Vamos a preparar tu canción. ¿De qué quieres que trate?"
+ editLetra.addTextChangedListener { actualizarUI() }
  }
 
  btnEnviar.setOnClickListener { enviarConversacion() }
+ btnDescargarModelo.setOnClickListener { confirmarDescargaModelo() }
  btnGrabar.setOnClickListener { solicitarMicrofonoYAlternar() }
  btnElegirVoz.setOnClickListener { seleccionarArchivoVoz() }
  btnCrear.setOnClickListener { crearCancion() }
@@ -209,98 +224,136 @@ class MainActivity : AppCompatActivity() {
     if (texto.isEmpty()) return
     chatEntrada.text.clear()
 
-    // Modo "Mi letra" bypass: si está activo, no obligar conversación
     if (panelLetra.visibility == View.VISIBLE && editLetra.text.toString().trim().isNotEmpty()) {
-        chatLog.append("\nTú: $texto\nMusicaIA: Entendido. Usarás tu letra escrita (modo 'Mi letra'). Puedes seguir escribiendo tu letra en el panel.")
+        chatLog.append("\nTú: $texto\nMusicaIA: Estás en modo 'Mi letra'. Puedes seguir editando tu letra y después crearla.")
         return
     }
-    if (texto.equals("mi letra", ignoreCase = true) || texto.contains("mi letra") || texto.contains("texto propio")) {
+    if (texto.equals("mi letra", ignoreCase = true) || texto.contains("texto propio", ignoreCase = true)) {
         panelConversacion.visibility = View.GONE
         panelLetra.visibility = View.VISIBLE
-        chatLog.append("\nTú: $texto\nMusicaIA: Cambiado a modo 'Mi letra'. Escribe tu letra en el campo y luego pulsa Crear. No hay obligación de pasar por la conversación.")
+        chatLog.append("\nTú: $texto\nMusicaIA: Modo 'Mi letra' activado. Escribe o pega tu letra.")
+        actualizarUI()
         return
     }
 
     val lower = texto.lowercase()
-    var asignado = false
-
-    when {
-        lower.contains("tema") || lower.contains("historia") || lower.contains("sobre") || lower.contains("cuento") -> {
-            datosConver["tema"] = texto; asignado = true
+    if (lower in listOf("crear", "crear canción", "crear cancion", "sí", "si", "continuar")) {
+        val faltan = camposRequeridos.filter { datosConver[it].isNullOrBlank() }
+        if (faltan.isNotEmpty()) {
+            chatLog.append("\nTú: $texto\nMusicaIA: Antes necesito: ${faltan.joinToString(", ")}. ${preguntaParaCampo(faltan.first())}")
+            return
         }
-        lower.contains("estilo") || lower.contains("género") || lower.contains("pop") || lower.contains("rock") || lower.contains("balada") || lower.contains("electrónica") || lower.contains("rap") -> {
-            datosConver["estilo"] = texto; asignado = true
-        }
-        lower.contains("ánimo") || lower.contains("emoción") || lower.contains("alegre") || lower.contains("triste") || lower.contains("épico") || lower.contains("tranquilo") || lower.contains("ambiente") -> {
-            datosConver["ambiente"] = texto; asignado = true
-        }
-        lower.contains("ritmo") || lower.contains("velocidad") || lower.contains("lento") || lower.contains("rápido") || lower.contains("medio") -> {
-            datosConver["ritmo"] = texto; asignado = true
-        }
-        lower.contains("idioma") || lower.contains("español") || lower.contains("inglés") || lower.contains("francés") || lower.contains("portugués") -> {
-            datosConver["idioma"] = texto; asignado = true
-        }
-        lower.contains("voz") || lower.contains("cantada") || lower.contains("cantado") || lower.contains("instrumental") || lower.contains("sin voz") -> {
-            datosConver["tipo"] = if (lower.contains("instrumental") || lower.contains("sin voz")) "instrumental" else "con voz"; asignado = true
-        }
-        lower.contains("grabo") || lower.contains("grabar") || lower.contains("archivo") || lower.contains("mi voz") || lower.contains("voz mía") -> {
-            datosConver["vozFuente"] = if (lower.contains("archivo") || lower.contains("archivo de voz")) "archivo" else "grabada"; asignado = true
-        }
+        camposOpcionales.filter { datosConver[it].isNullOrBlank() }.forEach { datosConver[it] = "no especificado" }
+        btnCrear.isEnabled = true
+        tvEstado.text = "Datos completos. Pulsa Crear."
+        chatLog.append("\nTú: $texto\nMusicaIA: Perfecto. Ya tengo los datos. Puedes crear la letra.")
+        return
     }
 
-    if (!asignado) {
-        val primeroVacio = camposRequeridos.firstOrNull { datosConver[it].isNullOrBlank() }
-        if (primeroVacio != null) {
-            datosConver[primeroVacio] = texto; asignado = true
-        } else {
-            datosConver["tema"] = texto
-        }
+    val etiqueta = Regex("(?i)^(tema|estilo|ambiente|ritmo|idioma|tipo|voz)\\s*[:=]\\s*(.+)$").matchEntire(texto)
+    val cambio = Regex("(?i)^(?:cambiar|cambia|modificar|modifica)\\s+(tema|estilo|ambiente|ritmo|idioma|tipo|voz)\\s+(?:a|por)\\s+(.+)$").matchEntire(texto)
+    val campoExplicito = cambio?.groupValues?.get(1)?.lowercase()
+        ?: etiqueta?.groupValues?.get(1)?.lowercase()
+    val valorExplicito = cambio?.groupValues?.get(2) ?: etiqueta?.groupValues?.get(2)
+    val campo = when (campoExplicito) {
+        "voz" -> "vozFuente"
+        else -> campoExplicito
+    } ?: (camposRequeridos + camposOpcionales).firstOrNull { datosConver[it].isNullOrBlank() }
+
+    if (campo == null) {
+        chatLog.append("\nTú: $texto\nMusicaIA: Ya están todos los campos. Escribe 'crear' o indica, por ejemplo, 'cambiar tema a ...'.")
+        return
     }
 
-    val faltanRequeridos = camposRequeridos.filter { datosConver[it].isNullOrBlank() }
-    val faltanOpcionales = camposOpcionales.filter { datosConver[it].isNullOrBlank() }
-    val resumenCampos = datosConver.map { (k,v) -> "- $k: $v" }.joinToString("\n")
+    var valor = (valorExplicito ?: texto).trim()
+    if (campo == "tipo" && lower == "ambas") valor = "ambas (voz e instrumental)"
+    if (campo == "tipo" && (lower == "ninguna" || lower == "solo instrumental")) valor = "solo instrumental"
+    if (campo == "vozFuente" && lower == "ninguna") valor = "ninguna"
+    if (campo == "vozFuente" && (lower.contains("archivo") || lower.contains("fichero"))) valor = "archivo de voz"
+    if (campo == "vozFuente" && lower.contains("grabar")) valor = "voz grabada"
+    datosConver[campo] = valor
 
-    val mensajeMusicaIA = when {
-        faltanRequeridos.isNotEmpty() -> {
-            val siguiente = faltanRequeridos.first()
-            val preguntaSiguiente = when (siguiente) {
-                "tema" -> "¿De qué quieres que trate la canción? (tema o historia)"
-                "estilo" -> "¿Qué estilo o género musical prefieres? (pop, rock, balada, electrónica...)"
-                "ambiente" -> "¿Qué ambiente o emoción buscas? (alegre, triste, épico, tranquilo...)"
-                "ritmo" -> "¿Qué ritmo o velocidad? (lento, medio, rápido)"
-                "idioma" -> "¿En qué idioma quieres la letra? (español, inglés...)"
-                else -> "¿Algo más?"
-            }
-            "He anotado: $texto. $notaIA\nSiguiente: $preguntaSiguiente"
-        }
-        faltanOpcionales.isNotEmpty() -> {
-            val siguiente = faltanOpcionales.first()
-            val preguntaSiguiente = when (siguiente) {
-                "tipo" -> "¿Quieres voz cantada, solo instrumental, o ambas?"
-                "vozFuente" -> "¿Usarás tu voz grabada, un archivo de voz, o ninguna?"
-                else -> "¿Algo más?"
-            }
-            "He anotado: $texto. $notaIA\nDatos actuales:\n$resumenCampos\nSiguiente: $preguntaSiguiente"
-        }
-        else -> {
-            btnCrear.isEnabled = true
-            tvEstado.text = "Conversación completa. Revisa el resumen y pulsa Crear."
-            "Resumen de la canción:\n$resumenCampos\n$notaIA\n¿Quieres crear la canción o cambiar algo? Escribe 'cambio' o 'crear'."
-        }
+    val siguiente = (camposRequeridos + camposOpcionales).firstOrNull { datosConver[it].isNullOrBlank() }
+    val mensaje = if (siguiente != null) {
+        "Anotado en '$campo': $valor. ${preguntaParaCampo(siguiente)}"
+    } else {
+        btnCrear.isEnabled = true
+        tvEstado.text = "Datos completos. Pulsa Crear."
+        val resumen = (camposRequeridos + camposOpcionales).joinToString("\n") { "- $it: ${datosConver[it]}" }
+        "Resumen de la canción:\n$resumen\n$notaIA\nEscribe 'crear' o cambia un campo indicando su nombre."
     }
+    chatLog.append("\nTú: $texto\nMusicaIA: $mensaje")
+}
 
-    chatLog.append("\nTú: $texto\nMusicaIA: $mensajeMusicaIA")
-    if (texto.equals("crear", ignoreCase = true) || texto.equals("sí", ignoreCase = true) || texto.equals("continuar", ignoreCase = true)) {
-        if (faltanRequeridos.isEmpty() && faltanOpcionales.isEmpty()) {
-            btnCrear.isEnabled = true
-            tvEstado.text = "Conversación completa. Puedes crear la canción."
-        }
-    }
+ private fun preguntaParaCampo(campo: String): String = when (campo) {
+    "tema" -> "¿De qué quieres que trate la canción?"
+    "estilo" -> "¿Qué estilo musical prefieres (pop, rock, rap, balada, electrónica...)?"
+    "ambiente" -> "¿Qué ambiente o emoción buscas?"
+    "ritmo" -> "¿Qué ritmo prefieres: lento, medio o rápido?"
+    "idioma" -> "¿En qué idioma quieres la letra?"
+    "tipo" -> "¿Quieres voz, instrumental o ambas?"
+    "vozFuente" -> "¿Usarás una voz grabada, un archivo de voz o ninguna?"
+    else -> "¿Qué dato quieres añadir?"
 }
 
  private fun actualizarUI() {
- btnCrear.isEnabled = true
+     btnCrear.isEnabled = editLetra.text.toString().isNotBlank() ||
+         camposRequeridos.all { !datosConver[it].isNullOrBlank() }
+ }
+
+ private fun actualizarEstadoModelo() {
+     val file = LiteRTLMModule.modelFile(this)
+     val disponible = file.isFile && file.length() == LiteRTLMModule.EXPECTED_SIZE_BYTES
+     estadoModelo.text = if (disponible) {
+         "Modelo local descargado. Se verificará SHA-256 antes de cargarlo."
+     } else {
+         "Modelo de letras no descargado. La descarga inicial requiere Internet; después funciona sin nube."
+     }
+ }
+
+ private fun confirmarDescargaModelo() {
+     if (descargaEnCurso) return
+     AlertDialog.Builder(this)
+         .setTitle("Descargar modelo local")
+         .setMessage("Se descargará Qwen3 0.6B (498 MB) al almacenamiento privado de la app. La descarga se puede reanudar y se comprobará tamaño y SHA-256. Después, la generación de letras se ejecutará en el teléfono sin nube.")
+         .setNegativeButton("Cancelar", null)
+         .setPositiveButton("Descargar") { _, _ -> iniciarDescargaModelo() }
+         .show()
+ }
+
+ private fun iniciarDescargaModelo() {
+     if (descargaEnCurso) return
+     descargaEnCurso = true
+     btnDescargarModelo.isEnabled = false
+     progresoModelo.visibility = View.VISIBLE
+     progresoModelo.progress = 0
+     estadoModelo.text = "Descargando modelo local..."
+     Thread {
+         val destino = LiteRTLMModule.modelFile(this)
+         val correcto = DescargadorModelos.descargar(
+             url = LiteRTLMModule.MODEL_URL,
+             destino = destino,
+             shaEsperado = LiteRTLMModule.EXPECTED_SHA256,
+             confirmar = true,
+             progreso = { descargado, total ->
+                 if (total > 0L) {
+                     val porcentaje = ((descargado * 1000L) / total).toInt().coerceIn(0, 1000)
+                     runOnUiThread { progresoModelo.progress = porcentaje }
+                 }
+             },
+             tamanoEsperadoBytes = LiteRTLMModule.EXPECTED_SIZE_BYTES
+         )
+         runOnUiThread {
+             descargaEnCurso = false
+             btnDescargarModelo.isEnabled = true
+             progresoModelo.visibility = View.GONE
+             if (correcto) {
+                 estadoModelo.text = "Modelo descargado y SHA-256 verificado. Ya puedes generar letras sin Internet."
+             } else {
+                 estadoModelo.text = "No se pudo validar la descarga. Comprueba espacio libre y conexión; puedes reintentar."
+             }
+         }
+     }.start()
  }
 
  private fun guardarFallo(error: Throwable) {
@@ -329,10 +382,22 @@ class MainActivity : AppCompatActivity() {
  handler.removeCallbacks(reloj)
  try { grabadora?.detener() } catch (_: Exception) { }
  try { player?.release() } catch (_: Exception) { }
+ EngineLiteRT.cerrarAsync()
  }
 
  private fun crearCancion() {
  if (ocupado) return
+ val letraManual = editLetra.text.toString().trim()
+ val modelo = LiteRTLMModule.modelFile(this)
+ if (letraManual.isBlank() && (!modelo.isFile || modelo.length() != LiteRTLMModule.EXPECTED_SIZE_BYTES)) {
+     tvEstado.text = "Primero descarga el modelo local de letras (498 MB)."
+     return
+ }
+ if (panelConversacion.visibility == View.VISIBLE &&
+     camposRequeridos.any { datosConver[it].isNullOrBlank() }) {
+     tvEstado.text = "Completa tema, estilo, ambiente, ritmo e idioma antes de crear."
+     return
+ }
  ocupado = true
  btnCrear.isEnabled = false
  btnReproducir.visibility = View.GONE
@@ -342,7 +407,7 @@ class MainActivity : AppCompatActivity() {
  tvResultado.text = ""
  segundos = 0
  tvTiempo.text = "Tiempo: 0s"
- tvEstadoVoz.text = if (rutaVoz != null) "Voz seleccionada" else "Sin voz: se creará solo el instrumental."
+ tvEstadoVoz.text = if (rutaVoz != null) "Voz seleccionada; el canto IA todavía no está integrado." else "Canto IA e instrumental generativo: integración pendiente."
  handler.removeCallbacks(reloj)
  handler.postDelayed(reloj, 1000)
 
@@ -362,7 +427,7 @@ class MainActivity : AppCompatActivity() {
      if (tipo.isNotEmpty()) append(" Tipo: $tipo.")
      if (vozFuente.isNotEmpty()) append(" Voz: $vozFuente.")
  }
- val entrada = Dato.Texto(entradaTexto)
+ val entrada = Dato.Texto(if (letraManual.isNotEmpty()) "[LETRA_USUARIO]\n$letraManual\n\n$entradaTexto" else entradaTexto)
 
  val rutaInstPorDefecto = File(filesDir, "instrumental_2min.wav").absolutePath
  if (rutaInstrumental == null && File(rutaInstPorDefecto).exists()) rutaInstrumental = rutaInstPorDefecto
@@ -396,9 +461,7 @@ class MainActivity : AppCompatActivity() {
  }
 
  val modulos: List<com.musicaia.modelo.ModuloIA> = listOf(
- com.musicaia.modulos.ModuloLetra(this),
- com.musicaia.modulos.ModuloPortada(this),
- com.musicaia.modulos.ModuloInstrumental(this)
+     ModuloLetra(this)
  )
  Thread {
  try {
@@ -444,7 +507,7 @@ class MainActivity : AppCompatActivity() {
  }
  }
  tvResultado.text = sb.toString()
- tvEstado.text = "Completado en ${segundos}s"
+ tvEstado.text = "Letra generada con IA local en ${segundos}s. Instrumental, canto y portada siguen pendientes."
  }
 
  private fun mostrarError(e: Exception) {
