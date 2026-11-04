@@ -12,7 +12,7 @@ object LiteRTLMModule {
     const val EXPECTED_SIZE_BYTES = 2_588_147_712L
     const val EXPECTED_SHA256 = "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c1"
     const val MODEL_URL =
-        "https://huggingface.co/litert-community/Qwen3-0.6B/resolve/$COMMIT_SHA/$MODEL_FILENAME"
+        "https://huggingface.co/$REPO/resolve/$COMMIT_SHA/$MODEL_FILENAME"
 
     fun modelFile(context: Context): File =
         File(File(context.filesDir, "models"), MODEL_FILENAME)
