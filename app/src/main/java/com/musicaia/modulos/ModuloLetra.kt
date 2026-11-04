@@ -28,7 +28,7 @@ class ModuloLetra(context: Context, private val modoManual: Boolean = false) : M
         val solicitud = (entrada as? Dato.Texto)?.texto
             ?: throw IllegalArgumentException("La generación de letra necesita datos de texto.")
         if (modoManual && solicitud.startsWith("[LETRA_USUARIO]")) {
-            return Dato.Texto(solicitud.substringAfter("[LETRA_USUARIO]").trim())
+            return Dato.Texto(solicitud.substringAfter("[LETRA_USUARIO]").substringBefore("\n\nTema:").trim())
         }
         return Dato.Texto(ConversacionLiteRT.solicitarLetra(solicitud))
     }
