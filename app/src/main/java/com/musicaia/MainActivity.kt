@@ -44,6 +44,7 @@ class MainActivity : AppCompatActivity() {
  private var segundos = 0
  private var ocupado = false
  private var player: MediaPlayer? = null
+ private var playerPreparing = false
  private var rutaAudio: String? = null
  private var rutaExportacion: String? = null
  private var rutaVoz: String? = null
@@ -875,21 +876,44 @@ class MainActivity : AppCompatActivity() {
  }
 
  private fun reproducir() {
- val ruta = rutaAudio ?: return
- try {
- if (player == null) {
- player = MediaPlayer().apply {
- setDataSource(applicationContext, Uri.fromFile(File(ruta)))
- prepare()
- start()
- setOnCompletionListener { stop(); reset() }
- }
- } else if (!player!!.isPlaying) {
- player!!.start()
- }
- } catch (e: Exception) {
- tvEstado.text = "No se pudo reproducir: ${e.message}"
- }
+     val ruta = rutaAudio ?: return
+     if (playerPreparing) return
+     try {
+         player?.release()
+         player = null
+         val nuevo = MediaPlayer()
+         player = nuevo
+         playerPreparing = true
+         nuevo.setDataSource(applicationContext, Uri.fromFile(File(ruta)))
+         nuevo.setOnPreparedListener { preparado ->
+             playerPreparing = false
+             if (!isFinishing && !isDestroyed && player === preparado) {
+                 preparado.start()
+                 tvEstado.text = "Reproduciendo creación..."
+             } else {
+                 preparado.release()
+             }
+         }
+         nuevo.setOnCompletionListener { terminado ->
+             playerPreparing = false
+             terminado.release()
+             if (player === terminado) player = null
+             if (!isFinishing && !isDestroyed) tvEstado.text = "Reproducción finalizada."
+         }
+         nuevo.setOnErrorListener { fallido, what, extra ->
+             playerPreparing = false
+             fallido.release()
+             if (player === fallido) player = null
+             if (!isFinishing && !isDestroyed) tvEstado.text = "Error de reproducción ($what/$extra)."
+             true
+         }
+         nuevo.prepareAsync()
+     } catch (e: Exception) {
+         playerPreparing = false
+         runCatching { player?.release() }
+         player = null
+         tvEstado.text = "No se pudo reproducir: ${e.message}"
+     }
  }
 
  private fun guardarCancion() {
