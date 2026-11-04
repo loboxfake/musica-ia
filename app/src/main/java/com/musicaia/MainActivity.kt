@@ -68,8 +68,9 @@ class MainActivity : AppCompatActivity() {
              val inicioTarea = prefs.getLong("started_at", 0L)
              val referenciaLatido = if (ultimoLatido > 0L) ultimoLatido else inicioTarea
              if (referenciaLatido > 0L && System.currentTimeMillis() - referenciaLatido > 25_000L) {
-                 val detalleSalida = detalleSalidaProcesoAudio()
-                 val mensaje = "El proceso aislado del motor de audio se detuvo inesperadamente. $detalleSalida BARDO ha protegido la interfaz; no se ha confirmado ningún audio."
+                 val pidTarea = prefs.getInt("process_pid", -1)
+                 val detalleSalida = detalleSalidaProcesoAudio(inicioTarea, pidTarea)
+                 val mensaje = "La tarea de audio dejó de enviar señales de vida. $detalleSalida BARDO ha protegido la interfaz; no se ha confirmado ningún audio."
                  prefs.edit().putString(BardoTaskService.KEY_STATE, "interrupted")
                      .putString(BardoTaskService.KEY_MESSAGE, mensaje).apply()
                  archivoLatidoTarea.delete()
@@ -797,22 +798,27 @@ class MainActivity : AppCompatActivity() {
      }.start()
  }
 
- private fun detalleSalidaProcesoAudio(): String {
+ private fun detalleSalidaProcesoAudio(inicioTareaMs: Long, pidTarea: Int): String {
      if (android.os.Build.VERSION.SDK_INT < 30) return "Android no ofrece detalles de salida en esta versión."
+     if (inicioTareaMs <= 0L || pidTarea <= 0) return "No hay datos suficientes para atribuir una salida a esta tarea."
      return runCatching {
          val manager = getSystemService(android.app.ActivityManager::class.java)
-         val salida = manager.getHistoricalProcessExitReasons(packageName, 0, 8)
-             .firstOrNull { it.processName == "$packageName:audio" }
-         if (salida == null) return@runCatching "Android no conservó el motivo de salida."
+         val salida = manager.getHistoricalProcessExitReasons(packageName, pidTarea, 16)
+             .asSequence()
+             .filter { it.processName == "\$packageName:audio" }
+             .filter { it.pid == pidTarea && it.timestamp >= inicioTareaMs }
+             .maxByOrNull { it.timestamp }
+         if (salida == null) return@runCatching "Android no registra una salida reciente del proceso de audio correspondiente a esta tarea; no se atribuye un motivo antiguo."
          val motivo = when (salida.reason) {
              android.app.ApplicationExitInfo.REASON_LOW_MEMORY -> "Android terminó el proceso por falta de memoria."
-             android.app.ApplicationExitInfo.REASON_CRASH_NATIVE -> "Android registró un fallo nativo del motor de audio."
+             android.app.ApplicationExitInfo.REASON_CRASH_NATIVE -> "Android registró un fallo nativo del proceso de audio."
              android.app.ApplicationExitInfo.REASON_CRASH -> "Android registró una excepción no controlada en el proceso de audio."
              android.app.ApplicationExitInfo.REASON_ANR -> "Android registró un bloqueo prolongado del proceso de audio."
-             else -> "Motivo de salida Android: ${salida.reason}."
+             android.app.ApplicationExitInfo.REASON_PACKAGE_UPDATED -> "Android terminó el proceso porque se actualizó el paquete BARDO; esto no demuestra un fallo del motor."
+             else -> "Android registró el motivo de salida \${salida.reason} para el proceso de audio."
          }
          val descripcion = salida.description?.take(240).orEmpty()
-         if (descripcion.isBlank()) motivo else "$motivo Detalle: $descripcion"
+         if (descripcion.isBlank()) motivo else "\$motivo Detalle: \$descripcion"
      }.getOrDefault("No se pudo consultar el motivo de salida del proceso de audio.")
  }
 
