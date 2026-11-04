@@ -378,10 +378,10 @@ class MainActivity : AppCompatActivity() {
 
 
  private fun responderConOrquestador(textoUsuario: String, respuestaGuiada: String) {
-     anexarChat("\\nTú: $textoUsuario")
+     anexarChat("\nTú: $textoUsuario")
      val modelo = LiteRTLMModule.modelFile(this)
      if (!modelo.isFile || modelo.length() != LiteRTLMModule.EXPECTED_SIZE_BYTES) {
-         anexarChat("\\nMusicalIA: $respuestaGuiada")
+         anexarChat("\nMusicalIA: $respuestaGuiada")
          return
      }
      btnEnviar.isEnabled = false
@@ -393,7 +393,7 @@ class MainActivity : AppCompatActivity() {
              }
              modeloChatVerificado = true
              EngineLiteRT.inicializar(modelo.absolutePath, File(cacheDir, "litert-cache").absolutePath)
-             val memoria = datosConver.entries.joinToString("\\n") { it.key + ": " + it.value }
+             val memoria = datosConver.entries.joinToString("\n") { it.key + ": " + it.value }
              val contexto = chatLog.text.toString().takeLast(5000)
              val prompt = """
                  Eres MusicalIA Core, un asistente conversacional que coordina un estudio musical local.
@@ -414,7 +414,7 @@ class MainActivity : AppCompatActivity() {
          runOnUiThread {
              btnEnviar.isEnabled = true
              if (isFinishing || isDestroyed) return@runOnUiThread
-             anexarChat("\\nMusicalIA: ${respuesta ?: respuestaGuiada}")
+             anexarChat("\nMusicalIA: ${respuesta ?: respuestaGuiada}")
              tvEstado.text = if (respuesta != null) "Respuesta generada por Gemma local." else "Modo guiado disponible; el modelo local no pudo responder."
          }
      }, "MusicalIA-Orquestador-Chat").start()
