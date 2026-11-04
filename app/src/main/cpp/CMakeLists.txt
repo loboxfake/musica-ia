@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: Copyright 2025 Arm Limited and/or its affiliates
 # SPDX-License-Identifier: Apache-2.0
 #
-cmake_minimum_required(VERSION 3.22.1)
+cmake_minimum_required(VERSION 3.29)
 project(audiogen_runner LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
