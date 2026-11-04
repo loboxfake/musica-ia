@@ -52,7 +52,7 @@ object EngineLiteRT {
         executor.submit<String> {
             val actual = conversation ?: throw IllegalStateException("El modelo local no está cargado.")
             try {
-                actual.sendMessage(prompt).toString()
+                actual.sendMessage(prompt, maxOutputToken = 900).toString()
             } catch (error: Throwable) {
                 if (!backendGpu) throw error
                 val path = modelPath ?: throw error
@@ -67,7 +67,7 @@ object EngineLiteRT {
                     engine = cpu
                     conversation = nuevaConversacion
                     backendGpu = false
-                    nuevaConversacion.sendMessage(prompt).toString()
+                    nuevaConversacion.sendMessage(prompt, maxOutputToken = 900).toString()
                 } catch (cpuError: Throwable) {
                     if (inicializado && engine !== cpu) runCatching { cpu.close() }
                     throw cpuError
