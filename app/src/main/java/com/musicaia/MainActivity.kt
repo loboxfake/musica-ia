@@ -76,6 +76,7 @@ class MainActivity : AppCompatActivity() {
  private var modeloChatVerificado = false
  private var configuracionInterfazPendiente = ""
  private var accentColorUI = "#70D8FF"
+ private var navActivoId = R.id.navOrquestador
 
  private var rutaInstrumental: String? = null
 
@@ -235,9 +236,10 @@ class MainActivity : AppCompatActivity() {
          R.id.navSistema to R.id.seccionSistema
      )
      fun seleccionar(navId: Int) {
+         navActivoId = navId
          destinos.forEach { (id, sectionId) ->
              findViewById<TextView>(id).setTextColor(
-                 android.graphics.Color.parseColor(if (id == navId) "#70D8FF" else "#8FA2BE")
+                 android.graphics.Color.parseColor(if (id == navId) accentColorUI else "#8FA2BE")
              )
              findViewById<View>(sectionId).visibility =
                  if (id == navId) View.VISIBLE else View.GONE
@@ -327,6 +329,12 @@ class MainActivity : AppCompatActivity() {
      findViewById<TextView>(R.id.navSistema).text = navigation.optString("system", "⚙\nSistema").take(18)
      findViewById<TextView>(R.id.tvWelcomeTitle).setTextColor(android.graphics.Color.parseColor(acento))
      findViewById<TextView>(R.id.tvBrandName).setTextColor(android.graphics.Color.parseColor(acento))
+     listOf(R.id.navOrquestador, R.id.navCrear, R.id.navBiblioteca, R.id.navLaboratorio, R.id.navSistema)
+         .forEach { id ->
+             findViewById<TextView>(id).setTextColor(
+                 android.graphics.Color.parseColor(if (id == navActivoId) acento else "#8FA2BE")
+             )
+         }
  }
 
 
