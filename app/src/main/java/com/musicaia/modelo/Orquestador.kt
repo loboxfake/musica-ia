@@ -9,7 +9,9 @@ class Orquestador {
     private var cancelado = false
     private var isRunningFlag = false
     private var listener: ProgresoListener? = null
-    private val mainHandler = Handler(Looper.getMainLooper())
+    private val mainHandler: Handler? = runCatching {
+        Looper.getMainLooper()?.let { Handler(it) }
+    }.getOrNull()
 
     val isRunning: Boolean get() = isRunningFlag
 
@@ -30,7 +32,8 @@ class Orquestador {
     fun stop() { isRunningFlag = false }
 
     private fun postMain(action: () -> Unit) {
-        mainHandler.post(action)
+        val handler = mainHandler
+        if (handler != null) handler.post(action) else action()
     }
 
     fun ejecutarModulos(modulos: List<ModuloIA>, entradaInicial: Dato): List<Pair<String, Dato>> {
