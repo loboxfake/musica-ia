@@ -29,6 +29,7 @@ import com.musicaia.modelo.Orquestador
 import java.io.File
 import java.io.FileOutputStream
 import java.text.Normalizer
+import org.json.JSONObject
 import com.musicaia.modulos.ModuloMezcla
 import com.musicaia.modulos.AudioGenNative
 import com.musicaia.modulos.Mp3Exporter
@@ -131,6 +132,7 @@ class MainActivity : AppCompatActivity() {
  panelLetra = findViewById(R.id.panelLetra)
  chatLog = findViewById(R.id.chatLog)
  chatEntrada = findViewById(R.id.chatEntrada)
+ cargarMemoriaLocal()
  btnEnviar = findViewById(R.id.btnEnviar)
  editLetra = findViewById(R.id.editLetra)
  editIndicaciones = findViewById(R.id.editIndicaciones)
@@ -211,6 +213,36 @@ class MainActivity : AppCompatActivity() {
      seleccionar(R.id.navOrquestador)
  }
 
+
+ private fun cargarMemoriaLocal() {
+     val prefs = getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE)
+     prefs.getString("historial_chat", null)?.takeIf { it.isNotBlank() }?.let { chatLog.text = it }
+     val datos = prefs.getString("preferencias_creativas", null)
+     if (!datos.isNullOrBlank()) runCatching {
+         val json = JSONObject(datos)
+         json.keys().forEach { key -> datosConver[key] = json.getString(key) }
+     }.onFailure { Log.w(etiqueta, "No se pudo leer la memoria creativa local", it) }
+ }
+
+ private fun anexarChat(mensaje: String) {
+     chatLog.append(mensaje)
+     val limitado = chatLog.text.toString().takeLast(24000)
+     val preferencias = JSONObject()
+     datosConver.forEach { (key, value) -> preferencias.put(key, value) }
+     getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE).edit()
+         .putString("historial_chat", limitado)
+         .putString("preferencias_creativas", preferencias.toString())
+         .apply()
+ }
+
+ private fun guardarPreferenciasCreativas() {
+     val preferencias = JSONObject()
+     datosConver.forEach { (key, value) -> preferencias.put(key, value) }
+     getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE).edit()
+         .putString("preferencias_creativas", preferencias.toString())
+         .apply()
+ }
+
  private fun solicitarMicrofonoYAlternar() {
  if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
  == PackageManager.PERMISSION_GRANTED) {
@@ -265,13 +297,13 @@ class MainActivity : AppCompatActivity() {
     chatEntrada.text.clear()
 
     if (panelLetra.visibility == View.VISIBLE && editLetra.text.toString().trim().isNotEmpty()) {
-        chatLog.append("\nTú: $texto\nMusicaIA: Estás en modo 'Mi letra'. Puedes seguir editando tu letra y después crearla.")
+        anexarChat("\nTú: $texto\nMusicaIA: Estás en modo 'Mi letra'. Puedes seguir editando tu letra y después crearla.")
         return
     }
     if (texto.equals("mi letra", ignoreCase = true) || texto.contains("texto propio", ignoreCase = true)) {
         panelConversacion.visibility = View.GONE
         panelLetra.visibility = View.VISIBLE
-        chatLog.append("\nTú: $texto\nMusicaIA: Modo 'Mi letra' activado. Escribe o pega tu letra.")
+        anexarChat("\nTú: $texto\nMusicaIA: Modo 'Mi letra' activado. Escribe o pega tu letra.")
         actualizarUI()
         return
     }
@@ -280,13 +312,13 @@ class MainActivity : AppCompatActivity() {
     if (lower in listOf("crear", "crear canción", "crear cancion", "sí", "si", "continuar")) {
         val faltan = camposRequeridos.filter { datosConver[it].isNullOrBlank() }
         if (faltan.isNotEmpty()) {
-            chatLog.append("\nTú: $texto\nMusicaIA: Antes necesito: ${faltan.joinToString(", ")}. ${preguntaParaCampo(faltan.first())}")
+            anexarChat("\nTú: $texto\nMusicaIA: Antes necesito: ${faltan.joinToString(", ")}. ${preguntaParaCampo(faltan.first())}")
             return
         }
         camposOpcionales.filter { datosConver[it].isNullOrBlank() }.forEach { datosConver[it] = "no especificado" }
         btnCrear.isEnabled = true
         tvEstado.text = "Datos completos. Pulsa Crear."
-        chatLog.append("\nTú: $texto\nMusicaIA: Perfecto. Ya tengo los datos. Puedes crear la letra.")
+        anexarChat("\nTú: $texto\nMusicaIA: Perfecto. Ya tengo los datos. Puedes crear la letra.")
         return
     }
 
@@ -301,7 +333,7 @@ class MainActivity : AppCompatActivity() {
     } ?: (camposRequeridos + camposOpcionales).firstOrNull { datosConver[it].isNullOrBlank() }
 
     if (campo == null) {
-        chatLog.append("\nTú: $texto\nMusicaIA: Ya están todos los campos. Escribe 'crear' o indica, por ejemplo, 'cambiar tema a ...'.")
+        anexarChat("\nTú: $texto\nMusicaIA: Ya están todos los campos. Escribe 'crear' o indica, por ejemplo, 'cambiar tema a ...'.")
         return
     }
 
@@ -312,6 +344,7 @@ class MainActivity : AppCompatActivity() {
     if (campo == "vozFuente" && (lower.contains("archivo") || lower.contains("fichero"))) valor = "archivo de voz"
     if (campo == "vozFuente" && lower.contains("grabar")) valor = "voz grabada"
     datosConver[campo] = valor
+    guardarPreferenciasCreativas()
 
     val siguiente = (camposRequeridos + camposOpcionales).firstOrNull { datosConver[it].isNullOrBlank() }
     val mensaje = if (siguiente != null) {
@@ -322,7 +355,7 @@ class MainActivity : AppCompatActivity() {
         val resumen = (camposRequeridos + camposOpcionales).joinToString("\n") { "- $it: ${datosConver[it]}" }
         "Resumen de la canción:\n$resumen\n$notaIA\nEscribe 'crear' o cambia un campo indicando su nombre."
     }
-    chatLog.append("\nTú: $texto\nMusicaIA: $mensaje")
+    anexarChat("\nTú: $texto\nMusicaIA: $mensaje")
 }
 
  private fun preguntaParaCampo(campo: String): String = when (campo) {
