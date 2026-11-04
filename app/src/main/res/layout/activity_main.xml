@@ -112,6 +112,10 @@
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="17dp" android:layout_marginTop="9dp" android:background="@drawable/bg_panel">
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Sistema y personalización" android:textColor="#F3F7FF" android:textSize="18sp" android:textStyle="bold"/>
                     <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="7dp" android:text="Diseño modular · Procesamiento local · Control de almacenamiento · Actualizaciones y copias de seguridad." android:textColor="#9BAAC2" android:textSize="12sp" android:lineSpacingExtra="4dp"/>
+                    <Button android:id="@+id/btnBorrarMemoria" android:layout_width="match_parent"
+                        android:layout_height="48dp" android:layout_marginTop="12dp"
+                        android:text="Borrar memoria e historial local"
+                        android:textAllCaps="false"/>
                 </LinearLayout>
             </LinearLayout>
         </LinearLayout>
