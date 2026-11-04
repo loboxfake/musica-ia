@@ -92,7 +92,7 @@ jobs:
 
       - name: Build full APK with on-device audio model
         run: |
-          gradle assembleDebug -PwithAudioNative=true -PbardoVersionCode="$GITHUB_RUN_NUMBER" -PetSrcPath="$RUNNER_TEMP/executorch" 2>&1 | tee full-build.log
+          gradle assembleDebug -PwithAudioNative=true -PbardoVersionCode="$((1000 + GITHUB_RUN_NUMBER))" -PetSrcPath="$RUNNER_TEMP/executorch" 2>&1 | tee full-build.log
           status=${PIPESTATUS[0]}
           if [ "$status" -ne 0 ]; then
             grep -E "error:|CMake Error|FAILED|What went wrong" full-build.log | tail -100 || true
