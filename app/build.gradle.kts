@@ -16,6 +16,12 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         if (project.findProperty("withAudioNative") == "true") {
             ndk { abiFilters += "arm64-v8a" }
+            val etSrcPath = project.findProperty("etSrcPath")?.toString()
+            if (!etSrcPath.isNullOrBlank()) {
+                externalNativeBuild {
+                    cmake { arguments += listOf("-DET_SRC_PATH=$etSrcPath") }
+                }
+            }
         }
     }
 
@@ -34,10 +40,6 @@ android {
             cmake {
                 path = file("src/main/cpp/CMakeLists.txt")
                 version = "3.31.6"
-                val etSrcPath = project.findProperty("etSrcPath")?.toString()
-                if (!etSrcPath.isNullOrBlank()) {
-                    arguments += listOf("-DET_SRC_PATH=$etSrcPath")
-                }
             }
         }
         androidResources {
