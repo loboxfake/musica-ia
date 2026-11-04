@@ -3,6 +3,8 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+val bardoVersionCode = project.findProperty("bardoVersionCode")?.toString()?.toIntOrNull() ?: 1
+
 android {
     namespace = "com.musicaia"
     compileSdk = 34
@@ -11,8 +13,8 @@ android {
         applicationId = "com.musicaia"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = bardoVersionCode
+        versionName = "1.0.$bardoVersionCode"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         if (project.findProperty("withAudioNative") == "true") {
             ndk { abiFilters += "arm64-v8a" }

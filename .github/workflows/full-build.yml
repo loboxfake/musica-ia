@@ -5,12 +5,7 @@ concurrency:
   cancel-in-progress: true
 
 on:
-  push:
-    branches:
-      - ruta-a-compile
-    paths:
-      - app/**
-      - .github/workflows/full-build.yml
+  workflow_dispatch:
 
 permissions:
   actions: read
@@ -97,7 +92,7 @@ jobs:
 
       - name: Build full APK with on-device audio model
         run: |
-          gradle assembleDebug -PwithAudioNative=true -PetSrcPath="$RUNNER_TEMP/executorch" 2>&1 | tee full-build.log
+          gradle assembleDebug -PwithAudioNative=true -PbardoVersionCode="$GITHUB_RUN_ID" -PetSrcPath="$RUNNER_TEMP/executorch" 2>&1 | tee full-build.log
           status=${PIPESTATUS[0]}
           if [ "$status" -ne 0 ]; then
             grep -E "error:|CMake Error|FAILED|What went wrong" full-build.log | tail -100 || true
