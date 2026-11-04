@@ -114,7 +114,7 @@ class MainActivity : AppCompatActivity() {
                  require(contenido.isNotBlank()) { "El archivo está vacío." }
                  val prefs = getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE)
                  val anterior = prefs.getString("conocimiento_importado", "").orEmpty()
-                 val nuevo = (anterior + "\\n\\n--- Fuente importada ---\\n" + contenido).takeLast(50000)
+                 val nuevo = (anterior + "\n\n--- Fuente importada ---\n" + contenido).takeLast(50000)
                  prefs.edit().putString("conocimiento_importado", nuevo).apply()
                  actualizarEstadoConocimiento()
                  tvEstado.text = "Referencia importada. MusicalIA podrá consultarla cuando responda con Gemma local."
