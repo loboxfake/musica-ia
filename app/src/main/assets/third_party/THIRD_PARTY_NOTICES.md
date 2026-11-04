@@ -9,4 +9,4 @@ MusicalIA uses LAME 3.100 to encode local PCM WAV output into MP3. LAME is a sep
 - Upstream LAME project: https://lame.sourceforge.io/
 - License: GNU Library General Public License, version 2 (LGPL-2.0). The license text is included in `LAME-COPYING.txt`.
 
-The LAME source files retain their original copyright and license notices. The Android build links to LAME as a separate shared library rather than statically incorporating it into the application library.
+The LAME source files retain their original LGPL notices. The Android build adaptations are covered by the MIT notice in `libmp3lame-android-MIT.txt`. The Android build links to LAME as a separate shared library rather than statically incorporating it into the application library.
