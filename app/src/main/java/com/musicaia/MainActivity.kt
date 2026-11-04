@@ -41,7 +41,7 @@ import com.musicaia.modulos.litert.EngineLiteRT
 import com.musicaia.modulos.litert.LiteRTLMModule
 
 class MainActivity : AppCompatActivity() {
- private val etiqueta = "MusicaIA"
+ private val etiqueta = "BARDO"
  private val handler = Handler(Looper.getMainLooper())
  private var segundos = 0
  private var ocupado = false
@@ -93,7 +93,7 @@ class MainActivity : AppCompatActivity() {
  private val datosConver = mutableMapOf<String, String>()
  private val camposRequeridos = listOf("tema", "estilo", "ambiente", "ritmo", "idioma")
  private val camposOpcionales = listOf("tipo", "vozFuente")
- private val notaIA = "La conversación recoge tus preferencias; la letra se genera con un modelo de lenguaje local en el teléfono."
+ private val notaIA = "BARDO recoge tus preferencias; la letra se genera con un modelo de lenguaje local en el teléfono."
 
  private val reloj = object : Runnable {
  override fun run() {
@@ -135,7 +135,7 @@ class MainActivity : AppCompatActivity() {
                  val nuevo = (anterior + "\n\n--- Fuente importada ---\n" + contenido).takeLast(50000)
                  prefs.edit().putString("conocimiento_importado", nuevo).apply()
                  actualizarEstadoConocimiento()
-                 tvEstado.text = "Referencia importada. MusicalIA podrá consultarla cuando responda con Gemma local."
+                 tvEstado.text = "Referencia importada. BARDO podrá consultarla cuando responda con Gemma local."
              }.onFailure { tvEstado.text = "No se pudo importar la referencia: ${it.message}" }
          }
      }
@@ -191,7 +191,7 @@ class MainActivity : AppCompatActivity() {
                          }
                      }
                  }
-             }, "MusicalIA-MP3-Save").start()
+             }, "BARDO-MP3-Save").start()
          } else {
              origen?.let { File(it).delete() }
              rutaExportacion = null
@@ -611,7 +611,7 @@ class MainActivity : AppCompatActivity() {
      anexarChat("\nTú: $textoUsuario")
      val modelo = LiteRTLMModule.modelFile(this)
      if (!modelo.isFile || modelo.length() != LiteRTLMModule.EXPECTED_SIZE_BYTES) {
-         anexarChat("\nMusicalIA: $respuestaGuiada")
+         anexarChat("\nBARDO: $respuestaGuiada")
          return
      }
      // Capturar el estado de la UI en el hilo principal antes de iniciar el trabajador.
@@ -629,7 +629,7 @@ class MainActivity : AppCompatActivity() {
               modeloChatVerificado = true
               EngineLiteRT.inicializar(modelo.absolutePath, File(cacheDir, "litert-cache").absolutePath)
               val prompt = """
-                  Eres MusicalIA Core, un asistente conversacional que coordina un estudio musical local.
+                  Eres BARDO (B.A.R.D.O.: Binary Automated Rhythm and Digital Orchestration), la identidad principal y núcleo orquestador del estudio musical. Tu identidad y objetivos persisten entre sesiones. Evoluciona de forma gradual mediante memoria local, preferencias, conversaciones y conocimientos que el usuario autorice, así como modelos y skills verificados que se incorporen modularmente. No afirmes que entrenas tus pesos ni que has instalado capacidades que no están disponibles. Coordina los módulos especializados sin perder el contexto ni la identidad.
                   Reacciona en español con naturalidad y brevedad al último mensaje del usuario.
                   No inventes capacidades, resultados, modelos instalados ni tareas completadas.
                   No hagas preguntas ni solicites datos: el flujo guiado de la aplicación formulará el siguiente paso.
@@ -650,11 +650,11 @@ class MainActivity : AppCompatActivity() {
           runOnUiThread {
               btnEnviar.isEnabled = true
               if (isFinishing || isDestroyed) return@runOnUiThread
-              val comentario = respuesta?.let { "\nMusicalIA (Gemma local): $it" }.orEmpty()
-              anexarChat("$comentario\nMusicalIA (siguiente paso): $respuestaGuiada")
+              val comentario = respuesta?.let { "\nBARDO (Gemma local): $it" }.orEmpty()
+              anexarChat("$comentario\nBARDO (siguiente paso): $respuestaGuiada")
               tvEstado.text = if (respuesta != null) "Respuesta generada por Gemma local; siguiente paso guiado." else "Modo guiado disponible; el modelo local no pudo responder."
           }
-     }, "MusicalIA-Orquestador-Chat").start()
+     }, "BARDO-Orquestador-Chat").start()
  }
 
  private fun preguntaParaCampo(campo: String): String = when (campo) {
@@ -925,7 +925,7 @@ class MainActivity : AppCompatActivity() {
          runCatching {
              val carpeta = directorioBiblioteca()
              val marca = System.currentTimeMillis()
-             val destino = File(carpeta, "MusicalIA_$marca.wav")
+             val destino = File(carpeta, "BARDO_$marca.wav")
              origen.inputStream().use { entrada ->
                  destino.outputStream().buffered().use { salida -> entrada.copyTo(salida) }
              }
@@ -940,7 +940,7 @@ class MainActivity : AppCompatActivity() {
              destinoFinal?.let { rutaAudio = it.absolutePath }
              actualizarBiblioteca()
          }
-     }, "MusicalIA-Archivar").start()
+     }, "BARDO-Archivar").start()
  }
 
  private fun actualizarBiblioteca() {
@@ -1055,6 +1055,6 @@ class MainActivity : AppCompatActivity() {
              tvEstado.text = "No se pudo crear el MP3. El WAV original se conserva."
          }
      }
- }, "MusicaIA-MP3-Export").start()
+ }, "BARDO-MP3-Export").start()
  }
 }
