@@ -562,9 +562,10 @@ class MainActivity : AppCompatActivity() {
  private fun actualizarUI() {
      btnCrear.isEnabled = AudioGenNative.available && (if (modoSoloInstrumental) {
          editPromptInstrumental.text.toString().isNotBlank()
+     } else if (grupoModo.checkedRadioButtonId == R.id.modoLetra) {
+         editLetra.text.toString().isNotBlank()
      } else {
-         editLetra.text.toString().isNotBlank() ||
-             camposRequeridos.all { !datosConver[it].isNullOrBlank() }
+         camposRequeridos.all { !datosConver[it].isNullOrBlank() }
      })
  }
 
@@ -677,7 +678,7 @@ class MainActivity : AppCompatActivity() {
 
  private fun crearCancion() {
  if (ocupado) return
- val letraManual = editLetra.text.toString().trim()
+ val letraManual = if (grupoModo.checkedRadioButtonId == R.id.modoLetra) editLetra.text.toString().trim() else ""
  val modelo = LiteRTLMModule.modelFile(this)
  if (!AudioGenNative.available) {
      tvEstado.text = "Esta compilación no incluye el motor local completo de instrumental. Usa la APK offline."
