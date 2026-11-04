@@ -469,7 +469,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
         camposOpcionales.filter { datosConver[it].isNullOrBlank() }.forEach { datosConver[it] = "no especificado" }
-        btnCrear.isEnabled = true
+        actualizarUI()
         tvEstado.text = "Datos completos. Pulsa Crear."
         responderConOrquestador(texto, "Perfecto. Ya tengo los datos. Puedes crear la letra.")
         findViewById<TextView>(R.id.navCrear).performClick()
@@ -499,12 +499,13 @@ class MainActivity : AppCompatActivity() {
     if (campo == "vozFuente" && lower.contains("grabar")) valor = "voz grabada"
     datosConver[campo] = valor
     guardarPreferenciasCreativas()
+    actualizarUI()
 
     val siguiente = (camposRequeridos + camposOpcionales).firstOrNull { datosConver[it].isNullOrBlank() }
     val mensaje = if (siguiente != null) {
         "Anotado en '$campo': $valor. ${preguntaParaCampo(siguiente)}"
     } else {
-        btnCrear.isEnabled = true
+        actualizarUI()
         tvEstado.text = "Datos completos. Pulsa Crear."
         val resumen = (camposRequeridos + camposOpcionales).joinToString("\n") { "- $it: ${datosConver[it]}" }
         "Resumen de la canción:\n$resumen\n$notaIA\nEscribe 'crear' o cambia un campo indicando su nombre."
