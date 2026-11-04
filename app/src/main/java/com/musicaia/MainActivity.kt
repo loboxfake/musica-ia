@@ -415,21 +415,23 @@ class MainActivity : AppCompatActivity() {
  handler.removeCallbacks(reloj)
  handler.postDelayed(reloj, 1000)
 
- val tema = editLetra.text.toString().trim().ifEmpty { datosConver["tema"]?.trim()?.ifEmpty { "pop alegre" } ?: "pop alegre" }
- val estilo = editIndicaciones.text.toString().trim().ifEmpty { datosConver["estilo"]?.trim()?.ifEmpty { "verano" } ?: "verano" }
+ val tema = datosConver["tema"]?.trim()?.ifEmpty { "pop alegre" } ?: "pop alegre"
+ val estilo = datosConver["estilo"]?.trim()?.ifEmpty { "pop" } ?: "pop"
  val ambiente = datosConver["ambiente"] ?: ""
  val ritmo = datosConver["ritmo"] ?: ""
  val idioma = datosConver["idioma"] ?: ""
  val tipo = datosConver["tipo"] ?: ""
  val vozFuente = datosConver["vozFuente"] ?: ""
+ val instrucciones = editIndicaciones.text.toString().trim()
  val entradaTexto = buildString {
      append("Tema: $tema.")
-     if (estilo.isNotEmpty()) append(" Estilo: $estilo.")
+     append(" Estilo: $estilo.")
      if (ambiente.isNotEmpty()) append(" Ambiente: $ambiente.")
      if (ritmo.isNotEmpty()) append(" Ritmo: $ritmo.")
      if (idioma.isNotEmpty()) append(" Idioma: $idioma.")
      if (tipo.isNotEmpty()) append(" Tipo: $tipo.")
      if (vozFuente.isNotEmpty()) append(" Voz: $vozFuente.")
+     if (instrucciones.isNotEmpty()) append(" Indicaciones: $instrucciones.")
  }
  val entrada = Dato.Texto(if (letraManual.isNotEmpty()) "[LETRA_USUARIO]\n$letraManual\n\n$entradaTexto" else entradaTexto)
 
