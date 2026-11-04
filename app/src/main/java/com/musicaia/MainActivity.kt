@@ -75,6 +75,7 @@ class MainActivity : AppCompatActivity() {
  private var descargaEnCurso = false
  private var modeloChatVerificado = false
  private var configuracionInterfazPendiente = ""
+ private var accentColorUI = "#70D8FF"
 
  private var rutaInstrumental: String? = null
 
@@ -290,7 +291,7 @@ class MainActivity : AppCompatActivity() {
      json.put("subtitle", findViewById<TextView>(R.id.tvBrandSubtitle).text.toString())
      json.put("welcomeTitle", findViewById<TextView>(R.id.tvWelcomeTitle).text.toString())
      json.put("welcomeDescription", findViewById<TextView>(R.id.tvWelcomeDescription).text.toString())
-     json.put("accentColor", "#70D8FF")
+     json.put("accentColor", accentColorUI)
      json.put("navigation", JSONObject()
          .put("orchestrator", findViewById<TextView>(R.id.navOrquestador).text.toString())
          .put("create", findViewById<TextView>(R.id.navCrear).text.toString())
@@ -312,17 +313,18 @@ class MainActivity : AppCompatActivity() {
          json.optString(clave, defecto).trim().take(max).ifBlank { defecto }
      val acento = json.optString("accentColor", "#70D8FF")
          .takeIf { it.matches(Regex("^#[0-9A-Fa-f]{6}$")) } ?: "#70D8FF"
+     accentColorUI = acento
      findViewById<TextView>(R.id.tvBrandName).text = texto("brandName", "MUSICALIA", 24)
      findViewById<TextView>(R.id.tvBrandSubtitle).text = texto("subtitle", "TU ESTUDIO MUSICAL INTELIGENTE", 48)
      findViewById<TextView>(R.id.tvWelcomeTitle).text = texto("welcomeTitle", "¿Qué vamos a crear hoy?", 70)
      findViewById<TextView>(R.id.tvWelcomeDescription).text = texto("welcomeDescription",
          "Habla con tu orquestador. Él coordina los modelos y herramientas para convertir tus ideas en música.", 220)
      val navigation = json.optJSONObject("navigation") ?: JSONObject()
-     findViewById<TextView>(R.id.navOrquestador).text = navigation.optString("orchestrator", "✧\\nIA").take(18)
-     findViewById<TextView>(R.id.navCrear).text = navigation.optString("create", "♫\\nCrear").take(18)
-     findViewById<TextView>(R.id.navBiblioteca).text = navigation.optString("library", "▤\\nArchivo").take(18)
-     findViewById<TextView>(R.id.navLaboratorio).text = navigation.optString("lab", "◇\\nLab").take(18)
-     findViewById<TextView>(R.id.navSistema).text = navigation.optString("system", "⚙\\nSistema").take(18)
+     findViewById<TextView>(R.id.navOrquestador).text = navigation.optString("orchestrator", "✧\nIA").take(18)
+     findViewById<TextView>(R.id.navCrear).text = navigation.optString("create", "♫\nCrear").take(18)
+     findViewById<TextView>(R.id.navBiblioteca).text = navigation.optString("library", "▤\nArchivo").take(18)
+     findViewById<TextView>(R.id.navLaboratorio).text = navigation.optString("lab", "◇\nLab").take(18)
+     findViewById<TextView>(R.id.navSistema).text = navigation.optString("system", "⚙\nSistema").take(18)
      findViewById<TextView>(R.id.tvWelcomeTitle).setTextColor(android.graphics.Color.parseColor(acento))
      findViewById<TextView>(R.id.tvBrandName).setTextColor(android.graphics.Color.parseColor(acento))
  }
