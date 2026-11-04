@@ -67,9 +67,16 @@ jobs:
             exit 1
           fi
 
+      - name: Checkout pinned ExecuTorch source
+        run: |
+          git clone --no-checkout https://github.com/pytorch/executorch.git "$RUNNER_TEMP/executorch"
+          git -C "$RUNNER_TEMP/executorch" checkout 8c84780911e7f4e9eb19395181b04761392a4b56
+          git -C "$RUNNER_TEMP/executorch" submodule update --init --recursive
+          test "$(git -C "$RUNNER_TEMP/executorch" rev-parse HEAD)" = "8c84780911e7f4e9eb19395181b04761392a4b56"
+
       - name: Build full APK with on-device audio model
         run: |
-          gradle assembleDebug -PwithAudioNative=true 2>&1 | tee full-build.log
+          gradle assembleDebug -PwithAudioNative=true -PetSrcPath="$RUNNER_TEMP/executorch" 2>&1 | tee full-build.log
           status=${PIPESTATUS[0]}
           if [ "$status" -ne 0 ]; then
             grep -E "error:|CMake Error|FAILED|What went wrong" full-build.log | tail -100 || true

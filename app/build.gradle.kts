@@ -34,6 +34,10 @@ android {
             cmake {
                 path = file("src/main/cpp/CMakeLists.txt")
                 version = "3.31.6"
+                val etSrcPath = project.findProperty("etSrcPath")?.toString()
+                if (!etSrcPath.isNullOrBlank()) {
+                    arguments += listOf("-DET_SRC_PATH=$etSrcPath")
+                }
             }
         }
         androidResources {
