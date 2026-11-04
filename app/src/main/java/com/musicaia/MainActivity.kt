@@ -312,13 +312,13 @@ class MainActivity : AppCompatActivity() {
     if (lower in listOf("crear", "crear canción", "crear cancion", "sí", "si", "continuar")) {
         val faltan = camposRequeridos.filter { datosConver[it].isNullOrBlank() }
         if (faltan.isNotEmpty()) {
-            anexarChat("\nTú: $texto\nMusicaIA: Antes necesito: ${faltan.joinToString(", ")}. ${preguntaParaCampo(faltan.first())}")
+            responderConOrquestador(texto, "Antes necesito: ${faltan.joinToString(", ")}. ${preguntaParaCampo(faltan.first())}")
             return
         }
         camposOpcionales.filter { datosConver[it].isNullOrBlank() }.forEach { datosConver[it] = "no especificado" }
         btnCrear.isEnabled = true
         tvEstado.text = "Datos completos. Pulsa Crear."
-        anexarChat("\nTú: $texto\nMusicaIA: Perfecto. Ya tengo los datos. Puedes crear la letra.")
+        responderConOrquestador(texto, "Perfecto. Ya tengo los datos. Puedes crear la letra.")
         return
     }
 
@@ -333,7 +333,7 @@ class MainActivity : AppCompatActivity() {
     } ?: (camposRequeridos + camposOpcionales).firstOrNull { datosConver[it].isNullOrBlank() }
 
     if (campo == null) {
-        anexarChat("\nTú: $texto\nMusicaIA: Ya están todos los campos. Escribe 'crear' o indica, por ejemplo, 'cambiar tema a ...'.")
+        responderConOrquestador(texto, "Ya están todos los campos. Escribe 'crear' o indica, por ejemplo, 'cambiar tema a ...'.")
         return
     }
 
@@ -355,8 +355,51 @@ class MainActivity : AppCompatActivity() {
         val resumen = (camposRequeridos + camposOpcionales).joinToString("\n") { "- $it: ${datosConver[it]}" }
         "Resumen de la canción:\n$resumen\n$notaIA\nEscribe 'crear' o cambia un campo indicando su nombre."
     }
-    anexarChat("\nTú: $texto\nMusicaIA: $mensaje")
+    responderConOrquestador(texto, mensaje)
 }
+
+
+ private fun responderConOrquestador(textoUsuario: String, respuestaGuiada: String) {
+     anexarChat("\\nTú: $textoUsuario")
+     val modelo = LiteRTLMModule.modelFile(this)
+     if (!modelo.isFile || modelo.length() != LiteRTLMModule.EXPECTED_SIZE_BYTES) {
+         anexarChat("\\nMusicalIA: $respuestaGuiada")
+         return
+     }
+     btnEnviar.isEnabled = false
+     tvEstado.text = "El orquestador está consultando el modelo local..."
+     Thread({
+         val respuesta = runCatching {
+             if (!LiteRTLMModule.verificarModelo(modelo)) {
+                 throw IllegalStateException("La verificación SHA-256 del modelo no coincide.")
+             }
+             EngineLiteRT.inicializar(modelo.absolutePath, File(cacheDir, "litert-cache").absolutePath)
+             val memoria = datosConver.entries.joinToString("\\n") { it.key + ": " + it.value }
+             val contexto = chatLog.text.toString().takeLast(5000)
+             val prompt = """
+                 Eres MusicalIA Core, un asistente conversacional que coordina un estudio musical local.
+                 Responde en español, con naturalidad y brevedad. Conserva el contexto y respeta las preferencias indicadas.
+                 No inventes capacidades, resultados, modelos instalados ni tareas completadas.
+                 Si faltan datos para preparar una canción, pregunta solo por el siguiente dato que falta.
+                 Si el usuario ya dio un dato, no vuelvas a preguntarlo. Si cambia de opinión, acepta el cambio.
+                 No afirmes que puedes generar voz cantada clonada: esa función todavía no está integrada.
+                 Datos creativos guardados:
+                 $memoria
+                 Conversación reciente:
+                 $contexto
+                 Responde al último mensaje del usuario. Si la conversación requiere confirmar datos, termina con una sola pregunta concreta.
+             """.trimIndent()
+             EngineLiteRT.generar(prompt).substringAfter("</think>").trim().takeIf { it.isNotBlank() }
+                 ?: throw IllegalStateException("El modelo local devolvió una respuesta vacía.")
+         }.getOrNull()
+         runOnUiThread {
+             btnEnviar.isEnabled = true
+             if (isFinishing || isDestroyed) return@runOnUiThread
+             anexarChat("\\nMusicalIA: ${respuesta ?: respuestaGuiada}")
+             tvEstado.text = if (respuesta != null) "Respuesta generada por Gemma local." else "Modo guiado disponible; el modelo local no pudo responder."
+         }
+     }, "MusicalIA-Orquestador-Chat").start()
+ }
 
  private fun preguntaParaCampo(campo: String): String = when (campo) {
     "tema" -> "¿De qué quieres que trate la canción?"
