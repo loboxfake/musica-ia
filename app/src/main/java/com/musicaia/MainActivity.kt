@@ -170,6 +170,8 @@ class MainActivity : AppCompatActivity() {
 
  btnEnviar.setOnClickListener { enviarConversacion() }
  findViewById<Button>(R.id.btnBorrarMemoria).setOnClickListener { confirmarBorradoMemoria() }
+ findViewById<Button>(R.id.btnActualizarBiblioteca).setOnClickListener { actualizarBiblioteca() }
+ findViewById<Button>(R.id.btnBibliotecaReproducir).setOnClickListener { reproducirUltimoDeBiblioteca() }
  btnDescargarModelo.setOnClickListener { confirmarDescargaModelo() }
  btnGrabar.setOnClickListener { solicitarMicrofonoYAlternar() }
  btnElegirVoz.setOnClickListener { seleccionarArchivoVoz() }
@@ -609,6 +611,7 @@ class MainActivity : AppCompatActivity() {
  rutaAudio = dato.rutaWav
  if (id == "instrumental") rutaInstrumental = dato.rutaWav
  btnReproducir.visibility = View.VISIBLE
+ btnGuardar.visibility = View.VISIBLE
  }
  is Dato.Imagen -> {
  sb.append("[$id] Portada: ${dato.rutaPng}\n\n")
@@ -618,6 +621,8 @@ class MainActivity : AppCompatActivity() {
  }
  }
  tvResultado.text = sb.toString()
+ archivarCreacion(pasos)
+ actualizarBiblioteca()
  val tieneInstrumental = pasos.any { it.first == "instrumental" && it.second is Dato.Audio }
  tvEstado.text = when {
      tieneInstrumental && editLetra.text.toString().isNotBlank() -> "Letra propia e instrumental IA local generados en ${segundos}s. Canto IA y portada pendientes."
@@ -625,6 +630,57 @@ class MainActivity : AppCompatActivity() {
      editLetra.text.toString().isNotBlank() -> "Letra propia cargada en ${segundos}s. Instrumental, canto IA y portada pendientes."
      else -> "Letra generada con IA local en ${segundos}s. Instrumental, canto IA y portada pendientes."
  }
+ }
+
+
+ private fun directorioBiblioteca(): File = File(filesDir, "biblioteca").apply { mkdirs() }
+
+ private fun archivarCreacion(pasos: List<Pair<String, Dato>>) {
+     val origen = rutaAudio?.let(::File) ?: return
+     if (!origen.isFile || origen.length() <= 44L) return
+     runCatching {
+         val carpeta = directorioBiblioteca()
+         val marca = System.currentTimeMillis()
+         val destino = File(carpeta, "MusicalIA_$marca.wav")
+         origen.inputStream().use { entrada ->
+             destino.outputStream().buffered().use { salida -> entrada.copyTo(salida) }
+         }
+         pasos.firstOrNull { it.first == "letra" && it.second is Dato.Texto }?.let { (_, dato) ->
+             File(carpeta, "MusicalIA_$marca.txt").writeText((dato as Dato.Texto).texto)
+         }
+         rutaAudio = destino.absolutePath
+         Log.i(etiqueta, "Creación archivada: " + destino.name)
+     }.onFailure { Log.e(etiqueta, "No se pudo archivar la creación", it) }
+ }
+
+ private fun actualizarBiblioteca() {
+     val vista = findViewById<TextView>(R.id.tvBiblioteca)
+     val reproducirUltimo = findViewById<Button>(R.id.btnBibliotecaReproducir)
+     val archivos = directorioBiblioteca().listFiles { file ->
+         file.isFile && file.extension.equals("wav", ignoreCase = true)
+     }?.sortedByDescending { it.lastModified() }.orEmpty()
+     if (archivos.isEmpty()) {
+         vista.text = "Todavía no hay creaciones guardadas. Cuando generes un instrumental, aparecerá aquí."
+         reproducirUltimo.visibility = View.GONE
+         return
+     }
+     val resumen = archivos.take(12).joinToString("\n") { file ->
+         val mb = file.length() / (1024.0 * 1024.0)
+         "♫  " + file.nameWithoutExtension + " · %.1f MB".format(mb)
+     }
+     vista.text = "CREACIONES GUARDADAS · " + archivos.size + "\n\n" + resumen
+     reproducirUltimo.visibility = View.VISIBLE
+     reproducirUltimo.text = "Reproducir última creación"
+ }
+
+ private fun reproducirUltimoDeBiblioteca() {
+     val ultimo = directorioBiblioteca().listFiles { file ->
+         file.isFile && file.extension.equals("wav", ignoreCase = true)
+     }?.maxByOrNull { it.lastModified() } ?: return
+     rutaAudio = ultimo.absolutePath
+     btnGuardar.visibility = View.VISIBLE
+     btnReproducir.visibility = View.VISIBLE
+     reproducir()
  }
 
  private fun mostrarError(e: Exception) {
