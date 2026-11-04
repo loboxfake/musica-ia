@@ -498,4 +498,6 @@ int audiogen_cli_main(int32_t argc, char** argv) {
     ET_LOG(Info, "DiT Avg per step: %f ms", dit_avg_step_time);
     ET_LOG(Info, "AutoEncoder: %ld ms", autoencoder_exec_time);
     ET_LOG(Info, "Total execution time: %ld ms", total_exec_time);
+
+    return EXIT_SUCCESS;
 }
