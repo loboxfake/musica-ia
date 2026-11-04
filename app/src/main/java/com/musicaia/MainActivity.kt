@@ -124,6 +124,7 @@ class MainActivity : AppCompatActivity() {
  override fun onCreate(savedInstanceState: Bundle?) {
  super.onCreate(savedInstanceState)
  setContentView(R.layout.activity_main)
+ configurarNavegacion()
 
  grupoModo = findViewById(R.id.grupoModo)
  panelConversacion = findViewById(R.id.panelConversacion)
@@ -181,6 +182,33 @@ class MainActivity : AppCompatActivity() {
  }
 
  actualizarUI()
+ }
+
+
+ private fun configurarNavegacion() {
+     val scroll = findViewById<android.widget.ScrollView>(R.id.scrollMain)
+     val destinos = listOf(
+         R.id.navOrquestador to R.id.seccionOrquestador,
+         R.id.navCrear to R.id.seccionCrear,
+         R.id.navBiblioteca to R.id.seccionBiblioteca,
+         R.id.navLaboratorio to R.id.seccionLaboratorio,
+         R.id.navSistema to R.id.seccionSistema
+     )
+     fun seleccionar(navId: Int) {
+         destinos.forEach { (id, _) ->
+             findViewById<TextView>(id).setTextColor(
+                 android.graphics.Color.parseColor(if (id == navId) "#70D8FF" else "#8FA2BE")
+             )
+         }
+     }
+     destinos.forEach { (navId, sectionId) ->
+         findViewById<TextView>(navId).setOnClickListener {
+             val destino = findViewById<View>(sectionId)
+             scroll.post { scroll.smoothScrollTo(0, destino.top) }
+             seleccionar(navId)
+         }
+     }
+     seleccionar(R.id.navOrquestador)
  }
 
  private fun solicitarMicrofonoYAlternar() {
