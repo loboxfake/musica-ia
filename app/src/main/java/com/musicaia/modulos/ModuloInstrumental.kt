@@ -28,6 +28,17 @@ class ModuloInstrumental(
 
     override fun cargar(): Boolean {
         if (!AudioGenNative.available) return false
+        val memoryInfo = android.app.ActivityManager.MemoryInfo()
+        val activityManager = ctx.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+        activityManager.getMemoryInfo(memoryInfo)
+        val minimumAvailableBytes = 1536L * 1024L * 1024L
+        if (memoryInfo.lowMemory || memoryInfo.availMem < minimumAvailableBytes) {
+            android.util.Log.w(
+                "BARDO-AudioGen",
+                "Inferencia cancelada antes de cargar modelos: memoria disponible=${memoryInfo.availMem / (1024L * 1024L)} MiB"
+            )
+            return false
+        }
         val modelDir = File(ctx.filesDir, "stable_audio_model")
         if (!modelDir.exists() && !modelDir.mkdirs()) return false
 
