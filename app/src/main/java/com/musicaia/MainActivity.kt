@@ -794,7 +794,6 @@ class MainActivity : AppCompatActivity() {
  }
  tvResultado.text = sb.toString()
  archivarCreacion(pasos)
- actualizarBiblioteca()
  val tieneInstrumental = pasos.any { it.first == "instrumental" && it.second is Dato.Audio }
  tvEstado.text = if (modoSoloInstrumental) {
      "Instrumental IA local generado en ${segundos}s. La voz cantada IA sigue pendiente."
@@ -810,21 +809,32 @@ class MainActivity : AppCompatActivity() {
  private fun directorioBiblioteca(): File = File(filesDir, "biblioteca").apply { mkdirs() }
 
  private fun archivarCreacion(pasos: List<Pair<String, Dato>>) {
-     val origen = rutaAudio?.let(::File) ?: return
-     if (!origen.isFile || origen.length() <= 44L) return
-     runCatching {
-         val carpeta = directorioBiblioteca()
-         val marca = System.currentTimeMillis()
-         val destino = File(carpeta, "MusicalIA_$marca.wav")
-         origen.inputStream().use { entrada ->
-             destino.outputStream().buffered().use { salida -> entrada.copyTo(salida) }
+     val origen = rutaAudio?.let(::File)
+     if (origen == null || !origen.isFile || origen.length() <= 44L) {
+         actualizarBiblioteca()
+         return
+     }
+     Thread({
+         var destinoFinal: File? = null
+         runCatching {
+             val carpeta = directorioBiblioteca()
+             val marca = System.currentTimeMillis()
+             val destino = File(carpeta, "MusicalIA_$marca.wav")
+             origen.inputStream().use { entrada ->
+                 destino.outputStream().buffered().use { salida -> entrada.copyTo(salida) }
+             }
+             pasos.firstOrNull { it.first == "letra" && it.second is Dato.Texto }?.let { (_, dato) ->
+                 File(carpeta, "MusicalIA_$marca.txt").writeText((dato as Dato.Texto).texto)
+             }
+             destinoFinal = destino
+             Log.i(etiqueta, "Creación archivada: " + destino.name)
+         }.onFailure { Log.e(etiqueta, "No se pudo archivar la creación", it) }
+         runOnUiThread {
+             if (isFinishing || isDestroyed) return@runOnUiThread
+             destinoFinal?.let { rutaAudio = it.absolutePath }
+             actualizarBiblioteca()
          }
-         pasos.firstOrNull { it.first == "letra" && it.second is Dato.Texto }?.let { (_, dato) ->
-             File(carpeta, "MusicalIA_$marca.txt").writeText((dato as Dato.Texto).texto)
-         }
-         rutaAudio = destino.absolutePath
-         Log.i(etiqueta, "Creación archivada: " + destino.name)
-     }.onFailure { Log.e(etiqueta, "No se pudo archivar la creación", it) }
+     }, "MusicalIA-Archivar").start()
  }
 
  private fun actualizarBiblioteca() {
