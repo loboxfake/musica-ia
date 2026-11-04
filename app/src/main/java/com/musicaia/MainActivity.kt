@@ -710,7 +710,7 @@ class MainActivity : AppCompatActivity() {
 }
 
  private fun actualizarUI() {
-     btnCrear.isEnabled = AudioGenNative.available && (if (modoSoloInstrumental) {
+     btnCrear.isEnabled = !ocupado && AudioGenNative.available && (if (modoSoloInstrumental) {
          editPromptInstrumental.text.toString().isNotBlank()
      } else if (grupoModo.checkedRadioButtonId == R.id.modoLetra) {
          editLetra.text.toString().isNotBlank()
@@ -861,7 +861,11 @@ class MainActivity : AppCompatActivity() {
  }
 
  private fun crearCancion() {
- if (ocupado) return
+ if (ocupado) {
+     tvEstado.text = "BARDO ya tiene una tarea marcada como activa. Comprueba su estado antes de iniciar otra."
+     Log.w(etiqueta, "Se evitó iniciar una segunda tarea porque ocupado=true")
+     return
+ }
  val letraManual = if (grupoModo.checkedRadioButtonId == R.id.modoLetra) editLetra.text.toString().trim() else ""
  val modelo = LiteRTLMModule.modelFile(this)
  if (!AudioGenNative.available) {
@@ -988,10 +992,24 @@ class MainActivity : AppCompatActivity() {
      val prefs = getSharedPreferences(BardoTaskService.PREFS, MODE_PRIVATE)
      when (prefs.getString(BardoTaskService.KEY_STATE, "").orEmpty()) {
          "running" -> {
-             ocupado = true
-             grupoModo.isEnabled = false
-             btnCrear.isEnabled = false
-             tvEstado.text = "BARDO continúa trabajando en segundo plano. Consulta la notificación de la tarea."
+             val latido = runCatching { archivoLatidoTarea.readText().trim().toLong() }.getOrDefault(0L)
+             val inicio = prefs.getLong("started_at", 0L)
+             val referencia = if (latido > 0L) latido else inicio
+             val antiguedad = if (referencia > 0L) System.currentTimeMillis() - referencia else Long.MAX_VALUE
+             if (antiguedad > 25_000L) {
+                 val mensaje = "La tarea anterior no está activa: no hay señal reciente del motor. Se ha desbloqueado Crear; puedes volver a intentarlo."
+                 prefs.edit().putString(BardoTaskService.KEY_STATE, "interrupted")
+                     .putString(BardoTaskService.KEY_MESSAGE, mensaje).apply()
+                 archivoLatidoTarea.delete()
+                 ocupado = false
+                 grupoModo.isEnabled = true
+                 tvEstado.text = mensaje
+             } else {
+                 ocupado = true
+                 grupoModo.isEnabled = false
+                 btnCrear.isEnabled = false
+                 tvEstado.text = "BARDO continúa trabajando en segundo plano. Última señal hace ${antiguedad / 1000}s."
+             }
          }
          "completed" -> {
              val audio = prefs.getString(BardoTaskService.KEY_AUDIO, "").orEmpty()
