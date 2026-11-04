@@ -2,7 +2,7 @@
 
 ## Normal updates
 
-The `Build APK` workflow creates the normal, lightweight application update. It does not download or package the Stable Audio model pack. Each APK receives a monotonically increasing Android `versionCode` based on the GitHub Actions run ID, so Android recognizes it as an update rather than a downgrade.
+The `Build APK` workflow creates the normal, lightweight application update. It does not download or package the Stable Audio model pack. Each APK receives a monotonically increasing Android `versionCode` based on the GitHub Actions run number, so Android recognizes it as an update rather than a downgrade.
 
 Install normal updates over the existing BARDO installation. Android package updates preserve the app's private data directory (`filesDir`), including the extracted `stable_audio_model` directory and downloaded language models. Do not uninstall BARDO or clear its storage when updating, or those files will be removed.
 
