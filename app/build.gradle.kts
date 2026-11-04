@@ -14,6 +14,9 @@ android {
         versionCode = 1
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        if (project.findProperty("withAudioNative") == "true") {
+            ndk { abiFilters += "arm64-v8a" }
+        }
     }
 
     signingConfigs {
@@ -22,6 +25,19 @@ android {
             storePassword = "debug123"
             keyAlias = "debugkey"
             keyPassword = "debug123"
+        }
+    }
+
+    if (project.findProperty("withAudioNative") == "true") {
+        ndkVersion = "27.2.12479018"
+        externalNativeBuild {
+            cmake {
+                path = file("src/main/cpp/CMakeLists.txt")
+                version = "3.22.1"
+            }
+        }
+        androidResources {
+            noCompress += "pte"
         }
     }
 
