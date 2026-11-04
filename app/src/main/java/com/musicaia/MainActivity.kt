@@ -65,7 +65,9 @@ class MainActivity : AppCompatActivity() {
          val prefs = getSharedPreferences(BardoTaskService.PREFS, MODE_PRIVATE)
          if (prefs.getString(BardoTaskService.KEY_STATE, "").orEmpty() == "running") {
              val ultimoLatido = runCatching { archivoLatidoTarea.readText().trim().toLong() }.getOrDefault(0L)
-             if (ultimoLatido > 0L && System.currentTimeMillis() - ultimoLatido > 25_000L) {
+             val inicioTarea = prefs.getLong("started_at", 0L)
+             val referenciaLatido = if (ultimoLatido > 0L) ultimoLatido else inicioTarea
+             if (referenciaLatido > 0L && System.currentTimeMillis() - referenciaLatido > 25_000L) {
                  val mensaje = "El proceso aislado del motor de audio se detuvo inesperadamente. BARDO ha protegido la interfaz; no se ha confirmado ningún audio."
                  prefs.edit().putString(BardoTaskService.KEY_STATE, "interrupted")
                      .putString(BardoTaskService.KEY_MESSAGE, mensaje).apply()
@@ -902,9 +904,18 @@ class MainActivity : AppCompatActivity() {
  }
 
  try {
+     getSharedPreferences(BardoTaskService.PREFS, MODE_PRIVATE).edit()
+         .putString(BardoTaskService.KEY_STATE, "running")
+         .putString(BardoTaskService.KEY_MESSAGE, "BARDO está iniciando el proceso aislado de audio.")
+         .putLong("started_at", System.currentTimeMillis())
+         .apply()
      BardoTaskService.iniciar(this, if (modoSoloInstrumental) promptInstrumental else entradaTexto, letraManual, modoSoloInstrumental)
      tvEstado.text = "BARDO está trabajando. Puedes salir de la pantalla; la tarea continuará con su notificación."
  } catch (error: Exception) {
+     getSharedPreferences(BardoTaskService.PREFS, MODE_PRIVATE).edit()
+         .putString(BardoTaskService.KEY_STATE, "failed")
+         .putString(BardoTaskService.KEY_MESSAGE, error.message ?: "No se pudo iniciar el servicio de BARDO.")
+         .apply()
      ocupado = false
      grupoModo.isEnabled = true
      btnCrear.isEnabled = true
@@ -916,6 +927,14 @@ class MainActivity : AppCompatActivity() {
 
  private fun procesarActualizacionTarea(intent: Intent) {
      val estado = intent.getStringExtra(BardoTaskService.EXTRA_STATE).orEmpty()
+     val mensajeActual = intent.getStringExtra(BardoTaskService.EXTRA_MESSAGE).orEmpty()
+     val audioActual = intent.getStringExtra(BardoTaskService.EXTRA_AUDIO).orEmpty()
+     getSharedPreferences(BardoTaskService.PREFS, MODE_PRIVATE).edit()
+         .putString(BardoTaskService.KEY_STATE, estado)
+         .putString(BardoTaskService.KEY_MESSAGE, mensajeActual)
+         .apply {
+             if (audioActual.isNotBlank()) putString(BardoTaskService.KEY_AUDIO, audioActual)
+         }
      ocupado = estado == "running"
      grupoModo.isEnabled = !ocupado
      btnCrear.isEnabled = !ocupado
