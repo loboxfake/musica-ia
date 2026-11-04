@@ -31,6 +31,7 @@ import java.io.FileOutputStream
 import java.text.Normalizer
 import com.musicaia.modulos.ModuloMezcla
 import com.musicaia.modulos.AudioGenNative
+import com.musicaia.modulos.Mp3Exporter
 import com.musicaia.modulos.ModuloInstrumental
 import com.musicaia.modulos.DescargadorModelos
 import com.musicaia.modulos.litert.EngineLiteRT
@@ -43,6 +44,7 @@ class MainActivity : AppCompatActivity() {
  private var ocupado = false
  private var player: MediaPlayer? = null
  private var rutaAudio: String? = null
+ private var rutaExportacion: String? = null
  private var rutaVoz: String? = null
  private var grabadora: GrabadoraWav? = null
  private val orquestador = Orquestador()
@@ -97,17 +99,25 @@ class MainActivity : AppCompatActivity() {
  }
 
  private val selectorGuardar =
- registerForActivityResult(ActivityResultContracts.CreateDocument()) { uri ->
- val origen = rutaAudio
+ registerForActivityResult(ActivityResultContracts.CreateDocument("audio/mpeg")) { uri ->
+ val origen = rutaExportacion
  if (uri != null && origen != null) {
  try {
- contentResolver.openOutputStream(uri)?.use { salida ->
- File(origen).inputStream().use { it.copyTo(salida) }
+ val salida = contentResolver.openOutputStream(uri)
+     ?: throw IllegalStateException("No se pudo abrir el destino de exportación.")
+ salida.use { destino ->
+ File(origen).inputStream().use { it.copyTo(destino) }
  }
- tvEstado.text = "Canción guardada."
+ tvEstado.text = "Canción exportada en MP3 a 320 kbps."
  } catch (e: Exception) {
- tvEstado.text = "No se pudo guardar: ${e.message}"
+ tvEstado.text = "No se pudo guardar el MP3: ${e.message}"
+ } finally {
+ File(origen).delete()
+ rutaExportacion = null
  }
+ } else {
+ origen?.let { File(it).delete() }
+ rutaExportacion = null
  }
  }
 
@@ -525,7 +535,34 @@ class MainActivity : AppCompatActivity() {
  tvEstado.text = "No hay canción para guardar."
  return
  }
- val nombre = "musicaia_" + System.currentTimeMillis() + ".wav"
- selectorGuardar.launch(nombre)
+ if (!Mp3Exporter.available) {
+ tvEstado.text = "El codificador MP3 no está disponible en esta compilación."
+ return
+ }
+
+ val nombre = "musicaia_" + System.currentTimeMillis() + ".mp3"
+ val temporal = File(cacheDir, nombre)
+ btnGuardar.isEnabled = false
+ tvEstado.text = "Preparando MP3 de alta calidad (320 kbps)..."
+ Thread({
+     val correcto = runCatching {
+         Mp3Exporter.encodeWavToMp3(origen, temporal.absolutePath, 320)
+     }.getOrDefault(false) && temporal.isFile && temporal.length() > 128L
+
+     runOnUiThread {
+         btnGuardar.isEnabled = true
+         if (isFinishing || isDestroyed) {
+             temporal.delete()
+             return@runOnUiThread
+         }
+         if (correcto) {
+             rutaExportacion = temporal.absolutePath
+             selectorGuardar.launch(nombre)
+         } else {
+             temporal.delete()
+             tvEstado.text = "No se pudo crear el MP3. El WAV original se conserva."
+         }
+     }
+ }, "MusicaIA-MP3-Export").start()
  }
 }
