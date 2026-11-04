@@ -86,7 +86,7 @@ class MainActivity : AppCompatActivity() {
  private var navActivoId = R.id.navOrquestador
  private val tabsDisponibles = listOf("orchestrator", "create", "library", "lab", "system")
  private var navigationOrder = tabsDisponibles
- private var visibleTabs = tabsDisponibles.toSet()
+ private var visibleTabs = tabsDisponibles.toMutableSet()
 
  private var rutaInstrumental: String? = null
 
