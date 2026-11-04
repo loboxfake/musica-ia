@@ -119,8 +119,16 @@ class MainActivity : AppCompatActivity() {
      registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
          if (uri != null) {
              runCatching {
-                 val contenido = contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
-                     ?: throw IllegalStateException("No se pudo leer el archivo.")
+                 val contenido = contentResolver.openInputStream(uri)?.bufferedReader()?.use { lector ->
+                     val texto = StringBuilder()
+                     val buffer = CharArray(4096)
+                     while (texto.length < 100000) {
+                         val leidos = lector.read(buffer, 0, minOf(buffer.size, 100000 - texto.length))
+                         if (leidos <= 0) break
+                         texto.append(buffer, 0, leidos)
+                     }
+                     texto.toString()
+                 } ?: throw IllegalStateException("No se pudo leer el archivo.")
                  require(contenido.isNotBlank()) { "El archivo está vacío." }
                  val prefs = getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE)
                  val anterior = prefs.getString("conocimiento_importado", "").orEmpty()
