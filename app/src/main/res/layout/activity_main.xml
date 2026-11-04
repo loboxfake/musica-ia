@@ -92,7 +92,14 @@
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="TU ARCHIVO MUSICAL" android:textColor="#70D8FF" android:textSize="10sp" android:textStyle="bold" android:letterSpacing="0.16"/>
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="17dp" android:layout_marginTop="9dp" android:background="@drawable/bg_panel">
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Biblioteca" android:textColor="#F3F7FF" android:textSize="19sp" android:textStyle="bold"/>
-                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="5dp" android:text="Aquí reuniremos tus canciones, instrumentales, proyectos y perfiles vocales guardados." android:textColor="#9BAAC2" android:textSize="13sp" android:lineSpacingExtra="3dp"/>
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="5dp" android:id="@+id/tvBiblioteca" android:text="Tus canciones e instrumentales aparecerán aquí cuando se generen." android:textColor="#9BAAC2" android:textSize="13sp" android:lineSpacingExtra="3dp"/>
+                    <Button android:id="@+id/btnActualizarBiblioteca" android:layout_width="match_parent"
+                        android:layout_height="46dp" android:layout_marginTop="10dp"
+                        android:text="Actualizar biblioteca" android:textAllCaps="false"/>
+                    <Button android:id="@+id/btnBibliotecaReproducir" android:layout_width="match_parent"
+                        android:layout_height="46dp" android:layout_marginTop="7dp"
+                        android:text="Reproducir última creación" android:textAllCaps="false"
+                        android:visibility="gone"/>
                 </LinearLayout>
             </LinearLayout>
 
