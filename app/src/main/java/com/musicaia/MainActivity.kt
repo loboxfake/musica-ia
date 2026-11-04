@@ -201,18 +201,19 @@ class MainActivity : AppCompatActivity() {
          R.id.navSistema to R.id.seccionSistema
      )
      fun seleccionar(navId: Int) {
-         destinos.forEach { (id, _) ->
+         destinos.forEach { (id, sectionId) ->
              findViewById<TextView>(id).setTextColor(
                  android.graphics.Color.parseColor(if (id == navId) "#70D8FF" else "#8FA2BE")
              )
+             findViewById<View>(sectionId).visibility =
+                 if (id == navId) View.VISIBLE else View.GONE
          }
+         scroll.post { scroll.smoothScrollTo(0, 0) }
      }
      destinos.forEach { (navId, sectionId) ->
          findViewById<TextView>(navId).setOnClickListener {
-             val destino = findViewById<View>(sectionId)
-             scroll.post { scroll.smoothScrollTo(0, destino.top) }
-             if (sectionId == R.id.seccionBiblioteca) actualizarBiblioteca()
              seleccionar(navId)
+             if (sectionId == R.id.seccionBiblioteca) actualizarBiblioteca()
          }
      }
      seleccionar(R.id.navOrquestador)
