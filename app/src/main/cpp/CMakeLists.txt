@@ -35,6 +35,17 @@ endif()
 add_subdirectory(${EXECUTORCH_SOURCE_DIR} ${CMAKE_BINARY_DIR}/executorch)
 add_subdirectory(${EXECUTORCH_SOURCE_DIR}/extension/llm/tokenizers ${CMAKE_BINARY_DIR}/tokenizers)
 
+# SentencePiece's command-line targets are also built by the Android Ninja
+# default target. Its protobuf-lite sources call __android_log_write on Android,
+# so explicitly link the NDK logging library into those executables.
+if(ANDROID)
+    foreach(_spm_target spm_encode spm_decode spm_normalize spm_train spm_export_vocab spm_eval)
+        if(TARGET ${_spm_target})
+            target_link_libraries(${_spm_target} PRIVATE log)
+        endif()
+    endforeach()
+endif()
+
 # LAME 3.100: LGPL MP3 encoder, fetched at an immutable source commit.
 include(FetchContent)
 FetchContent_Declare(lame_android_source
