@@ -39,6 +39,10 @@ import com.musicaia.modulos.ModuloInstrumental
 import com.musicaia.modulos.DescargadorModelos
 import com.musicaia.modulos.litert.EngineLiteRT
 import com.musicaia.modulos.litert.LiteRTLMModule
+import com.musicaia.servicios.BardoTaskService
+import android.content.BroadcastReceiver
+import android.content.Intent
+import android.content.IntentFilter
 
 class MainActivity : AppCompatActivity() {
  private val etiqueta = "BARDO"
@@ -53,6 +57,13 @@ class MainActivity : AppCompatActivity() {
  private var rutaGrabacionVoz: String? = null
  private var grabadora: GrabadoraWav? = null
  private val orquestador = Orquestador()
+ private var receptorTareasRegistrado = false
+ private val receptorTareas = object : BroadcastReceiver() {
+     override fun onReceive(context: android.content.Context?, intent: Intent?) {
+         if (intent?.action != BardoTaskService.ACTION_UPDATE || isFinishing || isDestroyed) return
+         procesarActualizacionTarea(intent)
+     }
+ }
 
  private lateinit var grupoModo: RadioGroup
  private lateinit var panelConversacion: View
@@ -279,6 +290,9 @@ class MainActivity : AppCompatActivity() {
 
  actualizarUI()
  actualizarEstadoAudioModelo()
+ ContextCompat.registerReceiver(this, receptorTareas, IntentFilter(BardoTaskService.ACTION_UPDATE), ContextCompat.RECEIVER_NOT_EXPORTED)
+ receptorTareasRegistrado = true
+ restaurarTareaPersistida()
  }
 
 
@@ -778,6 +792,10 @@ class MainActivity : AppCompatActivity() {
  }
 
  override fun onDestroy() {
+ if (receptorTareasRegistrado) {
+     runCatching { unregisterReceiver(receptorTareas) }
+     receptorTareasRegistrado = false
+ }
  super.onDestroy()
  handler.removeCallbacks(reloj)
  try { grabadora?.detener() } catch (_: Exception) { }
@@ -848,27 +866,73 @@ class MainActivity : AppCompatActivity() {
      Dato.Texto(if (letraManual.isNotEmpty()) "[LETRA_USUARIO]\n$letraManual\n\n$entradaTexto" else entradaTexto)
  }
 
- val modulos = mutableListOf<com.musicaia.modelo.ModuloIA>()
- if (!modoSoloInstrumental) modulos.add(ModuloLetra(this, letraManual.isNotEmpty()))
- modulos.add(ModuloInstrumental(this, if (modoSoloInstrumental) promptInstrumental else entradaTexto))
- Thread {
  try {
- val pasos = orquestador.ejecutarModulos(modulos, entrada)
- runOnUiThread { mostrarResultado(pasos) }
- } catch (e: Exception) {
- Log.e(etiqueta, "Error en la creación", e)
- runOnUiThread { mostrarError(e) }
- } finally {
- runOnUiThread {
- detenerReloj()
- ocupado = false
- grupoModo.isEnabled = true
- btnCrear.isEnabled = true
- actualizarUI()
- progreso.visibility = View.GONE
+     BardoTaskService.iniciar(this, if (modoSoloInstrumental) promptInstrumental else entradaTexto, letraManual, modoSoloInstrumental)
+     tvEstado.text = "BARDO está trabajando. Puedes salir de la pantalla; la tarea continuará con su notificación."
+ } catch (error: Exception) {
+     ocupado = false
+     grupoModo.isEnabled = true
+     btnCrear.isEnabled = true
+     detenerReloj()
+     mostrarError(error)
  }
  }
- }.start()
+
+
+ private fun procesarActualizacionTarea(intent: Intent) {
+     val estado = intent.getStringExtra(BardoTaskService.EXTRA_STATE).orEmpty()
+     ocupado = estado == "running"
+     grupoModo.isEnabled = !ocupado
+     btnCrear.isEnabled = !ocupado
+     if (estado == "completed") {
+         val solo = intent.getBooleanExtra(BardoTaskService.EXTRA_SOLO, false)
+         val letra = intent.getStringExtra(BardoTaskService.EXTRA_LYRICS).orEmpty()
+         val audio = intent.getStringExtra(BardoTaskService.EXTRA_AUDIO).orEmpty()
+         modoSoloInstrumental = solo
+         if (letra.isNotBlank() && !solo) editLetra.setText(letra)
+         segundos = intent.getIntExtra(BardoTaskService.EXTRA_ELAPSED, segundos)
+         if (audio.isNotBlank() && File(audio).isFile && File(audio).length() > 44L) {
+             val pasos = mutableListOf<Pair<String, Dato>>()
+             if (letra.isNotBlank() && !solo) pasos += "letra" to Dato.Texto(letra)
+             pasos += "instrumental" to Dato.Audio(audio, 44100)
+             mostrarResultado(pasos)
+         } else {
+             tvEstado.text = "BARDO terminó, pero no encontró un WAV válido."
+         }
+     } else if (estado == "failed" || estado == "cancelled" || estado == "interrupted") {
+         detenerReloj()
+         val mensaje = intent.getStringExtra(BardoTaskService.EXTRA_MESSAGE).orEmpty()
+         tvEstado.text = "Tarea $estado: $mensaje"
+         tvResultado.text = mensaje
+     } else if (estado == "running") {
+         tvEstado.text = intent.getStringExtra(BardoTaskService.EXTRA_MESSAGE) ?: "BARDO continúa trabajando en segundo plano."
+     }
+     actualizarUI()
+ }
+
+ private fun restaurarTareaPersistida() {
+     val prefs = getSharedPreferences(BardoTaskService.PREFS, MODE_PRIVATE)
+     when (prefs.getString(BardoTaskService.KEY_STATE, "").orEmpty()) {
+         "running" -> {
+             ocupado = true
+             grupoModo.isEnabled = false
+             btnCrear.isEnabled = false
+             tvEstado.text = "BARDO continúa trabajando en segundo plano. Consulta la notificación de la tarea."
+         }
+         "completed" -> {
+             val audio = prefs.getString(BardoTaskService.KEY_AUDIO, "").orEmpty()
+             if (audio.isNotBlank() && File(audio).isFile && File(audio).length() > 44L) {
+                 rutaAudio = audio
+                 rutaInstrumental = audio
+                 btnReproducir.visibility = View.VISIBLE
+                 btnGuardar.visibility = View.VISIBLE
+                 tvResultado.text = "Instrumental generado por BARDO en segundo plano. WAV: $audio"
+                 tvEstado.text = "Última tarea completada. Puedes reproducir o exportar el MP3."
+             }
+         }
+         "failed", "cancelled", "interrupted" -> tvEstado.text =
+             prefs.getString(BardoTaskService.KEY_MESSAGE, "La última tarea no terminó.")
+     }
  }
 
  private fun detenerReloj() {
