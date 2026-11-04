@@ -27,6 +27,11 @@ jobs:
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
           set -o pipefail
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "cmake;3.31.6" "ndk;27.2.12479018"
+      - name: Install pinned PyTorch headers for ExecuTorch CMake
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install --index-url https://download.pytorch.org/whl/cpu torch==2.6.0
+          python3 -c "import torch; print('PyTorch', torch.__version__, torch.__file__)"
       - name: Checkout pinned ExecuTorch source
         run: |
           git clone --no-checkout https://github.com/pytorch/executorch.git "$RUNNER_TEMP/executorch"
