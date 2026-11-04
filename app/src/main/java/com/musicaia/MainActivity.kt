@@ -560,12 +560,12 @@ class MainActivity : AppCompatActivity() {
 }
 
  private fun actualizarUI() {
-     btnCrear.isEnabled = AudioGenNative.available && if (modoSoloInstrumental) {
+     btnCrear.isEnabled = AudioGenNative.available && (if (modoSoloInstrumental) {
          editPromptInstrumental.text.toString().isNotBlank()
      } else {
          editLetra.text.toString().isNotBlank() ||
              camposRequeridos.all { !datosConver[it].isNullOrBlank() }
-     }
+     })
  }
 
 
