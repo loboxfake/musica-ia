@@ -9,12 +9,13 @@ import com.musicaia.modulos.litert.EngineLiteRT
 import com.musicaia.modulos.litert.LiteRTLMModule
 import java.io.File
 
-class ModuloLetra(context: Context) : ModuloIA {
+class ModuloLetra(context: Context, private val modoManual: Boolean = false) : ModuloIA {
     override val id = "letra"
     override val tipo = TipoModulo.LETRA
     private val ctx = context.applicationContext
 
     override fun cargar(): Boolean {
+        if (modoManual) return true
         val modelo = LiteRTLMModule.modelFile(ctx)
         if (!LiteRTLMModule.verificarModelo(modelo)) return false
         return EngineLiteRT.inicializar(
@@ -26,6 +27,9 @@ class ModuloLetra(context: Context) : ModuloIA {
     override fun ejecutar(entrada: Dato): Dato {
         val solicitud = (entrada as? Dato.Texto)?.texto
             ?: throw IllegalArgumentException("La generación de letra necesita datos de texto.")
+        if (modoManual && solicitud.startsWith("[LETRA_USUARIO]")) {
+            return Dato.Texto(solicitud.substringAfter("[LETRA_USUARIO]").trim())
+        }
         return Dato.Texto(ConversacionLiteRT.solicitarLetra(solicitud))
     }
 
