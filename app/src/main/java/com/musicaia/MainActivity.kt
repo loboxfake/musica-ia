@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.OpenableColumns
 import android.util.Log
 import android.view.View
 import android.widget.Button
@@ -48,6 +49,7 @@ class MainActivity : AppCompatActivity() {
  private var rutaAudio: String? = null
  private var rutaExportacion: String? = null
  private var rutaVoz: String? = null
+ private var rutaGrabacionVoz: String? = null
  private var grabadora: GrabadoraWav? = null
  private val orquestador = Orquestador()
 
@@ -405,38 +407,67 @@ class MainActivity : AppCompatActivity() {
  }
 
  private fun alternarGrabacion() {
- if (grabadora != null) {
- grabadora!!.detener()
- grabadora = null
- btnGrabar.text = "Grabar mi voz"
- tvEstadoVoz.text = "Grabación terminada."
- return
- }
- val dir = getExternalFilesDir(null) ?: filesDir
- val ruta = File(dir, "voz_grabada.wav").absolutePath
- grabadora = GrabadoraWav(ruta)
- try {
- grabadora!!.iniciar()
- btnGrabar.text = "Detener"
- tvEstadoVoz.text = "Grabando..."
- } catch (e: Exception) {
- tvEstadoVoz.text = "Error al grabar: ${e.message}"
- grabadora = null
- }
+     if (grabadora != null) {
+         try {
+             grabadora?.detener()
+             grabadora = null
+             val ruta = rutaGrabacionVoz
+             rutaGrabacionVoz = null
+             if (ruta != null && File(ruta).isFile && File(ruta).length() > 44L) {
+                 rutaVoz = ruta
+                 btnGrabar.text = "Grabar voz"
+                 tvEstadoVoz.text = "Muestra vocal guardada: voz_grabada.wav"
+             } else {
+                 btnGrabar.text = "Grabar voz"
+                 tvEstadoVoz.text = "La grabación no produjo un WAV válido."
+             }
+         } catch (e: Exception) {
+             grabadora = null
+             btnGrabar.text = "Grabar voz"
+             tvEstadoVoz.text = "Error al detener la grabación: ${e.message}"
+         }
+         return
+     }
+     val dir = getExternalFilesDir(null) ?: filesDir
+     val ruta = File(dir, "voz_grabada.wav").absolutePath
+     grabadora = GrabadoraWav(ruta)
+     try {
+         grabadora!!.iniciar()
+         rutaGrabacionVoz = ruta
+         btnGrabar.text = "Detener"
+         tvEstadoVoz.text = "Grabando... pulsa Detener para guardar la muestra."
+     } catch (e: Exception) {
+         tvEstadoVoz.text = "Error al grabar: ${e.message}"
+         grabadora = null
+         rutaGrabacionVoz = null
+     }
  }
 
  private fun copiarVoz(uri: Uri) {
- try {
- val nombre = "voz_usuario.wav"
- val destino = File(getExternalFilesDir(null), nombre)
- contentResolver.openInputStream(uri)?.use { entrada ->
- FileOutputStream(destino).use { salida -> entrada.copyTo(salida) }
- }
- rutaVoz = destino.absolutePath
- tvEstadoVoz.text = "Voz cargada: $nombre"
- } catch (e: Exception) {
- tvEstadoVoz.text = "No se pudo cargar el archivo de voz."
- }
+     try {
+         val nombreOriginal = contentResolver.query(
+             uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null
+         )?.use { cursor ->
+             if (cursor.moveToFirst()) cursor.getString(0) else null
+         }.orEmpty()
+         val extension = File(nombreOriginal).extension.lowercase()
+             .takeIf { it in setOf("wav", "mp3", "m4a", "flac", "ogg", "aac") } ?: "audio"
+         val nombre = "voz_usuario_${System.currentTimeMillis()}.$extension"
+         val destino = File(getExternalFilesDir(null) ?: filesDir, nombre)
+         val entrada = contentResolver.openInputStream(uri)
+             ?: throw IllegalStateException("No se pudo abrir el audio seleccionado.")
+         entrada.use { source ->
+             destino.outputStream().buffered().use { output -> source.copyTo(output) }
+         }
+         if (!destino.isFile || destino.length() <= 44L) {
+             destino.delete()
+             throw IllegalStateException("El archivo de voz está vacío o incompleto.")
+         }
+         rutaVoz = destino.absolutePath
+         tvEstadoVoz.text = "Muestra vocal importada: $nombre"
+     } catch (e: Exception) {
+         tvEstadoVoz.text = "No se pudo cargar el archivo de voz: ${e.message}"
+     }
  }
 
  private fun seleccionarArchivoVoz() {
