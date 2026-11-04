@@ -60,6 +60,12 @@ object DescargadorModelos {
 
             val status = connection.responseCode
             if (status == 416) {
+                // Si el parcial ya tiene el tamaño completo, solo se acepta si el SHA coincide.
+                if (existente == tamanoEsperadoBytes && sha256(parte).equals(shaEsperado, ignoreCase = true)) {
+                    publicar(parte, destino)
+                    return destino.isFile && destino.length() == tamanoEsperadoBytes
+                }
+                if (existente >= tamanoEsperadoBytes) parte.delete()
                 return false
             }
 
@@ -108,30 +114,45 @@ object DescargadorModelos {
 
             if (!parte.isFile || parte.length() != tamanoEsperadoBytes) return false
 
-            val digest = MessageDigest.getInstance("SHA-256")
-            parte.inputStream().buffered().use { input ->
-                val buffer = ByteArray(64 * 1024)
-                while (true) {
-                    val leidos = input.read(buffer)
-                    if (leidos < 0) break
-                    if (leidos > 0) digest.update(buffer, 0, leidos)
-                }
+            if (!sha256(parte).equals(shaEsperado, ignoreCase = true)) {
+                // Un parcial completo con hash incorrecto no se puede reanudar de forma segura.
+                parte.delete()
+                return false
             }
-            val hashReal = digest.digest().joinToString("") { "%02x".format(it) }
-            if (!hashReal.equals(shaEsperado, ignoreCase = true)) return false
 
-            // Mismo directorio: sustituye el destino solo después de validar el parcial.
+            publicar(parte, destino)
+            return destino.isFile && destino.length() == tamanoEsperadoBytes
+        } catch (_: Exception) {
+            return false
+        } finally {
+            connection?.disconnect()
+        }
+    }
+
+    private fun sha256(archivo: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        archivo.inputStream().buffered().use { input ->
+            val buffer = ByteArray(64 * 1024)
+            while (true) {
+                val leidos = input.read(buffer)
+                if (leidos < 0) break
+                if (leidos > 0) digest.update(buffer, 0, leidos)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
+    }
+
+    private fun publicar(parte: File, destino: File) {
+        // Mismo directorio: sustituye el destino solo después de validar el parcial.
+        try {
             Files.move(
                 parte.toPath(),
                 destino.toPath(),
                 StandardCopyOption.REPLACE_EXISTING,
                 StandardCopyOption.ATOMIC_MOVE
             )
-            return destino.isFile && destino.length() == tamanoEsperadoBytes
-        } catch (_: Exception) {
-            return false
-        } finally {
-            connection?.disconnect()
+        } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
+            Files.move(parte.toPath(), destino.toPath(), StandardCopyOption.REPLACE_EXISTING)
         }
     }
 }
