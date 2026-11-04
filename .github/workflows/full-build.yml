@@ -23,7 +23,7 @@ jobs:
 
       - name: Download pinned local audio model pack
         env:
-          GH_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           run_id=$(gh run list --workflow prepare-audio-model.yml --branch ruta-a-compile --status success --limit 1 --json databaseId --jq '.[0].databaseId')
           if [ -z "$run_id" ] || [ "$run_id" = "null" ]; then
@@ -61,7 +61,7 @@ jobs:
       - name: Run unit tests
         run: |
           gradle testDebugUnitTest 2>&1 | tee full-tests.log
-          status=\${PIPESTATUS[0]}
+          status=${PIPESTATUS[0]}
           if [ "$status" -ne 0 ]; then
             grep -E "FAILED|Exception|error:" full-tests.log || true
             exit 1
@@ -70,7 +70,7 @@ jobs:
       - name: Build full APK with on-device audio model
         run: |
           gradle assembleDebug -PwithAudioNative=true 2>&1 | tee full-build.log
-          status=\${PIPESTATUS[0]}
+          status=${PIPESTATUS[0]}
           if [ "$status" -ne 0 ]; then
             grep -E "error:|CMake Error|FAILED|What went wrong" full-build.log | tail -100 || true
             exit 1
