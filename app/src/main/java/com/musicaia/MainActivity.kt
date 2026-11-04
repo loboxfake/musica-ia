@@ -420,8 +420,10 @@ class MainActivity : AppCompatActivity() {
      val navViews = navIds.mapValues { (_, id) -> findViewById<TextView>(id) }
      val barra = findViewById<android.widget.LinearLayout>(R.id.bottomNavigation)
      barra.removeAllViews()
-     navigationOrder.filter { it in visibleTabs }.forEach { key ->
-         barra.addView(navViews.getValue(key), android.widget.LinearLayout.LayoutParams(
+     navigationOrder.forEach { key ->
+         val vista = navViews.getValue(key)
+         vista.visibility = if (key in visibleTabs) View.VISIBLE else View.GONE
+         barra.addView(vista, android.widget.LinearLayout.LayoutParams(
              0, android.view.ViewGroup.LayoutParams.MATCH_PARENT, 1f
          ))
      }
