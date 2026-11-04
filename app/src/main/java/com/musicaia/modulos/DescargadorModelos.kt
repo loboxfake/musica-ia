@@ -4,116 +4,134 @@ import java.io.File
 import java.io.RandomAccessFile
 import java.net.HttpURLConnection
 import java.net.URL
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 
 /**
- * Descarga reanudable con control de espacio, progreso y verificación SHA-256.
- * El archivo debe descargarse SOLO en almacenamiento privado (context.filesDir);
- * NO debe incluirse en APK ni subirse a GitHub.
- * Sin tokens ni credenciales (descarga pública sin auth obligatoria).
- * Si el hash no coincide: NO se permite cargar (retorna false y no actualiza carga).
+ * Descarga reanudable para modelos grandes.
+ *
+ * El destino debe estar en almacenamiento privado (preferiblemente context.filesDir).
+ * Nunca incluye modelos en el APK ni envía credenciales.
+ * Solo publica el archivo final después de validar tamaño y SHA-256.
  */
 object DescargadorModelos {
 
-    /**
-     * @param url debe usar commit inmutable, ej.
-     *   https://github.com/<org>/repo/raw/<COMMIT_SHA>/archivo
-     *   (nunca URL a main sin fijar revisión).
-     * @param destino archivo privado (ej. context.filesDir / ...)
-     * @param shaEsperado hex SHA-256; null = omite verificación (no recomendado)
-     * @param confirmar confirmación del usuario (simulada); debe ser true para proceder
-     * @param progreso listener opcional (bytesDescargados, bytesTotales); no modifica vista
-     */
     fun descargar(
         url: String,
         destino: File,
         shaEsperado: String?,
         confirmar: Boolean,
-        progreso: ((Long, Long) -> Unit)? = null
+        progreso: ((Long, Long) -> Unit)? = null,
+        tamanoEsperadoBytes: Long = 2_588_147_712L
     ): Boolean {
-        if (!confirmar) return false
-
-        // 7. Control de espacio libre antes de escribir
-        val espacioRequerido = 2588147712L + 512L * 1024 * 1024 // archivo + margen
-        val dirPadre = destino.parentFile ?: destino
-        val libre = dirPadre.freeSpace
-        if (libre < espacioRequerido) return false
-
-        // 4. URL fijada a commit (el llamador debe pasar URL con SHA fija; aquí solo validamos patrón básico)
-        if (!url.contains("/raw/") && !url.contains("/blob/") && url.contains("github.com")) {
-            // Advertencia técnica: falta fix de commit en URL si no tiene /raw/<sha>
-            // No se bloquea para permitir fase de verificación, pero debe corregirse antes de descarga real.
+        if (!confirmar || url.isBlank() || tamanoEsperadoBytes <= 0L) return false
+        if (shaEsperado.isNullOrBlank() || !shaEsperado.matches(Regex("(?i)[0-9a-f]{64}"))) {
+            return false
         }
 
-        try {
-            val connection = URL(url).openConnection() as HttpURLConnection
-            connection.connectTimeout = 30000
-            connection.readTimeout = 30000
-            connection.instanceFollowRedirects = true
-            // 5. Sin autenticación obligatoria; no se envían tokens ni credenciales
-            connection.setRequestProperty("User-Agent", "MusicaIA-LiteRT/1.0")
+        val padre = destino.absoluteFile.parentFile ?: return false
+        if (!padre.exists() && !padre.mkdirs()) return false
+        if (!padre.isDirectory) return false
 
-            val parte = File(destino.parentFile, destino.name + ".part")
-            // Reanudable: usar cabecera Range si existe archivo parcial
+        // Se reserva el tamaño completo más 512 MiB para temporales/runtime.
+        val espacioRequerido = tamanoEsperadoBytes + 512L * 1024L * 1024L
+        if (padre.usableSpace < espacioRequerido) return false
+
+        val parte = File(padre, destino.name + ".part")
+        if (parte.length() > tamanoEsperadoBytes) return false
+
+        var connection: HttpURLConnection? = null
+        try {
+            connection = (URL(url).openConnection() as HttpURLConnection).apply {
+                connectTimeout = 30_000
+                readTimeout = 60_000
+                instanceFollowRedirects = true
+                requestMethod = "GET"
+                setRequestProperty("User-Agent", "MusicaIA-LiteRT/1.0")
+                setRequestProperty("Accept-Encoding", "identity")
+            }
+
             val existente = parte.length()
-            if (existente > 0) {
+            if (existente > 0L) {
                 connection.setRequestProperty("Range", "bytes=$existente-")
             }
             connection.connect()
 
-            val totalEsperado = connection.getHeaderFieldLong("Content-Length", -1)
-            // Si servidor ignora Range y responde 200 (no 206): no usar existente como rangoInicio (evita duplicar archivo)
-            val esReanudo = connection.responseCode == HttpURLConnection.HTTP_PARTIAL ||
-                            (connection.responseCode == HttpURLConnection.HTTP_OK && existente > 0 && totalEsperado > existente)
-            if (connection.responseCode == 416) return false  // Range not satisfiable
-            val rangoInicio = if (esReanudo && existente > 0) existente else 0L
-            val raf = RandomAccessFile(parte, "rw")
-            try {
-            if (rangoInicio > 0) raf.seek(rangoInicio)
-
-            connection.inputStream.use { input ->
-                val buffer = ByteArray(65536)
-                var len: Int
-                var descargado = rangoInicio
-                while (input.read(buffer).also { len = it } != -1) {
-                    raf.write(buffer, 0, len)
-                    descargado += len
-                    // Progreso sin modificar vista: callback opcional en hilo secundario permitido
-                    // (pero la vista debe actualizarse solo desde hilo principal — responsabilidad del caller)
-                    progreso?.invoke(descargado, totalEsperado)
-                }
-            }
-            raf.close()
-
-            // 7. Verificación de tamaño final sobre archivo parcial (no renombrado aún)
-            val finalSize = parte.length()
-            if (finalSize == 0L || (totalEsperado > 0 && finalSize < totalEsperado)) {
-                return false // incompleto: no renombrar, no cargar
+            val status = connection.responseCode
+            if (status == HttpURLConnection.HTTP_REQUESTED_RANGE_NOT_SATISFIABLE) {
+                return false
             }
 
-            // 8. Verificación SHA-256 ANTES de cargar (sobre .part); si falla, no renombrar
-            if (shaEsperado != null) {
-                val digest = MessageDigest.getInstance("SHA-256")
-                parte.inputStream().use { input ->
-                    val buf = ByteArray(65536)
-                    var r: Int
-                    while (input.read(buf).also { r = it } != -1) digest.update(buf, 0, r)
+            val inicio: Long
+            val totalRemoto: Long
+            when (status) {
+                HttpURLConnection.HTTP_PARTIAL -> {
+                    val contentRange = connection.getHeaderField("Content-Range")
+                        ?: return false
+                    val match = Regex("^bytes (\\d+)-(\\d+)/(\\d+)$").matchEntire(contentRange.trim())
+                        ?: return false
+                    val start = match.groupValues[1].toLong()
+                    val end = match.groupValues[2].toLong()
+                    totalRemoto = match.groupValues[3].toLong()
+                    if (existente <= 0L || start != existente || end < start ||
+                        totalRemoto != tamanoEsperadoBytes || end >= totalRemoto
+                    ) return false
+                    inicio = existente
                 }
-                val hashHex = digest.digest().joinToString("") { "%02x".format(it) }
-                if (!hashHex.equals(shaEsperado, ignoreCase = true)) {
-                    return false // hash incorrecto: archivo parcial preservado para reinicio, sin carga
+                HttpURLConnection.HTTP_OK -> {
+                    // El servidor ignoró Range: empezar desde cero, nunca anexar una copia completa.
+                    inicio = 0L
+                    totalRemoto = connection.getHeaderFieldLong("Content-Length", -1L)
+                    if (totalRemoto != tamanoEsperadoBytes) return false
+                }
+                else -> return false
+            }
+
+            RandomAccessFile(parte, "rw").use { raf ->
+                if (inicio == 0L) raf.setLength(0L) else raf.seek(inicio)
+                connection.inputStream.use { input ->
+                    val buffer = ByteArray(64 * 1024)
+                    var descargado = inicio
+                    while (true) {
+                        val leidos = input.read(buffer)
+                        if (leidos < 0) break
+                        if (leidos == 0) continue
+                        if (descargado + leidos > tamanoEsperadoBytes) return false
+                        raf.write(buffer, 0, leidos)
+                        descargado += leidos
+                        progreso?.invoke(descargado, tamanoEsperadoBytes)
+                    }
+                    raf.fd.sync()
                 }
             }
 
-            // Renombrado atómico solo tras pasar tamaño + SHA
-            if (!parte.renameTo(destinoFinal)) return false
+            if (!parte.isFile || parte.length() != tamanoEsperadoBytes) return false
 
-            // Cancelación soportada: desconectar si se requiere (connection ya usado)
-            try { connection.disconnect() } catch (_: Exception) {}
-            return true
-        } catch (e: Exception) {
-            try { connection.disconnect() } catch (_: Exception) {}
+            val digest = MessageDigest.getInstance("SHA-256")
+            parte.inputStream().buffered().use { input ->
+                val buffer = ByteArray(64 * 1024)
+                while (true) {
+                    val leidos = input.read(buffer)
+                    if (leidos < 0) break
+                    if (leidos > 0) digest.update(buffer, 0, leidos)
+                }
+            }
+            val hashReal = digest.digest().joinToString("") { "%02x".format(it) }
+            if (!hashReal.equals(shaEsperado, ignoreCase = true)) return false
+
+            // Mismo directorio: sustituye el destino solo después de validar el parcial.
+            Files.move(
+                parte.toPath(),
+                destino.toPath(),
+                StandardCopyOption.REPLACE_EXISTING,
+                StandardCopyOption.ATOMIC_MOVE
+            )
+            return destino.isFile && destino.length() == tamanoEsperadoBytes
+        } catch (_: Exception) {
             return false
+        } finally {
+            connection?.disconnect()
         }
     }
 }
