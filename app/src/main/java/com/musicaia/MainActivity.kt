@@ -442,6 +442,7 @@ class MainActivity : AppCompatActivity() {
          .setPositiveButton("Borrar") { _, _ ->
              getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE).edit().clear().apply()
              datosConver.clear()
+             actualizarEstadoConocimiento()
              chatLog.text = "Orquestador: Memoria local borrada. Empezamos una conversación nueva. ¿Qué te gustaría crear?"
              actualizarUI()
              tvEstado.text = "Memoria e historial local borrados."
