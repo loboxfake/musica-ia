@@ -74,6 +74,7 @@ class MainActivity : AppCompatActivity() {
  private lateinit var progresoModelo: ProgressBar
  private var descargaEnCurso = false
  private var modeloChatVerificado = false
+ private var configuracionInterfazPendiente = ""
 
  private var rutaInstrumental: String? = null
 
@@ -99,6 +100,34 @@ class MainActivity : AppCompatActivity() {
  registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
  if (uri != null) copiarVoz(uri)
  }
+
+
+ private val selectorImportarInterfaz =
+     registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+         if (uri != null) {
+             runCatching {
+                 val contenido = contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                     ?: throw IllegalStateException("No se pudo leer el archivo.")
+                 val json = JSONObject(contenido)
+                 aplicarConfiguracionInterfaz(json)
+                 getSharedPreferences("musicalia_interfaz", MODE_PRIVATE).edit()
+                     .putString("configuracion", json.toString()).apply()
+                 tvEstado.text = "Diseño importado y aplicado. Puedes volver al diseño predeterminado importando tu copia."
+             }.onFailure { tvEstado.text = "No se pudo importar el diseño: ${it.message}" }
+         }
+     }
+
+ private val selectorExportarInterfaz =
+     registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+         if (uri != null) {
+             runCatching {
+                 val salida = contentResolver.openOutputStream(uri)
+                     ?: throw IllegalStateException("No se pudo abrir el destino.")
+                 salida.bufferedWriter().use { it.write(configuracionInterfazActual().toString(2)) }
+                 tvEstado.text = "Configuración de interfaz exportada."
+             }.onFailure { tvEstado.text = "No se pudo exportar el diseño: ${it.message}" }
+         }
+     }
 
  private val selectorGuardar =
  registerForActivityResult(ActivityResultContracts.CreateDocument("audio/mpeg")) { uri ->
@@ -134,6 +163,7 @@ class MainActivity : AppCompatActivity() {
  chatLog = findViewById(R.id.chatLog)
  chatEntrada = findViewById(R.id.chatEntrada)
  cargarMemoriaLocal()
+ aplicarConfiguracionGuardada()
  btnEnviar = findViewById(R.id.btnEnviar)
  editLetra = findViewById(R.id.editLetra)
  editIndicaciones = findViewById(R.id.editIndicaciones)
@@ -169,6 +199,8 @@ class MainActivity : AppCompatActivity() {
  }
 
  btnEnviar.setOnClickListener { enviarConversacion() }
+ findViewById<Button>(R.id.btnImportarInterfaz).setOnClickListener { selectorImportarInterfaz.launch(arrayOf("application/json", "text/*")) }
+ findViewById<Button>(R.id.btnExportarInterfaz).setOnClickListener { selectorExportarInterfaz.launch("musicalia-interfaz.json") }
  findViewById<Button>(R.id.btnBorrarMemoria).setOnClickListener { confirmarBorradoMemoria() }
  findViewById<Button>(R.id.btnActualizarBiblioteca).setOnClickListener { actualizarBiblioteca() }
  findViewById<Button>(R.id.btnBibliotecaReproducir).setOnClickListener { reproducirUltimoDeBiblioteca() }
@@ -248,6 +280,51 @@ class MainActivity : AppCompatActivity() {
      getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE).edit()
          .putString("preferencias_creativas", preferencias.toString())
          .apply()
+ }
+
+
+
+ private fun configuracionInterfazActual(): JSONObject {
+     val json = JSONObject()
+     json.put("brandName", findViewById<TextView>(R.id.tvBrandName).text.toString())
+     json.put("subtitle", findViewById<TextView>(R.id.tvBrandSubtitle).text.toString())
+     json.put("welcomeTitle", findViewById<TextView>(R.id.tvWelcomeTitle).text.toString())
+     json.put("welcomeDescription", findViewById<TextView>(R.id.tvWelcomeDescription).text.toString())
+     json.put("accentColor", "#70D8FF")
+     json.put("navigation", JSONObject()
+         .put("orchestrator", findViewById<TextView>(R.id.navOrquestador).text.toString())
+         .put("create", findViewById<TextView>(R.id.navCrear).text.toString())
+         .put("library", findViewById<TextView>(R.id.navBiblioteca).text.toString())
+         .put("lab", findViewById<TextView>(R.id.navLaboratorio).text.toString())
+         .put("system", findViewById<TextView>(R.id.navSistema).text.toString()))
+     return json
+ }
+
+ private fun aplicarConfiguracionGuardada() {
+     val raw = getSharedPreferences("musicalia_interfaz", MODE_PRIVATE)
+         .getString("configuracion", null) ?: return
+     runCatching { aplicarConfiguracionInterfaz(JSONObject(raw)) }
+         .onFailure { Log.w(etiqueta, "Configuración visual guardada no válida", it) }
+ }
+
+ private fun aplicarConfiguracionInterfaz(json: JSONObject) {
+     fun texto(clave: String, defecto: String, max: Int): String =
+         json.optString(clave, defecto).trim().take(max).ifBlank { defecto }
+     val acento = json.optString("accentColor", "#70D8FF")
+         .takeIf { it.matches(Regex("^#[0-9A-Fa-f]{6}$")) } ?: "#70D8FF"
+     findViewById<TextView>(R.id.tvBrandName).text = texto("brandName", "MUSICALIA", 24)
+     findViewById<TextView>(R.id.tvBrandSubtitle).text = texto("subtitle", "TU ESTUDIO MUSICAL INTELIGENTE", 48)
+     findViewById<TextView>(R.id.tvWelcomeTitle).text = texto("welcomeTitle", "¿Qué vamos a crear hoy?", 70)
+     findViewById<TextView>(R.id.tvWelcomeDescription).text = texto("welcomeDescription",
+         "Habla con tu orquestador. Él coordina los modelos y herramientas para convertir tus ideas en música.", 220)
+     val navigation = json.optJSONObject("navigation") ?: JSONObject()
+     findViewById<TextView>(R.id.navOrquestador).text = navigation.optString("orchestrator", "✧\\nIA").take(18)
+     findViewById<TextView>(R.id.navCrear).text = navigation.optString("create", "♫\\nCrear").take(18)
+     findViewById<TextView>(R.id.navBiblioteca).text = navigation.optString("library", "▤\\nArchivo").take(18)
+     findViewById<TextView>(R.id.navLaboratorio).text = navigation.optString("lab", "◇\\nLab").take(18)
+     findViewById<TextView>(R.id.navSistema).text = navigation.optString("system", "⚙\\nSistema").take(18)
+     findViewById<TextView>(R.id.tvWelcomeTitle).setTextColor(android.graphics.Color.parseColor(acento))
+     findViewById<TextView>(R.id.tvBrandName).setTextColor(android.graphics.Color.parseColor(acento))
  }
 
 
