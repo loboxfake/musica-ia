@@ -402,7 +402,7 @@ class MainActivity : AppCompatActivity() {
  val letraManual = editLetra.text.toString().trim()
  val modelo = LiteRTLMModule.modelFile(this)
  if (letraManual.isBlank() && (!modelo.isFile || modelo.length() != LiteRTLMModule.EXPECTED_SIZE_BYTES)) {
-     tvEstado.text = "Primero descarga el modelo local de letras (498 MB)."
+     tvEstado.text = "Primero descarga el modelo local Gemma 4 E2B (2,6 GB)."
      return
  }
  if (panelConversacion.visibility == View.VISIBLE &&
