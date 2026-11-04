@@ -69,7 +69,7 @@ add_library(mp3lame SHARED
     ${LAME_ROOT}/libmp3lame/version.c
 )
 target_include_directories(mp3lame PUBLIC ${LAME_ROOT}/include PRIVATE ${LAME_ROOT}/libmp3lame)
-target_compile_definitions(mp3lame PRIVATE STDC_HEADERS=1 ieee754_float32_t=float)
+target_compile_definitions(mp3lame PRIVATE STDC_HEADERS=1 HAVE_STDINT_H=1 HAVE_INTTYPES_H=1 HAVE_ERRNO_H=1 HAVE_FCNTL_H=1 ieee754_float32_t=float)
 target_compile_options(mp3lame PRIVATE -O3)
 target_link_libraries(mp3lame PRIVATE m)
 
