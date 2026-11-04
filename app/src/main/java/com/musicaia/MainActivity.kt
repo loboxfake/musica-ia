@@ -188,6 +188,7 @@ class MainActivity : AppCompatActivity() {
  }
 
  actualizarUI()
+ actualizarEstadoAudioModelo()
  }
 
 
@@ -438,6 +439,18 @@ class MainActivity : AppCompatActivity() {
  private fun actualizarUI() {
      btnCrear.isEnabled = editLetra.text.toString().isNotBlank() ||
          camposRequeridos.all { !datosConver[it].isNullOrBlank() }
+ }
+
+
+ private fun actualizarEstadoAudioModelo() {
+     val estado = findViewById<TextView>(R.id.estadoAudioModelo)
+     estado.text = if (AudioGenNative.available) {
+         "Instrumental IA: motor ExecuTorch y modelo Stable Audio incluidos en esta APK."
+     } else {
+         "Instrumental IA: esta APK no incluye el motor nativo ni el paquete de modelos completo."
+     }
+     findViewById<TextView>(R.id.estadoVozModelo).text =
+         "Voz cantada IA: pendiente de integración real. No se usa audio de tono como sustituto."
  }
 
  private fun actualizarEstadoModelo() {
