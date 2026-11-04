@@ -23,7 +23,7 @@ object DescargadorModelos {
         shaEsperado: String?,
         confirmar: Boolean,
         progreso: ((Long, Long) -> Unit)? = null,
-        tamanoEsperadoBytes: Long = 2_588_147_712L
+        tamanoEsperadoBytes: Long = 497_516_544L
     ): Boolean {
         if (!confirmar || url.isBlank() || tamanoEsperadoBytes <= 0L) return false
         if (shaEsperado.isNullOrBlank() || !shaEsperado.matches(Regex("(?i)[0-9a-f]{64}"))) {

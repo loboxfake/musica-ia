@@ -1,42 +1,15 @@
 [
   {
-    "id": "musica-letra-v1",
+    "id": "qwen3-0.6b-litertlm",
     "tipo": "LETRA",
-    "nombre": "Generador de letras",
-    "version": "1.0.0",
-    "tamano_mb": 350.0,
-    "ram_minima_mb": 1024,
-    "licencia": "MIT",
-    "uso_comercial": true,
-    "url_descarga": "https://ejemplo.com/modelos/letra-v1.bin",
-    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "motor": "llamacpp"
-  },
-  {
-    "id": "instrumental-stable-audio-open-small",
-    "tipo": "INSTRUMENTAL",
-    "nombre": "Stable Audio Open Small",
-    "version": "1.0.0",
-    "tamano_mb": 850.0,
+    "nombre": "Qwen3 0.6B LiteRT-LM",
+    "version": "154c5de0fc0fc5002a7da570ba8c67edffa32ca2",
+    "tamano_mb": 497.516544,
     "ram_minima_mb": 2048,
     "licencia": "Apache-2.0",
     "uso_comercial": true,
-    "url_descarga": "https://github.com/stability-ai/stable-audio-open-small/releases/download/v1.0.0/model-small.bin",
-    "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-    "tiempo_estimado_s": 120,
-    "motor": "stable-audio"
-  },
-  {
-    "id": "musica-voz-v1",
-    "tipo": "VOZ",
-    "nombre": "Síntesis de voz",
-    "version": "1.0.0",
-    "tamano_mb": 500.0,
-    "ram_minima_mb": 2048,
-    "licencia": "MIT",
-    "uso_comercial": false,
-    "url_descarga": "https://ejemplo.com/modelos/voz-v1.bin",
-    "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-    "motor": "executorch"
+    "url_descarga": "https://huggingface.co/litert-community/Qwen3-0.6B/resolve/154c5de0fc0fc5002a7da570ba8c67edffa32ca2/qwen3_0_6b_mixed_int4.litertlm",
+    "sha256": "7900eb4e7362d88c58782c6f9999bb7a129e03544aa98b8f338ea0cc5d8c22c1",
+    "motor": "litertlm"
   }
 ]

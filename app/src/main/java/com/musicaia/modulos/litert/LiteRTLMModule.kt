@@ -1,28 +1,38 @@
 package com.musicaia.modulos.litert
 
-/**
- * Hito 1 — LiteRT-LM + Gemma 4 E2B (independiente, no sustituye módulos actuales).
- * Alcance: conversación real + generación de letras (texto), NO instrumentales ni canto.
- * Backend: CPU primero (verificado); GPU Adreno 660 investigado sin garantizar compatibilidad.
- * Modelo descargado solo en almacenamiento privado (context.filesDir), no en APK.
- */
+import android.content.Context
+import java.io.File
+import java.security.MessageDigest
+
+/** Modelo local de texto. La inferencia se ejecuta en el teléfono. */
 object LiteRTLMModule {
-    const val REPO = "litert-community/gemma-4-E2B-it-litert-lm"
-    // Commit debe fijarse tras verificación del repositorio (actualmente no verificado: 404 en API)
-    const val COMMIT_SHA = "6e5c4f1e395deb959c494953478fa5cec4b8008f" // verificado por HF API
-    const val MODEL_FILENAME = "gemma-4-E2B-it.litertlm"
-    const val EXPECTED_SIZE_BYTES = 2588147712L
-    const val EXPECTED_SHA256 = "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
+    const val REPO = "litert-community/Qwen3-0.6B"
+    const val COMMIT_SHA = "154c5de0fc0fc5002a7da570ba8c67edffa32ca2"
+    const val MODEL_FILENAME = "qwen3_0_6b_mixed_int4.litertlm"
+    const val EXPECTED_SIZE_BYTES = 497_516_544L
+    const val EXPECTED_SHA256 = "7900eb4e7362d88c58782c6f9999bb7a129e03544aa98b8f338ea0cc5d8c22c1"
+    const val MODEL_URL =
+        "https://huggingface.co/litert-community/Qwen3-0.6B/resolve/$COMMIT_SHA/$MODEL_FILENAME"
 
-    // Estado de verificación técnica (medido, no estimado)
-    // repoVerified = verificación de EJECUCIÓN (carga+hash+CPU), NO solo metadatos HF.
-    // Metadatos HF (commit 6e5c4f1..., archivo, tamaño, LFS hash) ya verificados con evidencia.
-    // Ejecución pendiente: Xiaomi 11T Pro + compilación con JDK.
-    var repoVerified: Boolean = false
-    var fileDownloaded: Boolean = false
-    var shaVerified: Boolean = false
-    var cpuBackendTested: Boolean = false
-    var gpuAdreno660Compatible: Boolean = false // investigado, NO garantizado
+    fun modelFile(context: Context): File =
+        File(File(context.filesDir, "models"), MODEL_FILENAME)
 
-    fun canLoad(): Boolean = fileDownloaded && shaVerified && cpuBackendTested
+    fun verificarModelo(file: File): Boolean {
+        if (!file.isFile || file.length() != EXPECTED_SIZE_BYTES) return false
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().buffered().use { input ->
+            val buffer = ByteArray(64 * 1024)
+            while (true) {
+                val read = input.read(buffer)
+                if (read < 0) break
+                if (read > 0) digest.update(buffer, 0, read)
+            }
+        }
+        val actual = digest.digest().joinToString("") { "%02x".format(it) }
+        if (!actual.equals(EXPECTED_SHA256, ignoreCase = true)) {
+            file.delete()
+            return false
+        }
+        return true
+    }
 }

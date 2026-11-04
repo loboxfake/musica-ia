@@ -30,6 +30,9 @@
  <TextView android:id="@+id/estadoVoz" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Sin voz: se creará solo el instrumental." />
  <ProgressBar android:id="@+id/progreso" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="wrap_content" android:visibility="gone" />
  <TextView android:id="@+id/tiempo" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Tiempo: 0s" android:visibility="gone" />
+ <TextView android:id="@+id/estadoModelo" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="10dp" android:text="IA local de letras: modelo no descargado." android:textSize="13sp" />
+ <Button android:id="@+id/btnDescargarModelo" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Descargar modelo local (498 MB)" />
+ <ProgressBar android:id="@+id/progresoModelo" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="1000" android:visibility="gone" />
  <Button android:id="@+id/btnCrear" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Crear canción" />
  <TextView android:id="@+id/estado" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Listo" android:textSize="14sp" />
  <TextView android:id="@+id/textoResultado" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="14sp" />
