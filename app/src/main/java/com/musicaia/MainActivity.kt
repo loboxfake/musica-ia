@@ -169,6 +169,7 @@ class MainActivity : AppCompatActivity() {
  }
 
  btnEnviar.setOnClickListener { enviarConversacion() }
+ findViewById<Button>(R.id.btnBorrarMemoria).setOnClickListener { confirmarBorradoMemoria() }
  btnDescargarModelo.setOnClickListener { confirmarDescargaModelo() }
  btnGrabar.setOnClickListener { solicitarMicrofonoYAlternar() }
  btnElegirVoz.setOnClickListener { seleccionarArchivoVoz() }
@@ -242,6 +243,22 @@ class MainActivity : AppCompatActivity() {
      getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE).edit()
          .putString("preferencias_creativas", preferencias.toString())
          .apply()
+ }
+
+
+ private fun confirmarBorradoMemoria() {
+     AlertDialog.Builder(this)
+         .setTitle("Borrar memoria local")
+         .setMessage("Se eliminarán el historial del chat y las preferencias creativas guardadas en este teléfono. No se borrarán canciones, grabaciones ni modelos descargados.")
+         .setNegativeButton("Cancelar", null)
+         .setPositiveButton("Borrar") { _, _ ->
+             getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE).edit().clear().apply()
+             datosConver.clear()
+             chatLog.text = "Orquestador: Memoria local borrada. Empezamos una conversación nueva. ¿Qué te gustaría crear?"
+             actualizarUI()
+             tvEstado.text = "Memoria e historial local borrados."
+         }
+         .show()
  }
 
  private fun solicitarMicrofonoYAlternar() {
