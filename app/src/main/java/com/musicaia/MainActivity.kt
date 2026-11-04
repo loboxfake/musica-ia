@@ -211,6 +211,7 @@ class MainActivity : AppCompatActivity() {
          findViewById<TextView>(navId).setOnClickListener {
              val destino = findViewById<View>(sectionId)
              scroll.post { scroll.smoothScrollTo(0, destino.top) }
+             if (sectionId == R.id.seccionBiblioteca) actualizarBiblioteca()
              seleccionar(navId)
          }
      }
