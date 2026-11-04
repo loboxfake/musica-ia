@@ -448,6 +448,7 @@ class MainActivity : AppCompatActivity() {
         panelLetra.visibility = View.VISIBLE
         anexarChat("\nTú: $texto\nMusicaIA: Modo 'Mi letra' activado. Escribe o pega tu letra.")
         actualizarUI()
+        findViewById<TextView>(R.id.navCrear).performClick()
         return
     }
 
