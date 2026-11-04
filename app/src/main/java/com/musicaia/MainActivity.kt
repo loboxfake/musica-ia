@@ -58,6 +58,30 @@ class MainActivity : AppCompatActivity() {
  private var grabadora: GrabadoraWav? = null
  private val orquestador = Orquestador()
  private var receptorTareasRegistrado = false
+ private val archivoLatidoTarea by lazy { File(filesDir, "bardo_task_heartbeat") }
+ private val vigilanteTarea = object : Runnable {
+     override fun run() {
+         if (isFinishing || isDestroyed) return
+         val prefs = getSharedPreferences(BardoTaskService.PREFS, MODE_PRIVATE)
+         if (prefs.getString(BardoTaskService.KEY_STATE, "").orEmpty() == "running") {
+             val ultimoLatido = runCatching { archivoLatidoTarea.readText().trim().toLong() }.getOrDefault(0L)
+             if (ultimoLatido > 0L && System.currentTimeMillis() - ultimoLatido > 25_000L) {
+                 val mensaje = "El proceso aislado del motor de audio se detuvo inesperadamente. BARDO ha protegido la interfaz; no se ha confirmado ningún audio."
+                 prefs.edit().putString(BardoTaskService.KEY_STATE, "interrupted")
+                     .putString(BardoTaskService.KEY_MESSAGE, mensaje).apply()
+                 archivoLatidoTarea.delete()
+                 ocupado = false
+                 grupoModo.isEnabled = true
+                 btnCrear.isEnabled = true
+                 detenerReloj()
+                 tvEstado.text = "Generación interrumpida"
+                 tvResultado.text = mensaje
+                 return
+             }
+         }
+         handler.postDelayed(this, 4_000L)
+     }
+ }
  private val receptorTareas = object : BroadcastReceiver() {
      override fun onReceive(context: android.content.Context?, intent: Intent?) {
          if (intent?.action != BardoTaskService.ACTION_UPDATE || isFinishing || isDestroyed) return
@@ -789,6 +813,17 @@ class MainActivity : AppCompatActivity() {
  f.delete()
  }
  } catch (_: Exception) { }
+ }
+
+ override fun onResume() {
+     super.onResume()
+     handler.removeCallbacks(vigilanteTarea)
+     handler.post(vigilanteTarea)
+ }
+
+ override fun onPause() {
+     handler.removeCallbacks(vigilanteTarea)
+     super.onPause()
  }
 
  override fun onDestroy() {
