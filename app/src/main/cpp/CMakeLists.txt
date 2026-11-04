@@ -41,7 +41,7 @@ add_subdirectory(${EXECUTORCH_SOURCE_DIR}/extension/llm/tokenizers ${CMAKE_BINAR
 if(ANDROID)
     foreach(_spm_target spm_encode spm_decode spm_normalize spm_train spm_export_vocab spm_eval)
         if(TARGET ${_spm_target})
-            target_link_libraries(${_spm_target} PRIVATE log)
+            target_link_libraries(${_spm_target} log)
         endif()
     endforeach()
 endif()
