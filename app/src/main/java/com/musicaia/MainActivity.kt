@@ -31,6 +31,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.text.Normalizer
 import org.json.JSONObject
+import org.json.JSONArray
 import com.musicaia.modulos.ModuloMezcla
 import com.musicaia.modulos.AudioGenNative
 import com.musicaia.modulos.Mp3Exporter
@@ -83,6 +84,9 @@ class MainActivity : AppCompatActivity() {
  private var configuracionInterfazPendiente = ""
  private var accentColorUI = "#70D8FF"
  private var navActivoId = R.id.navOrquestador
+ private val tabsDisponibles = listOf("orchestrator", "create", "library", "lab", "system")
+ private var navigationOrder = tabsDisponibles
+ private var visibleTabs = tabsDisponibles.toSet()
 
  private var rutaInstrumental: String? = null
 
@@ -338,6 +342,8 @@ class MainActivity : AppCompatActivity() {
      json.put("welcomeTitle", findViewById<TextView>(R.id.tvWelcomeTitle).text.toString())
      json.put("welcomeDescription", findViewById<TextView>(R.id.tvWelcomeDescription).text.toString())
      json.put("accentColor", accentColorUI)
+     json.put("navigationOrder", JSONArray(navigationOrder))
+     json.put("visibleTabs", JSONArray(tabsDisponibles.filter { it in visibleTabs }))
      json.put("navigation", JSONObject()
          .put("orchestrator", findViewById<TextView>(R.id.navOrquestador).text.toString())
          .put("create", findViewById<TextView>(R.id.navCrear).text.toString())
@@ -366,6 +372,25 @@ class MainActivity : AppCompatActivity() {
      findViewById<TextView>(R.id.tvWelcomeDescription).text = texto("welcomeDescription",
          "Habla con tu orquestador. Él coordina los modelos y herramientas para convertir tus ideas en música.", 220)
      val navigation = json.optJSONObject("navigation") ?: JSONObject()
+     val ordenImportado = json.optJSONArray("navigationOrder")
+     val ordenLeido = mutableListOf<String>()
+     if (ordenImportado != null) {
+         for (i in 0 until ordenImportado.length()) {
+             val key = ordenImportado.optString(i)
+             if (key in tabsDisponibles && key !in ordenLeido) ordenLeido.add(key)
+         }
+     }
+     navigationOrder = (ordenLeido + tabsDisponibles.filter { it !in ordenLeido })
+     val visiblesImportados = json.optJSONArray("visibleTabs")
+     val visiblesLeidos = mutableSetOf<String>()
+     if (visiblesImportados != null) {
+         for (i in 0 until visiblesImportados.length()) {
+             val key = visiblesImportados.optString(i)
+             if (key in tabsDisponibles) visiblesLeidos.add(key)
+         }
+     }
+     visibleTabs = (if (visiblesLeidos.isEmpty()) tabsDisponibles.toSet() else visiblesLeidos).toMutableSet()
+     visibleTabs.add("orchestrator")
      findViewById<TextView>(R.id.navOrquestador).text = navigation.optString("orchestrator", "✧\nIA").take(18)
      findViewById<TextView>(R.id.navCrear).text = navigation.optString("create", "♫\nCrear").take(18)
      findViewById<TextView>(R.id.navBiblioteca).text = navigation.optString("library", "▤\nArchivo").take(18)
@@ -373,6 +398,7 @@ class MainActivity : AppCompatActivity() {
      findViewById<TextView>(R.id.navSistema).text = navigation.optString("system", "⚙\nSistema").take(18)
      findViewById<TextView>(R.id.tvWelcomeTitle).setTextColor(android.graphics.Color.parseColor(acento))
      findViewById<TextView>(R.id.tvBrandName).setTextColor(android.graphics.Color.parseColor(acento))
+     actualizarNavegacionConfigurada()
      listOf(R.id.navOrquestador, R.id.navCrear, R.id.navBiblioteca, R.id.navLaboratorio, R.id.navSistema)
          .forEach { id ->
              findViewById<TextView>(id).setTextColor(
@@ -381,6 +407,30 @@ class MainActivity : AppCompatActivity() {
          }
  }
 
+
+
+ private fun actualizarNavegacionConfigurada() {
+     val navIds = mapOf(
+         "orchestrator" to R.id.navOrquestador,
+         "create" to R.id.navCrear,
+         "library" to R.id.navBiblioteca,
+         "lab" to R.id.navLaboratorio,
+         "system" to R.id.navSistema
+     )
+     val barra = findViewById<android.widget.LinearLayout>(R.id.bottomNavigation)
+     barra.removeAllViews()
+     navigationOrder.filter { it in visibleTabs }.forEach { key ->
+         val vista = findViewById<TextView>(navIds.getValue(key))
+         barra.addView(vista, android.widget.LinearLayout.LayoutParams(
+             0, android.view.ViewGroup.LayoutParams.MATCH_PARENT, 1f
+         ))
+     }
+     val idActivo = navIds.entries.firstOrNull { it.value == navActivoId }?.key
+     if (idActivo !in visibleTabs) {
+         val primero = navigationOrder.firstOrNull { it in visibleTabs } ?: "orchestrator"
+         findViewById<TextView>(navIds.getValue(primero)).performClick()
+     }
+ }
 
  private fun confirmarBorradoMemoria() {
      AlertDialog.Builder(this)
