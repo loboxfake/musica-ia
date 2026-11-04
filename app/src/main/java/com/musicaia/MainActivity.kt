@@ -614,6 +614,11 @@ class MainActivity : AppCompatActivity() {
          anexarChat("\nMusicalIA: $respuestaGuiada")
          return
      }
+     // Capturar el estado de la UI en el hilo principal antes de iniciar el trabajador.
+     val memoriaPrompt = datosConver.entries.joinToString("\n") { it.key + ": " + it.value }
+     val contextoPrompt = chatLog.text.toString().takeLast(5000)
+     val conocimientoPrompt = getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE)
+         .getString("conocimiento_importado", "").orEmpty().takeLast(8000)
      btnEnviar.isEnabled = false
      tvEstado.text = "El orquestador está consultando el modelo local..."
      Thread({
@@ -623,9 +628,9 @@ class MainActivity : AppCompatActivity() {
              }
              modeloChatVerificado = true
              EngineLiteRT.inicializar(modelo.absolutePath, File(cacheDir, "litert-cache").absolutePath)
-             val memoria = datosConver.entries.joinToString("\n") { it.key + ": " + it.value }
-             val contexto = chatLog.text.toString().takeLast(5000)
-             val conocimiento = getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE).getString("conocimiento_importado", "").orEmpty().takeLast(8000)
+             val memoria = memoriaPrompt
+             val contexto = contextoPrompt
+             val conocimiento = conocimientoPrompt
              val prompt = """
                  Eres MusicalIA Core, un asistente conversacional que coordina un estudio musical local.
                  Responde en español, con naturalidad y brevedad. Conserva el contexto y respeta las preferencias indicadas.
