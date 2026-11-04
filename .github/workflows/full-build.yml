@@ -23,7 +23,7 @@ jobs:
 
       - name: Download pinned local audio model pack
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           run_id=$(gh run list --workflow prepare-audio-model.yml --branch ruta-a-compile --status success --limit 1 --json databaseId --jq '.[0].databaseId')
           if [ -z "$run_id" ] || [ "$run_id" = "null" ]; then
