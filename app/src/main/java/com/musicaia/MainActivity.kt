@@ -507,7 +507,7 @@ class MainActivity : AppCompatActivity() {
  }
  }
  tvResultado.text = sb.toString()
- tvEstado.text = "Letra generada con IA local en ${segundos}s. Instrumental, canto y portada siguen pendientes."
+ tvEstado.text = if (editLetra.text.toString().isNotBlank()) "Letra propia cargada en ${segundos}s. Instrumental, canto y portada siguen pendientes." else "Letra generada con IA local en ${segundos}s. Instrumental, canto y portada siguen pendientes."
  }
 
  private fun mostrarError(e: Exception) {
