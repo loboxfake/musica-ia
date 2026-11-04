@@ -23,7 +23,9 @@ jobs:
           distribution: 'temurin'
       - name: Install Android CMake and NDK
         run: |
+          set +o pipefail
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
+          set -o pipefail
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "cmake;3.31.6" "ndk;27.2.12479018"
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
