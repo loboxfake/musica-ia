@@ -90,6 +90,9 @@ jobs:
             extension/llm/third-party/re2 \
             extension/llm/third-party/sentencepiece \
             extension/llm/tokenizers \
+            extension/llm/tokenizers/third-party/abseil-cpp \
+            extension/llm/tokenizers/third-party/re2 \
+            extension/llm/tokenizers/third-party/sentencepiece \
             kernels/optimized/third-party/eigen \
             third-party/flatbuffers \
             third-party/flatcc \
