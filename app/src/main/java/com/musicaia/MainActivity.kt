@@ -711,13 +711,19 @@ class MainActivity : AppCompatActivity() {
 }
 
  private fun actualizarUI() {
-     btnCrear.isEnabled = !ocupado && AudioGenNative.available && (if (modoSoloInstrumental) {
+     val datosListos = if (modoSoloInstrumental) {
          editPromptInstrumental.text.toString().isNotBlank()
      } else if (grupoModo.checkedRadioButtonId == R.id.modoLetra) {
          editLetra.text.toString().isNotBlank()
      } else {
          camposRequeridos.all { !datosConver[it].isNullOrBlank() }
-     })
+     }
+     // No ocultar el motivo deshabilitando silenciosamente el botón: permitir el toque
+     // para que crearCancion() informe cuando esta APK ligera carece del motor nativo.
+     btnCrear.isEnabled = !ocupado && datosListos
+     if (modoSoloInstrumental && datosListos && !AudioGenNative.available) {
+         tvEstado.text = "Descripción completa, pero esta APK ligera no incluye el motor de audio. Hace falta la compilación offline completa."
+     }
  }
 
 
