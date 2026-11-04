@@ -366,15 +366,26 @@ int audiogen_cli_main(int32_t argc, char** argv) {
     const auto t5_input_ids_tensor_dims = get_tensor_dims(t5_forward_meta.input_tensor_meta(k_t5_ids_in_idx).get());
     auto t5_seq_len = t5_input_ids_tensor_dims[1];
 
+    // The tokenizer can return more tokens than the fixed sequence length
+    // exported in the T5 model. Writing tokens.size() entries here would
+    // overrun both vectors and corrupt the native heap (often a process crash).
+    if (t5_seq_len == 0) {
+        throw std::runtime_error("T5 model reports an empty token sequence");
+    }
+    const size_t safe_token_count = std::min(tokens.size(), static_cast<size_t>(t5_seq_len));
+    if (tokens.size() > safe_token_count) {
+        ET_LOG(Warning, "Prompt tokenized to %zu tokens; truncating to model limit %zu",
+               tokens.size(), safe_token_count);
+    }
     std::vector<uint64_t> token_ids(t5_seq_len, 0);
-    for (int i = 0; i < tokens.size(); i++) {
+    for (size_t i = 0; i < safe_token_count; ++i) {
         token_ids[i] = static_cast<uint64_t>(tokens[i]);
     }
 
     // Prepare input mask tensor data
     const auto t5_input_mask_tensor_dims = get_tensor_dims(t5_forward_meta.input_tensor_meta(k_t5_attnmask_in_idx).get());
     std::vector<uint64_t> attention_mask(t5_seq_len, 0);
-    for (int i = 0; i < tokens.size(); i++) {
+    for (size_t i = 0; i < safe_token_count; ++i) {
         attention_mask[i] = 1U;
     }
 
