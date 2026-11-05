@@ -1764,14 +1764,18 @@ class MainActivity : AppCompatActivity() {
  return
  }
 
- val nombre = "musicaia_" + System.currentTimeMillis() + ".mp3"
+ val nombre = "bardo_" + System.currentTimeMillis() + ".mp3"
  val temporal = File(cacheDir, nombre)
+ val guardarEnCarpeta = uriCarpetaBardo != null
  btnGuardar.isEnabled = false
  tvEstado.text = "Preparando MP3 de alta calidad (320 kbps)..."
  Thread({
      val correcto = runCatching {
          Mp3Exporter.encodeWavToMp3(origen, temporal.absolutePath, 320)
      }.getOrDefault(false) && temporal.isFile && temporal.length() > 128L
+     val guardado = if (correcto && guardarEnCarpeta) runCatching {
+         guardarArchivoEnCarpetaBardo(temporal, "Canciones", nombre, "audio/mpeg")
+     } else null
 
      runOnUiThread {
          btnGuardar.isEnabled = true
@@ -1779,7 +1783,11 @@ class MainActivity : AppCompatActivity() {
              temporal.delete()
              return@runOnUiThread
          }
-         if (correcto) {
+         if (correcto && guardarEnCarpeta && guardado?.isSuccess == true) {
+             temporal.delete()
+             tvEstado.text = "Canción MP3 guardada en Descargas/BARDO/Canciones."
+         } else if (correcto) {
+             if (guardarEnCarpeta) tvEstado.text = "No se pudo guardar en BARDO: ${guardado?.exceptionOrNull()?.message}. Elige otro destino."
              rutaExportacion = temporal.absolutePath
              selectorGuardar.launch(nombre)
          } else {
