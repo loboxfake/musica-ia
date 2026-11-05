@@ -532,7 +532,7 @@ class MainActivity : AppCompatActivity() {
      val id = activeConversationId
      val claveConversacion = id?.let { "preferencias_creativas_$it" }
      val tienePreferenciasPropias = claveConversacion?.let { prefs.contains(it) } == true
-     val datos = if (tienePreferenciasPropias) prefs.getString(claveConversacion, null)
+     val datos = if (tienePreferenciasPropias) claveConversacion?.let { prefs.getString(it, null) }
          else prefs.getString("preferencias_creativas", null)
      if (!datos.isNullOrBlank()) runCatching {
          val json = JSONObject(datos)
