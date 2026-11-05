@@ -1021,7 +1021,16 @@ class MainActivity : AppCompatActivity() {
          detenerReloj()
          val mensaje = intent.getStringExtra(BardoTaskService.EXTRA_MESSAGE).orEmpty()
          tvEstado.text = "Tarea $estado: $mensaje"
-         tvResultado.text = mensaje
+         val wavRescatable = getSharedPreferences(BardoTaskService.PREFS, MODE_PRIVATE).getString(BardoTaskService.KEY_AUDIO, "").orEmpty()
+         if (wavRescatable.isNotBlank() && File(wavRescatable).isFile && File(wavRescatable).length() > 44L) {
+             rutaAudio = wavRescatable
+             rutaInstrumental = wavRescatable
+             btnReproducir.visibility = View.VISIBLE
+             btnGuardar.visibility = View.VISIBLE
+             tvResultado.text = mensaje + "\nEl WAV fuente sí se conservó y puedes reproducirlo o exportarlo aunque fallara el MP3."
+         } else {
+             tvResultado.text = mensaje
+         }
      } else if (estado == "running") {
          val mensaje = intent.getStringExtra(BardoTaskService.EXTRA_MESSAGE) ?: "BARDO continúa trabajando en segundo plano."
          tvEstado.text = mensaje
