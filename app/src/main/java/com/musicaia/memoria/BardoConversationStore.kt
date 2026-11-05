@@ -1,0 +1,226 @@
+package com.musicaia.memoria
+
+import android.content.Context
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.UUID
+
+/**
+ * Almacén local del historial conversacional de BARDO.
+ *
+ * Cada mensaje se persiste como registro independiente con instante UTC y zona
+ * horaria de origen. El historial no depende del TextView de la interfaz.
+ *
+ * Este primer almacén usa JSON atómico para no añadir una dependencia de base
+ * de datos antes de integrar y migrar el historial existente. La API permite
+ * sustituir internamente el backend por Room sin cambiar los consumidores.
+ */
+class BardoConversationStore(context: Context) {
+    data class Message(
+        val id: String,
+        val conversationId: String,
+        val role: String,
+        val content: String,
+        val timestampEpochMillis: Long,
+        val zoneId: String
+    ) {
+        fun toJson(): JSONObject = JSONObject()
+            .put("id", id)
+            .put("conversationId", conversationId)
+            .put("role", role)
+            .put("content", content)
+            .put("timestampEpochMillis", timestampEpochMillis)
+            .put("zoneId", zoneId)
+            .put("timestampUtc", DateTimeFormatter.ISO_INSTANT.format(Instant.ofEpochMilli(timestampEpochMillis)))
+    }
+
+    data class Conversation(
+        val id: String,
+        val title: String,
+        val createdAtEpochMillis: Long,
+        val updatedAtEpochMillis: Long
+    )
+
+    private val lock = Any()
+    private val file = File(context.filesDir, "bardo_conversation_history.json")
+    private val backup = File(context.filesDir, "bardo_conversation_history.json.bak")
+
+    fun createConversation(title: String = "Nueva conversación", now: Long = System.currentTimeMillis()): Conversation =
+        synchronized(lock) {
+            val id = UUID.randomUUID().toString()
+            val conversation = Conversation(id, title.ifBlank { "Nueva conversación" }, now, now)
+            val root = readRoot()
+            root.getJSONArray("conversations").put(
+                JSONObject()
+                    .put("id", conversation.id)
+                    .put("title", conversation.title)
+                    .put("createdAtEpochMillis", now)
+                    .put("updatedAtEpochMillis", now)
+            )
+            writeRoot(root)
+            conversation
+        }
+
+    fun append(
+        conversationId: String,
+        role: String,
+        content: String,
+        now: Long = System.currentTimeMillis(),
+        zoneId: String = ZoneId.systemDefault().id
+    ): Message = synchronized(lock) {
+        require(role in setOf("user", "assistant", "system", "tool")) { "Rol de mensaje no válido." }
+        require(content.isNotBlank()) { "El mensaje no puede estar vacío." }
+        val root = readRoot()
+        val conversations = root.getJSONArray("conversations")
+        val conversation = (0 until conversations.length())
+            .map { conversations.getJSONObject(it) }
+            .firstOrNull { it.optString("id") == conversationId }
+            ?: throw IllegalArgumentException("La conversación no existe.")
+        val message = Message(UUID.randomUUID().toString(), conversationId, role, content, now, zoneId)
+        root.getJSONArray("messages").put(message.toJson())
+        conversation.put("updatedAtEpochMillis", now)
+        writeRoot(root)
+        message
+    }
+
+    fun listConversations(): List<Conversation> = synchronized(lock) {
+        val array = readRoot().getJSONArray("conversations")
+        (0 until array.length()).map { index ->
+            val item = array.getJSONObject(index)
+            Conversation(
+                item.getString("id"),
+                item.optString("title", "Conversación"),
+                item.optLong("createdAtEpochMillis"),
+                item.optLong("updatedAtEpochMillis")
+            )
+        }.sortedByDescending { it.updatedAtEpochMillis }
+    }
+
+    fun messages(conversationId: String): List<Message> = synchronized(lock) {
+        val array = readRoot().getJSONArray("messages")
+        (0 until array.length()).mapNotNull { index ->
+            val item = array.getJSONObject(index)
+            if (item.optString("conversationId") != conversationId) return@mapNotNull null
+            Message(
+                item.getString("id"),
+                item.getString("conversationId"),
+                item.getString("role"),
+                item.getString("content"),
+                item.getLong("timestampEpochMillis"),
+                item.optString("zoneId", "UTC")
+            )
+        }.sortedWith(compareBy<Message> { it.timestampEpochMillis }.thenBy { it.id })
+    }
+
+    /** Exportación íntegra: conserva IDs, orden, UTC y zona horaria original. */
+    fun exportJson(): String = synchronized(lock) {
+        readRoot().toString(2)
+    }
+
+    /** Exportación legible para el usuario, con fecha/hora local por mensaje. */
+    fun exportText(): String = synchronized(lock) {
+        val root = readRoot()
+        val conversations = root.getJSONArray("conversations")
+        val messages = root.getJSONArray("messages")
+        buildString {
+            appendLine("BARDO — Historial de conversaciones")
+            appendLine("Exportado: ${Instant.now()}")
+            for (i in 0 until conversations.length()) {
+                val conversation = conversations.getJSONObject(i)
+                val id = conversation.getString("id")
+                appendLine()
+                appendLine("=== ${conversation.optString("title", "Conversación")} ===")
+                for (j in 0 until messages.length()) {
+                    val message = messages.getJSONObject(j)
+                    if (message.optString("conversationId") != id) continue
+                    val instant = Instant.ofEpochMilli(message.getLong("timestampEpochMillis"))
+                    val zone = runCatching { ZoneId.of(message.optString("zoneId", "UTC")) }.getOrDefault(ZoneId.of("UTC"))
+                    val date = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+                        .withZone(zone).format(instant)
+                    val speaker = when (message.optString("role")) {
+                        "user" -> "Tú"
+                        "assistant" -> "BARDO"
+                        "system" -> "Sistema"
+                        else -> "Herramienta"
+                    }
+                    appendLine("[$date ${zone.id}] $speaker:")
+                    appendLine(message.optString("content"))
+                }
+            }
+        }
+    }
+
+    /**
+     * Importación conservadora: valida el formato y los campos antes de guardar.
+     * El llamador debe mostrar una vista previa y solicitar autorización antes
+     * de invocar este método. No ejecuta instrucciones contenidas en los mensajes.
+     */
+    fun importJson(json: String): Int = synchronized(lock) {
+        val incoming = JSONObject(json)
+        require(incoming.optInt("schemaVersion") == 1) { "Versión de historial no compatible." }
+        val incomingConversations = incoming.optJSONArray("conversations")
+            ?: throw IllegalArgumentException("Falta la lista de conversaciones.")
+        val incomingMessages = incoming.optJSONArray("messages")
+            ?: throw IllegalArgumentException("Falta la lista de mensajes.")
+        val current = readRoot()
+        val knownConversationIds = (0 until current.getJSONArray("conversations").length())
+            .map { current.getJSONArray("conversations").getJSONObject(it).optString("id") }.toMutableSet()
+        val knownMessageIds = (0 until current.getJSONArray("messages").length())
+            .map { current.getJSONArray("messages").getJSONObject(it).optString("id") }.toMutableSet()
+        var added = 0
+        for (i in 0 until incomingConversations.length()) {
+            val item = incomingConversations.getJSONObject(i)
+            val id = item.getString("id")
+            if (knownConversationIds.add(id)) current.getJSONArray("conversations").put(JSONObject(item.toString()))
+        }
+        for (i in 0 until incomingMessages.length()) {
+            val item = incomingMessages.getJSONObject(i)
+            require(item.optString("role") in setOf("user", "assistant", "system", "tool"))
+            require(item.has("content") && item.has("timestampEpochMillis") && item.has("conversationId"))
+            if (knownMessageIds.add(item.getString("id"))) {
+                current.getJSONArray("messages").put(JSONObject(item.toString()))
+                added++
+            }
+        }
+        writeRoot(current)
+        added
+    }
+
+    private fun readRoot(): JSONObject {
+        val source = when {
+            file.isFile -> file
+            backup.isFile -> backup
+            else -> null
+        }
+        if (source == null) return emptyRoot()
+        return runCatching { JSONObject(source.readText(Charsets.UTF_8)) }
+            .getOrElse {
+                if (source == file && backup.isFile) {
+                    runCatching { JSONObject(backup.readText(Charsets.UTF_8)) }.getOrElse { emptyRoot() }
+                } else emptyRoot()
+            }
+    }
+
+    private fun emptyRoot() = JSONObject()
+        .put("schemaVersion", 1)
+        .put("conversations", JSONArray())
+        .put("messages", JSONArray())
+
+    private fun writeRoot(root: JSONObject) {
+        root.put("schemaVersion", 1)
+        val temp = File(file.parentFile, file.name + ".tmp")
+        temp.writeText(root.toString(), Charsets.UTF_8)
+        if (file.isFile) {
+            if (backup.exists()) backup.delete()
+            file.copyTo(backup, overwrite = true)
+        }
+        if (!temp.renameTo(file)) {
+            temp.copyTo(file, overwrite = true)
+            temp.delete()
+        }
+    }
+}
