@@ -285,6 +285,7 @@ class MainActivity : AppCompatActivity() {
                              activeConversationId = activa.id
                              getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE).edit()
                                  .putString("active_conversation_id", activa.id).apply()
+                             chatLog.text = ""
                              renderizarConversacionActiva()
                          }
                          tvEstado.text = "Importación terminada: $agregados mensajes nuevos añadidos."
@@ -663,9 +664,9 @@ class MainActivity : AppCompatActivity() {
      accentColorUI = acento
      findViewById<TextView>(R.id.tvBrandName).text = texto("brandName", "BARDO", 24)
      findViewById<TextView>(R.id.tvBrandSubtitle).text = texto("subtitle", "BINARY AUTOMATED RHYTHM AND DIGITAL ORCHESTRATION", 48)
-     findViewById<TextView>(R.id.tvWelcomeTitle).text = texto("welcomeTitle", "¿Qué vamos a crear hoy?", 70)
+     findViewById<TextView>(R.id.tvWelcomeTitle).text = texto("welcomeTitle", "¿En qué puedo ayudarte?", 70)
      findViewById<TextView>(R.id.tvWelcomeDescription).text = texto("welcomeDescription",
-         "BARDO coordina los modelos y herramientas de tu estudio musical, conserva el contexto autorizado y evoluciona mediante módulos verificados.", 220)
+         "BARDO es un asistente personal local-first. Conversa y coordina las especialidades y herramientas que estén realmente disponibles.", 220)
      val navigation = json.optJSONObject("navigation") ?: JSONObject()
      val ordenImportado = json.optJSONArray("navigationOrder")
      val ordenLeido = mutableListOf<String>()
