@@ -176,6 +176,7 @@ class BardoTaskService : Service() {
                 if (cancelacionSolicitada.get()) throw java.util.concurrent.CancellationException("Cancelación solicitada por el usuario.")
                 val letra = (resultados.firstOrNull { it.first == "letra" }?.second as? Dato.Texto)?.texto.orEmpty()
                 val segundos = ((System.currentTimeMillis() - inicioMs) / 1000L).toInt()
+                getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_AUDIO, audio.rutaWav).apply()
                 publicarEstado("running", "WAV validado (${archivo.length()} bytes). Preparando MP3 320 kbps para Archivo…")
                 if (!Mp3Exporter.available) throw IllegalStateException("El WAV se generó, pero el codificador MP3 nativo no está disponible en esta APK.")
                 val biblioteca = java.io.File(filesDir, "biblioteca")
