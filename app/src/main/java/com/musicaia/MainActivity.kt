@@ -937,12 +937,7 @@ class MainActivity : AppCompatActivity() {
     if (texto.isEmpty()) return
     chatEntrada.text.clear()
 
-    val normalizedInput = texto.lowercase()
-    val intent = BardoIntentRouter.classify(
-        texto,
-        creationInProgress = datosConver.isNotEmpty() ||
-            normalizedInput in setOf("crear", "crear canción", "crear cancion", "sí", "si", "continuar")
-    )
+    val intent = BardoIntentRouter.classify(texto, creationInProgress = datosConver.isNotEmpty())
     if (intent == BardoIntentRouter.Intent.GENERAL_CHAT) {
         responderChatLibre(texto)
         return
@@ -952,7 +947,7 @@ class MainActivity : AppCompatActivity() {
         anexarChat("\nTú: $texto\nBARDO: Estás en modo 'Mi letra'. Puedes seguir editando tu letra y después crearla.")
         return
     }
-    if (texto.equals("mi letra", ignoreCase = true) || texto.contains("texto propio", ignoreCase = true)) {
+    if (intent == BardoIntentRouter.Intent.OWN_LYRICS) {
         grupoModo.check(R.id.modoLetra)
         panelLetra.visibility = View.VISIBLE
         anexarChat("\nTú: $texto\nBARDO: Modo 'Mi letra' activado. Escribe o pega tu letra.")
