@@ -428,6 +428,7 @@ class MainActivity : AppCompatActivity() {
  btnEnviar.setOnClickListener { enviarConversacion() }
  findViewById<Button>(R.id.btnNuevaConversacion).setOnClickListener { crearConversacionNueva() }
  findViewById<Button>(R.id.btnVerHistorial).setOnClickListener { mostrarHistorialConversaciones() }
+ findViewById<Button>(R.id.btnBuscarHistorial).setOnClickListener { mostrarBusquedaHistorial() }
  findViewById<Button>(R.id.btnExportarHistorial).setOnClickListener { mostrarOpcionesExportacionHistorial() }
  findViewById<Button>(R.id.btnImportarHistorial).setOnClickListener {
      selectorImportarHistorial.launch(arrayOf("application/json", "text/*"))
@@ -669,6 +670,53 @@ class MainActivity : AppCompatActivity() {
          .setTitle("Capacidades de BARDO")
          .setMessage(texto)
          .setPositiveButton("Cerrar", null)
+         .show()
+ }
+
+ private fun mostrarBusquedaHistorial() {
+     val entrada = EditText(this).apply {
+         hint = "Palabra o frase que recuerdes..."
+         setSingleLine(true)
+         setPadding(dp(12), dp(10), dp(12), dp(10))
+     }
+     AlertDialog.Builder(this)
+         .setTitle("Buscar en el historial")
+         .setView(entrada)
+         .setNegativeButton("Cancelar", null)
+         .setPositiveButton("Buscar") { _, _ ->
+             val consulta = entrada.text.toString().trim()
+             if (consulta.isBlank()) {
+                 tvEstado.text = "Escribe una palabra o frase para buscar."
+                 return@setPositiveButton
+             }
+             val resultados = conversationStore.searchMessages(consulta)
+             if (resultados.isEmpty()) {
+                 tvEstado.text = "No se encontraron mensajes que contengan «$consulta»."
+                 return@setPositiveButton
+             }
+             val formato = DateTimeFormatter.ofPattern("dd/MM HH:mm")
+             val etiquetas = resultados.map { resultado ->
+                 val mensaje = resultado.message
+                 val zona = runCatching { ZoneId.of(mensaje.zoneId) }.getOrDefault(ZoneId.of("UTC"))
+                 val hora = formato.withZone(zona).format(Instant.ofEpochMilli(mensaje.timestampEpochMillis))
+                 val autor = if (mensaje.role == "user") "Tú" else "BARDO"
+                 "${resultado.conversation.title} · $hora · $autor: ${mensaje.content.take(72)}"
+             }.toTypedArray()
+             AlertDialog.Builder(this)
+                 .setTitle("Resultados: ${resultados.size}")
+                 .setItems(etiquetas) { _, indice ->
+                     val seleccion = resultados[indice]
+                     activeConversationId = seleccion.conversation.id
+                     cargarMemoriaLocal()
+                     getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE).edit()
+                         .putString("active_conversation_id", activeConversationId).apply()
+                     chatLog.text = ""
+                     renderizarConversacionActiva()
+                     tvEstado.text = "Conversación recuperada desde el resultado de búsqueda."
+                 }
+                 .setNegativeButton("Cerrar", null)
+                 .show()
+         }
          .show()
  }
 
