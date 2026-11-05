@@ -58,6 +58,22 @@ class BardoConversationStoreTest {
     }
 
     @Test
+    fun searchesMessagesAndReturnsTheirConversation() {
+        val (store, directory) = newStore()
+        try {
+            val conversation = store.createConversation("Proyecto de prueba")
+            store.append(conversation.id, "user", "Necesito una canción sobre la amistad")
+            store.append(conversation.id, "assistant", "Podemos trabajar el tema de la amistad.")
+            val results = store.searchMessages("amistad")
+            assertEquals(2, results.size)
+            assertEquals("Proyecto de prueba", results.first().conversation.title)
+            assertTrue(store.searchMessages("término inexistente").isEmpty())
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
     fun rejectsOrphanMessageWithoutChangingExistingHistory() {
         val (store, directory) = newStore()
         try {
