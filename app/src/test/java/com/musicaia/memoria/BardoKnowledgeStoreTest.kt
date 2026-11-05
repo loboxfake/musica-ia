@@ -1,5 +1,6 @@
 package com.musicaia.memoria
 
+import java.io.File
 import java.nio.file.Files
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -17,6 +18,20 @@ class BardoKnowledgeStoreTest {
             assertTrue(store.search("memoria local").contains("módulos verificables"))
             assertTrue(store.allForPrompt().contains("Arquitectura local"))
             assertEquals(64, entry.sha256.length)
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun modifiedReferenceIsExcludedFromSearchAndPrompts() {
+        val directory = Files.createTempDirectory("bardo-knowledge-integrity").toFile()
+        try {
+            val store = BardoKnowledgeStore(directory)
+            val entry = store.importText("Referencia segura", "nota.txt", "contenido original autorizado")
+            File(directory, "${entry.id}.txt").writeText("contenido manipulado")
+            assertTrue(store.search("contenido manipulado").isEmpty())
+            assertFalse(store.allForPrompt().contains("contenido manipulado"))
         } finally {
             directory.deleteRecursively()
         }
