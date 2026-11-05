@@ -151,7 +151,7 @@ class MainActivity : AppCompatActivity() {
  private var descargaEnCurso = false
  private var modeloChatVerificado = false
  private var configuracionInterfazPendiente = ""
- private var accentColorUI = "#70D8FF"
+ private var accentColorUI = "#16CFF4"
  private var navActivoId = R.id.navOrquestador
  private val tabsDisponibles = listOf("orchestrator", "create", "library", "lab", "system")
  private var navigationOrder = tabsDisponibles
@@ -471,8 +471,8 @@ class MainActivity : AppCompatActivity() {
  private fun aplicarConfiguracionInterfaz(json: JSONObject) {
      fun texto(clave: String, defecto: String, max: Int): String =
          json.optString(clave, defecto).trim().take(max).ifBlank { defecto }
-     val acento = json.optString("accentColor", "#70D8FF")
-         .takeIf { it.matches(Regex("^#[0-9A-Fa-f]{6}$")) } ?: "#70D8FF"
+     val acento = json.optString("accentColor", "#16CFF4")
+         .takeIf { it.matches(Regex("^#[0-9A-Fa-f]{6}$")) } ?: "#16CFF4"
      accentColorUI = acento
      findViewById<TextView>(R.id.tvBrandName).text = texto("brandName", "BARDO", 24)
      findViewById<TextView>(R.id.tvBrandSubtitle).text = texto("subtitle", "BINARY AUTOMATED RHYTHM AND DIGITAL ORCHESTRATION", 48)
