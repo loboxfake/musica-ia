@@ -9,6 +9,7 @@ on:
   push:
     branches:
       - ruta-a-compile
+      - bardo-worker-hardening
 
 permissions:
   actions: read
