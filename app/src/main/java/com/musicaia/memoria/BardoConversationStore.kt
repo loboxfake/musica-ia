@@ -221,6 +221,13 @@ class BardoConversationStore(context: Context) {
         added
     }
 
+    /** Elimina el historial completo solo cuando el usuario confirma el borrado desde la interfaz. */
+    fun clearAll() = synchronized(lock) {
+        file.delete()
+        backup.delete()
+        File(file.parentFile, file.name + ".tmp").delete()
+    }
+
     private fun readRoot(): JSONObject {
         val source = when {
             file.isFile -> file
