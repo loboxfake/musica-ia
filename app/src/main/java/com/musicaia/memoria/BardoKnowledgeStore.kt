@@ -27,7 +27,7 @@ class BardoKnowledgeStore internal constructor(private val directory: File) {
         directory.mkdirs()
         val id = UUID.randomUUID().toString()
         val bytes = text.toByteArray(Charsets.UTF_8)
-        val hash = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+        val hash = sha256(bytes)
         val entry = Entry(id, title.take(160).ifBlank { "Referencia" }, source.take(240), System.currentTimeMillis(), text.length, hash)
         val data = File(directory, "$id.txt")
         val meta = File(directory, "$id.json")
@@ -58,13 +58,24 @@ class BardoKnowledgeStore internal constructor(private val directory: File) {
             .sortedByDescending { it.createdAt }
     }
 
+    /** Devuelve solo contenido cuya huella coincide con la ficha local. */
+    private fun readVerified(entry: Entry): String? {
+        if (!entry.sha256.matches(Regex("[0-9a-fA-F]{64}"))) return null
+        val file = File(directory, "${entry.id}.txt")
+        if (!file.isFile) return null
+        val bytes = runCatching { file.readBytes() }.getOrNull() ?: return null
+        if (!sha256(bytes).equals(entry.sha256, ignoreCase = true)) return null
+        return runCatching { bytes.toString(Charsets.UTF_8) }.getOrNull()
+    }
+
+    private fun sha256(bytes: ByteArray): String =
+        MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+
     fun search(query: String, maxChars: Int = 12000): String = synchronized(lock) {
         val terms = query.lowercase().split(Regex("[^\\p{L}\\p{N}]+")).filter { it.length >= 3 }.toSet()
         if (terms.isEmpty()) return@synchronized ""
         val ranked = list().mapNotNull { entry ->
-            val file = File(directory, "${entry.id}.txt")
-            if (!file.isFile) return@mapNotNull null
-            val text = runCatching { file.readText(Charsets.UTF_8) }.getOrNull() ?: return@mapNotNull null
+            val text = readVerified(entry) ?: return@mapNotNull null
             val searchable = (entry.title + " " + entry.source + " " + text).lowercase()
             val score = terms.count { searchable.contains(it) }
             if (score == 0) null else Triple(entry, text, score)
@@ -72,7 +83,7 @@ class BardoKnowledgeStore internal constructor(private val directory: File) {
         buildString {
             ranked.forEach { (entry, text, score) ->
                 if (length < maxChars) {
-                    val header = "\n[Referencia: ${entry.title} · Fuente: ${entry.source} · coincidencias: $score]\n"
+                    val header = "\\n[Referencia: ${entry.title} · Fuente: ${entry.source} · coincidencias: $score]\\n"
                     val room = maxChars - length - header.length
                     if (room > 0) { append(header); append(text.take(room)) }
                 }
@@ -84,9 +95,8 @@ class BardoKnowledgeStore internal constructor(private val directory: File) {
         buildString {
             for (entry in list()) {
                 if (length >= maxChars) break
-                val file = File(directory, "${entry.id}.txt")
-                val text = runCatching { file.readText(Charsets.UTF_8) }.getOrNull() ?: continue
-                val header = "\n[Referencia autorizada: ${entry.title} · Fuente: ${entry.source}]\n"
+                val text = readVerified(entry) ?: continue
+                val header = "\\n[Referencia autorizada: ${entry.title} · Fuente: ${entry.source}]\\n"
                 val room = maxChars - length - header.length
                 if (room > 0) {
                     append(header)
