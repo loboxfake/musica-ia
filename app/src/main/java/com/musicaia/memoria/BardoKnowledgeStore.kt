@@ -80,5 +80,21 @@ class BardoKnowledgeStore internal constructor(private val directory: File) {
         }
     }
 
+    fun allForPrompt(maxChars: Int = 12000): String = synchronized(lock) {
+        buildString {
+            for (entry in list()) {
+                if (length >= maxChars) break
+                val file = File(directory, "${entry.id}.txt")
+                val text = runCatching { file.readText(Charsets.UTF_8) }.getOrNull() ?: continue
+                val header = "\\n[Referencia autorizada: ${entry.title} · Fuente: ${entry.source}]\\n"
+                val room = maxChars - length - header.length
+                if (room > 0) {
+                    append(header)
+                    append(text.take(room))
+                }
+            }
+        }
+    }
+
     fun clearAll() = synchronized(lock) { directory.listFiles()?.forEach { it.delete() } }
 }
