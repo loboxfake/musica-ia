@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.MusicalIA" parent="Theme.AppCompat.NoActionBar">
-        <item name="colorAccent">#70D8FF</item>
+        <item name="colorAccent">#16CFF4</item>
         <item name="android:fontFamily">sans</item>
         <item name="android:windowLightStatusBar">false</item>
-        <item name="android:statusBarColor">#0B1020</item>
-        <item name="android:navigationBarColor">#0B1020</item>
+        <item name="android:statusBarColor">#070D20</item>
+        <item name="android:navigationBarColor">#070D20</item>
         <item name="android:windowActionModeOverlay">true</item>
         <item name="android:windowLightNavigationBar">false</item>
     </style>
@@ -15,7 +15,7 @@
         <item name="android:layout_weight">1</item>
         <item name="android:gravity">center</item>
         <item name="android:paddingTop">5dp</item>
-        <item name="android:textColor">#8FA2BE</item>
+        <item name="android:textColor">#A9B8D2</item>
         <item name="android:textSize">10sp</item>
         <item name="android:lineSpacingExtra">2dp</item>
         <item name="android:background">?android:attr/selectableItemBackground</item>
