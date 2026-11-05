@@ -318,6 +318,7 @@ class MainActivity : AppCompatActivity() {
                          val activa = conversationStore.listConversations().firstOrNull()
                          if (activa != null) {
                              activeConversationId = activa.id
+                             cargarMemoriaLocal()
                              getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE).edit()
                                  .putString("active_conversation_id", activa.id).apply()
                              chatLog.text = ""
