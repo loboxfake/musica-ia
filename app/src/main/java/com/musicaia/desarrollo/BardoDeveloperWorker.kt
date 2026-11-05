@@ -32,7 +32,12 @@ class BardoDeveloperWorker(context: Context, params: WorkerParameters) : Corouti
         val prefs = applicationContext.getSharedPreferences("bardo_developer", Context.MODE_PRIVATE)
         val reportFile = File(root, "ultima_auditoria.md")
         val memoryFile = File(root, "memoria_tecnica.md")
+        val attemptStartedAt = System.currentTimeMillis()
         var engineInitialized = false
+        prefs.edit().putLong("last_auto_study_attempt_at", attemptStartedAt)
+            .putString("last_auto_study_status", "running")
+            .putString("last_auto_study_message", "Preparando el autoestudio local.")
+            .apply()
         try {
             setForeground(foregroundInfo())
             @Suppress("DEPRECATION")
@@ -64,8 +69,7 @@ class BardoDeveloperWorker(context: Context, params: WorkerParameters) : Corouti
             val localReferences = root.listFiles()?.filter { it.isFile && it.name.startsWith("referencia-") }
                 ?.sortedBy { it.lastModified() }?.takeLast(3)
                 ?.joinToString("\\n\\n") { runCatching { it.readText().take(3500) }.getOrDefault("") }.orEmpty()
-            prefs.edit().putString("last_auto_study_status", "running")
-                .putString("last_auto_study_message", "BARDO está estudiando el código localmente.").apply()
+            prefs.edit().putString("last_auto_study_message", "BARDO está estudiando el código localmente.").apply()
             val prompt = """
                 Eres BARDO Developer, agente de mantenimiento totalmente local. Estudia código,
                 auditoría y memoria. No uses ni afirmes usar GitHub, nube, compilaciones o pruebas
@@ -99,13 +103,17 @@ class BardoDeveloperWorker(context: Context, params: WorkerParameters) : Corouti
                 .putString("last_auto_study_message", "Autoestudio completado.").apply()
         } catch (e: CancellationException) {
             throw e
-        } catch (e: Throwable) {
+        } catch (e: Exception) {
             val message = "${e.javaClass.simpleName}: ${e.message ?: "Error sin detalle"}"
+            val retryable = e is java.io.IOException || message.contains("RAM libre insuficiente", ignoreCase = true)
             runCatching {
                 reportFile.writeText("AUTOESTUDIO BLOQUEADO\n\n$message\n\nEl APK instalado no se ha modificado.")
-                prefs.edit().putLong("last_auto_study_at", System.currentTimeMillis())
-                    .putString("last_auto_study_status", "blocked").putString("last_auto_study_message", message).apply()
+                prefs.edit().putLong("last_auto_study_attempt_at", System.currentTimeMillis())
+                    .putString("last_auto_study_status", if (retryable) "retry" else "blocked")
+                    .putString("last_auto_study_message", message).apply()
             }
+            if (retryable) return@withContext Result.retry()
+            return@withContext Result.failure()
         } finally {
             if (engineInitialized) EngineLiteRT.cerrarAsync()
         }
