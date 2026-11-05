@@ -123,7 +123,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
             BardoDeveloperWorker.UNIQUE_WORK, ExistingPeriodicWorkPolicy.KEEP, request
         )
         getSharedPreferences("bardo_developer", MODE_PRIVATE).edit().putBoolean("auto_study_enabled", true).apply()
-        output.text = "AUTOESTUDIO PROGRAMADO\n\nBARDO estudiará el código local cada 6 horas cuando el teléfono esté cargando, tenga batería suficiente y espacio disponible. Android/Xiaomi puede retrasar el trabajo. Verás una notificación mientras el modelo esté trabajando. La app puede estar cerrada; no fuerces su detención. Los cambios solo se guardan como candidatos aislados: no modifican la APK instalada ni se consideran arreglados hasta compilar y probar."
+        output.text = "AUTOESTUDIO PROGRAMADO\n\nBARDO estudiará el código local cada 6 horas cuando el teléfono esté cargando, tenga batería suficiente y espacio disponible. Android/Xiaomi puede retrasar el trabajo. Verás una notificación mientras el modelo esté trabajando. La app puede estar cerrada; no fuerces su detención. Las propuestas se guardan para revisión; no modifican la APK instalada ni se consideran arregladas hasta compilar y probar."
     }
 
     private fun pausarAutoestudio() {
@@ -166,7 +166,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
             runOnUiThread {
                 result.onSuccess {
                     snapshot = it.directory
-                    getSharedPreferences("bardo_developer", MODE_PRIVATE).edit().putString("snapshot_path", it.directory.absolutePath).apply()
+                    getSharedPreferences("bardo_developer", MODE_PRIVATE).edit().putString("snapshot_path", it.directory.absolutePath).remove("candidate_path").apply()
                     lastReport = ""
                     lastProposal = ""
                     btnAnalyze.isEnabled = true

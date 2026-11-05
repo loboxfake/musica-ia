@@ -66,7 +66,7 @@ class BardoDeveloperWorker(context: Context, params: WorkerParameters) : Corouti
                 Propón como máximo una corrección pequeña demostrable; si no hay ninguna, responde NO_PATCH.
                 Devuelve diff unificado exacto (--- a/ruta y +++ b/ruta), solo archivos existentes.
                 No toques Modo3MezclaVozUsuario.kt, build files, workflows, dependencias, claves,
-                firmas, permisos ni seguridad. Se aplicará solo a una copia aislada y se auditará.
+                firmas, permisos ni seguridad. El diff se guardará como propuesta y nunca se aplicará automáticamente.
                 MEMORIA: $memory
                 AUDITORÍA: $auditText
                 CÓDIGO: $source
