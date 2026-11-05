@@ -116,7 +116,7 @@ class ModuloInstrumental(
         try {
             sectionNames.forEachIndexed { index, section ->
                 if (isCancellationRequested()) throw java.util.concurrent.CancellationException("Cancelación solicitada por el usuario.")
-                onSegmentProgress(index + 1, sectionNames.size, "Preparando ${section.substringBefore(':')}")
+                onSegmentProgress(index + 1, sectionNames.size + 2, "Preparando ${section.substringBefore(':')}")
                 val prompt = buildPrompt(section, lyrics)
                 val segment = File(workDir, "segment_%02d.wav".format(index + 1))
                 val generated = AudioGenNative.generateNative(
@@ -129,11 +129,11 @@ class ModuloInstrumental(
                     throw IllegalStateException("El modelo de audio no generó el segmento ${index + 1}/${sectionNames.size}.")
                 }
                 segments.add(segment)
-                onSegmentProgress(index + 1, sectionNames.size, "Segmento ${index + 1}/${sectionNames.size} generado (${segment.length()} bytes)")
+                onSegmentProgress(index + 1, sectionNames.size + 2, "Segmento ${index + 1}/${sectionNames.size} generado (${segment.length()} bytes)")
                 if (isCancellationRequested()) throw java.util.concurrent.CancellationException("Cancelación solicitada por el usuario.")
             }
 
-            onSegmentProgress(sectionNames.size, sectionNames.size, "Uniendo y validando los ${sectionNames.size} segmentos WAV")
+            onSegmentProgress(sectionNames.size + 1, sectionNames.size + 2, "Uniendo y validando los ${sectionNames.size} segmentos WAV")
             if (isCancellationRequested()) throw java.util.concurrent.CancellationException("Cancelación solicitada por el usuario.")
             val output = File(ctx.filesDir, "instrumental_ai.wav")
             AudioAssembler.assemble(
@@ -149,7 +149,7 @@ class ModuloInstrumental(
             if (durationSeconds < 180.0) {
                 throw IllegalStateException("El instrumental generado dura menos de 3 minutos.")
             }
-            onSegmentProgress(sectionNames.size, sectionNames.size, "WAV final validado (${output.length()} bytes)")
+            onSegmentProgress(sectionNames.size + 1, sectionNames.size + 2, "WAV final validado (${output.length()} bytes)")
             return Dato.Audio(output.absolutePath, 44100)
         } finally {
             workDir.deleteRecursively()
