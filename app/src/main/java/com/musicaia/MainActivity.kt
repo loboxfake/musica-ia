@@ -1722,7 +1722,9 @@ class MainActivity : AppCompatActivity() {
  private fun archivarTareaEnCarpetaBardo(audioPath: String, mp3Path: String, letra: String, solo: Boolean) {
      if (uriCarpetaBardo == null || audioPath.isBlank()) return
      val prefs = getSharedPreferences("bardo_storage", MODE_PRIVATE)
-     if (prefs.getString("last_archived_task_audio", null) == audioPath) return
+     val origenWav = File(audioPath)
+     val archiveKey = "$audioPath|${origenWav.lastModified()}|${origenWav.length()}"
+     if (prefs.getString("last_archived_task_key", null) == archiveKey) return
      Thread({
          val resultado = runCatching {
              val categoria = if (solo) "Instrumentales" else "Canciones"
@@ -1742,7 +1744,7 @@ class MainActivity : AppCompatActivity() {
          }
          runOnUiThread {
              if (resultado.isSuccess) {
-                 prefs.edit().putString("last_archived_task_audio", audioPath).apply()
+                 prefs.edit().putString("last_archived_task_key", archiveKey).apply()
                  if (!isFinishing && !isDestroyed) {
                      val destino = if (solo) "Instrumentales" else "Canciones"
                      tvEstado.text = "Creación guardada también en Descargas/BARDO/$destino."
