@@ -530,11 +530,16 @@ class MainActivity : AppCompatActivity() {
      val prefs = getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE)
      datosConver.clear()
      val id = activeConversationId
-     val datos = id?.let { prefs.getString("preferencias_creativas_$it", null) }
-         ?: prefs.getString("preferencias_creativas", null)
+     val claveConversacion = id?.let { "preferencias_creativas_$it" }
+     val tienePreferenciasPropias = claveConversacion?.let { prefs.contains(it) } == true
+     val datos = if (tienePreferenciasPropias) prefs.getString(claveConversacion, null)
+         else prefs.getString("preferencias_creativas", null)
      if (!datos.isNullOrBlank()) runCatching {
          val json = JSONObject(datos)
          json.keys().forEach { key -> datosConver[key] = json.getString(key) }
+         if (!tienePreferenciasPropias && claveConversacion != null) {
+             prefs.edit().putString(claveConversacion, datos).apply()
+         }
      }.onFailure { Log.w(etiqueta, "No se pudo leer la memoria creativa local", it) }
  }
 
