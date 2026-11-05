@@ -25,6 +25,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
     private lateinit var btnAnalyze: Button
     private lateinit var btnAsk: Button
     private lateinit var btnExport: Button
+    private lateinit var btnApply: Button
     private var snapshot: File? = null
     private var lastReport: String = ""
     private var lastProposal: String = ""
@@ -72,6 +73,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
         addButton(root, "Importar código del proyecto (.zip)") { importProject.launch(arrayOf("application/zip", "application/octet-stream", "application/x-zip-compressed")) }
         btnAnalyze = addButton(root, "Analizar código y generar auditoría", enabled = snapshot != null) { analizarProyecto() }
         btnAsk = addButton(root, "Consultar a BARDO con Gemma local", enabled = false) { consultarModelo() }
+        btnApply = addButton(root, "Aplicar propuesta a una copia aislada", enabled = false) { aplicarPropuesta() }
         urlInput = EditText(this).apply {
             hint = "URL HTTPS de documentación oficial"
             setHintTextColor(android.graphics.Color.LTGRAY); setTextColor(blanco)
@@ -212,12 +214,46 @@ class BardoDeveloperActivity : AppCompatActivity() {
             runOnUiThread {
                 result.onSuccess { proposal ->
                     lastProposal = proposal
+                    btnApply.isEnabled = proposal.contains("--- a/") && proposal.contains("+++ b/")
                     val saved = File(workspace, "propuesta-${System.currentTimeMillis()}.md")
                     saved.writeText("# Propuesta de BARDO Developer\n\n$proposal")
                     output.text = lastReport + "\n\nPROPUESTA DE BARDO (no aplicada):\n\n" + proposal +
                         "\n\nGuardada en el almacenamiento privado de BARDO. Exporta el informe para revisarla."
                     appendMemory("Propuesta analizada: ${saved.name}. Pendiente de revisión y pruebas.")
                 }.onFailure { output.text = "No se pudo consultar el modelo local: ${it.javaClass.simpleName}: ${it.message}" }
+                setBusy(false)
+            }
+        }
+    }
+
+    private fun aplicarPropuesta() {
+        val original = snapshot ?: return
+        val patch = lastProposal
+        if (!patch.contains("--- a/") || !patch.contains("+++ b/")) {
+            output.text = "Gemma no devolvió un diff unificado aplicable."
+            return
+        }
+        setBusy(true, "Aplicando la propuesta únicamente a una copia aislada…")
+        worker.execute {
+            val result = runCatching { BardoPatchApplier.aplicar(original, patch, workspace) }
+            runOnUiThread {
+                result.onSuccess { applied ->
+                    snapshot = applied.directory
+                    getSharedPreferences("bardo_developer", MODE_PRIVATE).edit()
+                        .putString("snapshot_path", applied.directory.absolutePath).apply()
+                    val report = BardoDeveloperCore.analizar(applied.directory)
+                    lastReport = report.render()
+                    reportFile.writeText(lastReport)
+                    btnApply.isEnabled = false
+                    output.text = "PROPUESTA APLICADA A UNA COPIA, NO AL CÓDIGO INSTALADO\n\nArchivos: " +
+                        applied.changedFiles.joinToString() + "\n\n" + lastReport +
+                        "\n\nLa copia original se conserva. Esta auditoría no sustituye una compilación ni pruebas en el teléfono."
+                    appendMemory("Cambios de propuesta aplicados a copia candidata " + applied.directory.name +
+                        ": " + applied.changedFiles.joinToString() + ". Pendiente de compilación y prueba.")
+                }.onFailure {
+                    output.text = "BARDO rechazó la propuesta: " + it.message +
+                        "\n\nNo se modificó el snapshot original."
+                }
                 setBusy(false)
             }
         }
@@ -300,6 +336,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
     private fun setBusy(busy: Boolean, message: String = "") {
         btnAnalyze.isEnabled = !busy && snapshot != null
         btnAsk.isEnabled = !busy && lastReport.isNotBlank() && LiteRTLMModule.modelFile(this).isFile
+        btnApply.isEnabled = !busy && lastProposal.contains("--- a/") && lastProposal.contains("+++ b/")
         btnExport.isEnabled = !busy
         if (message.isNotBlank()) output.text = message
     }
