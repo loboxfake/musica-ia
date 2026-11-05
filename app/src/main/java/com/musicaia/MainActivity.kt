@@ -616,8 +616,32 @@ class MainActivity : AppCompatActivity() {
      AlertDialog.Builder(this)
          .setTitle("Exportar historial")
          .setItems(arrayOf("JSON · copia completa", "TXT · lectura sencilla")) { _, indice ->
-             if (indice == 0) selectorExportarHistorialJson.launch("bardo-historial.json")
-             else selectorExportarHistorialTxt.launch("bardo-historial.txt")
+             val carpetaElegida = uriCarpetaBardo != null
+             if (!carpetaElegida) {
+                 if (indice == 0) selectorExportarHistorialJson.launch("bardo-historial.json")
+                 else selectorExportarHistorialTxt.launch("bardo-historial.txt")
+             } else {
+                 val extension = if (indice == 0) "json" else "txt"
+                 val mime = if (indice == 0) "application/json" else "text/plain"
+                 val nombre = "bardo-historial-${System.currentTimeMillis()}.$extension"
+                 val contenido = if (indice == 0) conversationStore.exportJson() else conversationStore.exportText()
+                 tvEstado.text = "Guardando copia del historial en BARDO..."
+                 Thread({
+                     val resultado = runCatching {
+                         val temporal = File(cacheDir, nombre)
+                         temporal.writeText(contenido, Charsets.UTF_8)
+                         try { guardarArchivoEnCarpetaBardo(temporal, "Historial", nombre, mime) }
+                         finally { temporal.delete() }
+                     }
+                     runOnUiThread {
+                         if (!isFinishing && !isDestroyed) {
+                             tvEstado.text = if (resultado.isSuccess)
+                                 "Copia del historial guardada en Descargas/BARDO/Historial."
+                             else "No se pudo guardar en BARDO: ${resultado.exceptionOrNull()?.message}"
+                         }
+                     }
+                 }, "BARDO-History-Export").start()
+             }
          }
          .setNegativeButton("Cancelar", null)
          .show()
