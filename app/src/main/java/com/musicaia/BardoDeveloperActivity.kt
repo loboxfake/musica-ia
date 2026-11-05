@@ -11,6 +11,7 @@ import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import com.musicaia.desarrollo.BardoDeveloperCore
+import com.musicaia.desarrollo.BardoPatchApplier
 import com.musicaia.modulos.litert.EngineLiteRT
 import com.musicaia.modulos.litert.LiteRTLMModule
 import java.io.File
