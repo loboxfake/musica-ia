@@ -1156,10 +1156,13 @@ class MainActivity : AppCompatActivity() {
                  tvEstado.text = mensajeGuardado
                  val pasoGuardado = Regex("INSTRUMENTAL (\\d+)/(\\d+)").find(mensajeGuardado)
                  if (pasoGuardado != null) {
+                     val actual = pasoGuardado.groupValues[1].toIntOrNull()?.coerceAtLeast(0) ?: 0
                      progreso.visibility = View.VISIBLE
                      progreso.isIndeterminate = false
-                     progreso.max = pasoGuardado.groupValues[2].toIntOrNull()?.coerceAtLeast(1) ?: 18
-                     progreso.progress = pasoGuardado.groupValues[1].toIntOrNull()?.coerceIn(0, progreso.max) ?: 0
+                     progreso.max = pasoGuardado.groupValues[2].toIntOrNull()?.coerceAtLeast(1) ?: 20
+                     progreso.progress = actual.coerceIn(0, progreso.max)
+                     tvProgresoDetalle.visibility = View.VISIBLE
+                     tvProgresoDetalle.text = "Segmento $actual/${progreso.max} · ${actual * 100 / progreso.max}% · tarea recuperada tras volver a abrir BARDO"
                  }
                  segundos = ((System.currentTimeMillis() - inicio).coerceAtLeast(0L) / 1000L).toInt()
                  tvTiempo.visibility = View.VISIBLE
@@ -1176,6 +1179,11 @@ class MainActivity : AppCompatActivity() {
                  rutaInstrumental = audio
                  btnReproducir.visibility = View.VISIBLE
                  btnGuardar.visibility = if (rutaAudio == audio) View.VISIBLE else View.GONE
+                 progreso.visibility = View.VISIBLE
+                 progreso.max = 20
+                 progreso.progress = 20
+                 tvProgresoDetalle.visibility = View.VISIBLE
+                 tvProgresoDetalle.text = "Generación completada · 100% · MP3/WAV disponible en Archivo"
                  tvResultado.text = "WAV fuente: ${File(audio).length()} bytes\nMP3 archivado: ${if (rutaAudio != audio) File(rutaAudio!!).length().toString() + " bytes" else "no disponible"}"
                  tvEstado.text = prefs.getString(BardoTaskService.KEY_MESSAGE, "Última tarea completada.").orEmpty()
                  actualizarBiblioteca()
@@ -1369,6 +1377,7 @@ class MainActivity : AppCompatActivity() {
      runCatching {
          if (actual.isPlaying) {
              actual.pause()
+             handler.removeCallbacks(relojReproductor)
              btnPausar.text = "Reanudar"
              tvEstado.text = "Reproducción pausada."
          } else {
