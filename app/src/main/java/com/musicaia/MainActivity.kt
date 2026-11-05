@@ -526,9 +526,10 @@ class MainActivity : AppCompatActivity() {
 
  private fun cargarMemoriaLocal() {
      val prefs = getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE)
-     // El historial estructurado se restaura desde BardoConversationStore; se conserva
-     // la preferencia antigua solo como fuente de migración y compatibilidad.
-     val datos = prefs.getString("preferencias_creativas", null)
+     datosConver.clear()
+     val id = activeConversationId
+     val datos = id?.let { prefs.getString("preferencias_creativas_$it", null) }
+         ?: prefs.getString("preferencias_creativas", null)
      if (!datos.isNullOrBlank()) runCatching {
          val json = JSONObject(datos)
          json.keys().forEach { key -> datosConver[key] = json.getString(key) }
@@ -610,6 +611,8 @@ class MainActivity : AppCompatActivity() {
          .withZone(ZoneId.systemDefault()).format(Instant.now())
      val nueva = conversationStore.createConversation(titulo)
      activeConversationId = nueva.id
+     datosConver.clear()
+     guardarPreferenciasCreativas()
      getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE).edit()
          .putString("active_conversation_id", nueva.id).apply()
      chatLog.text = ""
@@ -631,6 +634,7 @@ class MainActivity : AppCompatActivity() {
          .setTitle("Historial de BARDO")
          .setItems(titulos) { _, indice ->
              activeConversationId = conversaciones[indice].id
+             cargarMemoriaLocal()
              getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE).edit()
                  .putString("active_conversation_id", activeConversationId).apply()
              chatLog.text = ""
@@ -848,9 +852,10 @@ class MainActivity : AppCompatActivity() {
  private fun guardarPreferenciasCreativas() {
      val preferencias = JSONObject()
      datosConver.forEach { (key, value) -> preferencias.put(key, value) }
-     getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE).edit()
+     val editor = getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE).edit()
          .putString("preferencias_creativas", preferencias.toString())
-         .apply()
+     activeConversationId?.let { editor.putString("preferencias_creativas_$it", preferencias.toString()) }
+     editor.apply()
  }
 
 
