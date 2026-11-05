@@ -18,6 +18,12 @@ import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import androidx.work.Constraints
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import com.musicaia.desarrollo.BardoDeveloperWorker
 
 /** Entorno local de investigación y auditoría. Nunca ejecuta ni aplica código importado. */
 class BardoDeveloperActivity : AppCompatActivity() {
@@ -75,6 +81,8 @@ class BardoDeveloperActivity : AppCompatActivity() {
         btnAnalyze = addButton(root, "Analizar código y generar auditoría", enabled = snapshot != null) { analizarProyecto() }
         btnAsk = addButton(root, "Consultar a BARDO con Gemma local", enabled = false) { consultarModelo() }
         btnApply = addButton(root, "Aplicar propuesta a una copia aislada", enabled = false) { aplicarPropuesta() }
+        addButton(root, "Activar autoestudio en segundo plano (cada 6 h, al cargar)") { activarAutoestudio() }
+        addButton(root, "Pausar autoestudio automático") { pausarAutoestudio() }
         urlInput = EditText(this).apply {
             hint = "URL HTTPS de documentación oficial"
             setHintTextColor(android.graphics.Color.LTGRAY); setTextColor(blanco)
@@ -101,6 +109,29 @@ class BardoDeveloperActivity : AppCompatActivity() {
         return button
     }
 
+    private fun activarAutoestudio() {
+        val model = LiteRTLMModule.modelFile(this)
+        if (!model.isFile || model.length() != LiteRTLMModule.EXPECTED_SIZE_BYTES) {
+            output.text = "No se ha activado: primero instala Gemma local y verifica su SHA-256 desde el Laboratorio IA. No se descargará automáticamente."
+            return
+        }
+        val constraints = Constraints.Builder().setRequiresCharging(true)
+            .setRequiresBatteryNotLow(true).setRequiresStorageNotLow(true).build()
+        val request = PeriodicWorkRequestBuilder<BardoDeveloperWorker>(6, TimeUnit.HOURS)
+            .setConstraints(constraints).build()
+        WorkManager.getInstance(applicationContext).enqueueUniquePeriodicWork(
+            BardoDeveloperWorker.UNIQUE_WORK, ExistingPeriodicWorkPolicy.KEEP, request
+        )
+        getSharedPreferences("bardo_developer", MODE_PRIVATE).edit().putBoolean("auto_study_enabled", true).apply()
+        output.text = "AUTOESTUDIO PROGRAMADO\n\nBARDO estudiará el código local cada 6 horas cuando el teléfono esté cargando, tenga batería suficiente y espacio disponible. Android/Xiaomi puede retrasar el trabajo. Verás una notificación mientras el modelo esté trabajando. La app puede estar cerrada; no fuerces su detención. Los cambios solo se guardan como candidatos aislados: no modifican la APK instalada ni se consideran arreglados hasta compilar y probar."
+    }
+
+    private fun pausarAutoestudio() {
+        WorkManager.getInstance(applicationContext).cancelUniqueWork(BardoDeveloperWorker.UNIQUE_WORK)
+        getSharedPreferences("bardo_developer", MODE_PRIVATE).edit().putBoolean("auto_study_enabled", false).apply()
+        output.text = "Autoestudio automático pausado. Los informes, la memoria y las copias candidatas ya guardadas se conservan."
+    }
+
     private fun importarCodigoPropio() {
         setBusy(true, "BARDO está preparando una copia de solo lectura de su propio código…")
         worker.execute {
@@ -111,7 +142,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
                 result.onSuccess {
                     snapshot = it.directory
                     getSharedPreferences("bardo_developer", MODE_PRIVATE).edit()
-                        .putString("snapshot_path", it.directory.absolutePath).apply()
+                        .putString("snapshot_path", it.directory.absolutePath).remove("candidate_path").apply()
                     lastReport = ""
                     lastProposal = ""
                     output.text = "Código fuente de esta compilación importado: ${it.files} archivos. Iniciando auditoría estática…"
@@ -344,7 +375,6 @@ class BardoDeveloperActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         worker.shutdown()
-        EngineLiteRT.cerrarAsync()
         super.onDestroy()
     }
 }

@@ -81,6 +81,7 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.11.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
     // LiteRT-LM 0.16.1 (Ruta A) — coordinación exacta a verificar al compilar
     implementation("com.google.ai.edge.litertlm:litertlm-android:0.16.1")
 
