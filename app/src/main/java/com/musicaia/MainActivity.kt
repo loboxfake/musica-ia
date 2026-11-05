@@ -872,7 +872,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     val etiqueta = Regex("(?i)^(tema|estilo|ambiente|ritmo|idioma|tipo|voz)\\s*[:=]\\s*(.+)$").matchEntire(texto)
-    val cambio = Regex("(?i)^(?:cambiar|cambia|modificar|modifica)\\s+(tema|estilo|ambiente|ritmo|idioma|tipo|voz)\\s+(?:a|por)\\s+(.+)$").matchEntire(texto)
+    val cambio = Regex("(?i)^(?:cambiar|cambia|modificar|modifica)\\s+(?:(?:el|la)\\s+)?(tema|estilo|ambiente|ritmo|idioma|tipo|voz)\\s+(?:a|por)\\s+(.+)$").matchEntire(texto)
     val campoExplicito = cambio?.groupValues?.get(1)?.lowercase()
         ?: etiqueta?.groupValues?.get(1)?.lowercase()
     val valorExplicito = cambio?.groupValues?.get(2) ?: etiqueta?.groupValues?.get(2)
