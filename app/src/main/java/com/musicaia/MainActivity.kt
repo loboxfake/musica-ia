@@ -1617,9 +1617,19 @@ class MainActivity : AppCompatActivity() {
                  destino.outputStream().buffered().use { salida -> entrada.copyTo(salida) }
              }
              pasos.firstOrNull { it.first == "letra" && it.second is Dato.Texto }?.let { (_, dato) ->
-                 File(carpeta, "BARDO_$marca.txt").writeText((dato as Dato.Texto).texto)
+                 val archivoLetra = File(carpeta, "BARDO_$marca.txt")
+                 archivoLetra.writeText((dato as Dato.Texto).texto)
+                 if (uriCarpetaBardo != null) runCatching {
+                     guardarArchivoEnCarpetaBardo(archivoLetra, "Proyectos", archivoLetra.name, "text/plain")
+                 }.onFailure { Log.e(etiqueta, "No se pudo copiar la letra a BARDO/Proyectos", it) }
              }
              destinoFinal = destino
+             if (uriCarpetaBardo != null) {
+                 val categoria = if (modoSoloInstrumental) "Instrumentales" else "Canciones"
+                 runCatching {
+                     guardarArchivoEnCarpetaBardo(destino, categoria, destino.name, "audio/wav")
+                 }.onFailure { Log.e(etiqueta, "No se pudo copiar el WAV a BARDO/$categoria", it) }
+             }
              Log.i(etiqueta, "Creación archivada: " + destino.name)
          }.onFailure { Log.e(etiqueta, "No se pudo archivar la creación", it) }
          runOnUiThread {
