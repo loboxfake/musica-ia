@@ -9,6 +9,7 @@ concurrency:
 
 on:
   push:
+  pull_request:
 
 jobs:
   build:
@@ -58,6 +59,7 @@ jobs:
           sha256sum "$APK" | tee app-debug.apk.sha256
           ls -lh "$APK" | tee app-debug.apk.size.txt
       - name: Publish installable APK release
+        if: github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: bardo-build-${{ github.run_number }}
