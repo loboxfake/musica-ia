@@ -57,14 +57,27 @@ class BardoTaskService : Service() {
     private var ejecutando = false
     private var inicioMs = 0L
     private var modoSolo = false
-    private val heartbeatHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    // El latido no debe depender del hilo principal: la inferencia nativa puede
+    // saturar CPU durante decenas de segundos y provocar falsos "sin vida".
+    private val heartbeatExecutor = java.util.concurrent.Executors.newSingleThreadScheduledExecutor { tarea ->
+        Thread(tarea, "BARDO-Heartbeat").apply { isDaemon = true }
+    }
+    private var heartbeatFuture: java.util.concurrent.ScheduledFuture<*>? = null
     private val heartbeatFile by lazy { java.io.File(filesDir, "bardo_task_heartbeat") }
-    private val heartbeatTick = object : Runnable {
-        override fun run() {
-            if (!ejecutando) return
-            runCatching { heartbeatFile.writeText(System.currentTimeMillis().toString()) }
-            heartbeatHandler.postDelayed(this, 5_000L)
-        }
+
+    private fun iniciarLatido() {
+        heartbeatFuture?.cancel(false)
+        heartbeatFuture = heartbeatExecutor.scheduleAtFixedRate({
+            if (ejecutando) {
+                runCatching { heartbeatFile.writeText(System.currentTimeMillis().toString()) }
+                    .onFailure { Log.w("BARDO-TaskService", "No se pudo actualizar el latido", it) }
+            }
+        }, 5L, 5L, java.util.concurrent.TimeUnit.SECONDS)
+    }
+
+    private fun detenerLatido() {
+        heartbeatFuture?.cancel(false)
+        heartbeatFuture = null
     }
 
     override fun onCreate() {
@@ -103,8 +116,7 @@ class BardoTaskService : Service() {
         ejecutando = true
         inicioMs = System.currentTimeMillis()
         runCatching { heartbeatFile.writeText(inicioMs.toString()) }
-        heartbeatHandler.removeCallbacks(heartbeatTick)
-        heartbeatHandler.postDelayed(heartbeatTick, 5_000L)
+        iniciarLatido()
         getSharedPreferences(PREFS, MODE_PRIVATE).edit()
             .putString(KEY_STATE, "running")
             .putString(KEY_MESSAGE, "BARDO prepara los módulos locales.")
@@ -157,7 +169,7 @@ class BardoTaskService : Service() {
                 publicarEstado(estado, "${error.javaClass.simpleName}: ${error.message ?: "Error sin detalle"}")
             } finally {
                 ejecutando = false
-                heartbeatHandler.removeCallbacks(heartbeatTick)
+                detenerLatido()
                 runCatching { heartbeatFile.delete() }
                 orquestador.stop()
                 android.os.Handler(mainLooper).post {
@@ -195,7 +207,8 @@ class BardoTaskService : Service() {
     }
 
     override fun onDestroy() {
-        heartbeatHandler.removeCallbacks(heartbeatTick)
+        detenerLatido()
+        heartbeatExecutor.shutdownNow()
         if (ejecutando) getSharedPreferences(PREFS, MODE_PRIVATE).edit()
             .putString(KEY_STATE, "interrupted").putString(KEY_MESSAGE, "Android detuvo el servicio antes de completar la tarea.").apply()
         super.onDestroy()
