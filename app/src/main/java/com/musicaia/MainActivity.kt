@@ -30,9 +30,13 @@ import com.musicaia.modulos.MezclaVoz
 import com.musicaia.modulos.ModuloLetra
 import com.musicaia.modelo.Orquestador
 import com.musicaia.modelo.BardoIntentRouter
+import com.musicaia.memoria.BardoConversationStore
 import java.io.File
 import java.io.FileOutputStream
 import java.text.Normalizer
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import org.json.JSONObject
 import org.json.JSONArray
 import com.musicaia.modulos.ModuloMezcla
@@ -130,6 +134,8 @@ class MainActivity : AppCompatActivity() {
  private var modoSoloInstrumental = false
  private lateinit var chatLog: TextView
  private lateinit var chatEntrada: EditText
+ private lateinit var conversationStore: BardoConversationStore
+ private var activeConversationId: String? = null
  private lateinit var btnEnviar: Button
  private lateinit var editLetra: EditText
  private lateinit var editIndicaciones: EditText
@@ -280,6 +286,8 @@ class MainActivity : AppCompatActivity() {
  editPromptInstrumental = findViewById(R.id.editPromptInstrumental)
  chatLog = findViewById(R.id.chatLog)
  chatEntrada = findViewById(R.id.chatEntrada)
+ conversationStore = BardoConversationStore(this)
+ prepararHistorialConversaciones()
  cargarMemoriaLocal()
  aplicarConfiguracionGuardada()
  btnEnviar = findViewById(R.id.btnEnviar)
@@ -415,7 +423,8 @@ class MainActivity : AppCompatActivity() {
 
  private fun cargarMemoriaLocal() {
      val prefs = getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE)
-     prefs.getString("historial_chat", null)?.takeIf { it.isNotBlank() }?.let { chatLog.text = it }
+     // El historial estructurado se restaura desde BardoConversationStore; se conserva
+     // la preferencia antigua solo como fuente de migración y compatibilidad.
      val datos = prefs.getString("preferencias_creativas", null)
      if (!datos.isNullOrBlank()) runCatching {
          val json = JSONObject(datos)
@@ -423,13 +432,86 @@ class MainActivity : AppCompatActivity() {
      }.onFailure { Log.w(etiqueta, "No se pudo leer la memoria creativa local", it) }
  }
 
+ private fun prepararHistorialConversaciones() {
+     val prefs = getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE)
+     var conversaciones = conversationStore.listConversations()
+     if (conversaciones.isEmpty()) {
+         val historialAnterior = prefs.getString("historial_chat", null).orEmpty()
+         if (historialAnterior.isNotBlank()) {
+             val heredada = conversationStore.createConversation("Historial anterior")
+             conversationStore.append(
+                 heredada.id,
+                 role = "system",
+                 content = "Transcripción heredada del formato anterior. Se conserva íntegra; no se han inferido ni separado sus mensajes.\n\n$historialAnterior"
+             )
+         }
+         val nueva = conversationStore.createConversation("Nueva conversación")
+         activeConversationId = nueva.id
+     } else {
+         val guardada = prefs.getString("active_conversation_id", null)
+         activeConversationId = conversaciones.firstOrNull { it.id == guardada }?.id
+             ?: conversaciones.first().id
+     }
+     prefs.edit().putString("active_conversation_id", activeConversationId).apply()
+     renderizarConversacionActiva()
+ }
+
+ private fun renderizarConversacionActiva() {
+     val id = activeConversationId ?: return
+     val mensajes = conversationStore.messages(id)
+     if (mensajes.isEmpty()) return
+     val formato = DateTimeFormatter.ofPattern("dd/MM HH:mm")
+     chatLog.text = mensajes.joinToString("\n\n") { mensaje ->
+         val zona = runCatching { ZoneId.of(mensaje.zoneId) }.getOrDefault(ZoneId.of("UTC"))
+         val hora = formato.withZone(zona).format(Instant.ofEpochMilli(mensaje.timestampEpochMillis))
+         val autor = when (mensaje.role) {
+             "user" -> "Tú"
+             "assistant" -> "BARDO"
+             "tool" -> "Herramienta"
+             else -> "Sistema"
+         }
+         "[$hora] $autor: ${mensaje.content}"
+     }
+ }
+
+ private fun registrarMensajesEnHistorial(mensaje: String) {
+     val id = activeConversationId ?: return
+     val patron = Regex("(?m)(?:^|\\n)(Tú|BARDO(?:\\s*\\([^\\n)]*\\))?|Orquestador):\\s*")
+     val marcas = patron.findAll(mensaje).toList()
+     if (marcas.isEmpty()) {
+         val contenido = mensaje.trim()
+         if (contenido.isNotEmpty()) conversationStore.append(id, "system", contenido)
+         return
+     }
+     marcas.forEachIndexed { index, marca ->
+         val inicio = marca.range.last + 1
+         val fin = marcas.getOrNull(index + 1)?.range?.first ?: mensaje.length
+         val contenido = mensaje.substring(inicio, fin).trim()
+         if (contenido.isNotEmpty()) {
+             val autor = marca.groupValues[1]
+             val rol = when {
+                 autor == "Tú" -> "user"
+                 autor.startsWith("BARDO") || autor == "Orquestador" -> "assistant"
+                 else -> "system"
+             }
+             conversationStore.append(id, rol, contenido)
+         }
+     }
+ }
+
  private fun anexarChat(mensaje: String) {
-     chatLog.append(mensaje)
+     val hora = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
+         .format(Instant.now())
+     val marcado = Regex("(?m)(?=^(?:Tú|BARDO(?:\\s*\\([^\\n)]*\\))?|Orquestador):)")
+         .replace(mensaje) { "[$hora] " }
+     chatLog.append(marcado)
+     registrarMensajesEnHistorial(mensaje)
      val limitado = chatLog.text.toString().takeLast(24000)
      val preferencias = JSONObject()
      datosConver.forEach { (key, value) -> preferencias.put(key, value) }
      getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE).edit()
          .putString("historial_chat", limitado)
+         .putString("active_conversation_id", activeConversationId)
          .putString("preferencias_creativas", preferencias.toString())
          .apply()
  }
@@ -550,9 +632,12 @@ class MainActivity : AppCompatActivity() {
          .setNegativeButton("Cancelar", null)
          .setPositiveButton("Borrar") { _, _ ->
              getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE).edit().clear().apply()
+             conversationStore.clearAll()
+             val nueva = conversationStore.createConversation("Nueva conversación")
+             activeConversationId = nueva.id
              datosConver.clear()
              actualizarEstadoConocimiento()
-             chatLog.text = "Orquestador: Memoria local borrada. Empezamos una conversación nueva. ¿Qué te gustaría crear?"
+             chatLog.text = "BARDO: Memoria local borrada. Empezamos una conversación nueva. ¿En qué puedo ayudarte?"
              actualizarUI()
              tvEstado.text = "Memoria e historial local borrados."
          }
