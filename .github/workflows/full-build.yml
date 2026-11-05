@@ -21,8 +21,6 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ruta-a-compile
 
       - name: Package BARDO source snapshot for its local developer core
         run: |
