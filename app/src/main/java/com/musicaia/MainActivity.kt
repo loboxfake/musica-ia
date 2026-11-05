@@ -1146,7 +1146,7 @@ class MainActivity : AppCompatActivity() {
                   $contextoPrompt
                   Reacciona solo al último mensaje, sin terminar con una pregunta.
               """.trimIndent()
-              EngineLiteRT.generar(prompt).substringAfter("</think>").trim().takeIf { it.isNotBlank() }
+              EngineLiteRT.generar(prompt, reiniciarConversacion = true).substringAfter("</think>").trim().takeIf { it.isNotBlank() }
                   ?: throw IllegalStateException("El modelo local devolvió una respuesta vacía.")
           }
           resultado.exceptionOrNull()?.let { Log.e(etiqueta, "Falló la respuesta del modelo local; se conserva el flujo guiado.", it) }
@@ -1196,7 +1196,7 @@ class MainActivity : AppCompatActivity() {
                  $contexto
                  Responde al último mensaje del usuario.
              """.trimIndent()
-             EngineLiteRT.generar(prompt).substringAfter("</think>").trim()
+             EngineLiteRT.generar(prompt, reiniciarConversacion = true).substringAfter("</think>").trim()
                  .takeIf { it.isNotBlank() }
                  ?: throw IllegalStateException("El modelo local devolvió una respuesta vacía.")
          }
