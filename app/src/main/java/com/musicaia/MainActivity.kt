@@ -1026,8 +1026,9 @@ class MainActivity : AppCompatActivity() {
      // Capturar el estado de la UI en el hilo principal antes de iniciar el trabajador.
      val memoriaPrompt = datosConver.entries.joinToString("\n") { it.key + ": " + it.value }
      val contextoPrompt = chatLog.text.toString().takeLast(5000)
-     val conocimientoPrompt = getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE)
-         .getString("conocimiento_importado", "").orEmpty().takeLast(8000)
+     val conocimientoAntiguo = getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE)
+         .getString("conocimiento_importado", "").orEmpty().takeLast(4000)
+     val conocimientoPrompt = (conocimientoAntiguo + "\n" + knowledgeStore.search(textoUsuario, 8000)).takeLast(12000)
      btnEnviar.isEnabled = false
      tvEstado.text = "El orquestador está consultando el modelo local..."
      Thread({
@@ -1076,8 +1077,9 @@ class MainActivity : AppCompatActivity() {
      }
 
      val contexto = chatLog.text.toString().takeLast(10000)
-     val conocimiento = getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE)
-         .getString("conocimiento_importado", "").orEmpty().takeLast(10000)
+     val conocimientoAntiguo = getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE)
+         .getString("conocimiento_importado", "").orEmpty().takeLast(3000)
+     val conocimiento = (conocimientoAntiguo + "\n" + knowledgeStore.search(textoUsuario, 9000)).takeLast(12000)
      btnEnviar.isEnabled = false
      tvEstado.text = "BARDO está preparando una respuesta con el modelo local..."
      Thread({
