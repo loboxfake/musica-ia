@@ -167,22 +167,53 @@ class BardoConversationStore(context: Context) {
         val incomingMessages = incoming.optJSONArray("messages")
             ?: throw IllegalArgumentException("Falta la lista de mensajes.")
         val current = readRoot()
-        val knownConversationIds = (0 until current.getJSONArray("conversations").length())
-            .map { current.getJSONArray("conversations").getJSONObject(it).optString("id") }.toMutableSet()
-        val knownMessageIds = (0 until current.getJSONArray("messages").length())
-            .map { current.getJSONArray("messages").getJSONObject(it).optString("id") }.toMutableSet()
+        val currentConversations = current.getJSONArray("conversations")
+        val currentMessages = current.getJSONArray("messages")
+        val knownConversationIds = (0 until currentConversations.length())
+            .map { currentConversations.getJSONObject(it).optString("id") }.toMutableSet()
+        val knownMessageIds = (0 until currentMessages.length())
+            .map { currentMessages.getJSONObject(it).optString("id") }.toMutableSet()
+
+        // Validar el documento completo antes de mutar el historial local.
+        val incomingIds = mutableSetOf<String>()
+        for (i in 0 until incomingConversations.length()) {
+            val item = incomingConversations.getJSONObject(i)
+            val id = item.optString("id").trim()
+            require(id.isNotEmpty()) { "Una conversación importada no tiene identificador." }
+            require(incomingIds.add(id)) { "El archivo contiene identificadores de conversación duplicados." }
+            require(item.optString("title").length <= 200) { "El título de una conversación es demasiado largo." }
+            require(item.has("createdAtEpochMillis") && item.has("updatedAtEpochMillis")) {
+                "Una conversación importada no contiene sus fechas."
+            }
+        }
+        val allConversationIds = knownConversationIds + incomingIds
+        val validatedMessages = (0 until incomingMessages.length()).map { index ->
+            val item = incomingMessages.getJSONObject(index)
+            val id = item.optString("id").trim()
+            val conversationId = item.optString("conversationId").trim()
+            val role = item.optString("role")
+            val body = item.optString("content")
+            require(id.isNotEmpty()) { "Un mensaje importado no tiene identificador." }
+            require(conversationId in allConversationIds) { "El archivo contiene un mensaje sin conversación asociada." }
+            require(role in setOf("user", "assistant", "system", "tool")) { "Rol de mensaje importado no válido." }
+            require(body.isNotBlank() && body.length <= 200_000) { "El contenido de un mensaje está vacío o supera el límite permitido." }
+            require(item.has("timestampEpochMillis")) { "Un mensaje importado no contiene fecha." }
+            require(runCatching { ZoneId.of(item.optString("zoneId", "UTC")) }.isSuccess) {
+                "Un mensaje importado contiene una zona horaria no válida."
+            }
+            JSONObject(item.toString())
+        }
+
         var added = 0
         for (i in 0 until incomingConversations.length()) {
             val item = incomingConversations.getJSONObject(i)
-            val id = item.getString("id")
-            if (knownConversationIds.add(id)) current.getJSONArray("conversations").put(JSONObject(item.toString()))
+            if (knownConversationIds.add(item.getString("id"))) {
+                currentConversations.put(JSONObject(item.toString()))
+            }
         }
-        for (i in 0 until incomingMessages.length()) {
-            val item = incomingMessages.getJSONObject(i)
-            require(item.optString("role") in setOf("user", "assistant", "system", "tool"))
-            require(item.has("content") && item.has("timestampEpochMillis") && item.has("conversationId"))
+        for (item in validatedMessages) {
             if (knownMessageIds.add(item.getString("id"))) {
-                current.getJSONArray("messages").put(JSONObject(item.toString()))
+                currentMessages.put(item)
                 added++
             }
         }
