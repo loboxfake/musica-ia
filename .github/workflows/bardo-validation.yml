@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: bardo-validation-${{ github.ref }}
+  group: bardo-validation-${{ github.ref }}-${{ github.sha }}
   cancel-in-progress: false
 
 jobs:
