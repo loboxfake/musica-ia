@@ -12,9 +12,13 @@ import android.provider.OpenableColumns
 import android.provider.DocumentsContract
 import android.util.Log
 import android.view.View
+import android.view.Gravity
+import android.graphics.drawable.GradientDrawable
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.ProgressBar
 import android.widget.SeekBar
 import android.widget.RadioGroup
@@ -134,6 +138,8 @@ class MainActivity : AppCompatActivity() {
  private lateinit var editPromptInstrumental: EditText
  private var modoSoloInstrumental = false
  private lateinit var chatLog: TextView
+ private lateinit var chatMessages: LinearLayout
+ private lateinit var chatScroll: ScrollView
  private lateinit var chatEntrada: EditText
  private lateinit var conversationStore: BardoConversationStore
  private lateinit var knowledgeStore: BardoKnowledgeStore
@@ -364,6 +370,8 @@ class MainActivity : AppCompatActivity() {
  panelInstrumental = findViewById(R.id.panelInstrumental)
  editPromptInstrumental = findViewById(R.id.editPromptInstrumental)
  chatLog = findViewById(R.id.chatLog)
+ chatMessages = findViewById(R.id.chatMessages)
+ chatScroll = findViewById(R.id.chatScroll)
  chatEntrada = findViewById(R.id.chatEntrada)
  conversationStore = BardoConversationStore(this)
  knowledgeStore = BardoKnowledgeStore(this)
@@ -601,7 +609,8 @@ class MainActivity : AppCompatActivity() {
      activeConversationId = nueva.id
      getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE).edit()
          .putString("active_conversation_id", nueva.id).apply()
-     chatLog.text = "BARDO: Conversación nueva. ¿En qué puedo ayudarte?"
+     chatLog.text = ""
+     renderizarBurbujasChat()
      tvEstado.text = "Conversación nueva creada."
  }
 
@@ -668,7 +677,11 @@ class MainActivity : AppCompatActivity() {
  private fun renderizarConversacionActiva() {
      val id = activeConversationId ?: return
      val mensajes = conversationStore.messages(id)
-     if (mensajes.isEmpty()) return
+     if (mensajes.isEmpty()) {
+         chatLog.text = ""
+         renderizarBurbujasChat()
+         return
+     }
      val formato = DateTimeFormatter.ofPattern("dd/MM HH:mm")
      chatLog.text = mensajes.joinToString("\n\n") { mensaje ->
          val zona = runCatching { ZoneId.of(mensaje.zoneId) }.getOrDefault(ZoneId.of("UTC"))
@@ -681,6 +694,83 @@ class MainActivity : AppCompatActivity() {
          }
          "[$hora] $autor: ${mensaje.content}"
      }
+     renderizarBurbujasChat()
+ }
+
+ private fun dp(valor: Int): Int = (valor * resources.displayMetrics.density).toInt()
+
+ private fun renderizarBurbujasChat() {
+     if (!::chatMessages.isInitialized || !::chatScroll.isInitialized) return
+     chatMessages.removeAllViews()
+     val id = activeConversationId ?: return
+     val mensajes = conversationStore.messages(id)
+     if (mensajes.isEmpty()) {
+         agregarBurbujaChat("BARDO", "Soy tu asistente personal. Puedo conversar y coordinar las especialidades disponibles; algunas funciones necesitan un modelo local instalado.", "Ahora", "assistant")
+     } else {
+         val formato = DateTimeFormatter.ofPattern("dd/MM HH:mm")
+         mensajes.forEach { mensaje ->
+             val zona = runCatching { ZoneId.of(mensaje.zoneId) }.getOrDefault(ZoneId.of("UTC"))
+             val hora = formato.withZone(zona).format(Instant.ofEpochMilli(mensaje.timestampEpochMillis))
+             val autor = when (mensaje.role) {
+                 "user" -> "Tú"
+                 "assistant" -> "BARDO"
+                 "tool" -> "Herramienta"
+                 else -> "Sistema"
+             }
+             agregarBurbujaChat(autor, mensaje.content, hora, mensaje.role)
+         }
+     }
+     chatScroll.post { chatScroll.fullScroll(View.FOCUS_DOWN) }
+ }
+
+ private fun agregarBurbujaChat(autor: String, contenido: String, hora: String, rol: String) {
+     val usuario = rol == "user"
+     val sistema = rol == "system" || rol == "tool"
+     val fila = LinearLayout(this).apply {
+         orientation = LinearLayout.HORIZONTAL
+         gravity = when {
+             usuario -> Gravity.END
+             sistema -> Gravity.CENTER_HORIZONTAL
+             else -> Gravity.START
+         }
+     }
+     val burbuja = LinearLayout(this).apply {
+         orientation = LinearLayout.VERTICAL
+         setPadding(dp(13), dp(9), dp(13), dp(10))
+         val fondo = GradientDrawable().apply {
+             setColor(when {
+                 usuario -> android.graphics.Color.rgb(18, 61, 131)
+                 sistema -> android.graphics.Color.rgb(43, 38, 55)
+                 else -> android.graphics.Color.rgb(17, 28, 50)
+             })
+             cornerRadius = dp(15).toFloat()
+             setStroke(dp(1), when {
+                 usuario -> android.graphics.Color.rgb(47, 111, 190)
+                 sistema -> android.graphics.Color.rgb(112, 92, 129)
+                 else -> android.graphics.Color.rgb(43, 56, 80)
+             })
+         }
+         background = fondo
+     }
+     val encabezado = TextView(this).apply {
+         text = "$autor · $hora"
+         textSize = 10f
+         setTextColor(if (usuario) android.graphics.Color.rgb(205, 226, 255) else if (sistema) android.graphics.Color.rgb(217, 184, 107) else android.graphics.Color.rgb(22, 207, 244))
+     }
+     val cuerpo = TextView(this).apply {
+         text = contenido
+         textSize = 14f
+         setTextColor(android.graphics.Color.rgb(226, 234, 247))
+         setLineSpacing(dp(2).toFloat(), 1f)
+         maxWidth = dp(290)
+         setTextIsSelectable(true)
+     }
+     burbuja.addView(encabezado)
+     burbuja.addView(cuerpo)
+     fila.addView(burbuja, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+     chatMessages.addView(fila, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+         bottomMargin = dp(8)
+     })
  }
 
  private fun registrarMensajesEnHistorial(mensaje: String) {
@@ -715,6 +805,7 @@ class MainActivity : AppCompatActivity() {
          .replace(mensaje) { "[$hora] " }
      chatLog.append(marcado)
      registrarMensajesEnHistorial(mensaje)
+     renderizarBurbujasChat()
      val limitado = chatLog.text.toString().takeLast(24000)
      val preferencias = JSONObject()
      datosConver.forEach { (key, value) -> preferencias.put(key, value) }
