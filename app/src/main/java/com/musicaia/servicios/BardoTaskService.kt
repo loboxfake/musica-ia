@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
+import android.media.MediaMetadataRetriever
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
@@ -192,6 +193,17 @@ class BardoTaskService : Service() {
                 if (!temporal.renameTo(mp3)) {
                     temporal.delete()
                     throw IllegalStateException("El MP3 se generó, pero no se pudo guardar definitivamente en Archivo.")
+                }
+                val mp3DurationMs = runCatching {
+                    val retriever = MediaMetadataRetriever()
+                    try {
+                        retriever.setDataSource(mp3.absolutePath)
+                        retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+                    } finally { retriever.release() }
+                }.getOrDefault(0L)
+                if (mp3DurationMs < 180_000L) {
+                    mp3.delete()
+                    throw IllegalStateException("El MP3 se guardó, pero Android no pudo validar una duración de al menos 3 minutos.")
                 }
                 if (letra.isNotBlank()) java.io.File(biblioteca, "BARDO_$marca.txt").writeText(letra)
                 val duracion = ((archivo.length() - 44L).coerceAtLeast(0L) / (44100L * 2L * 2L))
