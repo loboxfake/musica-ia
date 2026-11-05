@@ -2,13 +2,13 @@
 
 ## Normal updates
 
-The `Build APK` workflow creates the normal, lightweight application update. It does not download or package the Stable Audio model pack. Each APK receives a monotonically increasing Android `versionCode` based on the GitHub Actions run number, so Android recognizes it as an update rather than a downgrade.
+The `Build APK` workflow is validation-only: it runs unit tests and a lightweight compile, but does not publish an installable release. Only `Build full offline APK` publishes the installable offline package. This avoids presenting a lightweight APK without the native audio runtime as the final app.
 
 Install normal updates over the existing BARDO installation. Android package updates preserve the app's private data directory (`filesDir`), including the extracted `stable_audio_model` directory and downloaded language models. Do not uninstall BARDO or clear its storage when updating, or those files will be removed.
 
 ## Initial offline package
 
-The `Build full offline APK` workflow is now manual-only (`workflow_dispatch`). It remains available for a clean installation that needs the bundled Stable Audio model pack and native audio libraries. It is deliberately not rebuilt on every source change.
+The `Build full offline APK` workflow can be started manually (`workflow_dispatch`) and runs on pushes to `ruta-a-compile` and `bardo-device-fixes`. It packages the current branch source, retrieves the pinned Stable Audio model pack, compiles the native runtime, runs tests and audits the APK before publishing a prerelease asset. It is deliberately not triggered by every file change on unrelated branches.
 
 The first generation attempt calls `ModuloInstrumental.cargar()`, which copies the model files from APK assets into `filesDir/stable_audio_model`. Once all model files have been copied successfully, later lightweight APK updates preserve them. If the initial copy never completed, a lightweight update cannot recreate missing bundled assets; the full offline package is then required.
 
