@@ -154,6 +154,7 @@ $sourceText
                 summary += "\n\nNo se aplicaron cambios: el modelo no entregó un diff válido."
             }
 
+            summary += "\n\n## Respuesta del modelo\n\n" + response
             reportFile.writeText(summary, Charsets.UTF_8)
             prefs.edit()
                 .putLong("last_auto_study_at", timestamp)
