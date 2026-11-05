@@ -15,6 +15,7 @@ import com.musicaia.BardoDeveloperActivity
 import com.musicaia.modulos.litert.EngineLiteRT
 import com.musicaia.modulos.litert.LiteRTLMModule
 import java.io.File
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -162,6 +163,9 @@ $sourceText
                 .putString("last_auto_study_message", "Autoestudio completado; consulta ultima_auditoria.md.")
                 .apply()
             Result.success()
+        } catch (cancelled: CancellationException) {
+            // WorkManager usa la cancelación para detener el trabajo; no convertirla en fallo/reintento.
+            throw cancelled
         } catch (error: Throwable) {
             val message = error.javaClass.simpleName + ": " + (error.message ?: "Error sin detalle")
             runCatching {
