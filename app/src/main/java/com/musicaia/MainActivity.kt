@@ -938,7 +938,8 @@ class MainActivity : AppCompatActivity() {
              activeConversationId = nueva.id
              datosConver.clear()
              actualizarEstadoConocimiento()
-             chatLog.text = "BARDO: Memoria local borrada. Empezamos una conversación nueva. ¿En qué puedo ayudarte?"
+             chatLog.text = ""
+             renderizarBurbujasChat()
              actualizarUI()
              tvEstado.text = "Memoria e historial local borrados."
          }
