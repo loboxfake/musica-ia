@@ -12,7 +12,7 @@ on:
 
 permissions:
   actions: read
-  contents: read
+  contents: write
 
 jobs:
   full-build:
@@ -159,19 +159,18 @@ jobs:
           grep -q "package: name='com.musicaia'" full-apk-audit.txt
           grep -q "sdkVersion:'26'" full-apk-audit.txt
 
-      - name: Upload APK audit report
-        uses: actions/upload-artifact@v4
-        with:
-          name: musicaia-apk-audit
-          path: full-apk-audit.txt
-          if-no-files-found: error
-          retention-days: 30
+      - name: Publish audited APK as a private GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          apk=$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n 1)
+          test -s "$apk"
+          tag="bardo-build-${GITHUB_RUN_NUMBER}"
+          gh release create "$tag" "$apk" full-apk-audit.txt \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "BARDO · APK offline completa #${GITHUB_RUN_NUMBER}" \
+            --notes "Compilación completa con modelo Stable Audio local. Auditoría incluida como asset. La publicación confirma compilación y empaquetado, no sustituye la prueba real en el Xiaomi 11T Pro." \
+            --prerelease
 
-      - name: Upload full offline APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: musicaia-full-offline-apk
-          path: app/build/outputs/apk/debug/*.apk
-          compression-level: 0
-          if-no-files-found: error
-          retention-days: 30
