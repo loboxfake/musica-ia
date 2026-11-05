@@ -117,6 +117,27 @@ class BardoConversationStore internal constructor(private val directory: File) {
         }.sortedWith(compareBy<Message> { it.timestampEpochMillis }.thenBy { it.id })
     }
 
+    data class SearchResult(val conversation: Conversation, val message: Message)
+
+    fun searchMessages(query: String): List<SearchResult> = synchronized(lock) {
+        val needle = query.trim()
+        if (needle.isEmpty()) return@synchronized emptyList()
+        val conversations = listConversations().associateBy { it.id }
+        val matches = (0 until readRoot().getJSONArray("messages").length()).mapNotNull { index ->
+            val item = readRoot().getJSONArray("messages").getJSONObject(index)
+            val content = item.optString("content")
+            if (!content.contains(needle, ignoreCase = true)) return@mapNotNull null
+            val conversationId = item.optString("conversationId")
+            val conversation = conversations[conversationId] ?: return@mapNotNull null
+            val role = item.optString("role")
+            val timestamp = item.optLong("timestampEpochMillis")
+            val zone = item.optString("zoneId", "UTC")
+            val message = Message(item.getString("id"), conversationId, role, content, timestamp, zone)
+            SearchResult(conversation, message)
+        }
+        matches.sortedByDescending { it.message.timestampEpochMillis }
+    }
+
     /** Exportación íntegra: conserva IDs, orden, UTC y zona horaria original. */
     fun exportJson(): String = synchronized(lock) {
         readRoot().toString(2)
