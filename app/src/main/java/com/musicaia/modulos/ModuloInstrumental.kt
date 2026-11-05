@@ -62,11 +62,14 @@ class ModuloInstrumental(
                         output.flush()
                     }
                 }
-                if (!temporary.isFile || temporary.length() == 0L) return false
-                if (destination.exists() && !destination.delete()) return false
-                if (!temporary.renameTo(destination)) return false
+                if (!temporary.isFile || temporary.length() == 0L) throw IllegalStateException("La copia temporal del archivo $name quedó vacía.")
+                if (destination.exists() && !destination.delete()) throw IllegalStateException("No se pudo sustituir el archivo incompleto $name.")
+                if (!temporary.renameTo(destination)) throw IllegalStateException("No se pudo activar el archivo preparado $name.")
             }
-            modelFiles.all { File(modelDir, it).isFile && File(modelDir, it).length() > 0L }
+            if (!modelFiles.all { File(modelDir, it).isFile && File(modelDir, it).length() > 0L }) {
+                throw IllegalStateException("Falta al menos uno de los cuatro archivos requeridos de Stable Audio.")
+            }
+            true
         } catch (error: Exception) {
             throw IllegalStateException("No se pudieron preparar los archivos locales de Stable Audio: ${error.message ?: error.javaClass.simpleName}", error)
         }
