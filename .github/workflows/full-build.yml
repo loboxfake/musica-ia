@@ -6,6 +6,9 @@ concurrency:
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - ruta-a-compile
 
 permissions:
   actions: read
