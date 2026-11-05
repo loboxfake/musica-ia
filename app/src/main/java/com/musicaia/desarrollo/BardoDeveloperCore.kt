@@ -6,13 +6,11 @@ import java.io.File
 import java.io.InputStream
 import java.util.zip.ZipInputStream
 
-/**
- * Herramientas locales de auditoría para snapshots de código importados.
- * El analizador nunca ejecuta código del proyecto ni modifica sus fuentes.
- */
+/** Auditoría estática de snapshots importados. No ejecuta código ni modifica fuentes. */
 object BardoDeveloperCore {
     private val extensiones = setOf("kt", "kts", "java", "xml", "gradle", "properties", "md", "yml", "yaml", "toml", "json", "cpp", "h", "hpp", "c", "cmake", "txt")
     private const val MAX_ARCHIVOS = 3000
+    private const val MAX_ENTRADAS = 10000
     private const val MAX_ARCHIVO_BYTES = 2 * 1024 * 1024
     private const val MAX_TOTAL_BYTES = 60L * 1024L * 1024L
 
@@ -39,14 +37,17 @@ object BardoDeveloperCore {
         var count = 0
         var skipped = 0
         var total = 0L
+        var entries = 0
         ZipInputStream(BufferedInputStream(input)).use { zip ->
             while (true) {
                 val entry = zip.nextEntry ?: break
+                entries++
+                require(entries <= MAX_ENTRADAS) { "El ZIP contiene demasiadas entradas." }
                 if (entry.isDirectory) {
                     zip.closeEntry()
                     continue
                 }
-                val normalized = entry.name.replace('\\\\', '/')
+                val normalized = entry.name.replace(92.toChar(), '/')
                 val parts = normalized.split('/')
                 val ext = normalized.substringAfterLast('.', "").lowercase()
                 val safe = normalized.isNotBlank() && !normalized.startsWith("/") &&
@@ -92,9 +93,9 @@ object BardoDeveloperCore {
         collect(root)
         val findings = mutableListOf<Finding>()
         var linesTotal = 0
-        val emptyCatch = Regex("""catch\\s*\\([^)]*\\)\\s*\\{\\s*}""")
+        val emptyCatch = Regex("""catch\s*\([^)]*\)\s*\{\s*}""")
         val secret = Regex("""(?i)(gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16})""")
-        val dynamicVersion = Regex("""(?i)(implementation|api)\\s*\\([^)]*:[^:]+:(\\+|latest\\.release)""")
+        val dynamicVersion = Regex("""(?i)(implementation|api)\s*\([^)]*:[^:]+:(\+|latest\.release)""")
         files.forEach { file ->
             val relative = file.relativeTo(root).invariantSeparatorsPath
             val content = runCatching { file.readText(Charsets.UTF_8) }.getOrNull() ?: return@forEach
@@ -113,7 +114,7 @@ object BardoDeveloperCore {
                 if (dynamicVersion.containsMatchIn(line)) {
                     findings += Finding("AVISO", relative, index + 1, "Dependencia no fijada", "Una versión dinámica puede cambiar entre compilaciones; fija una versión concreta y verificable.")
                 }
-                if (line.contains("allowAll") || line.contains("TrustManager") && line.contains("X509")) {
+                if (line.contains("allowAll") || (line.contains("TrustManager") && line.contains("X509"))) {
                     findings += Finding("CRÍTICO", relative, index + 1, "Posible relajación TLS", "Comprueba que no se desactiva la validación de certificados.")
                 }
             }
@@ -133,14 +134,27 @@ object BardoDeveloperCore {
 
     fun extractos(root: File, report: Report, maxChars: Int = 14000): String {
         val out = StringBuilder()
-        report.findings.filter { it.file != "(proyecto)" }.map { it.file }.distinct().forEach { relative ->
+        val referenced = report.findings.filter { it.file != "(proyecto)" }.map { it.file }.distinct()
+        val candidates = if (referenced.isNotEmpty()) referenced else {
+            val found = mutableListOf<File>()
+            fun collect(dir: File) {
+                dir.listFiles()?.sortedBy { it.name }?.forEach { child ->
+                    if (child.isDirectory) collect(child)
+                    else if (child.isFile && child.extension.lowercase() in setOf("kt", "kts", "java", "xml", "gradle") && child.length() <= MAX_ARCHIVO_BYTES) found += child
+                }
+            }
+            collect(root)
+            found.take(6).map { it.relativeTo(root).invariantSeparatorsPath }
+        }
+        candidates.forEach { relative ->
             if (out.length >= maxChars) return@forEach
             val file = File(root, relative)
             if (!file.isFile) return@forEach
-            val text = runCatching { file.readText(Charsets.UTF_8) }.getOrDefault("")
+            val content = runCatching { file.readText(Charsets.UTF_8) }.getOrDefault("")
             val room = maxChars - out.length
-            out.append("\\n\\n--- ").append(relative).append(" ---\\n")
-                .append(text.take(room.coerceAtLeast(0)))
+            out.appendLine()
+            out.appendLine("--- $relative ---")
+            out.append(content.take(room.coerceAtLeast(0)))
         }
         return out.toString()
     }

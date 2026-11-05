@@ -23,6 +23,17 @@ jobs:
         with:
           ref: ruta-a-compile
 
+      - name: Package BARDO source snapshot for its local developer core
+        run: |
+          set -euo pipefail
+          mkdir -p app/src/main/assets
+          git archive --format=zip --output="$RUNNER_TEMP/bardo-source-snapshot.zip" HEAD \
+            app/src/main app/src/test app/build.gradle.kts build.gradle.kts settings.gradle.kts \
+            gradle.properties gradle/wrapper .github/workflows
+          test -s "$RUNNER_TEMP/bardo-source-snapshot.zip"
+          cp "$RUNNER_TEMP/bardo-source-snapshot.zip" app/src/main/assets/bardo_source_snapshot.zip
+          ls -lh app/src/main/assets/bardo_source_snapshot.zip
+
       - name: Download pinned local audio model pack
         env:
           GH_TOKEN: ${{ github.token }}
