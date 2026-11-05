@@ -992,28 +992,46 @@ class MainActivity : AppCompatActivity() {
      ocupado = estado == "running"
      grupoModo.isEnabled = !ocupado
      btnCrear.isEnabled = !ocupado
+     btnCancelarTarea.visibility = if (ocupado) View.VISIBLE else View.GONE
+     btnCancelarTarea.isEnabled = ocupado
      if (estado == "completed") {
+         btnCancelarTarea.visibility = View.GONE
+         detenerReloj()
          val solo = intent.getBooleanExtra(BardoTaskService.EXTRA_SOLO, false)
          val letra = intent.getStringExtra(BardoTaskService.EXTRA_LYRICS).orEmpty()
          val audio = intent.getStringExtra(BardoTaskService.EXTRA_AUDIO).orEmpty()
+         val mp3 = intent.getStringExtra(BardoTaskService.EXTRA_MP3).orEmpty()
          modoSoloInstrumental = solo
          if (letra.isNotBlank() && !solo) editLetra.setText(letra)
          segundos = intent.getIntExtra(BardoTaskService.EXTRA_ELAPSED, segundos)
          if (audio.isNotBlank() && File(audio).isFile && File(audio).length() > 44L) {
-             val pasos = mutableListOf<Pair<String, Dato>>()
-             if (letra.isNotBlank() && !solo) pasos += "letra" to Dato.Texto(letra)
-             pasos += "instrumental" to Dato.Audio(audio, 44100)
-             mostrarResultado(pasos)
+             rutaInstrumental = audio
+             rutaAudio = mp3.takeIf { it.isNotBlank() && File(it).isFile && File(it).length() > 1024L } ?: audio
+             btnReproducir.visibility = View.VISIBLE
+             btnGuardar.visibility = if (rutaAudio == audio) View.VISIBLE else View.GONE
+             val mp3Info = if (rutaAudio != audio) "${File(rutaAudio!!).length()} bytes · MP3 320 kbps" else "MP3 no disponible"
+             tvResultado.text = "WAV fuente validado: ${File(audio).length()} bytes\n$mp3Info" + if (letra.isNotBlank()) "\nLetra guardada en Archivo." else ""
+             tvEstado.text = mensajeActual
+             actualizarBiblioteca()
          } else {
              tvEstado.text = "BARDO terminó, pero no encontró un WAV válido."
          }
      } else if (estado == "failed" || estado == "cancelled" || estado == "interrupted") {
+         btnCancelarTarea.visibility = View.GONE
          detenerReloj()
          val mensaje = intent.getStringExtra(BardoTaskService.EXTRA_MESSAGE).orEmpty()
          tvEstado.text = "Tarea $estado: $mensaje"
          tvResultado.text = mensaje
      } else if (estado == "running") {
-         tvEstado.text = intent.getStringExtra(BardoTaskService.EXTRA_MESSAGE) ?: "BARDO continúa trabajando en segundo plano."
+         val mensaje = intent.getStringExtra(BardoTaskService.EXTRA_MESSAGE) ?: "BARDO continúa trabajando en segundo plano."
+         tvEstado.text = mensaje
+         val paso = Regex("INSTRUMENTAL (\\d+)/(\\d+)").find(mensaje)
+         if (paso != null) {
+             progreso.visibility = View.VISIBLE
+             progreso.isIndeterminate = false
+             progreso.max = paso.groupValues[2].toIntOrNull()?.coerceAtLeast(1) ?: 18
+             progreso.progress = paso.groupValues[1].toIntOrNull()?.coerceIn(0, progreso.max) ?: 0
+         }
      }
      actualizarUI()
  }
@@ -1038,18 +1056,22 @@ class MainActivity : AppCompatActivity() {
                  ocupado = true
                  grupoModo.isEnabled = false
                  btnCrear.isEnabled = false
-                 tvEstado.text = "BARDO continúa trabajando en segundo plano. Última señal hace ${antiguedad / 1000}s."
+                 btnCancelarTarea.visibility = View.VISIBLE
+                 btnCancelarTarea.isEnabled = true
+                 tvEstado.text = prefs.getString(BardoTaskService.KEY_MESSAGE, "BARDO continúa trabajando en segundo plano.").orEmpty()
              }
          }
          "completed" -> {
              val audio = prefs.getString(BardoTaskService.KEY_AUDIO, "").orEmpty()
+             val mp3 = prefs.getString(BardoTaskService.KEY_MP3, "").orEmpty()
              if (audio.isNotBlank() && File(audio).isFile && File(audio).length() > 44L) {
-                 rutaAudio = audio
+                 rutaAudio = mp3.takeIf { it.isNotBlank() && File(it).isFile } ?: audio
                  rutaInstrumental = audio
                  btnReproducir.visibility = View.VISIBLE
-                 btnGuardar.visibility = View.VISIBLE
-                 tvResultado.text = "Instrumental generado por BARDO en segundo plano. WAV: $audio"
-                 tvEstado.text = "Última tarea completada. Puedes reproducir o exportar el MP3."
+                 btnGuardar.visibility = if (rutaAudio == audio) View.VISIBLE else View.GONE
+                 tvResultado.text = "WAV fuente: ${File(audio).length()} bytes\nMP3 archivado: ${if (rutaAudio != audio) File(rutaAudio!!).length().toString() + " bytes" else "no disponible"}"
+                 tvEstado.text = prefs.getString(BardoTaskService.KEY_MESSAGE, "Última tarea completada.").orEmpty()
+                 actualizarBiblioteca()
              }
          }
          "failed", "cancelled", "interrupted" -> tvEstado.text =
@@ -1132,9 +1154,11 @@ class MainActivity : AppCompatActivity() {
  private fun actualizarBiblioteca() {
      val vista = findViewById<TextView>(R.id.tvBiblioteca)
      val reproducirUltimo = findViewById<Button>(R.id.btnBibliotecaReproducir)
-     val archivos = directorioBiblioteca().listFiles { file ->
-         file.isFile && file.extension.equals("wav", ignoreCase = true)
+     val todos = directorioBiblioteca().listFiles { file ->
+         file.isFile && file.extension.lowercase() in setOf("mp3", "wav")
      }?.sortedByDescending { it.lastModified() }.orEmpty()
+     val mp3s = todos.filter { it.extension.equals("mp3", ignoreCase = true) }
+     val archivos = (if (mp3s.isNotEmpty()) mp3s else todos).distinctBy { it.nameWithoutExtension }
      if (archivos.isEmpty()) {
          vista.text = "Todavía no hay creaciones guardadas. Cuando generes un instrumental, aparecerá aquí."
          reproducirUltimo.visibility = View.GONE
@@ -1142,7 +1166,14 @@ class MainActivity : AppCompatActivity() {
      }
      val resumen = archivos.take(12).joinToString("\n") { file ->
          val mb = file.length() / (1024.0 * 1024.0)
-         "♫  " + file.nameWithoutExtension + " · %.1f MB".format(mb)
+         val duracion = runCatching {
+             val retriever = MediaMetadataRetriever()
+             retriever.setDataSource(file.absolutePath)
+             val ms = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+             retriever.release()
+             if (ms > 0L) " · ${ms / 60000}m ${(ms / 1000) % 60}s" else ""
+         }.getOrDefault("")
+         "♫  " + file.nameWithoutExtension + " · %.1f MB".format(mb) + duracion + " · " + file.extension.uppercase()
      }
      vista.text = "CREACIONES GUARDADAS · " + archivos.size + "\n\n" + resumen
      reproducirUltimo.visibility = View.VISIBLE
@@ -1151,7 +1182,7 @@ class MainActivity : AppCompatActivity() {
 
  private fun reproducirUltimoDeBiblioteca() {
      val ultimo = directorioBiblioteca().listFiles { file ->
-         file.isFile && file.extension.equals("wav", ignoreCase = true)
+         file.isFile && file.extension.lowercase() in setOf("mp3", "wav")
      }?.maxByOrNull { it.lastModified() } ?: return
      rutaAudio = ultimo.absolutePath
      btnGuardar.visibility = View.VISIBLE
