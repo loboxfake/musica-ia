@@ -1,5 +1,7 @@
 name: Build APK
 
+# CI trigger refresh: validate tests and APK packaging independently.
+
 permissions:
   contents: read
   statuses: write
