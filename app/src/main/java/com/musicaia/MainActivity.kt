@@ -86,6 +86,16 @@ class MainActivity : AppCompatActivity() {
              val referenciaLatido = if (ultimoLatido > 0L) ultimoLatido else inicioTarea
              if (referenciaLatido > 0L && System.currentTimeMillis() - referenciaLatido > 25_000L) {
                  val pidTarea = prefs.getInt("process_pid", -1)
+                 val procesoSigueActivo = runCatching {
+                     getSystemService(android.app.ActivityManager::class.java).runningAppProcesses
+                         ?.any { it.pid == pidTarea && it.processName == "$packageName:audio" } == true
+                 }.getOrDefault(false)
+                 if (procesoSigueActivo) {
+                     tvEstado.text = "BARDO sigue ejecutándose en segundo plano; la señal de progreso está retrasada. No se ha confirmado un fallo de memoria."
+                     tvProgresoDetalle.text = "Motor activo · esperando la siguiente señal real del segmento"
+                     handler.postDelayed(this, 4_000L)
+                     return
+                 }
                  val detalleSalida = detalleSalidaProcesoAudio(inicioTarea, pidTarea)
                  val mensaje = "La tarea de audio dejó de enviar señales de vida. $detalleSalida BARDO ha protegido la interfaz; no se ha confirmado ningún audio."
                  prefs.edit().putString(BardoTaskService.KEY_STATE, "interrupted")
@@ -134,6 +144,7 @@ class MainActivity : AppCompatActivity() {
  private lateinit var tvResultado: TextView
  private lateinit var imgPortada: ImageView
  private lateinit var progreso: ProgressBar
+ private lateinit var tvProgresoDetalle: TextView
  private lateinit var btnDescargarModelo: Button
  private lateinit var estadoModelo: TextView
  private lateinit var progresoModelo: ProgressBar
@@ -290,6 +301,7 @@ class MainActivity : AppCompatActivity() {
  tvResultado = findViewById(R.id.textoResultado)
  imgPortada = findViewById(R.id.imgPortada)
  progreso = findViewById(R.id.progreso)
+ tvProgresoDetalle = findViewById(R.id.tvProgresoDetalle)
  btnDescargarModelo = findViewById(R.id.btnDescargarModelo)
  estadoModelo = findViewById(R.id.estadoModelo)
  progresoModelo = findViewById(R.id.progresoModelo)
@@ -965,8 +977,10 @@ class MainActivity : AppCompatActivity() {
  imgPortada.visibility = View.GONE
  progreso.visibility = View.VISIBLE
  progreso.isIndeterminate = false
- progreso.max = 18
+ progreso.max = 20
  progreso.progress = 0
+ tvProgresoDetalle.visibility = View.VISIBLE
+ tvProgresoDetalle.text = "Preparando el motor local y el modelo de audio…"
  tvTiempo.visibility = View.VISIBLE
  tvEstado.text = "Creando..."
  tvResultado.text = ""
@@ -1081,11 +1095,24 @@ class MainActivity : AppCompatActivity() {
          tvEstado.text = mensaje
          val paso = Regex("INSTRUMENTAL (\\d+)/(\\d+)").find(mensaje)
          if (paso != null) {
+             val actual = paso.groupValues[1].toIntOrNull()?.coerceAtLeast(0) ?: 0
+             val total = paso.groupValues[2].toIntOrNull()?.coerceAtLeast(1) ?: 20
              progreso.visibility = View.VISIBLE
              progreso.isIndeterminate = false
-             progreso.max = paso.groupValues[2].toIntOrNull()?.coerceAtLeast(1) ?: 18
-             progreso.progress = paso.groupValues[1].toIntOrNull()?.coerceIn(0, progreso.max) ?: 0
-         }
+             progreso.max = total
+             progreso.progress = actual.coerceIn(0, total)
+             tvProgresoDetalle.visibility = View.VISIBLE
+             val transcurrido = Regex("· (\\d+)s ·").find(mensaje)?.groupValues?.get(1)?.toLongOrNull()
+                 ?: ((System.currentTimeMillis() - getSharedPreferences(BardoTaskService.PREFS, MODE_PRIVATE).getLong("started_at", System.currentTimeMillis())).coerceAtLeast(0L) / 1000L)
+             val porcentaje = (actual * 100 / total).coerceIn(0, 100)
+             val restante = if (actual >= 2) ((transcurrido * (total - actual)) / actual).coerceAtLeast(0L) else null
+             val detalle = mensaje.substringAfter(" · ", "").substringAfter(" · ", "").substringAfter(" · ", "")
+             tvProgresoDetalle.text = buildString {
+                 append("Segmento $actual/$total · $porcentaje% · transcurrido ${formatearTiempo((transcurrido * 1000L).coerceAtMost(Int.MAX_VALUE.toLong()).toInt())}")
+                 if (restante != null) append(" · estimación orientativa restante ${formatearTiempo((restante * 1000L).coerceAtMost(Int.MAX_VALUE.toLong()).toInt())}")
+                 if (detalle.isNotBlank()) append("\\n").append(detalle)
+             }
+         }}
      }
      actualizarUI()
  }
