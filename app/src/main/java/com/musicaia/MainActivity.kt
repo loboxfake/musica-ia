@@ -35,6 +35,7 @@ import com.musicaia.modulos.MezclaVoz
 import com.musicaia.modulos.ModuloLetra
 import com.musicaia.modelo.Orquestador
 import com.musicaia.modelo.BardoIntentRouter
+import com.musicaia.modelo.BardoCapabilityRegistry
 import com.musicaia.memoria.BardoConversationStore
 import com.musicaia.memoria.BardoKnowledgeStore
 import java.io.File
@@ -432,6 +433,7 @@ class MainActivity : AppCompatActivity() {
      selectorImportarHistorial.launch(arrayOf("application/json", "text/*"))
  }
  findViewById<Button>(R.id.btnElegirCarpetaBardo).setOnClickListener { selectorElegirCarpetaBardo.launch(null) }
+ findViewById<Button>(R.id.btnVerCapacidades).setOnClickListener { mostrarCapacidades() }
  actualizarEtiquetaCarpetaBardo()
  findViewById<Button>(R.id.btnImportarConocimiento).setOnClickListener {
      selectorImportarConocimiento.launch(arrayOf("text/plain", "text/markdown", "application/json"))
@@ -637,6 +639,32 @@ class MainActivity : AppCompatActivity() {
              tvEstado.text = "Conversación recuperada."
          }
          .setNegativeButton("Cerrar", null)
+         .show()
+ }
+
+ private fun mostrarCapacidades() {
+     val modelo = LiteRTLMModule.modelFile(this)
+     val capacidades = BardoCapabilityRegistry.snapshot(
+         BardoCapabilityRegistry.RuntimeFacts(
+             gemmaFilePresent = modelo.isFile && modelo.length() == LiteRTLMModule.EXPECTED_SIZE_BYTES,
+             audioEnginePresent = AudioGenNative.available,
+             mp3EncoderPresent = Mp3Exporter.available
+         )
+     )
+     val texto = capacidades.joinToString("\\n\\n") { item ->
+         val estado = when (item.status) {
+             BardoCapabilityRegistry.Status.AVAILABLE -> "Disponible según los componentes detectados"
+             BardoCapabilityRegistry.Status.NEEDS_MODEL -> "Necesita modelo local"
+             BardoCapabilityRegistry.Status.NEEDS_FULL_APK -> "Necesita APK offline completa"
+             BardoCapabilityRegistry.Status.REQUIRES_USER_ACTION -> "Requiere autorización explícita"
+             BardoCapabilityRegistry.Status.NOT_IMPLEMENTED -> "Todavía no implementada"
+         }
+         "${item.name}\\nEstado: $estado\\n${item.detail}"
+     } + "\\n\\nLa detección de componentes no sustituye una prueba funcional en el Xiaomi 11T Pro."
+     AlertDialog.Builder(this)
+         .setTitle("Capacidades de BARDO")
+         .setMessage(texto)
+         .setPositiveButton("Cerrar", null)
          .show()
  }
 
