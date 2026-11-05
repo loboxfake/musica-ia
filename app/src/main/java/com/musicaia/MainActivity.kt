@@ -1110,9 +1110,9 @@ class MainActivity : AppCompatActivity() {
              tvProgresoDetalle.text = buildString {
                  append("Segmento $actual/$total · $porcentaje% · transcurrido ${formatearTiempo((transcurrido * 1000L).coerceAtMost(Int.MAX_VALUE.toLong()).toInt())}")
                  if (restante != null) append(" · estimación orientativa restante ${formatearTiempo((restante * 1000L).coerceAtMost(Int.MAX_VALUE.toLong()).toInt())}")
-                 if (detalle.isNotBlank()) append("\\n").append(detalle)
+                 if (detalle.isNotBlank()) append("\n").append(detalle)
              }
-         }}
+         }
      }
      actualizarUI()
  }
@@ -1125,7 +1125,20 @@ class MainActivity : AppCompatActivity() {
              val inicio = prefs.getLong("started_at", 0L)
              val referencia = if (latido > 0L) latido else inicio
              val antiguedad = if (referencia > 0L) System.currentTimeMillis() - referencia else Long.MAX_VALUE
-             if (antiguedad > 25_000L) {
+             val procesoSigueActivo = runCatching {
+                 getSystemService(android.app.ActivityManager::class.java).runningAppProcesses
+                     ?.any { it.pid == prefs.getInt("process_pid", -1) && it.processName == "$packageName:audio" } == true
+             }.getOrDefault(false)
+             if (antiguedad > 25_000L && procesoSigueActivo) {
+                 ocupado = true
+                 grupoModo.isEnabled = false
+                 btnCrear.isEnabled = false
+                 btnCancelarTarea.visibility = View.VISIBLE
+                 btnCancelarTarea.isEnabled = true
+                 tvEstado.text = "BARDO sigue activo en segundo plano, aunque su señal de progreso esté retrasada. No se declara falta de memoria."
+                 tvProgresoDetalle.visibility = View.VISIBLE
+                 tvProgresoDetalle.text = "Motor activo · esperando la siguiente señal real del segmento"
+             } else if (antiguedad > 25_000L) {
                  val mensaje = "La tarea anterior no está activa: no hay señal reciente del motor. Se ha desbloqueado Crear; puedes volver a intentarlo."
                  prefs.edit().putString(BardoTaskService.KEY_STATE, "interrupted")
                      .putString(BardoTaskService.KEY_MESSAGE, mensaje).apply()
