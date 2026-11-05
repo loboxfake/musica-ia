@@ -62,6 +62,7 @@ class BardoTaskService : Service() {
     private var ejecutando = false
     private var inicioMs = 0L
     private var modoSolo = false
+    private var totalPasosAudio = 20
     private val cancelacionSolicitada = AtomicBoolean(false)
     // El latido no debe depender del hilo principal: la inferencia nativa puede
     // saturar CPU durante decenas de segundos y provocar falsos "sin vida".
@@ -149,6 +150,7 @@ class BardoTaskService : Service() {
             applicationContext,
             prompt,
             onSegmentProgress = { actual, total, detalle ->
+                totalPasosAudio = total.coerceAtLeast(1)
                 val transcurrido = ((System.currentTimeMillis() - inicioMs) / 1000L).coerceAtLeast(0L)
                 val mensaje = "INSTRUMENTAL $actual/$total · ${transcurrido}s · $detalle"
                 actualizarNotificacion(mensaje, ((actual * 90f) / total).toInt().coerceIn(0, 90))
@@ -178,7 +180,10 @@ class BardoTaskService : Service() {
                 val letra = (resultados.firstOrNull { it.first == "letra" }?.second as? Dato.Texto)?.texto.orEmpty()
                 val segundos = ((System.currentTimeMillis() - inicioMs) / 1000L).toInt()
                 getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_AUDIO, audio.rutaWav).apply()
-                publicarEstado("running", "WAV validado (${archivo.length()} bytes). Preparando MP3 320 kbps para Archivo…")
+                val pasoMp3 = (totalPasosAudio - 1).coerceAtLeast(1)
+                val mensajeMp3 = "INSTRUMENTAL $pasoMp3/$totalPasosAudio · WAV validado (${archivo.length()} bytes). Preparando MP3 320 kbps para Archivo…"
+                actualizarNotificacion(mensajeMp3, ((pasoMp3 * 90f) / totalPasosAudio).toInt().coerceIn(0, 95))
+                publicarEstado("running", mensajeMp3)
                 if (!Mp3Exporter.available) throw IllegalStateException("El WAV se generó, pero el codificador MP3 nativo no está disponible en esta APK.")
                 val biblioteca = java.io.File(filesDir, "biblioteca")
                 if (!biblioteca.exists() && !biblioteca.mkdirs()) throw IllegalStateException("No se pudo crear la carpeta Archivo de BARDO.")
@@ -205,6 +210,9 @@ class BardoTaskService : Service() {
                     mp3.delete()
                     throw IllegalStateException("El MP3 se guardó, pero Android no pudo validar una duración de al menos 3 minutos.")
                 }
+                val mensajeValidado = "INSTRUMENTAL $totalPasosAudio/$totalPasosAudio · MP3 320 kbps validado (${mp3DurationMs / 1000L}s, ${mp3.length()} bytes)"
+                actualizarNotificacion(mensajeValidado, 100)
+                publicarEstado("running", mensajeValidado)
                 if (letra.isNotBlank()) java.io.File(biblioteca, "BARDO_$marca.txt").writeText(letra)
                 val duracion = ((archivo.length() - 44L).coerceAtLeast(0L) / (44100L * 2L * 2L))
                 val mensajeFinal = "MP3 guardado en Archivo · ${duracion / 60} min ${duracion % 60}s · ${mp3.length()} bytes · 320 kbps"
