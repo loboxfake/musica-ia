@@ -82,7 +82,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
         addButton(root, "Investigar documentación oficial") { investigarDocumentacion() }
         btnExport = addButton(root, "Exportar auditoría / propuesta") { exportFile.launch("bardo-developer-informe.md") }
         addButton(root, "Volver a BARDO") { finish() }
-        val scroll = ScrollView(this).apply { fillViewport = true }
+        val scroll = ScrollView(this).apply { isFillViewport = true }
         output = TextView(this).apply {
             textSize = 12f; setTextColor(blanco); setTextIsSelectable(true)
             setPadding(12, 14, 12, 24); setBackgroundColor(android.graphics.Color.rgb(15, 25, 42))
