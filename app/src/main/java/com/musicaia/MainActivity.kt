@@ -1520,6 +1520,7 @@ class MainActivity : AppCompatActivity() {
          if (audio.isNotBlank() && File(audio).isFile && File(audio).length() > 44L) {
              rutaInstrumental = audio
              rutaAudio = mp3.takeIf { it.isNotBlank() && File(it).isFile && File(it).length() > 1024L } ?: audio
+              archivarTareaEnCarpetaBardo(audio, mp3, letra, solo)
              btnReproducir.visibility = View.VISIBLE
              btnGuardar.visibility = if (rutaAudio == audio) View.VISIBLE else View.GONE
              val mp3Info = if (rutaAudio != audio) "${File(rutaAudio!!).length()} bytes · MP3 320 kbps" else "MP3 no disponible"
@@ -1630,6 +1631,7 @@ class MainActivity : AppCompatActivity() {
              val mp3 = prefs.getString(BardoTaskService.KEY_MP3, "").orEmpty()
              if (audio.isNotBlank() && File(audio).isFile && File(audio).length() > 44L) {
                  rutaAudio = mp3.takeIf { it.isNotBlank() && File(it).isFile } ?: audio
+                 archivarTareaEnCarpetaBardo(audio, mp3, prefs.getString("lyrics", "").orEmpty(), prefs.getBoolean("solo", false))
                  rutaInstrumental = audio
                  btnReproducir.visibility = View.VISIBLE
                  btnGuardar.visibility = if (rutaAudio == audio) View.VISIBLE else View.GONE
@@ -1688,6 +1690,41 @@ class MainActivity : AppCompatActivity() {
  }
  }
 
+
+ private fun archivarTareaEnCarpetaBardo(audioPath: String, mp3Path: String, letra: String, solo: Boolean) {
+     if (uriCarpetaBardo == null || audioPath.isBlank()) return
+     val prefs = getSharedPreferences("bardo_storage", MODE_PRIVATE)
+     if (prefs.getString("last_archived_task_audio", null) == audioPath) return
+     Thread({
+         val resultado = runCatching {
+             val categoria = if (solo) "Instrumentales" else "Canciones"
+             val wav = File(audioPath)
+             require(wav.isFile && wav.length() > 44L) { "El WAV de la tarea ya no está disponible." }
+             val marca = System.currentTimeMillis()
+             guardarArchivoEnCarpetaBardo(wav, categoria, "BARDO_$marca.wav", "audio/wav")
+             val mp3 = File(mp3Path)
+             if (mp3.isFile && mp3.length() > 128L) guardarArchivoEnCarpetaBardo(mp3, categoria, "BARDO_$marca.mp3", "audio/mpeg")
+             if (letra.isNotBlank()) {
+                 val temporal = File(cacheDir, "BARDO_$marca.txt")
+                 try {
+                     temporal.writeText(letra, Charsets.UTF_8)
+                     guardarArchivoEnCarpetaBardo(temporal, "Proyectos", temporal.name, "text/plain")
+                 } finally { temporal.delete() }
+             }
+         }
+         runOnUiThread {
+             if (resultado.isSuccess) {
+                 prefs.edit().putString("last_archived_task_audio", audioPath).apply()
+                 if (!isFinishing && !isDestroyed) {
+                     val destino = if (solo) "Instrumentales" else "Canciones"
+                     tvEstado.text = "Creación guardada también en Descargas/BARDO/$destino."
+                 }
+             } else {
+                 Log.e(etiqueta, "No se pudo copiar la creación a la carpeta BARDO", resultado.exceptionOrNull())
+             }
+         }
+     }, "BARDO-External-Archive").start()
+ }
 
  private fun directorioBiblioteca(): File = File(filesDir, "biblioteca").apply { mkdirs() }
 
