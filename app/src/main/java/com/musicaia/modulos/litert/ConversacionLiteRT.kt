@@ -21,7 +21,7 @@ object ConversacionLiteRT {
             Datos de la canción:
             $solicitud
         """.trimIndent()
-        val respuesta = EngineLiteRT.generar(prompt).trim()
+        val respuesta = EngineLiteRT.generar(prompt, reiniciarConversacion = true).trim()
         val limpia = respuesta.substringAfter("</think>", respuesta).trim()
         if (limpia.isBlank()) throw IllegalStateException("El modelo local devolvió una respuesta vacía.")
         return limpia
