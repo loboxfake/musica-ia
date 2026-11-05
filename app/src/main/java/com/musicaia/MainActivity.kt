@@ -243,6 +243,57 @@ class MainActivity : AppCompatActivity() {
          }
      }
 
+ private val selectorExportarHistorialJson =
+     registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+         if (uri != null) runCatching {
+             val salida = contentResolver.openOutputStream(uri)
+                 ?: throw IllegalStateException("No se pudo abrir el destino.")
+             salida.bufferedWriter().use { it.write(conversationStore.exportJson()) }
+             tvEstado.text = "Historial completo exportado en JSON."
+         }.onFailure { tvEstado.text = "No se pudo exportar el historial: ${it.message}" }
+     }
+
+ private val selectorExportarHistorialTxt =
+     registerForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
+         if (uri != null) runCatching {
+             val salida = contentResolver.openOutputStream(uri)
+                 ?: throw IllegalStateException("No se pudo abrir el destino.")
+             salida.bufferedWriter().use { it.write(conversationStore.exportText()) }
+             tvEstado.text = "Historial legible exportado en TXT."
+         }.onFailure { tvEstado.text = "No se pudo exportar el historial: ${it.message}" }
+     }
+
+ private val selectorImportarHistorial =
+     registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+         if (uri != null) runCatching {
+             val contenido = contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                 ?: throw IllegalStateException("No se pudo abrir el archivo.")
+             require(contenido.length <= 20_000_000) { "El historial supera el límite de 20 MB." }
+             val json = JSONObject(contenido)
+             require(json.optInt("schemaVersion") == 1) { "El archivo no es un historial BARDO compatible." }
+             val conversaciones = json.optJSONArray("conversations")?.length() ?: 0
+             val mensajes = json.optJSONArray("messages")?.length() ?: 0
+             AlertDialog.Builder(this)
+                 .setTitle("Revisar importación")
+                 .setMessage("El archivo contiene $conversaciones conversaciones y $mensajes mensajes. Se combinará con el historial actual; los identificadores repetidos no se duplicarán. No se ejecutará ninguna instrucción importada.")
+                 .setNegativeButton("Cancelar", null)
+                 .setPositiveButton("Importar") { _, _ ->
+                     runCatching {
+                         val agregados = conversationStore.importJson(contenido)
+                         val activa = conversationStore.listConversations().firstOrNull()
+                         if (activa != null) {
+                             activeConversationId = activa.id
+                             getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE).edit()
+                                 .putString("active_conversation_id", activa.id).apply()
+                             renderizarConversacionActiva()
+                         }
+                         tvEstado.text = "Importación terminada: $agregados mensajes nuevos añadidos."
+                     }.onFailure { tvEstado.text = "Importación rechazada: ${it.message}" }
+                 }
+                 .show()
+         }.onFailure { tvEstado.text = "No se pudo leer el historial: ${it.message}" }
+     }
+
  private val selectorGuardar =
      registerForActivityResult(ActivityResultContracts.CreateDocument("audio/mpeg")) { uri ->
          val origen = rutaExportacion
@@ -333,6 +384,12 @@ class MainActivity : AppCompatActivity() {
  editPromptInstrumental.addTextChangedListener { actualizarUI() }
 
  btnEnviar.setOnClickListener { enviarConversacion() }
+ findViewById<Button>(R.id.btnNuevaConversacion).setOnClickListener { crearConversacionNueva() }
+ findViewById<Button>(R.id.btnVerHistorial).setOnClickListener { mostrarHistorialConversaciones() }
+ findViewById<Button>(R.id.btnExportarHistorial).setOnClickListener { mostrarOpcionesExportacionHistorial() }
+ findViewById<Button>(R.id.btnImportarHistorial).setOnClickListener {
+     selectorImportarHistorial.launch(arrayOf("application/json", "text/*"))
+ }
  findViewById<Button>(R.id.btnImportarConocimiento).setOnClickListener {
      selectorImportarConocimiento.launch(arrayOf("text/plain", "text/markdown", "application/json"))
  }
@@ -454,6 +511,53 @@ class MainActivity : AppCompatActivity() {
      }
      prefs.edit().putString("active_conversation_id", activeConversationId).apply()
      renderizarConversacionActiva()
+ }
+
+ private fun crearConversacionNueva() {
+     val titulo = "Conversación " + DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+         .withZone(ZoneId.systemDefault()).format(Instant.now())
+     val nueva = conversationStore.createConversation(titulo)
+     activeConversationId = nueva.id
+     getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE).edit()
+         .putString("active_conversation_id", nueva.id).apply()
+     chatLog.text = "BARDO: Conversación nueva. ¿En qué puedo ayudarte?"
+     tvEstado.text = "Conversación nueva creada."
+ }
+
+ private fun mostrarHistorialConversaciones() {
+     val conversaciones = conversationStore.listConversations()
+     if (conversaciones.isEmpty()) {
+         tvEstado.text = "Todavía no hay conversaciones guardadas."
+         return
+     }
+     val formato = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").withZone(ZoneId.systemDefault())
+     val titulos = conversaciones.map { conversacion ->
+         "${conversacion.title} · " + formato.format(Instant.ofEpochMilli(conversacion.updatedAtEpochMillis))
+     }.toTypedArray()
+     AlertDialog.Builder(this)
+         .setTitle("Historial de BARDO")
+         .setItems(titulos) { _, indice ->
+             activeConversationId = conversaciones[indice].id
+             getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE).edit()
+                 .putString("active_conversation_id", activeConversationId).apply()
+             chatLog.text = ""
+             renderizarConversacionActiva()
+             if (chatLog.text.isBlank()) chatLog.text = "BARDO: Conversación recuperada. ¿En qué puedo ayudarte?"
+             tvEstado.text = "Conversación recuperada."
+         }
+         .setNegativeButton("Cerrar", null)
+         .show()
+ }
+
+ private fun mostrarOpcionesExportacionHistorial() {
+     AlertDialog.Builder(this)
+         .setTitle("Exportar historial")
+         .setItems(arrayOf("JSON · copia completa", "TXT · lectura sencilla")) { _, indice ->
+             if (indice == 0) selectorExportarHistorialJson.launch("bardo-historial.json")
+             else selectorExportarHistorialTxt.launch("bardo-historial.txt")
+         }
+         .setNegativeButton("Cancelar", null)
+         .show()
  }
 
  private fun renderizarConversacionActiva() {
