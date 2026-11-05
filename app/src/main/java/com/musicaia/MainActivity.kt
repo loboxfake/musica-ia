@@ -1321,7 +1321,10 @@ class MainActivity : AppCompatActivity() {
          player = nuevo
          playerPreparing = true
          playerControls.visibility = View.VISIBLE
+         seekPlayback.progress = 0
+         tvPlaybackTime.text = "00:00 / --:--"
          btnPausar.isEnabled = false
+         tvEstado.text = "Preparando reproducción..."
          nuevo.setDataSource(applicationContext, Uri.fromFile(File(ruta)))
          nuevo.setOnPreparedListener { preparado ->
              playerPreparing = false
@@ -1356,7 +1359,11 @@ class MainActivity : AppCompatActivity() {
              fallido.release()
              if (player === fallido) player = null
              if (!isFinishing && !isDestroyed) {
+                 seekPlayback.progress = 0
+                 tvPlaybackTime.text = "00:00 / 00:00"
+                 btnPausar.text = "Pausar"
                  btnPausar.isEnabled = false
+                 playerControls.visibility = if (rutaAudio.isNullOrBlank()) View.GONE else View.VISIBLE
                  tvEstado.text = "Error de reproducción ($what/$extra)."
              }
              true

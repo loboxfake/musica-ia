@@ -32,6 +32,11 @@ jobs:
         with:
           ref: ${{ github.ref }}
 
+      - name: Generate Digital Bardic Quill mipmaps
+        run: |
+          python3 -m pip install --disable-pip-version-check Pillow
+          python3 tools/generate_launcher_mipmaps.py
+
       - name: Package BARDO source snapshot for its local developer core
         run: |
           set -euo pipefail
@@ -79,6 +84,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: 8.10.2
+          cache-disabled: true
 
       - name: Run unit tests
         run: |
@@ -136,6 +142,18 @@ jobs:
               "assets/audio_model/autoencoder_model.pte",
               "assets/audio_model/spiece.model",
               "assets/audio_model/LICENSE",
+              "res/mipmap-mdpi-v4/ic_launcher.webp",
+              "res/mipmap-hdpi-v4/ic_launcher.webp",
+              "res/mipmap-xhdpi-v4/ic_launcher.webp",
+              "res/mipmap-xxhdpi-v4/ic_launcher.webp",
+              "res/mipmap-xxxhdpi-v4/ic_launcher.webp",
+              "res/mipmap-mdpi-v4/ic_launcher_foreground.webp",
+              "res/mipmap-hdpi-v4/ic_launcher_foreground.webp",
+              "res/mipmap-xhdpi-v4/ic_launcher_foreground.webp",
+              "res/mipmap-xxhdpi-v4/ic_launcher_foreground.webp",
+              "res/mipmap-xxxhdpi-v4/ic_launcher_foreground.webp",
+              "res/mipmap-anydpi-v26/ic_launcher.xml",
+              "res/mipmap-anydpi-v26/ic_launcher_round.xml",
               "lib/arm64-v8a/libaudiogen.so",
               "lib/arm64-v8a/libmp3encoder.so",
               "lib/arm64-v8a/libmp3lame.so",
