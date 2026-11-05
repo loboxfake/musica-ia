@@ -141,7 +141,7 @@
                     <Button android:id="@+id/btnBorrarConocimiento" android:layout_width="match_parent"
                         android:layout_height="46dp" android:layout_marginTop="6dp"
                         android:text="Borrar conocimiento importado" android:textAllCaps="false"/>
-                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="8dp" android:text="Próximas capacidades: catálogo de modelos, skills verificadas y memoria de aprendizaje." android:textColor="#8295B1" android:textSize="11sp"/>
+                    <Button android:id="@+id/btnAbrirDeveloper" android:layout_width="match_parent" android:layout_height="50dp" android:layout_marginTop="10dp" android:text="Abrir BARDO Developer Core · Investigación y código" android:textAllCaps="false"/>\n                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="8dp" android:text="Próximas capacidades: catálogo de modelos, skills verificadas y memoria de aprendizaje." android:textColor="#8295B1" android:textSize="11sp"/>
                 </LinearLayout>
             </LinearLayout>
 

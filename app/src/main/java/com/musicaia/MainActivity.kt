@@ -290,7 +290,7 @@ class MainActivity : AppCompatActivity() {
  findViewById<Button>(R.id.btnImportarConocimiento).setOnClickListener {
      selectorImportarConocimiento.launch(arrayOf("text/plain", "text/markdown", "application/json"))
  }
- findViewById<Button>(R.id.btnBorrarConocimiento).setOnClickListener {
+ findViewById<Button>(R.id.btnAbrirDeveloper).setOnClickListener { startActivity(Intent(this, BardoDeveloperActivity::class.java)) }\n findViewById<Button>(R.id.btnBorrarConocimiento).setOnClickListener {
      getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE).edit().remove("conocimiento_importado").apply()
      actualizarEstadoConocimiento()
      tvEstado.text = "Conocimiento importado borrado."
