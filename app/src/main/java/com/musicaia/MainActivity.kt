@@ -15,6 +15,7 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.ProgressBar
+import android.widget.SeekBar
 import android.widget.RadioGroup
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
@@ -52,6 +53,21 @@ class MainActivity : AppCompatActivity() {
  private var ocupado = false
  private var player: MediaPlayer? = null
  private var playerPreparing = false
+ private lateinit var playerControls: View
+ private lateinit var seekPlayback: SeekBar
+ private lateinit var tvPlaybackTime: TextView
+ private lateinit var btnPausar: Button
+ private lateinit var btnDetener: Button
+ private var usuarioArrastraSeek = false
+ private val relojReproductor = object : Runnable {
+     override fun run() {
+         val actual = player ?: return
+         if (!isFinishing && !isDestroyed) {
+             actualizarProgresoReproductor(actual)
+             handler.postDelayed(this, 400L)
+         }
+     }
+ }
  private var rutaAudio: String? = null
  private var rutaExportacion: String? = null
  private var rutaVoz: String? = null
@@ -263,6 +279,11 @@ class MainActivity : AppCompatActivity() {
  btnCrear = findViewById(R.id.btnCrear)
  btnCancelarTarea = findViewById(R.id.btnCancelarTarea)
  btnReproducir = findViewById(R.id.btnReproducir)
+ playerControls = findViewById(R.id.playerControls)
+ seekPlayback = findViewById(R.id.seekPlayback)
+ tvPlaybackTime = findViewById(R.id.tvPlaybackTime)
+ btnPausar = findViewById(R.id.btnPausar)
+ btnDetener = findViewById(R.id.btnDetener)
  btnGuardar = findViewById(R.id.btnGuardar)
  tvEstado = findViewById(R.id.estado)
  tvTiempo = findViewById(R.id.tiempo)
@@ -316,6 +337,21 @@ class MainActivity : AppCompatActivity() {
      tvEstado.text = "Cancelación solicitada. Se detendrá al terminar la operación nativa en curso."
  }
  btnReproducir.setOnClickListener { reproducir() }
+ btnPausar.setOnClickListener { alternarPausaReproduccion() }
+ btnDetener.setOnClickListener { detenerReproduccion() }
+ seekPlayback.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+     override fun onStartTrackingTouch(seekBar: SeekBar?) { usuarioArrastraSeek = true }
+     override fun onStopTrackingTouch(seekBar: SeekBar?) {
+         val actual = player
+         if (actual != null && !playerPreparing) runCatching {
+             val destino = ((seekPlayback.progress / 1000f) * actual.duration).toInt().coerceIn(0, actual.duration)
+             actual.seekTo(destino)
+             actualizarProgresoReproductor(actual)
+         }
+         usuarioArrastraSeek = false
+     }
+     override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) { }
+ })
  btnGuardar.setOnClickListener { guardarCancion() }
 
  if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
@@ -886,6 +922,7 @@ class MainActivity : AppCompatActivity() {
  }
  super.onDestroy()
  handler.removeCallbacks(reloj)
+ handler.removeCallbacks(relojReproductor)
  try { grabadora?.detener() } catch (_: Exception) { }
  try { player?.release() } catch (_: Exception) { }
  EngineLiteRT.cerrarAsync()
@@ -1231,41 +1268,113 @@ class MainActivity : AppCompatActivity() {
      val ruta = rutaAudio ?: return
      if (playerPreparing) return
      try {
-         player?.release()
-         player = null
+         detenerReproduccion()
          val nuevo = MediaPlayer()
          player = nuevo
          playerPreparing = true
+         playerControls.visibility = View.VISIBLE
+         btnPausar.isEnabled = false
          nuevo.setDataSource(applicationContext, Uri.fromFile(File(ruta)))
          nuevo.setOnPreparedListener { preparado ->
              playerPreparing = false
              if (!isFinishing && !isDestroyed && player === preparado) {
                  preparado.start()
+                 btnPausar.isEnabled = true
+                 btnPausar.text = "Pausar"
                  tvEstado.text = "Reproduciendo creación..."
-             } else {
-                 preparado.release()
-             }
+                 actualizarProgresoReproductor(preparado)
+                 handler.removeCallbacks(relojReproductor)
+                 handler.post(relojReproductor)
+             } else preparado.release()
          }
          nuevo.setOnCompletionListener { terminado ->
              playerPreparing = false
-             terminado.release()
-             if (player === terminado) player = null
-             if (!isFinishing && !isDestroyed) tvEstado.text = "Reproducción finalizada."
+             handler.removeCallbacks(relojReproductor)
+             if (player === terminado) {
+                 seekPlayback.progress = 1000
+                 tvPlaybackTime.text = "${formatearTiempo(terminado.duration)} / ${formatearTiempo(terminado.duration)}"
+                 terminado.release()
+                 player = null
+             } else terminado.release()
+             if (!isFinishing && !isDestroyed) {
+                 btnPausar.text = "Pausar"
+                 btnPausar.isEnabled = false
+                 tvEstado.text = "Reproducción finalizada."
+             }
          }
          nuevo.setOnErrorListener { fallido, what, extra ->
              playerPreparing = false
+             handler.removeCallbacks(relojReproductor)
              fallido.release()
              if (player === fallido) player = null
-             if (!isFinishing && !isDestroyed) tvEstado.text = "Error de reproducción ($what/$extra)."
+             if (!isFinishing && !isDestroyed) {
+                 btnPausar.isEnabled = false
+                 tvEstado.text = "Error de reproducción ($what/$extra)."
+             }
              true
          }
          nuevo.prepareAsync()
      } catch (e: Exception) {
          playerPreparing = false
+         handler.removeCallbacks(relojReproductor)
          runCatching { player?.release() }
          player = null
          tvEstado.text = "No se pudo reproducir: ${e.message}"
      }
+ }
+
+ private fun alternarPausaReproduccion() {
+     val actual = player ?: return
+     if (playerPreparing) return
+     runCatching {
+         if (actual.isPlaying) {
+             actual.pause()
+             btnPausar.text = "Reanudar"
+             tvEstado.text = "Reproducción pausada."
+         } else {
+             actual.start()
+             btnPausar.text = "Pausar"
+             tvEstado.text = "Reproduciendo creación..."
+             handler.removeCallbacks(relojReproductor)
+             handler.post(relojReproductor)
+         }
+         actualizarProgresoReproductor(actual)
+     }.onFailure { tvEstado.text = "No se pudo cambiar la reproducción: ${it.message}" }
+ }
+
+ private fun detenerReproduccion() {
+     handler.removeCallbacks(relojReproductor)
+     val actual = player
+     player = null
+     playerPreparing = false
+     if (actual != null) {
+         runCatching { if (actual.isPlaying) actual.stop() }
+         runCatching { actual.reset() }
+         runCatching { actual.release() }
+     }
+     if (::playerControls.isInitialized) {
+         playerControls.visibility = if (rutaAudio.isNullOrBlank()) View.GONE else View.VISIBLE
+         seekPlayback.progress = 0
+         tvPlaybackTime.text = "00:00 / 00:00"
+         btnPausar.text = "Pausar"
+         btnPausar.isEnabled = false
+     }
+     if (!isFinishing && !isDestroyed && ::tvEstado.isInitialized) tvEstado.text = "Reproducción detenida."
+ }
+
+ private fun actualizarProgresoReproductor(actual: MediaPlayer) {
+     if (player !== actual) return
+     val duracion = runCatching { actual.duration }.getOrDefault(0)
+     val posicion = runCatching { actual.currentPosition }.getOrDefault(0)
+     if (!usuarioArrastraSeek && duracion > 0) {
+         seekPlayback.progress = ((posicion.toLong() * 1000L) / duracion).toInt().coerceIn(0, 1000)
+     }
+     tvPlaybackTime.text = "${formatearTiempo(posicion)} / ${formatearTiempo(duracion)}"
+ }
+
+ private fun formatearTiempo(milisegundos: Int): String {
+     val total = milisegundos.coerceAtLeast(0) / 1000
+     return String.format(java.util.Locale.ROOT, "%02d:%02d", total / 60, total % 60)
  }
 
  private fun guardarCancion() {
