@@ -78,7 +78,7 @@ class BardoDeveloperWorker(context: Context, params: WorkerParameters) : Corouti
             val now = System.currentTimeMillis()
             val proposal = File(root, "autoestudio-$now.md")
             proposal.writeText("# Autoestudio BARDO\n\n$auditText\n\n## Respuesta\n\n$answer")
-            var result = "AUTOESTUDIO COMPLETADO\n\n$auditText\n\nGuardado: ${proposal.name}"
+            var result = "AUTOESTUDIO COMPLETADO\n\n$auditText\n\nGuardado: ${proposal.name}\n\n## RESPUESTA AUTOESTUDIO\n\n$answer"
             val start = answer.indexOf("--- a/")
             val plus = answer.indexOf("+++ b/")
             if (start >= 0 && plus > start) {

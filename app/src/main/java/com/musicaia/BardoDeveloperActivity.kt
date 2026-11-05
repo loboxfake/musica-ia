@@ -63,7 +63,9 @@ class BardoDeveloperActivity : AppCompatActivity() {
             .getString("snapshot_path", null)?.let { File(it) }?.takeIf { it.isDirectory }
         construirInterfaz()
         lastReport = runCatching { reportFile.readText() }.getOrDefault("")
+        lastProposal = lastReport.substringAfter("## RESPUESTA AUTOESTUDIO\n\n", "")
         btnAnalyze.isEnabled = snapshot != null
+        btnApply.isEnabled = lastProposal.contains("--- a/") && lastProposal.contains("+++ b/")
         val hayReferencias = workspace.listFiles()?.any { it.isFile && it.name.startsWith("referencia-") } == true
         btnAsk.isEnabled = (lastReport.isNotBlank() || hayReferencias) && LiteRTLMModule.modelFile(this).isFile
         if (lastReport.isNotBlank()) output.text = lastReport
