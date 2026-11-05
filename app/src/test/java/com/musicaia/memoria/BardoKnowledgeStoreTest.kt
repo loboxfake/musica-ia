@@ -15,6 +15,7 @@ class BardoKnowledgeStoreTest {
             val entry = store.importText("Arquitectura local", "documentacion.md", "BARDO utiliza memoria local y módulos verificables.")
             assertEquals(1, store.list().size)
             assertTrue(store.search("memoria local").contains("módulos verificables"))
+            assertTrue(store.allForPrompt().contains("Arquitectura local"))
             assertEquals(64, entry.sha256.length)
         } finally {
             directory.deleteRecursively()
