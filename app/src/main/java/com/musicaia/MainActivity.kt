@@ -651,7 +651,7 @@ class MainActivity : AppCompatActivity() {
              mp3EncoderPresent = Mp3Exporter.available
          )
      )
-     val texto = capacidades.joinToString("\\n\\n") { item ->
+     val texto = capacidades.joinToString("\n\n") { item ->
          val estado = when (item.status) {
              BardoCapabilityRegistry.Status.AVAILABLE -> "Disponible según los componentes detectados"
              BardoCapabilityRegistry.Status.NEEDS_MODEL -> "Necesita modelo local"
@@ -659,8 +659,8 @@ class MainActivity : AppCompatActivity() {
              BardoCapabilityRegistry.Status.REQUIRES_USER_ACTION -> "Requiere autorización explícita"
              BardoCapabilityRegistry.Status.NOT_IMPLEMENTED -> "Todavía no implementada"
          }
-         "${item.name}\\nEstado: $estado\\n${item.detail}"
-     } + "\\n\\nLa detección de componentes no sustituye una prueba funcional en el Xiaomi 11T Pro."
+         "${item.name}\nEstado: $estado\n${item.detail}"
+     } + "\n\nLa detección de componentes no sustituye una prueba funcional en el Xiaomi 11T Pro."
      AlertDialog.Builder(this)
          .setTitle("Capacidades de BARDO")
          .setMessage(texto)
