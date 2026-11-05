@@ -3,6 +3,7 @@ package com.musicaia
 import android.Manifest
 import android.content.pm.PackageManager
 import android.media.MediaPlayer
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
@@ -108,6 +109,7 @@ class MainActivity : AppCompatActivity() {
  private lateinit var btnElegirVoz: Button
  private lateinit var tvEstadoVoz: TextView
  private lateinit var btnCrear: Button
+ private lateinit var btnCancelarTarea: Button
  private lateinit var btnReproducir: Button
  private lateinit var btnGuardar: Button
  private lateinit var tvEstado: TextView
@@ -132,7 +134,7 @@ class MainActivity : AppCompatActivity() {
  private val datosConver = mutableMapOf<String, String>()
  private val camposRequeridos = listOf("tema", "estilo", "ambiente", "ritmo", "idioma")
  private val camposOpcionales = listOf("tipo", "vozFuente")
- private val notaIA = "BARDO recoge tus preferencias; la letra se genera con un modelo de lenguaje local en el teléfono."
+ private val notaIA = "BARDO recoge tus preferencias. La generación de letras requiere Gemma local descargado y verificado; sin él, el chat funciona en modo guiado."
 
  private val reloj = object : Runnable {
  override fun run() {
@@ -258,6 +260,7 @@ class MainActivity : AppCompatActivity() {
  btnElegirVoz = findViewById(R.id.btnElegirVoz)
  tvEstadoVoz = findViewById(R.id.estadoVoz)
  btnCrear = findViewById(R.id.btnCrear)
+ btnCancelarTarea = findViewById(R.id.btnCancelarTarea)
  btnReproducir = findViewById(R.id.btnReproducir)
  btnGuardar = findViewById(R.id.btnGuardar)
  tvEstado = findViewById(R.id.estado)
@@ -306,6 +309,11 @@ class MainActivity : AppCompatActivity() {
  btnGrabar.setOnClickListener { solicitarMicrofonoYAlternar() }
  btnElegirVoz.setOnClickListener { seleccionarArchivoVoz() }
  btnCrear.setOnClickListener { crearCancion() }
+ btnCancelarTarea.setOnClickListener {
+     startService(Intent(this, BardoTaskService::class.java).setAction(BardoTaskService.ACTION_CANCEL))
+     btnCancelarTarea.isEnabled = false
+     tvEstado.text = "Cancelación solicitada. Se detendrá al terminar la operación nativa en curso."
+ }
  btnReproducir.setOnClickListener { reproducir() }
  btnGuardar.setOnClickListener { guardarCancion() }
 
@@ -603,11 +611,12 @@ class MainActivity : AppCompatActivity() {
             responderConOrquestador(texto, "Antes necesito: ${faltan.joinToString(", ")}. ${preguntaParaCampo(faltan.first())}")
             return
         }
-        camposOpcionales.filter { datosConver[it].isNullOrBlank() }.forEach { datosConver[it] = "no especificado" }
+        camposOpcionales.filter { datosConver[it].isNullOrBlank() }.forEach { datosConver[it] = if (it == "vozFuente") "ninguna" else "no especificado" }
+        guardarPreferenciasCreativas()
         actualizarUI()
-        tvEstado.text = "Datos completos. Pulsa Crear."
-        responderConOrquestador(texto, "Perfecto. Ya tengo los datos. Puedes crear la letra.")
         findViewById<TextView>(R.id.navCrear).performClick()
+        anexarChat("\nTú: $texto\nBARDO: Datos completos. Inicio la creación ahora. Si falta Gemma local, te indicaré que debes descargarlo antes de generar la letra.")
+        crearCancion()
         return
     }
 
@@ -622,16 +631,24 @@ class MainActivity : AppCompatActivity() {
     } ?: (camposRequeridos + camposOpcionales).firstOrNull { datosConver[it].isNullOrBlank() }
 
     if (campo == null) {
-        responderConOrquestador(texto, "Ya están todos los campos. Escribe 'crear' o indica, por ejemplo, 'cambiar tema a ...'.")
+        responderConOrquestador(texto, "Los datos creativos ya están completos. El chat está en modo guiado; escribe 'crear' para iniciar o indica el campo que quieres cambiar.")
         return
     }
 
     var valor = (valorExplicito ?: texto).trim()
     if (campo == "tipo" && lower == "ambas") valor = "ambas (voz e instrumental)"
     if (campo == "tipo" && (lower == "ninguna" || lower == "solo instrumental")) valor = "solo instrumental"
-    if (campo == "vozFuente" && lower == "ninguna") valor = "ninguna"
-    if (campo == "vozFuente" && (lower.contains("archivo") || lower.contains("fichero"))) valor = "archivo de voz"
-    if (campo == "vozFuente" && lower.contains("grabar")) valor = "voz grabada"
+    if (campo == "vozFuente") {
+        valor = when {
+            lower.contains("ningun") || lower.contains("sin voz") || lower.contains("no quiero") || lower == "no" -> "ninguna"
+            lower.contains("archivo") || lower.contains("fichero") || lower.contains("importar") -> "archivo"
+            lower.contains("grabad") || lower.contains("grabar") || lower.contains("microfono") -> "grabada"
+            else -> {
+                responderConOrquestador(texto, "No he identificado la fuente de voz. Indica: ninguna, archivo o grabada.")
+                return
+            }
+        }
+    }
     datosConver[campo] = valor
     guardarPreferenciasCreativas()
     actualizarUI()
