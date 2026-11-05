@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.OpenableColumns
+import android.provider.DocumentsContract
 import android.util.Log
 import android.view.View
 import android.widget.Button
@@ -136,6 +137,7 @@ class MainActivity : AppCompatActivity() {
  private lateinit var chatEntrada: EditText
  private lateinit var conversationStore: BardoConversationStore
  private var activeConversationId: String? = null
+ private var uriCarpetaBardo: Uri? = null
  private lateinit var btnEnviar: Button
  private lateinit var editLetra: EditText
  private lateinit var editIndicaciones: EditText
@@ -190,6 +192,21 @@ class MainActivity : AppCompatActivity() {
  }
 
 
+
+ private val selectorElegirCarpetaBardo =
+     registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+         if (uri != null) runCatching {
+             contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+             uriCarpetaBardo = uri
+             getSharedPreferences("bardo_storage", MODE_PRIVATE).edit().putString("tree_uri", uri.toString()).apply()
+             crearEstructuraCarpetaBardo()
+             actualizarEtiquetaCarpetaBardo()
+             tvEstado.text = "Carpeta BARDO configurada. Las canciones y copias podrán guardarse allí."
+         }.onFailure {
+             uriCarpetaBardo = null
+             tvEstado.text = "No se pudo conservar el permiso de la carpeta: ${it.message}"
+         }
+     }
 
  private val selectorImportarConocimiento =
      registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -339,6 +356,7 @@ class MainActivity : AppCompatActivity() {
  chatLog = findViewById(R.id.chatLog)
  chatEntrada = findViewById(R.id.chatEntrada)
  conversationStore = BardoConversationStore(this)
+ uriCarpetaBardo = getSharedPreferences("bardo_storage", MODE_PRIVATE).getString("tree_uri", null)?.let { runCatching { Uri.parse(it) }.getOrNull() }
  prepararHistorialConversaciones()
  cargarMemoriaLocal()
  aplicarConfiguracionGuardada()
@@ -391,6 +409,8 @@ class MainActivity : AppCompatActivity() {
  findViewById<Button>(R.id.btnImportarHistorial).setOnClickListener {
      selectorImportarHistorial.launch(arrayOf("application/json", "text/*"))
  }
+ findViewById<Button>(R.id.btnElegirCarpetaBardo).setOnClickListener { selectorElegirCarpetaBardo.launch(null) }
+ actualizarEtiquetaCarpetaBardo()
  findViewById<Button>(R.id.btnImportarConocimiento).setOnClickListener {
      selectorImportarConocimiento.launch(arrayOf("text/plain", "text/markdown", "application/json"))
  }
@@ -512,6 +532,48 @@ class MainActivity : AppCompatActivity() {
      }
      prefs.edit().putString("active_conversation_id", activeConversationId).apply()
      renderizarConversacionActiva()
+ }
+
+ private fun actualizarEtiquetaCarpetaBardo() {
+     val label = findViewById<TextView>(R.id.tvCarpetaBardo)
+     label.text = if (uriCarpetaBardo == null) "Carpeta BARDO: no seleccionada. Elige Descargas/BARDO para guardar automáticamente."
+         else "Carpeta BARDO configurada: ${uriCarpetaBardo?.lastPathSegment ?: "ubicación seleccionada"}"
+ }
+
+ private fun raizCarpetaBardo(): Uri {
+     val tree = uriCarpetaBardo ?: throw IllegalStateException("Primero selecciona la carpeta BARDO.")
+     return DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
+ }
+
+ private fun buscarOCrearSubcarpetaBardo(parent: Uri, nombre: String): Uri {
+     val tree = uriCarpetaBardo ?: throw IllegalStateException("Carpeta BARDO no configurada.")
+     val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, DocumentsContract.getDocumentId(parent))
+     contentResolver.query(children, arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME, DocumentsContract.Document.COLUMN_MIME_TYPE), null, null, null)?.use { cursor ->
+         val idColumn = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+         val nameColumn = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+         val typeColumn = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_MIME_TYPE)
+         while (cursor.moveToNext()) {
+             if (cursor.getString(nameColumn) == nombre && cursor.getString(typeColumn) == DocumentsContract.Document.MIME_TYPE_DIR)
+                 return DocumentsContract.buildDocumentUriUsingTree(tree, cursor.getString(idColumn))
+         }
+     }
+     return DocumentsContract.createDocument(contentResolver, parent, DocumentsContract.Document.MIME_TYPE_DIR, nombre)
+         ?: throw IllegalStateException("No se pudo crear la carpeta $nombre.")
+ }
+
+ private fun crearEstructuraCarpetaBardo() {
+     val root = raizCarpetaBardo()
+     listOf("Instaladores", "Canciones", "Instrumentales", "Proyectos", "Voces", "Historial", "Copias de seguridad")
+         .forEach { buscarOCrearSubcarpetaBardo(root, it) }
+ }
+
+ private fun guardarArchivoEnCarpetaBardo(origen: File, categoria: String, nombre: String, mimeType: String) {
+     val folder = buscarOCrearSubcarpetaBardo(raizCarpetaBardo(), categoria)
+     val destination = DocumentsContract.createDocument(contentResolver, folder, mimeType, nombre)
+         ?: throw IllegalStateException("Android no pudo crear $nombre en $categoria.")
+     val output = contentResolver.openOutputStream(destination, "w")
+         ?: throw IllegalStateException("No se pudo abrir el archivo de destino.")
+     output.use { stream -> origen.inputStream().buffered().use { it.copyTo(stream) } }
  }
 
  private fun crearConversacionNueva() {
