@@ -48,8 +48,13 @@ object EngineLiteRT {
             throw IllegalStateException("LiteRT-LM no pudo iniciar ni con GPU ni con CPU.", ultimoError)
         }.get()
 
-    fun generar(prompt: String): String =
+    fun generar(prompt: String, reiniciarConversacion: Boolean = false): String =
         executor.submit<String> {
+            if (reiniciarConversacion) {
+                val actualEngine = engine ?: throw IllegalStateException("El modelo local no está cargado.")
+                runCatching { conversation?.close() }
+                conversation = actualEngine.createConversation()
+            }
             val actual = conversation ?: throw IllegalStateException("El modelo local no está cargado.")
             try {
                 actual.sendMessage(prompt, maxOutputToken = 900).toString()
