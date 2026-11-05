@@ -267,7 +267,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
                     DOCUMENTACIÓN Y EXTRACTOS:
                     $source
                 """.trimIndent()
-                EngineLiteRT.generar(prompt).substringAfter("</think>").trim()
+                EngineLiteRT.generar(prompt, reiniciarConversacion = true).substringAfter("</think>").trim()
                     .ifBlank { throw IllegalStateException("Gemma devolvió una propuesta vacía.") }
             }
             runOnUiThread {
