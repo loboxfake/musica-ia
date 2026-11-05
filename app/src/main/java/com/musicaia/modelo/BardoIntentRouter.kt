@@ -20,7 +20,7 @@ object BardoIntentRouter {
         if (listOf("mi letra", "texto propio", "pegar mi letra", "tengo mi letra")
                 .any { text.contains(it) }) return Intent.OWN_LYRICS
 
-        if (Regex("^(cambiar|cambia|modificar|modifica)\\s+(tema|estilo|ambiente|ritmo|idioma|tipo|voz)\\b")
+        if (Regex("^(cambiar|cambia|modificar|modifica)\\s+(?:(?:el|la)\\s+)?(tema|estilo|ambiente|ritmo|idioma|tipo|voz)\\b")
                 .containsMatchIn(text)) return Intent.CHANGE_CREATION
 
         if (creationInProgress && text in setOf("crear", "crear cancion", "crear musica", "si", "continuar", "adelante"))
