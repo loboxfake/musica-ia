@@ -29,7 +29,7 @@ class ModuloInstrumental(
     )
 
     override fun cargar(): Boolean {
-        if (!AudioGenNative.available) return false
+        if (!AudioGenNative.available) throw IllegalStateException("El motor nativo ExecuTorch no está disponible en esta APK.")
         val memoryInfo = android.app.ActivityManager.MemoryInfo()
         val activityManager = ctx.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
         activityManager.getMemoryInfo(memoryInfo)
@@ -39,15 +39,15 @@ class ModuloInstrumental(
                 "BARDO-AudioGen",
                 "Inferencia cancelada antes de cargar modelos: memoria disponible=${memoryInfo.availMem / (1024L * 1024L)} MiB"
             )
-            return false
+            throw IllegalStateException("Memoria RAM insuficiente para cargar Stable Audio: disponibles ${memoryInfo.availMem / (1024L * 1024L)} MiB; se requieren al menos ${minimumAvailableBytes / (1024L * 1024L)} MiB.")
         }
         val modelDir = File(ctx.filesDir, "stable_audio_model")
-        if (!modelDir.exists() && !modelDir.mkdirs()) return false
+        if (!modelDir.exists() && !modelDir.mkdirs()) throw IllegalStateException("No se pudo crear el directorio privado del modelo Stable Audio.")
 
         val requiredSpace = modelFiles.sumOf { name ->
             runCatching { ctx.assets.openFd("audio_model/$name").length }.getOrDefault(0L)
         } + 256L * 1024 * 1024
-        if (requiredSpace > 256L * 1024 * 1024 && modelDir.freeSpace < requiredSpace) return false
+        if (requiredSpace > 256L * 1024 * 1024 && modelDir.freeSpace < requiredSpace) throw IllegalStateException("Espacio insuficiente para preparar Stable Audio: libres ${modelDir.freeSpace / (1024L * 1024L)} MiB; necesarios ${requiredSpace / (1024L * 1024L)} MiB.")
 
         return try {
             for (name in modelFiles) {
@@ -67,8 +67,8 @@ class ModuloInstrumental(
                 if (!temporary.renameTo(destination)) return false
             }
             modelFiles.all { File(modelDir, it).isFile && File(modelDir, it).length() > 0L }
-        } catch (_: Exception) {
-            false
+        } catch (error: Exception) {
+            throw IllegalStateException("No se pudieron preparar los archivos locales de Stable Audio: ${error.message ?: error.javaClass.simpleName}", error)
         }
     }
 
