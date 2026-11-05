@@ -214,7 +214,7 @@ class BardoTaskService : Service() {
                 actualizarNotificacion(mensajeValidado, 100)
                 publicarEstado("running", mensajeValidado)
                 if (letra.isNotBlank()) java.io.File(biblioteca, "BARDO_$marca.txt").writeText(letra)
-                val duracion = ((archivo.length() - 44L).coerceAtLeast(0L) / (44100L * 2L * 2L))
+                val duracion = mp3DurationMs / 1000L
                 val mensajeFinal = "MP3 guardado en Archivo · ${duracion / 60} min ${duracion % 60}s · ${mp3.length()} bytes · 320 kbps"
                 getSharedPreferences(PREFS, MODE_PRIVATE).edit()
                     .putString(KEY_STATE, "completed").putString(KEY_MESSAGE, mensajeFinal)
