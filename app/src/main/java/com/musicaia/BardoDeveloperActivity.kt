@@ -1,7 +1,10 @@
 package com.musicaia
 
 import android.app.ActivityManager
+import android.Manifest
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.widget.Button
 import android.widget.EditText
@@ -9,6 +12,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.appcompat.app.AppCompatActivity
 import com.musicaia.desarrollo.BardoDeveloperCore
 import com.musicaia.desarrollo.BardoPatchApplier
@@ -41,6 +45,10 @@ class BardoDeveloperActivity : AppCompatActivity() {
     private val reportFile by lazy { File(workspace, "ultima_auditoria.md") }
     private val memoryFile by lazy { File(workspace, "memoria_tecnica.md") }
 
+    private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) programarAutoestudio()
+        else output.text = "No se activó: BARDO necesita permiso de notificaciones para mostrar cuándo trabaja en segundo plano."
+    }
     private val importProject = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) importarProyecto(uri)
     }
@@ -115,6 +123,14 @@ class BardoDeveloperActivity : AppCompatActivity() {
             output.text = "No se ha activado: primero instala Gemma local y verifica su SHA-256 desde el Laboratorio IA. No se descargará automáticamente."
             return
         }
+        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+            return
+        }
+        programarAutoestudio()
+    }
+
+    private fun programarAutoestudio() {
         val constraints = Constraints.Builder().setRequiresCharging(true)
             .setRequiresBatteryNotLow(true).setRequiresStorageNotLow(true).build()
         val request = PeriodicWorkRequestBuilder<BardoDeveloperWorker>(6, TimeUnit.HOURS)
