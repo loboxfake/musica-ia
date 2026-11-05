@@ -508,9 +508,14 @@ class MainActivity : AppCompatActivity() {
      fun seleccionar(navId: Int) {
          navActivoId = navId
          destinos.forEach { (id, sectionId) ->
-             findViewById<TextView>(id).setTextColor(
+             val item = findViewById<TextView>(id)
+             item.setTextColor(
                  android.graphics.Color.parseColor(if (id == navId) accentColorUI else "#8FA2BE")
              )
+             item.setBackgroundResource(
+                 if (id == navId) R.drawable.bg_icon_button else android.R.color.transparent
+             )
+             item.alpha = if (id == navId) 1f else 0.82f
              findViewById<View>(sectionId).visibility =
                  if (id == navId) View.VISIBLE else View.GONE
          }
@@ -522,9 +527,11 @@ class MainActivity : AppCompatActivity() {
              if (sectionId == R.id.seccionBiblioteca) actualizarBiblioteca()
          }
      }
+     findViewById<View>(R.id.btnAtajoSistema).setOnClickListener {
+         findViewById<TextView>(R.id.navSistema).performClick()
+     }
      seleccionar(R.id.navOrquestador)
  }
-
 
  private fun cargarMemoriaLocal() {
      val prefs = getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE)
@@ -823,43 +830,89 @@ class MainActivity : AppCompatActivity() {
      }
      val burbuja = LinearLayout(this).apply {
          orientation = LinearLayout.VERTICAL
-         setPadding(dp(13), dp(9), dp(13), dp(10))
-         val fondo = GradientDrawable().apply {
-             setColor(when {
-                 usuario -> android.graphics.Color.rgb(18, 61, 131)
-                 sistema -> android.graphics.Color.rgb(43, 38, 55)
-                 else -> android.graphics.Color.rgb(17, 28, 50)
-             })
-             cornerRadius = dp(15).toFloat()
-             setStroke(dp(1), when {
-                 usuario -> android.graphics.Color.rgb(47, 111, 190)
-                 sistema -> android.graphics.Color.rgb(112, 92, 129)
-                 else -> android.graphics.Color.rgb(43, 56, 80)
-             })
+         setPadding(dp(14), dp(10), dp(14), dp(11))
+         val colores = when {
+             usuario -> intArrayOf(
+                 android.graphics.Color.rgb(27, 86, 151),
+                 android.graphics.Color.rgb(19, 43, 91)
+             )
+             sistema -> intArrayOf(
+                 android.graphics.Color.rgb(48, 39, 69),
+                 android.graphics.Color.rgb(24, 25, 47)
+             )
+             else -> intArrayOf(
+                 android.graphics.Color.rgb(29, 43, 83),
+                 android.graphics.Color.rgb(13, 25, 49)
+             )
          }
-         background = fondo
+         val borde = when {
+             usuario -> android.graphics.Color.rgb(22, 207, 244)
+             sistema -> android.graphics.Color.rgb(133, 107, 183)
+             else -> android.graphics.Color.rgb(91, 82, 174)
+         }
+         background = GradientDrawable(GradientDrawable.Orientation.BL_TR, colores).apply {
+             cornerRadius = dp(18).toFloat()
+             setStroke(dp(1), borde)
+         }
      }
      val encabezado = TextView(this).apply {
          text = "$autor · $hora"
-         textSize = 10f
-         setTextColor(if (usuario) android.graphics.Color.rgb(205, 226, 255) else if (sistema) android.graphics.Color.rgb(217, 184, 107) else android.graphics.Color.rgb(22, 207, 244))
+         textSize = 10.5f
+         setTypeface(typeface, android.graphics.Typeface.BOLD)
+         setTextColor(
+             if (usuario) android.graphics.Color.rgb(122, 229, 255)
+             else if (sistema) android.graphics.Color.rgb(217, 184, 107)
+             else android.graphics.Color.rgb(173, 157, 255)
+         )
      }
      val cuerpo = TextView(this).apply {
          text = contenido
-         textSize = 14f
-         setTextColor(android.graphics.Color.rgb(226, 234, 247))
-         setLineSpacing(dp(2).toFloat(), 1f)
-         maxWidth = dp(290)
+         textSize = 15f
+         setTextColor(android.graphics.Color.rgb(235, 242, 255))
+         setLineSpacing(dp(3).toFloat(), 1f)
+         maxWidth = dp(276)
          setTextIsSelectable(true)
      }
      burbuja.addView(encabezado)
      burbuja.addView(cuerpo)
-     fila.addView(burbuja, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
-     chatMessages.addView(fila, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
-         bottomMargin = dp(8)
-     })
+     val avatarParams = LinearLayout.LayoutParams(dp(34), dp(34)).apply {
+         topMargin = dp(3)
+         if (usuario) marginStart = dp(7) else marginEnd = dp(7)
+     }
+     if (!usuario && !sistema) {
+         fila.addView(ImageView(this).apply {
+             setImageResource(R.mipmap.ic_launcher_foreground)
+             background = getDrawable(R.drawable.bg_brand_orb)
+             setPadding(dp(4), dp(4), dp(4), dp(4))
+             scaleType = ImageView.ScaleType.FIT_CENTER
+             contentDescription = "BARDO"
+         }, avatarParams)
+     }
+     fila.addView(
+         burbuja,
+         LinearLayout.LayoutParams(
+             LinearLayout.LayoutParams.WRAP_CONTENT,
+             LinearLayout.LayoutParams.WRAP_CONTENT
+         )
+     )
+     if (usuario) {
+         fila.addView(ImageView(this).apply {
+             setImageResource(android.R.drawable.ic_menu_myplaces)
+             setColorFilter(android.graphics.Color.rgb(22, 207, 244))
+             background = getDrawable(R.drawable.bg_icon_button)
+             setPadding(dp(8), dp(8), dp(8), dp(8))
+             scaleType = ImageView.ScaleType.FIT_CENTER
+             contentDescription = "Tú"
+         }, avatarParams)
+     }
+     chatMessages.addView(
+         fila,
+         LinearLayout.LayoutParams(
+             LinearLayout.LayoutParams.MATCH_PARENT,
+             LinearLayout.LayoutParams.WRAP_CONTENT
+         ).apply { bottomMargin = dp(9) }
+     )
  }
-
  private fun registrarMensajesEnHistorial(mensaje: String) {
      val id = activeConversationId ?: return
      val patron = Regex("(?m)(?:^|\\n)(Tú|BARDO(?:\\s*\\([^\\n)]*\\))?|Orquestador):\\s*")
@@ -975,8 +1028,8 @@ class MainActivity : AppCompatActivity() {
      findViewById<TextView>(R.id.navBiblioteca).text = navigation.optString("library", "▤\nArchivo").take(18)
      findViewById<TextView>(R.id.navLaboratorio).text = navigation.optString("lab", "◇\nLab").take(18)
      findViewById<TextView>(R.id.navSistema).text = navigation.optString("system", "⚙\nSistema").take(18)
-     findViewById<TextView>(R.id.tvWelcomeTitle).setTextColor(android.graphics.Color.parseColor(acento))
-     findViewById<TextView>(R.id.tvBrandName).setTextColor(android.graphics.Color.parseColor(acento))
+     findViewById<TextView>(R.id.tvWelcomeTitle).setTextColor(android.graphics.Color.rgb(245, 248, 255))
+     findViewById<TextView>(R.id.tvBrandName).setTextColor(android.graphics.Color.rgb(245, 248, 255))
      actualizarNavegacionConfigurada()
      listOf(R.id.navOrquestador, R.id.navCrear, R.id.navBiblioteca, R.id.navLaboratorio, R.id.navSistema)
          .forEach { id ->
