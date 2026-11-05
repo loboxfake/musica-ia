@@ -1,6 +1,5 @@
 package com.musicaia.memoria
 
-import android.content.ContextWrapper
 import java.io.File
 import java.nio.file.Files
 import org.json.JSONObject
@@ -12,10 +11,7 @@ import org.junit.Test
 class BardoConversationStoreTest {
     private fun newStore(): Pair<BardoConversationStore, File> {
         val directory = Files.createTempDirectory("bardo-history-test").toFile()
-        val context = object : ContextWrapper(null) {
-            override fun getFilesDir(): File = directory
-        }
-        return BardoConversationStore(context) to directory
+        return BardoConversationStore(directory) to directory
     }
 
     @Test
