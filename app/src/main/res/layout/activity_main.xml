@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#0B1020">
+    android:background="#070D20">
     <ScrollView
         android:id="@+id/scrollMain"
         android:layout_width="match_parent"
@@ -22,39 +22,38 @@
             android:paddingTop="20dp"
             android:paddingBottom="24dp">
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal">
-                <LinearLayout android:layout_width="42dp" android:layout_height="42dp" android:gravity="center" android:background="@drawable/bg_brand_orb">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="♫" android:textColor="#E8F8FF" android:textSize="25sp" android:textStyle="bold"/>
+                <ImageView android:layout_width="58dp" android:layout_height="58dp" android:src="@mipmap/ic_launcher_foreground" android:background="@drawable/bg_brand_orb" android:padding="4dp" android:scaleType="fitCenter" android:contentDescription="Pluma digital de BARDO"/>
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:paddingStart="12dp">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:id="@+id/tvBrandName" android:text="BARDO" android:textColor="#F5F8FF" android:textSize="22sp" android:textStyle="bold" android:letterSpacing="0.16"/>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:id="@+id/tvBrandSubtitle" android:text="ASISTENTE PERSONAL · LOCAL FIRST" android:textColor="#16CFF4" android:textSize="9sp" android:textStyle="bold" android:letterSpacing="0.08"/>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Creatividad · Memoria · Evolución" android:textColor="#91A5C5" android:textSize="10sp"/>
                 </LinearLayout>
-                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:paddingStart="11dp">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:id="@+id/tvBrandName" android:text="BARDO" android:textColor="#F3F7FF" android:textSize="19sp" android:textStyle="bold" android:letterSpacing="0.12"/>
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:id="@+id/tvBrandSubtitle" android:text="BINARY AUTOMATED RHYTHM AND DIGITAL ORCHESTRATION" android:textColor="#8496B3" android:textSize="9sp" android:letterSpacing="0.10"/>
-                </LinearLayout>
-                <TextView android:layout_width="38dp" android:layout_height="38dp" android:gravity="center" android:text="⚙" android:textSize="20sp" android:textColor="#B9C9E2" android:background="@drawable/bg_icon_button"/>
+                <TextView android:id="@+id/btnAtajoSistema" android:layout_width="42dp" android:layout_height="42dp" android:gravity="center" android:text="⚙" android:textSize="21sp" android:textColor="#D5E5FB" android:background="@drawable/bg_icon_button" android:clickable="true" android:focusable="true" android:contentDescription="Abrir sistema y ajustes"/>
             </LinearLayout>
 
             <LinearLayout android:id="@+id/seccionOrquestador" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingTop="28dp">
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="ASISTENTE PERSONAL" android:textColor="#70D8FF" android:textSize="10sp" android:textStyle="bold" android:letterSpacing="0.16"/>
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="7dp" android:id="@+id/tvWelcomeTitle" android:text="¿En qué puedo ayudarte?" android:textColor="#F3F7FF" android:textSize="27sp" android:textStyle="bold"/>
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="5dp" android:paddingBottom="16dp" android:id="@+id/tvWelcomeDescription" android:text="Conversa, consulta ideas y organiza tus proyectos. BARDO coordina las especialidades y herramientas que estén realmente disponibles." android:textColor="#9BAAC2" android:textSize="14sp" android:lineSpacingExtra="3dp"/>
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="ASISTENTE PERSONAL" android:textColor="#16CFF4" android:textSize="10sp" android:textStyle="bold" android:letterSpacing="0.16"/>
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="7dp" android:id="@+id/tvWelcomeTitle" android:text="¿En qué puedo ayudarte?" android:textColor="#F5F8FF" android:textSize="27sp" android:textStyle="bold"/>
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="5dp" android:paddingBottom="16dp" android:id="@+id/tvWelcomeDescription" android:text="Conversa, consulta ideas y organiza tus proyectos. BARDO coordina las especialidades y herramientas que estén realmente disponibles." android:textColor="#A9B8D2" android:textSize="14sp" android:lineSpacingExtra="3dp"/>
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:id="@+id/panelConversacion" android:orientation="vertical" android:padding="16dp" android:background="@drawable/bg_panel">
                     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal">
-                        <LinearLayout android:layout_width="48dp" android:layout_height="48dp" android:gravity="center" android:background="@drawable/bg_brand_orb">
-                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="✧" android:textColor="#E8F8FF" android:textSize="30sp"/>
-                        </LinearLayout>
+                        <ImageView android:layout_width="50dp" android:layout_height="50dp" android:src="@mipmap/ic_launcher_foreground" android:background="@drawable/bg_brand_orb" android:padding="3dp" android:scaleType="fitCenter" android:contentDescription="Núcleo BARDO"/>
                         <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:paddingStart="12dp">
                             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="BARDO · NÚCLEO ORQUESTADOR" android:textColor="#F0F6FF" android:textSize="14sp" android:textStyle="bold"/>
-                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Identidad persistente · Evolución modular · Prioridad offline" android:textColor="#9BAAC2" android:textSize="12sp"/>
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Modelo local · Memoria propia · Skills modulares" android:textColor="#A9B8D2" android:textSize="12sp"/>
                         </LinearLayout>
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="● LOCAL / SKILLS" android:textColor="#70D8FF" android:textSize="10sp" android:textStyle="bold"/>
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="● OFFLINE / LOCAL" android:textColor="#16CFF4" android:textSize="10sp" android:textStyle="bold"/>
                     </LinearLayout>
-                    <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="14dp" android:layout_marginBottom="12dp" android:background="#2B3850"/>
+                    <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="14dp" android:layout_marginBottom="12dp" android:background="#29466E"/>
                     <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="CONVERSACIÓN" android:textColor="#8FA4C1" android:textSize="10sp" android:textStyle="bold" android:letterSpacing="0.12"/>
                     <TextView android:id="@+id/chatLog" android:layout_width="match_parent" android:layout_height="0dp" android:visibility="gone"/>
-                    <ScrollView android:id="@+id/chatScroll" android:layout_width="match_parent" android:layout_height="230dp" android:fillViewport="true" android:overScrollMode="ifContentScrolls">
+                    <ScrollView android:id="@+id/chatScroll" android:layout_width="match_parent" android:layout_height="270dp" android:fillViewport="true" android:overScrollMode="ifContentScrolls" android:background="@drawable/bg_chat_stage" android:padding="7dp" android:clipToPadding="false">
                         <LinearLayout android:id="@+id/chatMessages" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingTop="8dp" android:paddingBottom="8dp"/>
                     </ScrollView>
-                    <EditText android:id="@+id/chatEntrada" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="52dp" android:padding="13dp" android:hint="Escribe una pregunta, idea o tarea..." android:textColor="#F3F7FF" android:textColorHint="#788BA8" android:background="@drawable/bg_input" android:inputType="textCapSentences|textMultiLine" android:maxLines="4"/>
-                    <Button android:id="@+id/btnEnviar" android:layout_width="match_parent" android:layout_height="50dp" android:layout_marginTop="10dp" android:text="Hablar con BARDO  →" android:textAllCaps="false" android:textColor="#071321" android:textStyle="bold" android:background="@drawable/bg_primary_button"/>
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:orientation="horizontal" android:gravity="center_vertical" android:padding="4dp" android:background="@drawable/bg_composer">
+                        <EditText android:id="@+id/chatEntrada" android:layout_width="0dp" android:layout_height="54dp" android:layout_weight="1" android:minHeight="54dp" android:paddingStart="12dp" android:paddingEnd="8dp" android:hint="Escribe a BARDO..." android:textColor="#F5F8FF" android:textColorHint="#8396B4" android:background="@android:color/transparent" android:inputType="textCapSentences|textMultiLine" android:maxLines="4"/>
+                        <Button android:id="@+id/btnEnviar" android:layout_width="54dp" android:layout_height="50dp" android:layout_marginStart="4dp" android:text="➤" android:textSize="21sp" android:textAllCaps="false" android:textColor="#070D20" android:textStyle="bold" android:background="@drawable/bg_primary_button" android:contentDescription="Enviar mensaje"/>
+                    </LinearLayout>
                     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="7dp">
                         <Button android:id="@+id/btnNuevaConversacion" android:layout_width="0dp" android:layout_height="42dp" android:layout_weight="1" android:text="Nueva conversación" android:textAllCaps="false" android:textSize="11sp"/>
                         <Button android:id="@+id/btnVerHistorial" android:layout_width="0dp" android:layout_height="42dp" android:layout_weight="1" android:layout_marginStart="6dp" android:text="Historial" android:textAllCaps="false" android:textSize="11sp"/>
@@ -68,8 +67,8 @@
             </LinearLayout>
 
             <LinearLayout android:id="@+id/seccionCrear" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingTop="30dp">
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="ESTUDIO CREATIVO" android:textColor="#70D8FF" android:textSize="10sp" android:textStyle="bold" android:letterSpacing="0.16"/>
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="5dp" android:paddingBottom="12dp" android:text="Tus herramientas musicales" android:textColor="#F3F7FF" android:textSize="21sp" android:textStyle="bold"/>
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="ESTUDIO CREATIVO" android:textColor="#16CFF4" android:textSize="10sp" android:textStyle="bold" android:letterSpacing="0.16"/>
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="5dp" android:paddingBottom="12dp" android:text="Tus herramientas musicales" android:textColor="#F5F8FF" android:textSize="21sp" android:textStyle="bold"/>
                 <RadioGroup android:id="@+id/grupoModo" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="visible">
                     <RadioButton android:id="@+id/modoConversacion" android:layout_width="wrap_content" android:layout_height="wrap_content" android:checked="true" android:text="Canción completa"/>
                     <RadioButton android:id="@+id/modoLetra" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Mi letra"/>
@@ -79,27 +78,27 @@
                     android:layout_height="wrap_content" android:orientation="vertical"
                     android:visibility="gone" android:background="@drawable/bg_panel" android:padding="14dp">
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:text="INSTRUMENTAL IA" android:textColor="#70D8FF" android:textSize="10sp"
+                        android:text="INSTRUMENTAL IA" android:textColor="#16CFF4" android:textSize="10sp"
                         android:textStyle="bold"/>
                     <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
                         android:paddingTop="5dp" android:paddingBottom="9dp"
                         android:text="Describe el sonido que quieres. El orquestador coordinará el motor de audio local."
-                        android:textColor="#9BAAC2" android:textSize="12sp"/>
+                        android:textColor="#A9B8D2" android:textSize="12sp"/>
                     <EditText android:id="@+id/editPromptInstrumental" android:layout_width="match_parent"
                         android:layout_height="wrap_content" android:gravity="top" android:minLines="4"
                         android:hint="Ej.: instrumental cinematográfico épico, cuerdas, piano y percusión..."
-                        android:textColor="#F3F7FF" android:textColorHint="#788BA8"
+                        android:textColor="#F5F8FF" android:textColorHint="#8195B4"
                         android:background="@drawable/bg_input" android:inputType="textMultiLine"
                         android:padding="12dp"/>
                 </LinearLayout>
                 <LinearLayout android:id="@+id/panelLetra" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone" android:background="@drawable/bg_panel" android:padding="14dp">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="TU LETRA" android:textColor="#70D8FF" android:textSize="10sp" android:textStyle="bold"/>
-                    <EditText android:id="@+id/editLetra" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="top" android:minLines="6" android:hint="Pega aquí tu letra completa" android:textColor="#F3F7FF" android:textColorHint="#788BA8" android:background="@drawable/bg_input" android:inputType="textMultiLine" android:padding="12dp"/>
-                    <EditText android:id="@+id/editIndicaciones" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="9dp" android:hint="Estilo, ambiente, ritmo..." android:textColor="#F3F7FF" android:textColorHint="#788BA8" android:background="@drawable/bg_input" android:inputType="textCapSentences" android:padding="12dp"/>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="TU LETRA" android:textColor="#16CFF4" android:textSize="10sp" android:textStyle="bold"/>
+                    <EditText android:id="@+id/editLetra" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="top" android:minLines="6" android:hint="Pega aquí tu letra completa" android:textColor="#F5F8FF" android:textColorHint="#8195B4" android:background="@drawable/bg_input" android:inputType="textMultiLine" android:padding="12dp"/>
+                    <EditText android:id="@+id/editIndicaciones" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="9dp" android:hint="Estilo, ambiente, ritmo..." android:textColor="#F5F8FF" android:textColorHint="#8195B4" android:background="@drawable/bg_input" android:inputType="textCapSentences" android:padding="12dp"/>
                 </LinearLayout>
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="@drawable/bg_panel" android:padding="14dp" android:layout_marginTop="10dp">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="PERFIL VOCAL" android:textColor="#70D8FF" android:textSize="10sp" android:textStyle="bold"/>
-                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="4dp" android:paddingBottom="8dp" android:text="Añade una muestra de voz para futuras funciones vocales." android:textColor="#9BAAC2" android:textSize="12sp"/>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="PERFIL VOCAL" android:textColor="#16CFF4" android:textSize="10sp" android:textStyle="bold"/>
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="4dp" android:paddingBottom="8dp" android:text="Añade una muestra de voz para futuras funciones vocales." android:textColor="#A9B8D2" android:textSize="12sp"/>
                     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
                         <Button android:id="@+id/btnGrabar" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:text="Grabar voz" android:textAllCaps="false"/>
                         <Button android:id="@+id/btnElegirVoz" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:layout_marginStart="8dp" android:text="Importar audio" android:textAllCaps="false"/>
@@ -108,14 +107,14 @@
                     android:paddingTop="5dp" android:paddingBottom="4dp"
                     android:text="Para una canción completa, conversa primero con el orquestador. Para música sin voz, elige Solo instrumental."
                     android:textColor="#8295B1" android:textSize="11sp"/>
-                <TextView android:id="@+id/estadoVoz" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="7dp" android:text="Sin muestra vocal seleccionada." android:textColor="#9BAAC2" android:textSize="12sp"/>
+                <TextView android:id="@+id/estadoVoz" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="7dp" android:text="Sin muestra vocal seleccionada." android:textColor="#A9B8D2" android:textSize="12sp"/>
                 </LinearLayout>
                 <ProgressBar android:id="@+id/progreso" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:visibility="gone"/>
-                <TextView android:id="@+id/tvProgresoDetalle" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="4dp" android:text="Preparado para crear" android:textColor="#9BAAC2" android:textSize="12sp" android:visibility="gone"/>
-                <TextView android:id="@+id/tiempo" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Tiempo: 0s" android:textColor="#9BAAC2" android:visibility="gone"/>
-                <Button android:id="@+id/btnCrear" android:layout_width="match_parent" android:layout_height="54dp" android:layout_marginTop="14dp" android:text="Crear con BARDO  ✦" android:textAllCaps="false" android:textColor="#071321" android:textStyle="bold" android:background="@drawable/bg_primary_button"/>
+                <TextView android:id="@+id/tvProgresoDetalle" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="4dp" android:text="Preparado para crear" android:textColor="#A9B8D2" android:textSize="12sp" android:visibility="gone"/>
+                <TextView android:id="@+id/tiempo" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Tiempo: 0s" android:textColor="#A9B8D2" android:visibility="gone"/>
+                <Button android:id="@+id/btnCrear" android:layout_width="match_parent" android:layout_height="54dp" android:layout_marginTop="14dp" android:text="Crear con BARDO  ✦" android:textAllCaps="false" android:textColor="#070D20" android:textStyle="bold" android:background="@drawable/bg_primary_button"/>
                 <Button android:id="@+id/btnCancelarTarea" android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="7dp" android:text="Solicitar cancelación" android:textAllCaps="false" android:visibility="gone"/>
-                <TextView android:id="@+id/estado" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="10dp" android:text="Preparado para crear" android:textColor="#9BAAC2" android:textSize="12sp"/>
+                <TextView android:id="@+id/estado" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="10dp" android:text="Preparado para crear" android:textColor="#A9B8D2" android:textSize="12sp"/>
                 <TextView android:id="@+id/textoResultado" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="8dp" android:textColor="#E2EAF7" android:textSize="13sp"/>
                 <ImageView android:id="@+id/imgPortada" android:layout_width="200dp" android:layout_height="200dp" android:layout_gravity="center_horizontal" android:layout_marginTop="12dp" android:visibility="gone"/>
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="8dp">
@@ -126,10 +125,10 @@
             </LinearLayout>
 
             <LinearLayout android:id="@+id/seccionBiblioteca" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingTop="30dp">
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="TU ARCHIVO MUSICAL" android:textColor="#70D8FF" android:textSize="10sp" android:textStyle="bold" android:letterSpacing="0.16"/>
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="TU ARCHIVO MUSICAL" android:textColor="#16CFF4" android:textSize="10sp" android:textStyle="bold" android:letterSpacing="0.16"/>
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="17dp" android:layout_marginTop="9dp" android:background="@drawable/bg_panel">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Biblioteca" android:textColor="#F3F7FF" android:textSize="19sp" android:textStyle="bold"/>
-                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="5dp" android:id="@+id/tvBiblioteca" android:text="Tus canciones e instrumentales aparecerán aquí cuando se generen." android:textColor="#9BAAC2" android:textSize="13sp" android:lineSpacingExtra="3dp"/>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Biblioteca" android:textColor="#F5F8FF" android:textSize="19sp" android:textStyle="bold"/>
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="5dp" android:id="@+id/tvBiblioteca" android:text="Tus canciones e instrumentales aparecerán aquí cuando se generen." android:textColor="#A9B8D2" android:textSize="13sp" android:lineSpacingExtra="3dp"/>
                     <Button android:id="@+id/btnActualizarBiblioteca" android:layout_width="match_parent"
                         android:layout_height="46dp" android:layout_marginTop="10dp"
                         android:text="Actualizar biblioteca" android:textAllCaps="false"/>
@@ -139,7 +138,7 @@
                         android:visibility="gone"/>
                 <LinearLayout android:id="@+id/playerControls" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingTop="8dp" android:visibility="gone">
                     <SeekBar android:id="@+id/seekPlayback" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="1000" android:contentDescription="Posición de reproducción"/>
-                    <TextView android:id="@+id/tvPlaybackTime" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="00:00 / 00:00" android:textColor="#9BAAC2" android:textSize="12sp"/>
+                    <TextView android:id="@+id/tvPlaybackTime" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="00:00 / 00:00" android:textColor="#A9B8D2" android:textSize="12sp"/>
                     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
                         <Button android:id="@+id/btnPausar" android:layout_width="0dp" android:layout_height="44dp" android:layout_weight="1" android:text="Pausar" android:textAllCaps="false"/>
                         <Button android:id="@+id/btnDetener" android:layout_width="0dp" android:layout_height="44dp" android:layout_weight="1" android:layout_marginStart="8dp" android:text="Detener" android:textAllCaps="false"/>
@@ -149,15 +148,15 @@
             </LinearLayout>
 
             <LinearLayout android:id="@+id/seccionLaboratorio" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingTop="30dp">
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="EVOLUCIÓN DEL SISTEMA" android:textColor="#70D8FF" android:textSize="10sp" android:textStyle="bold" android:letterSpacing="0.16"/>
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="EVOLUCIÓN DEL SISTEMA" android:textColor="#16CFF4" android:textSize="10sp" android:textStyle="bold" android:letterSpacing="0.16"/>
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="17dp" android:layout_marginTop="9dp" android:background="@drawable/bg_panel">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Laboratorio IA" android:textColor="#F3F7FF" android:textSize="19sp" android:textStyle="bold"/>
-                    <TextView android:id="@+id/estadoModelo" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="8dp" android:text="IA local de letras: modelo no descargado." android:textColor="#9BAAC2" android:textSize="12sp"/>
-                    <TextView android:id="@+id/estadoAudioModelo" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="7dp" android:text="Instrumental IA: comprobando motor local..." android:textColor="#9BAAC2" android:textSize="12sp"/>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Laboratorio IA" android:textColor="#F5F8FF" android:textSize="19sp" android:textStyle="bold"/>
+                    <TextView android:id="@+id/estadoModelo" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="8dp" android:text="IA local de letras: modelo no descargado." android:textColor="#A9B8D2" android:textSize="12sp"/>
+                    <TextView android:id="@+id/estadoAudioModelo" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="7dp" android:text="Instrumental IA: comprobando motor local..." android:textColor="#A9B8D2" android:textSize="12sp"/>
                     <TextView android:id="@+id/estadoVozModelo" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="7dp" android:text="Voz cantada IA: todavía no integrada; no se simula." android:textColor="#E8B987" android:textSize="12sp"/>
                     <ProgressBar android:id="@+id/progresoModelo" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="1000" android:visibility="gone"/>
                     <Button android:id="@+id/btnDescargarModelo" android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="8dp" android:text="Gestionar modelo Gemma 4 E2B · 2,6 GB" android:textAllCaps="false"/>
-                    <TextView android:id="@+id/estadoConocimiento" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="8dp" android:text="Conocimiento importado: ninguno." android:textColor="#9BAAC2" android:textSize="12sp"/>
+                    <TextView android:id="@+id/estadoConocimiento" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="8dp" android:text="Conocimiento importado: ninguno." android:textColor="#A9B8D2" android:textSize="12sp"/>
                     <Button android:id="@+id/btnImportarConocimiento" android:layout_width="match_parent"
                         android:layout_height="48dp" android:layout_marginTop="8dp"
                         android:text="Importar conversación de otro asistente" android:textAllCaps="false"/>
@@ -169,12 +168,12 @@
             </LinearLayout>
 
             <LinearLayout android:id="@+id/seccionSistema" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingTop="30dp">
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="PREFERENCIAS" android:textColor="#70D8FF" android:textSize="10sp" android:textStyle="bold" android:letterSpacing="0.16"/>
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="PREFERENCIAS" android:textColor="#16CFF4" android:textSize="10sp" android:textStyle="bold" android:letterSpacing="0.16"/>
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="17dp" android:layout_marginTop="9dp" android:background="@drawable/bg_panel">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Sistema y personalización" android:textColor="#F3F7FF" android:textSize="18sp" android:textStyle="bold"/>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Sistema y personalización" android:textColor="#F5F8FF" android:textSize="18sp" android:textStyle="bold"/>
                     <Button android:id="@+id/btnVerCapacidades" android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="10dp" android:text="Ver capacidades reales de BARDO" android:textAllCaps="false"/>
-                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="7dp" android:text="Diseño modular · Procesamiento local · Control de almacenamiento · Actualizaciones y copias de seguridad." android:textColor="#9BAAC2" android:textSize="12sp" android:lineSpacingExtra="4dp"/>
-                    <TextView android:id="@+id/tvCarpetaBardo" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="10dp" android:text="Carpeta BARDO: no seleccionada" android:textColor="#9BAAC2" android:textSize="12sp"/>
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="7dp" android:text="Diseño modular · Procesamiento local · Control de almacenamiento · Actualizaciones y copias de seguridad." android:textColor="#A9B8D2" android:textSize="12sp" android:lineSpacingExtra="4dp"/>
+                    <TextView android:id="@+id/tvCarpetaBardo" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="10dp" android:text="Carpeta BARDO: no seleccionada" android:textColor="#A9B8D2" android:textSize="12sp"/>
                     <Button android:id="@+id/btnElegirCarpetaBardo" android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="7dp" android:text="Elegir carpeta BARDO en Descargas" android:textAllCaps="false"/>
                     <Button android:id="@+id/btnExportarInterfaz" android:layout_width="match_parent"
                         android:layout_height="48dp" android:layout_marginTop="12dp"
@@ -193,10 +192,10 @@
     <LinearLayout android:id="@+id/bottomNavigation" android:layout_width="match_parent"
         android:layout_height="64dp" android:orientation="horizontal" android:gravity="center"
         android:background="#111A2B" android:elevation="12dp">
-        <TextView android:id="@+id/navOrquestador" style="@style/NavItem" android:text="✧\nIA"/>
-        <TextView android:id="@+id/navCrear" style="@style/NavItem" android:text="♫\nCrear"/>
-        <TextView android:id="@+id/navBiblioteca" style="@style/NavItem" android:text="▤\nArchivo"/>
-        <TextView android:id="@+id/navLaboratorio" style="@style/NavItem" android:text="◇\nLab"/>
-        <TextView android:id="@+id/navSistema" style="@style/NavItem" android:text="⚙\nSistema"/>
+        <TextView android:id="@+id/navOrquestador" style="@style/NavItem" android:text="✧\nIA" android:contentDescription="Asistente"/>
+        <TextView android:id="@+id/navCrear" style="@style/NavItem" android:text="♫\nCrear" android:contentDescription="Crear música"/>
+        <TextView android:id="@+id/navBiblioteca" style="@style/NavItem" android:text="▧\nArchivo" android:contentDescription="Biblioteca de archivos"/>
+        <TextView android:id="@+id/navLaboratorio" style="@style/NavItem" android:text="✧\nLab" android:contentDescription="Laboratorio y evolución local"/>
+        <TextView android:id="@+id/navSistema" style="@style/NavItem" android:text="⚙\nSistema" android:contentDescription="Sistema y ajustes"/>
     </LinearLayout>
 </LinearLayout>
