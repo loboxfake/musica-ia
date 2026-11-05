@@ -29,7 +29,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.musicaia.desarrollo.BardoDeveloperWorker
 
-/** Entorno local de investigación y auditoría. Nunca ejecuta ni aplica código importado. */
+/** Entorno local de investigación y auditoría. Nunca ejecuta código importado ni modifica el APK instalado. */
 class BardoDeveloperActivity : AppCompatActivity() {
     private lateinit var output: TextView
     private lateinit var urlInput: EditText
@@ -62,13 +62,14 @@ class BardoDeveloperActivity : AppCompatActivity() {
         snapshot = getSharedPreferences("bardo_developer", MODE_PRIVATE)
             .getString("snapshot_path", null)?.let { File(it) }?.takeIf { it.isDirectory }
         construirInterfaz()
-        lastReport = runCatching { reportFile.readText() }.getOrDefault("")
-        lastProposal = lastReport.substringAfter("## RESPUESTA AUTOESTUDIO\n\n", "")
+        val savedReport = runCatching { reportFile.readText() }.getOrDefault("")
+        lastReport = savedReport.substringBefore("## RESPUESTA AUTOESTUDIO").trim()
+        lastProposal = savedReport.substringAfter("## RESPUESTA AUTOESTUDIO\n\n", "").trim()
         btnAnalyze.isEnabled = snapshot != null
         btnApply.isEnabled = lastProposal.contains("--- a/") && lastProposal.contains("+++ b/")
         val hayReferencias = workspace.listFiles()?.any { it.isFile && it.name.startsWith("referencia-") } == true
         btnAsk.isEnabled = (lastReport.isNotBlank() || hayReferencias) && LiteRTLMModule.modelFile(this).isFile
-        if (lastReport.isNotBlank()) output.text = lastReport
+        if (lastReport.isNotBlank()) output.text = lastReport + if (lastProposal.isNotBlank()) "\\n\\nPROPUESTA DE AUTOESTUDIO (no aplicada):\\n\\n" + lastProposal else ""
         else output.text = "BARDO DEVELOPER CORE\n\nEntorno local preparado. Importa un ZIP con el código fuente de un proyecto para analizarlo.\n\nNo se ejecutará código importado ni se modificará el proyecto original."
     }
 
