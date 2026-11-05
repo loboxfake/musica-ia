@@ -14,6 +14,7 @@ import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.appcompat.app.AppCompatActivity
+import com.musicaia.memoria.BardoKnowledgeStore
 import com.musicaia.desarrollo.BardoDeveloperCore
 import com.musicaia.desarrollo.BardoPatchApplier
 import com.musicaia.modulos.litert.EngineLiteRT
@@ -326,6 +327,8 @@ class BardoDeveloperActivity : AppCompatActivity() {
                 result.onSuccess { content ->
                     val file = File(workspace, "referencia-${System.currentTimeMillis()}.md")
                     file.writeText(content)
+                    val referenceTitle = Regex("(?m)^Título: (.+)$").find(content)?.groupValues?.get(1) ?: "Documentación oficial"
+                    BardoKnowledgeStore(this).importText(referenceTitle, address, content)
                     lastReport = "DOCUMENTACIÓN RECUPERADA\n\n$content"
                     reportFile.writeText(lastReport)
                     lastProposal = ""
