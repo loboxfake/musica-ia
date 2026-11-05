@@ -136,6 +136,7 @@ class MainActivity : AppCompatActivity() {
  private lateinit var chatLog: TextView
  private lateinit var chatEntrada: EditText
  private lateinit var conversationStore: BardoConversationStore
+ private lateinit var knowledgeStore: BardoKnowledgeStore
  private var activeConversationId: String? = null
  private var uriCarpetaBardo: Uri? = null
  private var bardoRootDocumentId: String? = null
@@ -224,27 +225,22 @@ class MainActivity : AppCompatActivity() {
 
  private val selectorImportarConocimiento =
      registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-         if (uri != null) {
-             runCatching {
-                 val contenido = contentResolver.openInputStream(uri)?.bufferedReader()?.use { lector ->
-                     val texto = StringBuilder()
-                     val buffer = CharArray(4096)
-                     while (texto.length < 100000) {
-                         val leidos = lector.read(buffer, 0, minOf(buffer.size, 100000 - texto.length))
-                         if (leidos <= 0) break
-                         texto.append(buffer, 0, leidos)
-                     }
-                     texto.toString()
-                 } ?: throw IllegalStateException("No se pudo leer el archivo.")
-                 require(contenido.isNotBlank()) { "El archivo está vacío." }
-                 val prefs = getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE)
-                 val anterior = prefs.getString("conocimiento_importado", "").orEmpty()
-                 val nuevo = (anterior + "\n\n--- Fuente importada ---\n" + contenido).takeLast(50000)
-                 prefs.edit().putString("conocimiento_importado", nuevo).apply()
-                 actualizarEstadoConocimiento()
-                 tvEstado.text = "Referencia importada. BARDO podrá consultarla cuando responda con Gemma local."
-             }.onFailure { tvEstado.text = "No se pudo importar la referencia: ${it.message}" }
-         }
+         if (uri != null) runCatching {
+             val contenido = contentResolver.openInputStream(uri)?.bufferedReader()?.use { lector ->
+                 val texto = StringBuilder()
+                 val buffer = CharArray(4096)
+                 while (texto.length < 500000) {
+                     val leidos = lector.read(buffer, 0, minOf(buffer.size, 500000 - texto.length))
+                     if (leidos <= 0) break
+                     texto.append(buffer, 0, leidos)
+                 }
+                 texto.toString()
+             } ?: throw IllegalStateException("No se pudo leer el archivo.")
+             val fuente = uri.lastPathSegment?.substringAfterLast('/')?.take(240) ?: "documento importado"
+             val entrada = knowledgeStore.importText("Referencia importada", fuente, contenido)
+             actualizarEstadoConocimiento()
+             tvEstado.text = "Referencia guardada en la biblioteca local de BARDO (${entrada.characters} caracteres). Se recuperará cuando sea pertinente."
+         }.onFailure { tvEstado.text = "No se pudo importar la referencia: ${it.message}" }
      }
 
  private val selectorImportarInterfaz =
@@ -370,6 +366,7 @@ class MainActivity : AppCompatActivity() {
  chatLog = findViewById(R.id.chatLog)
  chatEntrada = findViewById(R.id.chatEntrada)
  conversationStore = BardoConversationStore(this)
+ knowledgeStore = BardoKnowledgeStore(this)
  val storagePrefs = getSharedPreferences("bardo_storage", MODE_PRIVATE)
  uriCarpetaBardo = storagePrefs.getString("tree_uri", null)?.let { runCatching { Uri.parse(it) }.getOrNull() }
  bardoRootDocumentId = storagePrefs.getString("root_document_id", null)
