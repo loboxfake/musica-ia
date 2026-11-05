@@ -980,6 +980,7 @@ class MainActivity : AppCompatActivity() {
      ocupado = false
      grupoModo.isEnabled = true
      btnCrear.isEnabled = true
+     btnCancelarTarea.visibility = View.GONE
      detenerReloj()
      mostrarError(error)
  }
@@ -1086,6 +1087,8 @@ class MainActivity : AppCompatActivity() {
                  segundos = ((System.currentTimeMillis() - inicio).coerceAtLeast(0L) / 1000L).toInt()
                  tvTiempo.visibility = View.VISIBLE
                  tvTiempo.text = "Tiempo: ${segundos}s"
+                 handler.removeCallbacks(reloj)
+                 handler.postDelayed(reloj, 1000L)
              }
          }
          "completed" -> {
