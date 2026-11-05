@@ -190,8 +190,8 @@
         </LinearLayout>
     </ScrollView>
     <LinearLayout android:id="@+id/bottomNavigation" android:layout_width="match_parent"
-        android:layout_height="64dp" android:orientation="horizontal" android:gravity="center"
-        android:background="#111A2B" android:elevation="12dp">
+        android:layout_height="70dp" android:orientation="horizontal" android:gravity="center"
+        android:background="@drawable/bg_panel" android:elevation="16dp">
         <TextView android:id="@+id/navOrquestador" style="@style/NavItem" android:text="✧\nIA" android:contentDescription="Asistente"/>
         <TextView android:id="@+id/navCrear" style="@style/NavItem" android:text="♫\nCrear" android:contentDescription="Crear música"/>
         <TextView android:id="@+id/navBiblioteca" style="@style/NavItem" android:text="▧\nArchivo" android:contentDescription="Biblioteca de archivos"/>
