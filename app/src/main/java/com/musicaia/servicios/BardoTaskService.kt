@@ -18,6 +18,8 @@ import com.musicaia.modelo.ModuloIA
 import com.musicaia.modelo.Orquestador
 import com.musicaia.modulos.ModuloInstrumental
 import com.musicaia.modulos.ModuloLetra
+import com.musicaia.modulos.Mp3Exporter
+import java.util.concurrent.atomic.AtomicBoolean
 
 /** Tarea local iniciada por el usuario y coordinada por el Orquestador BARDO. */
 class BardoTaskService : Service() {
@@ -31,12 +33,14 @@ class BardoTaskService : Service() {
         const val EXTRA_STATE = "task_state"
         const val EXTRA_MESSAGE = "task_message"
         const val EXTRA_AUDIO = "audio_path"
+        const val EXTRA_MP3 = "mp3_path"
         const val EXTRA_LYRICS = "lyrics"
         const val EXTRA_ELAPSED = "elapsed_seconds"
         const val PREFS = "bardo_background_tasks"
         const val KEY_STATE = "state"
         const val KEY_MESSAGE = "message"
         const val KEY_AUDIO = "audio_path"
+        const val KEY_MP3 = "mp3_path"
         const val KEY_HEARTBEAT = "heartbeat"
         private const val CHANNEL_ID = "bardo_audio_tasks"
         private const val NOTIFICATION_ID = 7314
@@ -57,6 +61,7 @@ class BardoTaskService : Service() {
     private var ejecutando = false
     private var inicioMs = 0L
     private var modoSolo = false
+    private val cancelacionSolicitada = AtomicBoolean(false)
     // El latido no debe depender del hilo principal: la inferencia nativa puede
     // saturar CPU durante decenas de segundos y provocar falsos "sin vida".
     private val heartbeatExecutor = java.util.concurrent.Executors.newSingleThreadScheduledExecutor { tarea ->
@@ -93,8 +98,9 @@ class BardoTaskService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_CANCEL -> {
+                cancelacionSolicitada.set(true)
                 orquestador.cancelar()
-                publicarEstado("running", "Cancelación solicitada; BARDO se detendrá en el siguiente límite entre módulos.")
+                publicarEstado("running", "Cancelación solicitada. BARDO terminará la operación nativa en curso y se detendrá de forma segura.")
             }
             ACTION_START -> iniciarTarea(intent, startId)
             else -> stopSelf(startId)
@@ -114,6 +120,7 @@ class BardoTaskService : Service() {
         }
 
         ejecutando = true
+        cancelacionSolicitada.set(false)
         inicioMs = System.currentTimeMillis()
         runCatching { heartbeatFile.writeText(inicioMs.toString()) }
         iniciarLatido()
@@ -123,6 +130,7 @@ class BardoTaskService : Service() {
             .putLong("started_at", inicioMs)
             .putInt("process_pid", android.os.Process.myPid())
             .remove(KEY_AUDIO)
+            .remove(KEY_MP3)
             .apply()
 
         val inicial = construirNotificacion("Preparando módulos locales...", 0)
@@ -136,7 +144,17 @@ class BardoTaskService : Service() {
         }
         val modulos = mutableListOf<ModuloIA>()
         if (!modoSolo) modulos += ModuloLetra(applicationContext, letraManual.isNotBlank())
-        modulos += ModuloInstrumental(applicationContext, prompt)
+        modulos += ModuloInstrumental(
+            applicationContext,
+            prompt,
+            onSegmentProgress = { actual, total, detalle ->
+                val transcurrido = ((System.currentTimeMillis() - inicioMs) / 1000L).coerceAtLeast(0L)
+                val mensaje = "INSTRUMENTAL $actual/$total · ${transcurrido}s · $detalle"
+                actualizarNotificacion(mensaje, ((actual * 90f) / total).toInt().coerceIn(0, 90))
+                publicarEstado("running", mensaje)
+            },
+            isCancellationRequested = { cancelacionSolicitada.get() }
+        )
 
         orquestador.setListener(object : Orquestador.ProgresoListener {
             override fun onProgreso(paso: String, progreso: Float, mensaje: String) {
@@ -155,14 +173,35 @@ class BardoTaskService : Service() {
                     ?: throw IllegalStateException(if (resultados.isEmpty()) "BARDO no recibió resultados del Core." else "El plan terminó sin producir un WAV instrumental válido.")
                 val archivo = java.io.File(audio.rutaWav)
                 if (!archivo.isFile || archivo.length() <= 44L) throw IllegalStateException("El WAV devuelto no existe o está vacío.")
+                if (cancelacionSolicitada.get()) throw java.util.concurrent.CancellationException("Cancelación solicitada por el usuario.")
                 val letra = (resultados.firstOrNull { it.first == "letra" }?.second as? Dato.Texto)?.texto.orEmpty()
                 val segundos = ((System.currentTimeMillis() - inicioMs) / 1000L).toInt()
+                publicarEstado("running", "WAV validado (${archivo.length()} bytes). Preparando MP3 320 kbps para Archivo…")
+                if (!Mp3Exporter.available) throw IllegalStateException("El WAV se generó, pero el codificador MP3 nativo no está disponible en esta APK.")
+                val biblioteca = java.io.File(filesDir, "biblioteca")
+                if (!biblioteca.exists() && !biblioteca.mkdirs()) throw IllegalStateException("No se pudo crear la carpeta Archivo de BARDO.")
+                val marca = System.currentTimeMillis()
+                val mp3 = java.io.File(biblioteca, "BARDO_$marca.mp3")
+                val temporal = java.io.File(biblioteca, "BARDO_$marca.mp3.part")
+                val codificado = Mp3Exporter.encodeWavToMp3(archivo.absolutePath, temporal.absolutePath, 320)
+                if (!codificado || !temporal.isFile || temporal.length() < 1024L) {
+                    temporal.delete()
+                    throw IllegalStateException("Falló la conversión WAV a MP3 320 kbps o el archivo resultante no es válido.")
+                }
+                if (!temporal.renameTo(mp3)) {
+                    temporal.delete()
+                    throw IllegalStateException("El MP3 se generó, pero no se pudo guardar definitivamente en Archivo.")
+                }
+                if (letra.isNotBlank()) java.io.File(biblioteca, "BARDO_$marca.txt").writeText(letra)
+                val duracion = ((archivo.length() - 44L).coerceAtLeast(0L) / (44100L * 2L * 2L))
+                val mensajeFinal = "MP3 guardado en Archivo · ${duracion / 60} min ${duracion % 60}s · ${mp3.length()} bytes · 320 kbps"
                 getSharedPreferences(PREFS, MODE_PRIVATE).edit()
-                    .putString(KEY_STATE, "completed").putString(KEY_MESSAGE, "Creación terminada.")
-                    .putString(KEY_AUDIO, audio.rutaWav).putString("lyrics", letra)
+                    .putString(KEY_STATE, "completed").putString(KEY_MESSAGE, mensajeFinal)
+                    .putString(KEY_AUDIO, audio.rutaWav).putString(KEY_MP3, mp3.absolutePath).putString("lyrics", letra)
                     .putBoolean("solo", modoSolo).putInt("elapsed", segundos).apply()
-                enviarActualizacion("completed", "Creación terminada.", audio.rutaWav, letra, segundos)
-                Log.i("BARDO-TaskService", "WAV válido: ${archivo.length()} bytes")
+                enviarActualizacion("completed", mensajeFinal, audio.rutaWav, letra, segundos, mp3.absolutePath)
+                actualizarNotificacion(mensajeFinal, 100)
+                Log.i("BARDO-TaskService", "WAV válido: ${archivo.length()} bytes; MP3 válido: ${mp3.length()} bytes")
             } catch (error: Throwable) {
                 Log.e("BARDO-TaskService", "Falló la tarea de BARDO", error)
                 val estado = if (error.message?.contains("cancel", true) == true) "cancelled" else "failed"
@@ -199,10 +238,11 @@ class BardoTaskService : Service() {
         enviarActualizacion(estado, mensaje, "", "", 0)
     }
 
-    private fun enviarActualizacion(estado: String, mensaje: String, audio: String, lyrics: String, elapsed: Int) {
+    private fun enviarActualizacion(estado: String, mensaje: String, audio: String, lyrics: String, elapsed: Int, mp3: String = "") {
         sendBroadcast(Intent(ACTION_UPDATE).setPackage(packageName).apply {
             putExtra(EXTRA_STATE, estado); putExtra(EXTRA_MESSAGE, mensaje); putExtra(EXTRA_AUDIO, audio)
             putExtra(EXTRA_LYRICS, lyrics); putExtra(EXTRA_SOLO, modoSolo); putExtra(EXTRA_ELAPSED, elapsed)
+            putExtra(EXTRA_MP3, mp3)
         })
     }
 
