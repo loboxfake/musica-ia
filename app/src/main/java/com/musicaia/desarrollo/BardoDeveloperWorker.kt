@@ -32,6 +32,7 @@ class BardoDeveloperWorker(context: Context, params: WorkerParameters) : Corouti
         val prefs = applicationContext.getSharedPreferences("bardo_developer", Context.MODE_PRIVATE)
         val reportFile = File(root, "ultima_auditoria.md")
         val memoryFile = File(root, "memoria_tecnica.md")
+        var engineInitialized = false
         try {
             setForeground(foregroundInfo())
             @Suppress("DEPRECATION")
@@ -55,6 +56,7 @@ class BardoDeveloperWorker(context: Context, params: WorkerParameters) : Corouti
             check(mem.availMem >= 3_200L * 1024L * 1024L) { "RAM libre insuficiente; se reintentará en el siguiente ciclo." }
             check(LiteRTLMModule.verificarModelo(model)) { "SHA-256 de Gemma incorrecto." }
             check(EngineLiteRT.inicializar(model.absolutePath, File(applicationContext.cacheDir, "litert-cache").absolutePath))
+            engineInitialized = true
             val audit = BardoDeveloperCore.analizar(current)
             val auditText = audit.render()
             val source = BardoDeveloperCore.extractos(current, audit, 16000)
@@ -99,7 +101,7 @@ class BardoDeveloperWorker(context: Context, params: WorkerParameters) : Corouti
                     .putString("last_auto_study_status", "blocked").putString("last_auto_study_message", message).apply()
             }
         } finally {
-            EngineLiteRT.cerrarAsync()
+            if (engineInitialized) EngineLiteRT.cerrarAsync()
         }
         Result.success()
     }

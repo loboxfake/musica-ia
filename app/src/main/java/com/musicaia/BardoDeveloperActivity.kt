@@ -391,6 +391,9 @@ class BardoDeveloperActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         worker.shutdown()
+        if (!getSharedPreferences("bardo_developer", MODE_PRIVATE).getBoolean("auto_study_enabled", false)) {
+            EngineLiteRT.cerrarAsync()
+        }
         super.onDestroy()
     }
 }
