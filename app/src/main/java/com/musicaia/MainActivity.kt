@@ -76,6 +76,7 @@ class MainActivity : AppCompatActivity() {
                      .putString(BardoTaskService.KEY_MESSAGE, mensaje).apply()
                  archivoLatidoTarea.delete()
                  ocupado = false
+                 btnCancelarTarea.visibility = View.GONE
                  grupoModo.isEnabled = true
                  btnCrear.isEnabled = true
                  detenerReloj()
@@ -919,11 +920,17 @@ class MainActivity : AppCompatActivity() {
  ocupado = true
  grupoModo.isEnabled = false
  btnCrear.isEnabled = false
+ btnCancelarTarea.visibility = View.VISIBLE
+ btnCancelarTarea.isEnabled = true
  btnReproducir.visibility = View.GONE
  rutaAudio = null
  rutaInstrumental = null
  imgPortada.visibility = View.GONE
  progreso.visibility = View.VISIBLE
+ progreso.isIndeterminate = false
+ progreso.max = 18
+ progreso.progress = 0
+ tvTiempo.visibility = View.VISIBLE
  tvEstado.text = "Creando..."
  tvResultado.text = ""
  segundos = 0
@@ -1067,7 +1074,18 @@ class MainActivity : AppCompatActivity() {
                  btnCrear.isEnabled = false
                  btnCancelarTarea.visibility = View.VISIBLE
                  btnCancelarTarea.isEnabled = true
-                 tvEstado.text = prefs.getString(BardoTaskService.KEY_MESSAGE, "BARDO continúa trabajando en segundo plano.").orEmpty()
+                 val mensajeGuardado = prefs.getString(BardoTaskService.KEY_MESSAGE, "BARDO continúa trabajando en segundo plano.").orEmpty()
+                 tvEstado.text = mensajeGuardado
+                 val pasoGuardado = Regex("INSTRUMENTAL (\\d+)/(\\d+)").find(mensajeGuardado)
+                 if (pasoGuardado != null) {
+                     progreso.visibility = View.VISIBLE
+                     progreso.isIndeterminate = false
+                     progreso.max = pasoGuardado.groupValues[2].toIntOrNull()?.coerceAtLeast(1) ?: 18
+                     progreso.progress = pasoGuardado.groupValues[1].toIntOrNull()?.coerceIn(0, progreso.max) ?: 0
+                 }
+                 segundos = ((System.currentTimeMillis() - inicio).coerceAtLeast(0L) / 1000L).toInt()
+                 tvTiempo.visibility = View.VISIBLE
+                 tvTiempo.text = "Tiempo: ${segundos}s"
              }
          }
          "completed" -> {
