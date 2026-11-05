@@ -1154,12 +1154,14 @@ class MainActivity : AppCompatActivity() {
 
 
  private fun actualizarEstadoConocimiento() {
-     val texto = getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE)
+     val legacy = getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE)
          .getString("conocimiento_importado", "").orEmpty()
-     findViewById<TextView>(R.id.estadoConocimiento).text = if (texto.isBlank()) {
-         "Conocimiento importado: ninguno."
+     val entries = knowledgeStore.list()
+     val chars = entries.sumOf { it.characters } + legacy.length
+     findViewById<TextView>(R.id.estadoConocimiento).text = if (chars == 0) {
+         "Biblioteca de conocimiento local: vacía."
      } else {
-         "Conocimiento local disponible: " + texto.length + " caracteres de conversaciones y referencias importadas."
+         "Biblioteca local: ${entries.size} documentos · $chars caracteres. Se recuperan por coincidencia textual."
      }
  }
 
