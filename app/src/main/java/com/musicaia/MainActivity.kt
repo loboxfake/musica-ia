@@ -138,6 +138,7 @@ class MainActivity : AppCompatActivity() {
  private lateinit var conversationStore: BardoConversationStore
  private var activeConversationId: String? = null
  private var uriCarpetaBardo: Uri? = null
+ private var bardoRootDocumentId: String? = null
  private lateinit var btnEnviar: Button
  private lateinit var editLetra: EditText
  private lateinit var editIndicaciones: EditText
@@ -198,7 +199,20 @@ class MainActivity : AppCompatActivity() {
          if (uri != null) runCatching {
              contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
              uriCarpetaBardo = uri
-             getSharedPreferences("bardo_storage", MODE_PRIVATE).edit().putString("tree_uri", uri.toString()).apply()
+             val treeRootId = DocumentsContract.getTreeDocumentId(uri)
+             val treeRootUri = DocumentsContract.buildDocumentUriUsingTree(uri, treeRootId)
+             val rootName = contentResolver.query(
+                 treeRootUri, arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME), null, null, null
+             )?.use { cursor ->
+                 if (cursor.moveToFirst()) cursor.getString(0) else ""
+             }.orEmpty()
+             bardoRootDocumentId = if (rootName.equals("Download", true) ||
+                 rootName.equals("Downloads", true) || rootName.equals("Descargas", true)) {
+                 DocumentsContract.getDocumentId(buscarOCrearSubcarpetaBardo(treeRootUri, "BARDO"))
+             } else treeRootId
+             getSharedPreferences("bardo_storage", MODE_PRIVATE).edit()
+                 .putString("tree_uri", uri.toString())
+                 .putString("root_document_id", bardoRootDocumentId).apply()
              crearEstructuraCarpetaBardo()
              actualizarEtiquetaCarpetaBardo()
              tvEstado.text = "Carpeta BARDO configurada. Las canciones y copias podrán guardarse allí."
@@ -356,7 +370,9 @@ class MainActivity : AppCompatActivity() {
  chatLog = findViewById(R.id.chatLog)
  chatEntrada = findViewById(R.id.chatEntrada)
  conversationStore = BardoConversationStore(this)
- uriCarpetaBardo = getSharedPreferences("bardo_storage", MODE_PRIVATE).getString("tree_uri", null)?.let { runCatching { Uri.parse(it) }.getOrNull() }
+ val storagePrefs = getSharedPreferences("bardo_storage", MODE_PRIVATE)
+ uriCarpetaBardo = storagePrefs.getString("tree_uri", null)?.let { runCatching { Uri.parse(it) }.getOrNull() }
+ bardoRootDocumentId = storagePrefs.getString("root_document_id", null)
  prepararHistorialConversaciones()
  cargarMemoriaLocal()
  aplicarConfiguracionGuardada()
@@ -536,13 +552,17 @@ class MainActivity : AppCompatActivity() {
 
  private fun actualizarEtiquetaCarpetaBardo() {
      val label = findViewById<TextView>(R.id.tvCarpetaBardo)
-     label.text = if (uriCarpetaBardo == null) "Carpeta BARDO: no seleccionada. Elige Descargas/BARDO para guardar automáticamente."
-         else "Carpeta BARDO configurada: ${uriCarpetaBardo?.lastPathSegment ?: "ubicación seleccionada"}"
+     label.text = when {
+         uriCarpetaBardo == null -> "Carpeta BARDO: no seleccionada. Elige Descargas o la carpeta BARDO."
+         bardoRootDocumentId != DocumentsContract.getTreeDocumentId(uriCarpetaBardo!!) -> "Carpeta BARDO configurada: Descargas/BARDO"
+         else -> "Carpeta BARDO configurada: carpeta seleccionada"
+     }
  }
 
  private fun raizCarpetaBardo(): Uri {
      val tree = uriCarpetaBardo ?: throw IllegalStateException("Primero selecciona la carpeta BARDO.")
-     return DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
+     val rootId = bardoRootDocumentId ?: DocumentsContract.getTreeDocumentId(tree)
+     return DocumentsContract.buildDocumentUriUsingTree(tree, rootId)
  }
 
  private fun buscarOCrearSubcarpetaBardo(parent: Uri, nombre: String): Uri {
