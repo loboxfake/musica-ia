@@ -1,5 +1,7 @@
 name: Build full offline APK
 
+# CI trigger refresh: keep the full offline build and audit as the release gate.
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
