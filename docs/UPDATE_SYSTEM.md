@@ -18,3 +18,11 @@ The first generation attempt calls `ModuloInstrumental.cargar()`, which copies t
 - It is not yet a self-updating in-app installer. The user still downloads the APK from the named GitHub Actions run and approves Android's package installation.
 - Native executable code changes must be delivered as a signed Android APK update. Model/data packages may be updated separately only after a trusted, signed manifest and stable hosting endpoint are configured.
 - A successful CI build does not prove audio generation works on a physical Xiaomi device.
+
+## CI publication contract
+
+- `BARDO / tests + APK compilation` reports the lightweight unit-test and compile result; it does not publish an installable APK.
+- `BARDO / full offline APK audit` reports the complete native/model build and APK-content audit.
+- `BARDO / full offline APK release` reports whether the audited full APK was published to GitHub Releases.
+- A release is installable only after the full-offline audit succeeds. A green lightweight compile is not a substitute.
+- A successful release still requires a real playback check on the target phone before audio generation is considered verified.
