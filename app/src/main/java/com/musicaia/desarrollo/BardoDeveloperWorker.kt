@@ -118,7 +118,7 @@ $authorizedReferences
             """.trimIndent()
 
             setForeground(foregroundInfo("BARDO está estudiando el código con Gemma…"))
-            val rawResponse = EngineLiteRT.generar(prompt)
+            val rawResponse = EngineLiteRT.generar(prompt, reiniciarConversacion = true)
             val response = rawResponse.substringAfter("</think>", rawResponse).trim()
             check(response.isNotBlank()) { "Gemma devolvió una respuesta vacía." }
 
