@@ -2,6 +2,7 @@ name: Build APK
 
 permissions:
   contents: write
+  statuses: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -58,6 +59,20 @@ jobs:
           test -s "$APK"
           sha256sum "$APK" | tee app-debug.apk.sha256
           ls -lh "$APK" | tee app-debug.apk.size.txt
+      - name: Report tests and APK compilation status
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const state = "${{ job.status }}" === "success" ? "success" : "failure";
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              state,
+              context: "BARDO / tests + APK compilation",
+              description: state === "success" ? "Unit tests and APK compilation passed" : "Unit tests or APK compilation failed"
+            });
       - name: Publish installable APK release
         if: github.event_name == 'push'
         uses: softprops/action-gh-release@v2
