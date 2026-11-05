@@ -19,7 +19,8 @@ import java.util.UUID
  * de datos antes de integrar y migrar el historial existente. La API permite
  * sustituir internamente el backend por Room sin cambiar los consumidores.
  */
-class BardoConversationStore(context: Context) {
+class BardoConversationStore internal constructor(private val directory: File) {
+    constructor(context: Context) : this(context.filesDir)
     data class Message(
         val id: String,
         val conversationId: String,
@@ -46,8 +47,8 @@ class BardoConversationStore(context: Context) {
     )
 
     private val lock = Any()
-    private val file = File(context.filesDir, "bardo_conversation_history.json")
-    private val backup = File(context.filesDir, "bardo_conversation_history.json.bak")
+    private val file = File(directory, "bardo_conversation_history.json")
+    private val backup = File(directory, "bardo_conversation_history.json.bak")
 
     fun createConversation(title: String = "Nueva conversación", now: Long = System.currentTimeMillis()): Conversation =
         synchronized(lock) {
