@@ -36,6 +36,7 @@ import com.musicaia.modulos.ModuloLetra
 import com.musicaia.modelo.Orquestador
 import com.musicaia.modelo.BardoIntentRouter
 import com.musicaia.memoria.BardoConversationStore
+import com.musicaia.memoria.BardoKnowledgeStore
 import java.io.File
 import java.io.FileOutputStream
 import java.text.Normalizer
