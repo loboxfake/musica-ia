@@ -86,7 +86,7 @@ class BardoKnowledgeStore internal constructor(private val directory: File) {
                 if (length >= maxChars) break
                 val file = File(directory, "${entry.id}.txt")
                 val text = runCatching { file.readText(Charsets.UTF_8) }.getOrNull() ?: continue
-                val header = "\\n[Referencia autorizada: ${entry.title} · Fuente: ${entry.source}]\\n"
+                val header = "\n[Referencia autorizada: ${entry.title} · Fuente: ${entry.source}]\n"
                 val room = maxChars - length - header.length
                 if (room > 0) {
                     append(header)
