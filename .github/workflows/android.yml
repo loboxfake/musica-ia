@@ -1,7 +1,7 @@
 name: Build APK
 
 permissions:
-  contents: write
+  contents: read
   statuses: write
 
 concurrency:
@@ -73,18 +73,3 @@ jobs:
               context: "BARDO / tests + APK compilation",
               description: state === "success" ? "Unit tests and APK compilation passed" : "Unit tests or APK compilation failed"
             });
-      - name: Publish installable APK release
-        if: github.event_name == 'push'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: bardo-build-${{ github.run_number }}
-          name: BARDO build ${{ github.run_number }}
-          body: |
-            APK compilada y probada con Gradle y pruebas unitarias.
-            Revisa app-debug.apk.sha256 para verificar integridad.
-            Esta publicación no sustituye la prueba física de reproducción en el teléfono.
-          files: |
-            app/build/outputs/apk/debug/app-debug.apk
-            app-debug.apk.sha256
-            app-debug.apk.size.txt
-          fail_on_unmatched_files: true
