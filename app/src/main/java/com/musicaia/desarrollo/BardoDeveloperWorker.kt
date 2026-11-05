@@ -61,6 +61,11 @@ class BardoDeveloperWorker(context: Context, params: WorkerParameters) : Corouti
             val auditText = audit.render()
             val source = BardoDeveloperCore.extractos(current, audit, 16000)
             val memory = runCatching { memoryFile.readText().takeLast(6000) }.getOrDefault("")
+            val localReferences = root.listFiles()?.filter { it.isFile && it.name.startsWith("referencia-") }
+                ?.sortedBy { it.lastModified() }?.takeLast(3)
+                ?.joinToString("\\n\\n") { runCatching { it.readText().take(3500) }.getOrDefault("") }.orEmpty()
+            prefs.edit().putString("last_auto_study_status", "running")
+                .putString("last_auto_study_message", "BARDO está estudiando el código localmente.").apply()
             val prompt = """
                 Eres BARDO Developer, agente de mantenimiento totalmente local. Estudia código,
                 auditoría y memoria. No uses ni afirmes usar GitHub, nube, compilaciones o pruebas
@@ -70,6 +75,7 @@ class BardoDeveloperWorker(context: Context, params: WorkerParameters) : Corouti
                 No toques Modo3MezclaVozUsuario.kt, build files, workflows, dependencias, claves,
                 firmas, permisos ni seguridad. El diff se guardará como propuesta y nunca se aplicará automáticamente.
                 MEMORIA: $memory
+                REFERENCIAS TÉCNICAS GUARDADAS EN ESTE TELÉFONO: $localReferences
                 AUDITORÍA: $auditText
                 CÓDIGO: $source
             """.trimIndent()
