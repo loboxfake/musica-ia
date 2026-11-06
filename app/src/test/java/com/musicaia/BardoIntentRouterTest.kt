@@ -30,6 +30,16 @@ class BardoIntentRouterTest {
     }
 
     @Test
+    fun activeCreationNeverFallsBackToFreeChatForFieldAnswers() {
+        assertEquals(BardoIntentRouter.Intent.MUSIC_CREATION,
+            BardoIntentRouter.classify("Superar los obstáculos y seguir adelante", true))
+        assertEquals(BardoIntentRouter.Intent.MUSIC_CREATION,
+            BardoIntentRouter.classify("Rock alternativo", true))
+        assertEquals(BardoIntentRouter.Intent.MUSIC_CREATION,
+            BardoIntentRouter.classify("Rápido", true))
+    }
+
+    @Test
     fun confirmationOnlyConfirmsAnExistingCreation() {
         assertEquals(BardoIntentRouter.Intent.CONFIRM_CREATION,
             BardoIntentRouter.classify("Crear", true))
