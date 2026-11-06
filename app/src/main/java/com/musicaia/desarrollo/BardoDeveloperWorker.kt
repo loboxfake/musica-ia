@@ -44,7 +44,7 @@ class BardoDeveloperWorker(
         val reportFile = File(workspace, "ultima_auditoria.md")
         val memoryFile = File(workspace, "memoria_tecnica.md")
         var modelStarted = false
-        val taskId = java.util.UUID.randomUUID().toString()
+        val taskId = inputData.getString("task_id") ?: java.util.UUID.randomUUID().toString()
         try {
             workspace.mkdirs()
             BardoActivityStore.record(applicationContext, taskId, "autoestudio", "running", "inicio", "BARDO ha iniciado el autoestudio local aislado.", 0)
