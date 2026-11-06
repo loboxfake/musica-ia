@@ -1606,6 +1606,13 @@ class MainActivity : AppCompatActivity() {
      tvEstado.text = "Primero descarga el modelo local Gemma 4 E2B (2,6 GB)."
      return
  }
+ if (!modoSoloInstrumental && letraManual.isBlank()) {
+     val bloqueoMemoria = bloqueoGemmaPorMemoria()
+     if (bloqueoMemoria != null) {
+         tvEstado.text = bloqueoMemoria
+         return
+     }
+ }
  if (!modoSoloInstrumental && letraManual.isBlank() &&
      camposRequeridos.any { datosConver[it].isNullOrBlank() }) {
      tvEstado.text = "Completa tema, estilo, ambiente, ritmo e idioma en el chat del orquestador."
