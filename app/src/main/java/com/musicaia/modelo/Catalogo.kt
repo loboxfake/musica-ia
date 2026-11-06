@@ -42,7 +42,7 @@ class Catalogo {
                     tamanoMb = obj.getDouble("tamano_mb"),
                     ramMinimaMb = obj.getInt("ram_minima_mb"),
                     licencia = obj.getString("licencia"),
-                    atribucion = obj.optString("atribucion", "No indicada"),
+                    atribucion = obj.optString("atribucion", ""),
                     usoComercial = obj.getBoolean("uso_comercial"),
                     urlDescarga = obj.getString("url_descarga"),
                     sha256 = obj.getString("sha256"),
