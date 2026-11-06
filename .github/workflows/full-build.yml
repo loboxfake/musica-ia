@@ -4,7 +4,8 @@ name: Build full offline APK
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # No cancelar una compilación nativa larga por un push posterior.
+  cancel-in-progress: false
 
 on:
   workflow_dispatch:
