@@ -41,13 +41,19 @@ class BardoPatchApplierTest {
                 val source = File(base, "source-$index").apply { mkdirs() }
                 val file = File(source, path).apply {
                     parentFile?.mkdirs()
-                    writeText(original + "\\n")
+                    writeText(original)
                 }
-                val patch = "--- a/$path\\n+++ b/$path\\n@@ -1 +1 @@\\n-$original\\n+class Altered\\n"
+                val patch = buildString {
+                    appendLine("--- a/$path")
+                    appendLine("+++ b/$path")
+                    appendLine("@@ -1 +1 @@")
+                    appendLine("-$original")
+                    appendLine("+class Altered")
+                }
                 assertTrue("Debe rechazarse $path", runCatching {
                     BardoPatchApplier.aplicar(source, patch, base)
                 }.isFailure)
-                assertEquals(original + "\\n", file.readText())
+                assertEquals(original, file.readText())
             }
         } finally {
             base.deleteRecursively()
