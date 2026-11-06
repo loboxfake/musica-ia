@@ -1498,37 +1498,63 @@ class MainActivity : AppCompatActivity() {
      descargaEnCurso = true
      btnDescargarModelo.isEnabled = false
      progresoModelo.visibility = View.VISIBLE
+     progresoModelo.isIndeterminate = false
      progresoModelo.progress = 0
-     estadoModelo.text = "Descargando modelo local..."
-     Thread {
-         val destino = LiteRTLMModule.modelFile(this)
-         val correcto = DescargadorModelos.descargar(
-             url = LiteRTLMModule.MODEL_URL,
-             destino = destino,
-             shaEsperado = LiteRTLMModule.EXPECTED_SHA256,
-             confirmar = true,
-             progreso = { descargado, total ->
-                 if (total > 0L) {
-                     val porcentaje = ((descargado * 1000L) / total).toInt().coerceIn(0, 1000)
-                     runOnUiThread { progresoModelo.progress = porcentaje }
-                 }
-             },
-             tamanoEsperadoBytes = LiteRTLMModule.EXPECTED_SIZE_BYTES
-         )
-         runOnUiThread {
-             descargaEnCurso = false
-             btnDescargarModelo.isEnabled = true
-             progresoModelo.visibility = View.GONE
-             if (correcto) {
-                 modeloChatVerificado = true
-                 estadoModelo.text = "Modelo descargado y SHA-256 verificado. Ya puedes generar letras sin Internet."
-             } else {
-                 modeloChatVerificado = false
-                 estadoModelo.text = "No se pudo validar la descarga. Comprueba espacio libre y conexión; puedes reintentar."
+     estadoModelo.text = "Preparando descarga del modelo local..."
+     Log.i(etiqueta, "Inicio solicitado de descarga Gemma: \${LiteRTLMModule.EXPECTED_SIZE_BYTES} bytes")
+
+     Thread({
+         var correcto = false
+         var detalleError: String? = null
+         try {
+             val destino = LiteRTLMModule.modelFile(applicationContext)
+             correcto = DescargadorModelos.descargar(
+                 url = LiteRTLMModule.MODEL_URL,
+                 destino = destino,
+                 shaEsperado = LiteRTLMModule.EXPECTED_SHA256,
+                 confirmar = true,
+                 progreso = { descargado, total ->
+                     if (total > 0L) {
+                         val porcentaje = ((descargado * 1000L) / total).toInt().coerceIn(0, 1000)
+                         runOnUiThread {
+                             if (!isFinishing && !isDestroyed) {
+                                 progresoModelo.progress = porcentaje
+                                 val mib = descargado / (1024.0 * 1024.0)
+                                 val totalMib = total / (1024.0 * 1024.0)
+                                 estadoModelo.text = "Descargando Gemma: %.1f / %.1f MiB (%.1f%%)".format(mib, totalMib, porcentaje / 10.0)
+                             }
+                         }
+                     }
+                 },
+                 tamanoEsperadoBytes = LiteRTLMModule.EXPECTED_SIZE_BYTES,
+                 onError = { detalleError = it }
+             )
+             if (!correcto && detalleError.isNullOrBlank()) {
+                 detalleError = "El descargador terminó sin validar el modelo y no proporcionó un motivo."
              }
-             actualizarInsigniaNucleo()
+         } catch (e: Exception) {
+             detalleError = "Error inesperado (\${e.javaClass.simpleName}): \${e.message ?: "sin detalle"}"
+             Log.e(etiqueta, "Fallo al iniciar o ejecutar la descarga de Gemma", e)
+         } finally {
+             runOnUiThread {
+                 descargaEnCurso = false
+                 if (!isFinishing && !isDestroyed) {
+                     btnDescargarModelo.isEnabled = true
+                     progresoModelo.visibility = View.GONE
+                     if (correcto) {
+                         modeloChatVerificado = true
+                         estadoModelo.text = "Modelo descargado y SHA-256 verificado. Ya puedes generar letras sin Internet."
+                         Log.i(etiqueta, "Gemma descargado y validado correctamente")
+                     } else {
+                         modeloChatVerificado = false
+                         estadoModelo.text = "Descarga no completada: \${detalleError ?: "causa no disponible"}"
+                         Log.e(etiqueta, "Descarga de Gemma no completada: \${detalleError ?: "causa no disponible"}")
+                     }
+                     actualizarInsigniaNucleo()
+                 }
+             }
          }
-     }.start()
+     }, "BARDO-Gemma-Download").start()
  }
 
  private fun detalleSalidaProcesoAudio(inicioTareaMs: Long, pidTarea: Int): String {
