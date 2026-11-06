@@ -17,6 +17,7 @@ import java.security.MessageDigest
  */
 object DescargadorModelos {
 
+    @Synchronized
     fun descargar(
         url: String,
         destino: File,
@@ -36,6 +37,19 @@ object DescargadorModelos {
         if (shaEsperado.isNullOrBlank() || !shaEsperado.matches(Regex("(?i)[0-9a-f]{64}"))) {
             return fallar("El SHA-256 esperado no tiene un formato válido.")
         }
+        val urlSegura = runCatching { URL(url) }.getOrElse {
+            return fallar("La dirección del modelo no es válida.")
+        }
+        if (!urlSegura.protocol.equals("https", ignoreCase = true)) {
+            return fallar("Los modelos solo se descargan desde direcciones HTTPS.")
+        }
+        if (destino.exists()) {
+            val yaVerificado = destino.isFile &&
+                destino.length() == tamanoEsperadoBytes &&
+                runCatching { sha256(destino).equals(shaEsperado, ignoreCase = true) }.getOrDefault(false)
+            return if (yaVerificado) true
+            else fallar("Ya existe un archivo de modelo que no coincide con el manifiesto. No se ha sobrescrito; revísalo o elimínalo manualmente.")
+        }
         val padre = destino.absoluteFile.parentFile ?: return fallar("No se pudo determinar la carpeta privada de destino.")
         if (!padre.exists() && !padre.mkdirs()) return fallar("Android no pudo crear la carpeta privada del modelo.")
         if (!padre.isDirectory) return fallar("La ruta de destino no es una carpeta.")
@@ -51,7 +65,7 @@ object DescargadorModelos {
 
         var connection: HttpURLConnection? = null
         try {
-            connection = (URL(url).openConnection() as HttpURLConnection).apply {
+            connection = (urlSegura.openConnection() as HttpURLConnection).apply {
                 connectTimeout = 30_000
                 readTimeout = 60_000
                 instanceFollowRedirects = true
