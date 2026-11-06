@@ -29,10 +29,12 @@ object BardoPdfImporter {
                 endPage = minOf(document.numberOfPages, 500)
             }
             val text = stripper.getText(document).trim()
-            require(text.isNotBlank()) {
-                "El PDF no contiene texto seleccionable. Si es un escaneo o una imagen, necesita OCR."
+            if (text.isNotBlank()) return text.take(500_000)
+            val ocr = BardoOcrImporter.extractScannedPdf(document)
+            require(ocr.isNotBlank()) {
+                "El PDF no contiene texto seleccionable y el OCR no encontró texto legible."
             }
-            return text.take(500_000)
+            return ocr.take(500_000)
         }
     }
 }
