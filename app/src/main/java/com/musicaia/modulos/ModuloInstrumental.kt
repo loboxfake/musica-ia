@@ -5,6 +5,7 @@ import com.musicaia.modelo.Dato
 import com.musicaia.modelo.ModuloIA
 import com.musicaia.modelo.TipoModulo
 import com.musicaia.modelo.BardoResourceBudget
+import com.musicaia.modulos.litert.EngineLiteRT
 import java.io.File
 import java.io.FileOutputStream
 
@@ -31,6 +32,9 @@ class ModuloInstrumental(
     )
 
     override fun cargar(): Boolean {
+        // Libera cualquier Gemma que pudiera seguir residente tras una conversación.
+        // Stable Audio y Gemma no deben competir por la RAM del Xiaomi.
+        EngineLiteRT.cerrar()
         if (!AudioGenNative.available) throw IllegalStateException("El motor nativo ExecuTorch no está disponible en esta APK.")
         val minimumAvailableBytes = 1536L * 1024L * 1024L
         val bloqueoRecursos = BardoResourceBudget.blockingReason(ctx, minimumAvailableBytes)
