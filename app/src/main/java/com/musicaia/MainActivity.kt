@@ -1501,7 +1501,7 @@ class MainActivity : AppCompatActivity() {
      progresoModelo.isIndeterminate = false
      progresoModelo.progress = 0
      estadoModelo.text = "Preparando descarga del modelo local..."
-     Log.i(etiqueta, "Inicio solicitado de descarga Gemma: \${LiteRTLMModule.EXPECTED_SIZE_BYTES} bytes")
+     Log.i(etiqueta, "Inicio solicitado de descarga Gemma: ${LiteRTLMModule.EXPECTED_SIZE_BYTES} bytes")
 
      Thread({
          var correcto = false
@@ -1533,7 +1533,7 @@ class MainActivity : AppCompatActivity() {
                  detalleError = "El descargador terminó sin validar el modelo y no proporcionó un motivo."
              }
          } catch (e: Exception) {
-             detalleError = "Error inesperado (\${e.javaClass.simpleName}): \${e.message ?: "sin detalle"}"
+             detalleError = "Error inesperado (${e.javaClass.simpleName}): ${e.message ?: "sin detalle"}"
              Log.e(etiqueta, "Fallo al iniciar o ejecutar la descarga de Gemma", e)
          } finally {
              runOnUiThread {
@@ -1547,8 +1547,8 @@ class MainActivity : AppCompatActivity() {
                          Log.i(etiqueta, "Gemma descargado y validado correctamente")
                      } else {
                          modeloChatVerificado = false
-                         estadoModelo.text = "Descarga no completada: \${detalleError ?: "causa no disponible"}"
-                         Log.e(etiqueta, "Descarga de Gemma no completada: \${detalleError ?: "causa no disponible"}")
+                         estadoModelo.text = "Descarga no completada: ${detalleError ?: "causa no disponible"}"
+                         Log.e(etiqueta, "Descarga de Gemma no completada: ${detalleError ?: "causa no disponible"}")
                      }
                      actualizarInsigniaNucleo()
                  }
