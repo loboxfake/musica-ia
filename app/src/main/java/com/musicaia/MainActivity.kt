@@ -1311,6 +1311,84 @@ class MainActivity : AppCompatActivity() {
      val taskIdAdjunto = java.util.UUID.randomUUID().toString()
      BardoActivityStore.record(this, taskIdAdjunto, "importacion", "stored", "archivo_copiado", "Adjunto recibido: $nombre ($mime, ${destino.length()} bytes).", null, destino.absolutePath)
      val extension = nombre.substringAfterLast('.', "").lowercase()
+     if (extension in setOf("jpg", "jpeg", "png", "webp", "bmp")) {
+         BardoActivityStore.record(this, taskIdAdjunto, "importacion", "running", "ocr_imagen", "BARDO está intentando extraer texto visible de la imagen mediante OCR local.", 10, destino.absolutePath)
+         Thread({
+             val extraccion = runCatching { com.musicaia.importacion.BardoOcrImporter.extractImage(destino) }
+             runOnUiThread {
+                 if (isFinishing || isDestroyed) return@runOnUiThread
+                 val textoImagen = extraccion.getOrNull().orEmpty()
+                 if (textoImagen.isBlank()) {
+                     val error = extraccion.exceptionOrNull()?.message ?: "El OCR no detectó texto legible."
+                     BardoActivityStore.record(this, taskIdAdjunto, "analisis_imagen", "needs_processor", "ocr_sin_texto", error, null, destino.absolutePath)
+                     anexarChat("\\nBARDO: He conservado la imagen, pero el OCR no ha encontrado texto legible. Esta versión no dispone de un modelo de visión semántica para describir objetos, escenas o imágenes sin texto.")
+                     tvEstado.text = "Imagen conservada; sin texto OCR detectable."
+                     return@runOnUiThread
+                 }
+                 val contenido = textoImagen.take(24000)
+                 BardoActivityStore.record(this, taskIdAdjunto, "analisis_imagen", "ready", "ocr_completado", "OCR local extrajo ${textoImagen.length} caracteres. No equivale a comprensión visual general.", 45, destino.absolutePath)
+                 anexarChat("\\nTú: He adjuntado la imagen «$nombre».")
+                 anexarChat("\\n[TEXTO OCR DE LA IMAGEN]\\n$contenido\\n[FIN DEL TEXTO OCR]")
+                 anexarChat("\\nBARDO: He leído el texto visible de la imagen. No estoy identificando semánticamente los objetos o la escena.")
+                 responderChatLibre("Analiza el texto extraído por OCR de la imagen «$nombre». Explica su contenido, datos y posibles dudas. No infieras detalles visuales que no aparezcan en el texto.\\n\\n$contenido", taskIdAdjunto)
+                 AlertDialog.Builder(this)
+                     .setTitle("Texto de imagen extraído")
+                     .setMessage("Se han extraído ${textoImagen.length} caracteres mediante OCR local. ¿Autorizas incorporar el texto a la biblioteca de conocimiento?")
+                     .setNegativeButton("Solo analizar", null)
+                     .setPositiveButton("Analizar y aprender") { _, _ ->
+                         runCatching {
+                             knowledgeStore.importText("OCR de imagen", nombre, textoImagen)
+                             actualizarEstadoConocimiento()
+                         }.onFailure { anexarChat("\\nBARDO: No pude guardar el OCR: ${it.message}") }
+                     }.show()
+             }
+         }, "BARDO-Image-OCR").start()
+         return
+     }
+     if (extension in setOf("mp4", "mkv", "mov", "3gp", "webm")) {
+         BardoActivityStore.record(this, taskIdAdjunto, "importacion", "running", "ocr_video", "BARDO está muestreando fotogramas y leyendo texto visible; no interpreta la escena ni el audio.", 10, destino.absolutePath)
+         Thread({
+             val extraccion = runCatching { com.musicaia.importacion.BardoOcrImporter.extractVideo(destino) }
+             runOnUiThread {
+                 if (isFinishing || isDestroyed) return@runOnUiThread
+                 val textoVideo = extraccion.getOrNull().orEmpty()
+                 if (textoVideo.isBlank()) {
+                     val error = extraccion.exceptionOrNull()?.message ?: "No se encontró texto en los fotogramas muestreados."
+                     BardoActivityStore.record(this, taskIdAdjunto, "analisis_video", "needs_processor", "ocr_sin_texto", error, null, destino.absolutePath)
+                     anexarChat("\\nBARDO: He conservado el vídeo, pero no he detectado texto en los fotogramas muestreados. Esta versión no dispone de comprensión visual general ni transcripción de audio del vídeo.")
+                     tvEstado.text = "Vídeo conservado; OCR sin texto detectable."
+                     return@runOnUiThread
+                 }
+                 val contenido = textoVideo.take(24000)
+                 BardoActivityStore.record(this, taskIdAdjunto, "analisis_video", "ready", "ocr_fotogramas", "OCR local extrajo texto de fotogramas muestreados.", 45, destino.absolutePath)
+                 anexarChat("\\nTú: He adjuntado el vídeo «$nombre».")
+                 anexarChat("\\n[TEXTO OCR DE FOTOGRAMAS]\\n$contenido\\n[FIN DEL TEXTO OCR]")
+                 responderChatLibre("Analiza el texto visible detectado en algunos fotogramas del vídeo «$nombre». Resume solo la información que aparece en el OCR. No afirmes haber escuchado el audio ni visto semánticamente el vídeo completo.\\n\\n$contenido", taskIdAdjunto)
+             }
+         }, "BARDO-Video-OCR").start()
+         return
+     }
+     if (extension in setOf("wav", "mp3", "m4a", "aac", "ogg", "flac")) {
+         Thread({
+             val metadata = runCatching {
+                 val retriever = MediaMetadataRetriever()
+                 try {
+                     retriever.setDataSource(destino.absolutePath)
+                     val duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+                     val mimeAudio = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_MIMETYPE).orEmpty()
+                     "Duración: ${duration / 1000L}s · Tipo: ${mimeAudio.ifBlank { mime }} · Tamaño: ${destino.length()} bytes"
+                 } finally { retriever.release() }
+             }.getOrElse { "Archivo conservado · Tamaño: ${destino.length()} bytes · Metadatos no disponibles: ${it.message}" }
+             runOnUiThread {
+                 if (isFinishing || isDestroyed) return@runOnUiThread
+                 BardoActivityStore.record(this, taskIdAdjunto, "analisis_audio", "needs_processor", "transcripcion_pendiente", "Metadatos de audio leídos. No hay un motor ASR local integrado para transcribir o comprender el sonido.", 30, destino.absolutePath)
+                 anexarChat("\\nTú: He adjuntado el audio «$nombre».")
+                 anexarChat("\\nBARDO: $metadata. El archivo está conservado, pero todavía no tengo un modelo local de reconocimiento de voz (ASR) para transcribirlo ni analizar su contenido sonoro. No voy a fingir que lo he escuchado.")
+                 tvEstado.text = "Audio importado; transcripción local pendiente de motor ASR."
+             }
+         }, "BARDO-Audio-Metadata").start()
+         return
+     }
      if (extension == "pdf") {
          BardoActivityStore.record(this, taskIdAdjunto, "importacion", "running", "lectura_pdf", "BARDO está extrayendo texto seleccionable del PDF en segundo plano.", 10, destino.absolutePath)
          Thread({
