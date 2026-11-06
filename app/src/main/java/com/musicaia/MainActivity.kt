@@ -1536,6 +1536,7 @@ class MainActivity : AppCompatActivity() {
 
              val digest = java.security.MessageDigest.getInstance("SHA-256")
              var copiados = 0L
+             var ultimoProgresoMs = 0L
              val entrada = contentResolver.openInputStream(uri)
                  ?: throw IllegalStateException("Android no pudo abrir el archivo seleccionado.")
              entrada.use { input ->
@@ -1551,14 +1552,21 @@ class MainActivity : AppCompatActivity() {
                          }
                          digest.update(buffer, 0, leidos)
                          output.write(buffer, 0, leidos)
-                         val porcentaje = ((copiados * 1000L) / LiteRTLMModule.EXPECTED_SIZE_BYTES)
-                             .toInt().coerceIn(0, 1000)
-                         runOnUiThread {
-                             if (!isFinishing && !isDestroyed) {
-                                 progresoModelo.progress = porcentaje
-                                 val mib = copiados / (1024.0 * 1024.0)
-                                 val totalMib = LiteRTLMModule.EXPECTED_SIZE_BYTES / (1024.0 * 1024.0)
-                                 estadoModelo.text = "Importando Gemma: %.1f / %.1f MiB (%.1f%%)".format(mib, totalMib, porcentaje / 10.0)
+                         val ahoraMs = android.os.SystemClock.elapsedRealtime()
+                         if (ahoraMs - ultimoProgresoMs >= 500L ||
+                             copiados == LiteRTLMModule.EXPECTED_SIZE_BYTES
+                         ) {
+                             ultimoProgresoMs = ahoraMs
+                             val bytesActuales = copiados
+                             val porcentaje = ((bytesActuales * 1000L) / LiteRTLMModule.EXPECTED_SIZE_BYTES)
+                                 .toInt().coerceIn(0, 1000)
+                             runOnUiThread {
+                                 if (!isFinishing && !isDestroyed) {
+                                     progresoModelo.progress = porcentaje
+                                     val mib = bytesActuales / (1024.0 * 1024.0)
+                                     val totalMib = LiteRTLMModule.EXPECTED_SIZE_BYTES / (1024.0 * 1024.0)
+                                     estadoModelo.text = "Importando Gemma: %.1f / %.1f MiB (%.1f%%)".format(mib, totalMib, porcentaje / 10.0)
+                                 }
                              }
                          }
                      }
