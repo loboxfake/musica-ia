@@ -83,7 +83,7 @@ object WavSegmentDiagnostics {
         val b = input.read()
         val c = input.read()
         val d = input.read()
-        require(d >= 0) { "Cabecera WAV truncada." }
+        require(a >= 0 && b >= 0 && c >= 0 && d >= 0) { "Cabecera WAV truncada." }
         return (a and 0xff) or ((b and 0xff) shl 8) or
             ((c and 0xff) shl 16) or ((d and 0xff) shl 24)
     }
@@ -91,7 +91,7 @@ object WavSegmentDiagnostics {
     private fun readUnsignedShortLe(input: RandomAccessFile): Int {
         val a = input.read()
         val b = input.read()
-        require(b >= 0) { "Cabecera WAV truncada." }
+        require(a >= 0 && b >= 0) { "Cabecera WAV truncada." }
         return (a and 0xff) or ((b and 0xff) shl 8)
     }
 }
