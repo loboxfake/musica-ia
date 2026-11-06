@@ -4,6 +4,7 @@ import android.content.Context
 import com.musicaia.modelo.Dato
 import com.musicaia.modelo.ModuloIA
 import com.musicaia.modelo.TipoModulo
+import com.musicaia.modelo.BardoResourceBudget
 import java.io.File
 import java.io.FileOutputStream
 
@@ -31,16 +32,11 @@ class ModuloInstrumental(
 
     override fun cargar(): Boolean {
         if (!AudioGenNative.available) throw IllegalStateException("El motor nativo ExecuTorch no está disponible en esta APK.")
-        val memoryInfo = android.app.ActivityManager.MemoryInfo()
-        val activityManager = ctx.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
-        activityManager.getMemoryInfo(memoryInfo)
         val minimumAvailableBytes = 1536L * 1024L * 1024L
-        if (memoryInfo.lowMemory || memoryInfo.availMem < minimumAvailableBytes) {
-            android.util.Log.w(
-                "BARDO-AudioGen",
-                "Inferencia cancelada antes de cargar modelos: memoria disponible=${memoryInfo.availMem / (1024L * 1024L)} MiB"
-            )
-            throw IllegalStateException("Memoria RAM insuficiente para cargar Stable Audio: disponibles ${memoryInfo.availMem / (1024L * 1024L)} MiB; se requieren al menos ${minimumAvailableBytes / (1024L * 1024L)} MiB.")
+        val bloqueoRecursos = BardoResourceBudget.blockingReason(ctx, minimumAvailableBytes)
+        if (bloqueoRecursos != null) {
+            android.util.Log.w("BARDO-AudioGen", "Inferencia aplazada por presupuesto de recursos: $bloqueoRecursos")
+            throw IllegalStateException("No se cargará Stable Audio todavía. $bloqueoRecursos")
         }
         val modelDir = File(ctx.filesDir, "stable_audio_model")
         if (!modelDir.exists() && !modelDir.mkdirs()) throw IllegalStateException("No se pudo crear el directorio privado del modelo Stable Audio.")
