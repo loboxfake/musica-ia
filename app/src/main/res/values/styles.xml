@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.MusicalIA" parent="Theme.AppCompat.NoActionBar">
-        <item name="colorAccent">#16CFF4</item>
-        <item name="android:colorAccent">#16CFF4</item>
+        <item name="colorAccent">#4ED1F1</item>
+        <item name="android:colorAccent">#4ED1F1</item>
         <item name="buttonStyle">@style/BardoButton</item>
         <item name="editTextStyle">@style/BardoEditText</item>
         <item name="android:fontFamily">sans</item>
         <item name="android:windowLightStatusBar">false</item>
-        <item name="android:statusBarColor">#070D20</item>
-        <item name="android:navigationBarColor">#070D20</item>
+        <item name="android:statusBarColor">#02081B</item>
+        <item name="android:navigationBarColor">#02081B</item>
         <item name="android:windowActionModeOverlay">true</item>
         <item name="android:windowLightNavigationBar">false</item>
     </style>
