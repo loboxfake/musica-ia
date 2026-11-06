@@ -10,7 +10,7 @@ class ManifiestoModelo(
     val tamanoMb: Double,
     val ramMinimaMb: Int,
     val licencia: String,
-    val atribucion: String = "No indicada",
+    val atribucion: String = "",
     val usoComercial: Boolean,
     val urlDescarga: String,
     val sha256: String,
