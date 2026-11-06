@@ -1442,11 +1442,11 @@ class MainActivity : AppCompatActivity() {
                  tvEstado.text = "No se pudo restaurar la copia: $error"
              } else {
                  actualizarEstadoConocimiento()
-                 BardoActivityStore.record(this, taskId, "restauracion", "completed", "combinacion", "Conversaciones añadidas: ${restaurado.conversationsAdded}; referencias añadidas: ${restaurado.knowledgeAdded}.", 100)
+                 BardoActivityStore.record(this, taskId, "restauracion", "completed", "combinacion", "Conversaciones añadidas: ${restaurado.conversationsAdded}; mensajes añadidos: ${restaurado.messagesAdded}; referencias añadidas: ${restaurado.knowledgeAdded}.", 100)
                  val avisos = if (restaurado.warnings.isEmpty()) "" else "\n\nAvisos:\n" + restaurado.warnings.take(8).joinToString("\n")
                  AlertDialog.Builder(this)
                      .setTitle("Restauración terminada")
-                     .setMessage("Conversaciones nuevas: ${restaurado.conversationsAdded}\nReferencias nuevas: ${restaurado.knowledgeAdded}$avisos")
+                     .setMessage("Conversaciones nuevas: ${restaurado.conversationsAdded}\nMensajes nuevos: ${restaurado.messagesAdded}\nReferencias nuevas: ${restaurado.knowledgeAdded}$avisos")
                      .setPositiveButton("Aceptar", null)
                      .show()
                  tvEstado.text = "Copia restaurada y combinada sin borrar los datos actuales."
