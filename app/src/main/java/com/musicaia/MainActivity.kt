@@ -38,6 +38,7 @@ import com.musicaia.modelo.BardoIntentRouter
 import com.musicaia.modelo.BardoCapabilityRegistry
 import com.musicaia.memoria.BardoConversationStore
 import com.musicaia.memoria.BardoKnowledgeStore
+import com.musicaia.memoria.BardoActivityStore
 import java.io.File
 import java.io.FileOutputStream
 import java.text.Normalizer
@@ -196,6 +197,11 @@ class MainActivity : AppCompatActivity() {
  registerForActivityResult(ActivityResultContracts.RequestPermission()) { concedido ->
  if (concedido) alternarGrabacion() else tvEstadoVoz.text = "Sin permiso de micrófono."
  }
+
+ private val selectorAdjuntoChat =
+     registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+         if (uri != null) procesarAdjuntoChat(uri)
+     }
 
  private val selectorVoz =
  registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -435,7 +441,9 @@ class MainActivity : AppCompatActivity() {
  editLetra.addTextChangedListener { actualizarUI() }
  editPromptInstrumental.addTextChangedListener { actualizarUI() }
 
+ findViewById<Button>(R.id.btnAdjuntarChat).setOnClickListener { selectorAdjuntoChat.launch(arrayOf("*/*")) }
  btnEnviar.setOnClickListener { enviarConversacion() }
+ findViewById<Button>(R.id.btnActividadBardo).setOnClickListener { mostrarActividadBardo() }
  findViewById<Button>(R.id.btnNuevaConversacion).setOnClickListener { crearConversacionNueva() }
  findViewById<Button>(R.id.btnVerHistorial).setOnClickListener { mostrarHistorialConversaciones() }
  findViewById<Button>(R.id.btnBuscarHistorial).setOnClickListener { mostrarBusquedaHistorial() }
@@ -1212,6 +1220,106 @@ class MainActivity : AppCompatActivity() {
 
  private fun seleccionarArchivoVoz() {
  selectorVoz.launch(arrayOf("audio/wav", "audio/*"))
+ }
+
+ private fun mostrarActividadBardo() {
+     val texto = TextView(this).apply {
+         setTextColor(android.graphics.Color.parseColor("#DCE8F8"))
+         textSize = 13f
+         setPadding(20, 12, 20, 12)
+     }
+     val scroll = ScrollView(this).apply { addView(texto) }
+     val dialogo = AlertDialog.Builder(this)
+         .setTitle("BARDO · Actividad y trabajos")
+         .setView(scroll)
+         .setPositiveButton("Cerrar", null)
+         .create()
+     val refresco = object : Runnable {
+         override fun run() {
+             if (!dialogo.isShowing) return
+             val eventos = BardoActivityStore.recent(this@MainActivity, 250)
+             texto.text = if (eventos.isEmpty()) {
+                 "Todavía no hay tareas registradas en esta versión."
+             } else eventos.joinToString("\\n\\n────────────────────\\n\\n") { evento ->
+                 val fecha = DateTimeFormatter.ofPattern("dd/MM HH:mm:ss").withZone(ZoneId.systemDefault())
+                     .format(Instant.ofEpochMilli(evento.timestamp))
+                 buildString {
+                     append(fecha).append(" · ").append(evento.category.uppercase()).append("\\n")
+                     append(evento.state.uppercase()).append(" · ").append(evento.stage)
+                     evento.progress?.let { append(" · ").append(it).append("%") }
+                     append("\\n").append(evento.message)
+                     evento.artifact?.let { append("\\nResultado: ").append(it) }
+                 }
+             }
+             handler.postDelayed(this, 2500L)
+         }
+     }
+     dialogo.setOnDismissListener { handler.removeCallbacks(refresco) }
+     dialogo.setOnShowListener { handler.post(refresco) }
+     dialogo.show()
+ }
+
+ private fun procesarAdjuntoChat(uri: Uri) {
+     val nombre = contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+         ?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
+         ?: "archivo_importado"
+     val mime = contentResolver.getType(uri) ?: "application/octet-stream"
+     val carpeta = File(filesDir, "imports")
+     if (!carpeta.exists() && !carpeta.mkdirs()) {
+         tvEstado.text = "No se pudo preparar el espacio de importación."
+         return
+     }
+     val nombreSeguro = nombre.substringAfterLast('/').substringAfterLast('\\\\')
+         .replace(Regex("[^A-Za-z0-9._-]"), "_").take(100).ifBlank { "archivo" }
+     val destino = File(carpeta, "${System.currentTimeMillis()}_${nombreSeguro}")
+     try {
+         contentResolver.openInputStream(uri)?.use { input ->
+             FileOutputStream(destino).use { output ->
+                 val buffer = ByteArray(64 * 1024)
+                 var total = 0L
+                 while (true) {
+                     val count = input.read(buffer)
+                     if (count < 0) break
+                     total += count
+                     require(total <= 100L * 1024L * 1024L) { "El archivo supera el límite de 100 MB." }
+                     output.write(buffer, 0, count)
+                 }
+                 output.fd.sync()
+             }
+         } ?: throw IllegalStateException("Android no pudo abrir el archivo seleccionado.")
+     } catch (error: Exception) {
+         destino.delete()
+         tvEstado.text = "No se pudo importar el archivo: ${error.message}"
+         anexarChat("\\nBARDO: No he podido importar «$nombre»: ${error.message}")
+         return
+     }
+
+     val extension = nombre.substringAfterLast('.', "").lowercase()
+     val esTexto = mime.startsWith("text/") || mime in setOf("application/json", "application/xml") ||
+         extension in setOf("txt", "md", "markdown", "json", "csv", "xml", "log")
+     anexarChat("\\nTú: He adjuntado «$nombre» ($mime, ${destino.length()} bytes).")
+     if (!esTexto) {
+         anexarChat("\\nBARDO: El archivo se ha conservado en el espacio privado de importaciones. En esta versión todavía no tengo un procesador verificado para interpretar automáticamente este formato; no voy a fingir que he analizado su contenido. La ruta interna es ${destino.name}.")
+         tvEstado.text = "Adjunto conservado; análisis del formato pendiente de un procesador compatible."
+         return
+     }
+     val contenido = runCatching { destino.inputStream().bufferedReader(Charsets.UTF_8).use { it.readText().take(30000) } }
+         .getOrElse {
+             anexarChat("\\nBARDO: No pude decodificar el texto como UTF-8: ${it.message}")
+             return
+         }
+     anexarChat("\\nBARDO: He extraído ${contenido.length} caracteres de «$nombre». Puedo analizar este contenido en el contexto del chat. ¿Quieres además incorporarlo a mi biblioteca de conocimiento persistente?")
+     AlertDialog.Builder(this)
+         .setTitle("Adjunto listo para analizar")
+         .setMessage("Archivo: $nombre\\nTipo: $mime\\nTexto extraído: ${contenido.length} caracteres.\\n\\n¿Autorizas guardar una copia de referencia en la memoria de conocimiento de BARDO?")
+         .setNegativeButton("Solo analizar en este chat", null)
+         .setPositiveButton("Analizar y aprender") { _, _ ->
+             runCatching {
+                 knowledgeStore.importText("Adjunto del chat", nombre, contenido)
+                 actualizarEstadoConocimiento()
+                 anexarChat("\\nBARDO: Referencia «$nombre» incorporada a la biblioteca local, conservando su procedencia.")
+             }.onFailure { anexarChat("\\nBARDO: No pude guardar la referencia: ${it.message}") }
+         }.show()
  }
 
  private fun enviarConversacion() {
