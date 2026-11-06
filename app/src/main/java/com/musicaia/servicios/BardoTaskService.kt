@@ -275,7 +275,7 @@ class BardoTaskService : Service() {
 
     private fun publicarEstado(estado: String, mensaje: String) {
         getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_STATE, estado).putString(KEY_MESSAGE, mensaje).apply()
-        val progreso = Regex("INSTRUMENTAL (\\\\d+)/(\\\\d+)").find(mensaje)?.let { match ->
+        val progreso = Regex("""INSTRUMENTAL (\d+)/(\d+)""").find(mensaje)?.let { match ->
             val actual = match.groupValues[1].toIntOrNull() ?: 0
             val total = match.groupValues[2].toIntOrNull()?.coerceAtLeast(1) ?: 1
             (actual * 100 / total).coerceIn(0, 99)
