@@ -662,23 +662,26 @@ class MainActivity : AppCompatActivity() {
 
  private fun mostrarCapacidades() {
      val modelo = LiteRTLMModule.modelFile(this)
+     val memoriaLibre = memoriaLibreActualBytes()
      val capacidades = BardoCapabilityRegistry.snapshot(
          BardoCapabilityRegistry.RuntimeFacts(
              gemmaFilePresent = modelo.isFile && modelo.length() == LiteRTLMModule.EXPECTED_SIZE_BYTES,
              audioEnginePresent = AudioGenNative.available,
-             mp3EncoderPresent = Mp3Exporter.available
+             mp3EncoderPresent = Mp3Exporter.available,
+             availableMemoryBytes = memoriaLibre
          )
      )
      val texto = capacidades.joinToString("\n\n") { item ->
          val estado = when (item.status) {
              BardoCapabilityRegistry.Status.AVAILABLE -> "Disponible según los componentes detectados"
              BardoCapabilityRegistry.Status.NEEDS_MODEL -> "Necesita modelo local"
+             BardoCapabilityRegistry.Status.NEEDS_MEMORY -> "Memoria RAM libre insuficiente"
              BardoCapabilityRegistry.Status.NEEDS_FULL_APK -> "Necesita APK offline completa"
              BardoCapabilityRegistry.Status.REQUIRES_USER_ACTION -> "Requiere autorización explícita"
              BardoCapabilityRegistry.Status.NOT_IMPLEMENTED -> "Todavía no implementada"
          }
          "${item.name}\nEstado: $estado\n${item.detail}"
-     } + "\n\nLa detección de componentes no sustituye una prueba funcional en el Xiaomi 11T Pro."
+     } + "\n\nRAM libre detectada: ${memoriaLibre / (1024L * 1024L * 1024L)} GB. Umbral preventivo Gemma: 4 GB. La detección de componentes no sustituye una prueba funcional en el Xiaomi 11T Pro."
      AlertDialog.Builder(this)
          .setTitle("Capacidades de BARDO")
          .setMessage(texto)
@@ -789,6 +792,21 @@ class MainActivity : AppCompatActivity() {
          "[$hora] $autor: ${mensaje.content}"
      }
      renderizarBurbujasChat()
+ }
+
+ private fun memoriaLibreActualBytes(): Long {
+     val activityManager = getSystemService(android.app.ActivityManager::class.java)
+     val info = android.app.ActivityManager.MemoryInfo()
+     activityManager.getMemoryInfo(info)
+     return info.availMem
+ }
+
+ private fun bloqueoGemmaPorMemoria(): String? {
+     val libre = memoriaLibreActualBytes()
+     val minimo = BardoCapabilityRegistry.MIN_GEMMA_FREE_MEMORY_BYTES
+     if (libre >= minimo) return null
+     val gb = libre / (1024L * 1024L * 1024L)
+     return "Gemma está instalado, pero Android informa solo $gb GB de RAM disponible. BARDO no intentará cargar el modelo para reducir el riesgo de cierre por falta de memoria. Cierra otras aplicaciones y vuelve a intentarlo cuando haya al menos 4 GB disponibles."
  }
 
  private fun dp(valor: Int): Int = (valor * resources.displayMetrics.density).toInt()
@@ -1257,6 +1275,12 @@ class MainActivity : AppCompatActivity() {
          anexarChat("\nBARDO: $respuestaGuiada")
          return
      }
+     val bloqueoMemoria = bloqueoGemmaPorMemoria()
+     if (bloqueoMemoria != null) {
+         anexarChat("\nBARDO: $respuestaGuiada\nBARDO: $bloqueoMemoria")
+         tvEstado.text = "Gemma no se ha cargado: memoria RAM libre insuficiente."
+         return
+     }
      // Capturar el estado de la UI en el hilo principal antes de iniciar el trabajador.
      val memoriaPrompt = datosConver.entries.joinToString("\n") { it.key + ": " + it.value }
      val contextoPrompt = chatLog.text.toString().takeLast(5000)
@@ -1307,6 +1331,12 @@ class MainActivity : AppCompatActivity() {
      if (!modelo.isFile || modelo.length() != LiteRTLMModule.EXPECTED_SIZE_BYTES) {
          anexarChat("\nBARDO: El chat general libre todavía necesita el modelo local Gemma 4 E2B (2,6 GB), que no está disponible en el almacenamiento de la aplicación. No voy a simular una respuesta de IA ni activar la creación musical cuando no la has pedido.")
          tvEstado.text = "Chat general: modelo local no instalado. El flujo musical guiado sigue disponible."
+         return
+     }
+     val bloqueoMemoria = bloqueoGemmaPorMemoria()
+     if (bloqueoMemoria != null) {
+         anexarChat("\nBARDO: $bloqueoMemoria")
+         tvEstado.text = "Chat general detenido preventivamente: RAM libre inferior a 4 GB."
          return
      }
 
