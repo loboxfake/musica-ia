@@ -2182,7 +2182,13 @@ class MainActivity : AppCompatActivity() {
  return
  }
 
- val nombre = "bardo_" + System.currentTimeMillis() + ".mp3"
+ val estiloBase = datosConver["estilo"] ?: editPromptInstrumental.text.toString()
+ val estiloSlug = java.text.Normalizer.normalize(estiloBase, java.text.Normalizer.Form.NFD)
+     .replace(Regex("\\p{Mn}+"), "")
+ val estiloArchivo = Regex("[^A-Za-z0-9]+").replace(estiloSlug, "_").trim('_').take(28).ifBlank { "instrumental" }
+ val fechaArchivo = DateTimeFormatter.ofPattern("yyyyMMdd_HHmm")
+     .withZone(ZoneId.systemDefault()).format(Instant.now())
+ val nombre = "BARDO_${fechaArchivo}_${estiloArchivo}.mp3"
  val temporal = File(cacheDir, nombre)
  val guardarEnCarpeta = uriCarpetaBardo != null
  btnGuardar.isEnabled = false
