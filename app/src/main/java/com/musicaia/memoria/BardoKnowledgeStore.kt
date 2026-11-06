@@ -52,14 +52,20 @@ class BardoKnowledgeStore internal constructor(private val directory: File) {
         directory.listFiles { file -> file.isFile && file.extension == "json" }.orEmpty()
             .mapNotNull { file -> runCatching {
                 val json = JSONObject(file.readText(Charsets.UTF_8))
-                Entry(json.getString("id"), json.optString("title"), json.optString("source"),
+                val id = json.getString("id")
+                if (!isValidId(id)) return@runCatching null
+                Entry(id, json.optString("title"), json.optString("source"),
                     json.optLong("createdAt"), json.optInt("characters"), json.optString("sha256"))
             }.getOrNull() }
             .sortedByDescending { it.createdAt }
     }
 
+    private fun isValidId(value: String): Boolean =
+        runCatching { UUID.fromString(value).toString().equals(value, ignoreCase = true) }.getOrDefault(false)
+
     /** Devuelve solo contenido cuya huella coincide con la ficha local. */
     private fun readVerified(entry: Entry): String? {
+        if (!isValidId(entry.id)) return null
         if (!entry.sha256.matches(Regex("[0-9a-fA-F]{64}"))) return null
         val file = File(directory, "${entry.id}.txt")
         if (!file.isFile) return null
