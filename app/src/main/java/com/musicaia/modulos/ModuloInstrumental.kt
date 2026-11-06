@@ -14,6 +14,7 @@ import java.io.FileOutputStream
 class ModuloInstrumental(
     context: Context,
     private val songContext: String,
+    private val quickTest: Boolean = false,
     private val onSegmentProgress: (Int, Int, String) -> Unit = { _, _, _ -> },
     private val isCancellationRequested: () -> Boolean = { false }
 ) : ModuloIA {
@@ -112,11 +113,13 @@ class ModuloInstrumental(
             "outro: resolved ending with a natural musical tail"
         )
 
+        val sectionsToGenerate = if (quickTest) sectionNames.take(1) else sectionNames
         val segments = mutableListOf<File>()
         try {
-            sectionNames.forEachIndexed { index, section ->
+            sectionsToGenerate.forEachIndexed { index, section ->
+                val segmentStartedAt = System.currentTimeMillis()
                 if (isCancellationRequested()) throw java.util.concurrent.CancellationException("Cancelación solicitada por el usuario.")
-                onSegmentProgress(index + 1, sectionNames.size + 2, "Preparando ${section.substringBefore(':')}")
+                onSegmentProgress(index + 1, sectionsToGenerate.size, "Preparando ${section.substringBefore(':')}")
                 val previousSection = sectionNames.getOrNull(index - 1)
                 val prompt = buildPrompt(section, lyrics, previousSection)
                 val segment = File(workDir, "segment_%02d.wav".format(index + 1))
@@ -130,11 +133,12 @@ class ModuloInstrumental(
                     throw IllegalStateException("El modelo de audio no generó el segmento ${index + 1}/${sectionNames.size}.")
                 }
                 segments.add(segment)
-                onSegmentProgress(index + 1, sectionNames.size + 2, "Segmento ${index + 1}/${sectionNames.size} generado (${segment.length()} bytes)")
+                val segmentSeconds = ((System.currentTimeMillis() - segmentStartedAt) / 1000L).coerceAtLeast(0L)
+                onSegmentProgress(index + 1, sectionsToGenerate.size, "Segmento ${index + 1}/${sectionsToGenerate.size} generado en ${segmentSeconds}s (${segment.length()} bytes)")
                 if (isCancellationRequested()) throw java.util.concurrent.CancellationException("Cancelación solicitada por el usuario.")
             }
 
-            onSegmentProgress(sectionNames.size + 1, sectionNames.size + 2, "Uniendo y validando los ${sectionNames.size} segmentos WAV")
+            onSegmentProgress(sectionsToGenerate.size, sectionsToGenerate.size, "Uniendo y validando los ${sectionsToGenerate.size} segmentos WAV")
             if (isCancellationRequested()) throw java.util.concurrent.CancellationException("Cancelación solicitada por el usuario.")
             val output = File(ctx.filesDir, "instrumental_ai.wav")
             AudioAssembler.assemble(
@@ -147,10 +151,11 @@ class ModuloInstrumental(
                 throw IllegalStateException("El WAV instrumental final está vacío.")
             }
             val durationSeconds = (output.length() - 44L).toDouble() / (44100.0 * 2.0 * 2.0)
-            if (durationSeconds < 180.0) {
-                throw IllegalStateException("El instrumental generado dura menos de 3 minutos.")
+            val minimumDuration = if (quickTest) 2.0 else 180.0
+            if (durationSeconds < minimumDuration) {
+                throw IllegalStateException(if (quickTest) "La prueba rápida generó menos de 2 segundos de audio." else "El instrumental generado dura menos de 3 minutos.")
             }
-            onSegmentProgress(sectionNames.size + 1, sectionNames.size + 2, "WAV final validado (${output.length()} bytes)")
+            onSegmentProgress(sectionsToGenerate.size, sectionsToGenerate.size, "WAV final validado (${output.length()} bytes)")
             return Dato.Audio(output.absolutePath, 44100)
         } finally {
             workDir.deleteRecursively()
