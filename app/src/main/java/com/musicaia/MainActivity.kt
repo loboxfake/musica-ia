@@ -2504,7 +2504,7 @@ class MainActivity : AppCompatActivity() {
                  btnGuardar.visibility = View.VISIBLE
                  btnReproducir.visibility = View.VISIBLE
                  BardoActivityStore.record(this, taskId, "mezcla_voz", "completed", "wav_mezclado", "Mezcla real de voz propia e instrumental guardada.", 100, mezcla.absolutePath)
-                 tvResultado.text = "MEZCLA REAL CON TU VOZ\\nWAV: ${mezcla.length()} bytes\\nVoz: ${voz.name}\\nInstrumental: ${instrumental.name}"
+                 tvResultado.text = "MEZCLA REAL CON TU VOZ\nWAV: ${mezcla.length()} bytes\nVoz: ${voz.name}\nInstrumental: ${instrumental.name}"
                  anexarChat("\nBARDO: La mezcla real con tu voz está terminada y guardada en WAV. Puedes reproducirla y exportarla a MP3.")
                  tvEstado.text = "Mezcla real con voz propia completada."
                  archivarTareaEnCarpetaBardo(mezcla.absolutePath, "", letra, false)
