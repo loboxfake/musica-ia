@@ -725,18 +725,36 @@ class MainActivity : AppCompatActivity() {
              resourceBlockReason = BardoResourceBudget.blockingReason(this, BardoCapabilityRegistry.MIN_GEMMA_FREE_MEMORY_BYTES)
          )
      )
-     val texto = capacidades.joinToString("\n\n") { item ->
+     val texto = android.text.SpannableStringBuilder()
+     capacidades.forEach { item ->
          val estado = when (item.status) {
-             BardoCapabilityRegistry.Status.AVAILABLE -> "Disponible según los componentes detectados"
-             BardoCapabilityRegistry.Status.NEEDS_MODEL -> "Necesita modelo local"
-             BardoCapabilityRegistry.Status.NEEDS_MEMORY -> "Memoria RAM libre insuficiente"
-             BardoCapabilityRegistry.Status.NEEDS_RESOURCES -> "Bloqueado por recursos del dispositivo"
-             BardoCapabilityRegistry.Status.NEEDS_FULL_APK -> "Necesita APK offline completa"
-             BardoCapabilityRegistry.Status.REQUIRES_USER_ACTION -> "Requiere autorización explícita"
-             BardoCapabilityRegistry.Status.NOT_IMPLEMENTED -> "Todavía no implementada"
+             BardoCapabilityRegistry.Status.AVAILABLE -> "Componente detectado · prueba Xiaomi pendiente"
+             BardoCapabilityRegistry.Status.NEEDS_MODEL -> "BLOQUEADO · falta modelo local"
+             BardoCapabilityRegistry.Status.NEEDS_MEMORY -> "BLOQUEADO · RAM insuficiente"
+             BardoCapabilityRegistry.Status.NEEDS_RESOURCES -> "BLOQUEADO · batería o temperatura"
+             BardoCapabilityRegistry.Status.NEEDS_FULL_APK -> "BLOQUEADO · falta APK offline completa"
+             BardoCapabilityRegistry.Status.REQUIRES_USER_ACTION -> "ESPERA · requiere tu autorización"
+             BardoCapabilityRegistry.Status.NOT_IMPLEMENTED -> "NO IMPLEMENTADO"
          }
-         "${item.name}\nEstado: $estado\n${item.detail}"
-     } + "\n\nRAM libre detectada: ${memoriaLibre / (1024L * 1024L * 1024L)} GB. Umbral preventivo Gemma: 4 GB. La detección de componentes no sustituye una prueba funcional en el Xiaomi 11T Pro."
+         val color = when (item.status) {
+             BardoCapabilityRegistry.Status.AVAILABLE -> android.graphics.Color.rgb(72, 213, 151)
+             BardoCapabilityRegistry.Status.REQUIRES_USER_ACTION -> android.graphics.Color.rgb(217, 184, 107)
+             else -> android.graphics.Color.rgb(255, 101, 122)
+         }
+         texto.append(item.name).append("\nEstado: ")
+         val inicioEstado = texto.length
+         texto.append(estado)
+         texto.setSpan(
+             android.text.style.ForegroundColorSpan(color),
+             inicioEstado,
+             texto.length,
+             android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+         )
+         texto.append("\n").append(item.detail)
+             .append("\nCriterio de aceptación: ").append(item.acceptanceCriteria)
+             .append("\n\n")
+     }
+     texto.append("RAM libre detectada: ${memoriaLibre / (1024L * 1024L * 1024L)} GB. Umbral preventivo Gemma: 4 GB. Verde significa componente detectado, no prueba en el teléfono; solo se marca como probado cuando tú lo confirmes tras instalar y usar la APK.")
      AlertDialog.Builder(this)
          .setTitle("Capacidades de BARDO")
          .setMessage(texto)
