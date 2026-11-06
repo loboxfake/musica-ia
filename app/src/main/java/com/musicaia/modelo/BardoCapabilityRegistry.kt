@@ -10,7 +10,8 @@ object BardoCapabilityRegistry {
         val id: String,
         val name: String,
         val status: Status,
-        val detail: String
+        val detail: String,
+        val acceptanceCriteria: String
     )
 
     data class RuntimeFacts(
@@ -39,7 +40,7 @@ object BardoCapabilityRegistry {
         val localModelStatus = gemmaStatus(facts)
         val localModelDetail = gemmaDetail(facts)
         return listOf(
-            Capability("general_chat", "Conversación general local", localModelStatus, localModelDetail),
+            Capability("general_chat", "Conversación general local", localModelStatus, localModelDetail, "Gemma verificado por SHA-256; conversación real sin Internet en el Xiaomi, sin cierres ni respuestas simuladas."),
             Capability(
                 "lyrics", "Generación de letras",
                 localModelStatus,
@@ -48,25 +49,28 @@ object BardoCapabilityRegistry {
                     Status.NEEDS_MEMORY -> "Necesita más memoria RAM libre para cargar Gemma de forma prudente."
                     Status.NEEDS_RESOURCES -> facts.resourceBlockReason.orEmpty()
                     else -> "Generación local condicionada a que Gemma supere la verificación y pueda ejecutarse."
-                }
+                },
+                "Crear letra nueva y coherente con los datos; no usar plantillas fijas; reproducir y revisar el resultado."
             ),
             Capability(
                 "instrumental", "Generación instrumental",
                 if (facts.audioEnginePresent) Status.AVAILABLE else Status.NEEDS_FULL_APK,
-                if (facts.audioEnginePresent) "Motor nativo local incluido; la generación real requiere superar las comprobaciones de memoria y modelo." else "Necesita la APK offline completa con ExecuTorch y Stable Audio."
+                if (facts.audioEnginePresent) "Motor nativo local incluido; la generación real requiere superar las comprobaciones de memoria y modelo." else "Necesita la APK offline completa con ExecuTorch y Stable Audio.",
+                "Prueba rápida en modo avión; luego 18 segmentos, diagnóstico WAV, duración final mínima de 180 s y escucha sin huecos artificiales."
             ),
             Capability(
                 "mp3_export", "Exportación MP3",
                 if (facts.mp3EncoderPresent) Status.AVAILABLE else Status.NEEDS_FULL_APK,
-                if (facts.mp3EncoderPresent) "Codificador local disponible." else "Codificador nativo no incluido en esta compilación."
+                if (facts.mp3EncoderPresent) "Codificador local disponible." else "Codificador nativo no incluido en esta compilación.",
+                "Guardar MP3 reproducible en Descargas/BARDO y compartirlo con una acción independiente."
             ),
-            Capability("history", "Historial con fechas y exportación", Status.AVAILABLE, "Conversaciones locales, recuperación, exportación JSON/TXT e importación validada."),
-            Capability("knowledge", "Biblioteca de conocimiento", Status.AVAILABLE, "Importación local, SHA-256 verificado al recuperar y búsqueda textual; no modifica los pesos del modelo."),
-            Capability("research", "Investigación web autorizada", Status.REQUIRES_USER_ACTION, "Solo tras pulsar investigar; HTTPS y dominios de documentación permitidos."),
-            Capability("code_audit", "Auditoría de código", Status.AVAILABLE, "Análisis estático de un snapshot; no demuestra que el proyecto compile."),
-            Capability("patch_sandbox", "Propuestas de parches aislados", Status.AVAILABLE, "Solo crea una copia candidata; no modifica la aplicación instalada."),
-            Capability("voice_synthesis", "Generación de voz cantada", Status.NOT_IMPLEMENTED, "Todavía no está integrada."),
-            Capability("self_install", "Autoactualización silenciosa", Status.NOT_IMPLEMENTED, "Android exige aprobación e instalación mediante el sistema.")
+            Capability("history", "Historial con fechas y exportación", Status.AVAILABLE, "Conversaciones locales, recuperación, exportación JSON/TXT e importación validada.", "Exportar el historial a BARDO/Historial y comprobar que se abre y se puede recuperar."),
+            Capability("knowledge", "Biblioteca de conocimiento", Status.AVAILABLE, "Importación local, SHA-256 verificado al recuperar y búsqueda textual; no modifica los pesos del modelo.", "Mostrar origen, pedir aprobación de guardado y recuperar contenido pertinente sin seguir instrucciones incrustadas."),
+            Capability("research", "Investigación web autorizada", Status.REQUIRES_USER_ACTION, "Solo tras pulsar investigar; HTTPS y dominios de documentación permitidos.", "Acción explícita del usuario, fuentes citadas y ninguna afirmación de investigación sin conexión."),
+            Capability("code_audit", "Auditoría de código", Status.AVAILABLE, "Análisis estático de un snapshot; no demuestra que el proyecto compile.", "Informe reproducible de archivos y hallazgos; diferenciar análisis estático de compilación y pruebas."),
+            Capability("patch_sandbox", "Propuestas de parches aislados", Status.AVAILABLE, "Solo crea una copia candidata; no modifica la aplicación instalada.", "Diff aislado, pruebas previas, SHA de protecciones intactos, auditoría y reversión demostrable."),
+            Capability("voice_synthesis", "Generación de voz cantada", Status.NOT_IMPLEMENTED, "Todavía no está integrada.", "Modelo de voz legítimo, consentimiento, WAV real reproducible y pruebas de calidad; MiVoz sigue pendiente."),
+            Capability("self_install", "Actualización asistida", Status.NOT_IMPLEMENTED, "Release y parche diferencial aún pendientes; Android exige aprobación e instalación mediante el sistema.", "APK completa y parche publicados, SHA-256 y certificado coincidentes, copia de datos y confirmación del instalador Android.")
         )
     }
 }
