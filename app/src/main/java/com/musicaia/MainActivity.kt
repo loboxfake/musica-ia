@@ -615,7 +615,7 @@ class MainActivity : AppCompatActivity() {
          val nameColumn = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
          val typeColumn = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_MIME_TYPE)
          while (cursor.moveToNext()) {
-             if (cursor.getString(nameColumn) == nombre && cursor.getString(typeColumn) == DocumentsContract.Document.MIME_TYPE_DIR)
+             if (cursor.getString(nameColumn).equals(nombre, ignoreCase = true) && cursor.getString(typeColumn) == DocumentsContract.Document.MIME_TYPE_DIR)
                  return DocumentsContract.buildDocumentUriUsingTree(tree, cursor.getString(idColumn))
          }
      }
@@ -625,7 +625,7 @@ class MainActivity : AppCompatActivity() {
 
  private fun crearEstructuraCarpetaBardo() {
      val root = raizCarpetaBardo()
-     listOf("Instaladores", "Canciones", "Instrumentales", "Proyectos", "Voces", "Historial", "Copias de seguridad")
+     listOf("Modelos", "Instaladores", "Canciones", "Instrumentales", "Proyectos", "Voces", "Historial", "Copias de seguridad")
          .forEach { buscarOCrearSubcarpetaBardo(root, it) }
  }
 
