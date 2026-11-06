@@ -15,6 +15,7 @@ import android.view.View
 import android.view.Gravity
 import android.graphics.drawable.GradientDrawable
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -80,6 +81,8 @@ class MainActivity : AppCompatActivity() {
          }
      }
  }
+ private var colaBiblioteca: List<File> = emptyList()
+ private var indiceColaBiblioteca = -1
  private var rutaAudio: String? = null
  private var rutaExportacion: String? = null
  private var rutaExportacionTemporal = false
@@ -493,6 +496,7 @@ class MainActivity : AppCompatActivity() {
  findViewById<Button>(R.id.btnBorrarMemoria).setOnClickListener { confirmarBorradoMemoria() }
  findViewById<Button>(R.id.btnActualizarBiblioteca).setOnClickListener { actualizarBiblioteca() }
  findViewById<Button>(R.id.btnBibliotecaReproducir).setOnClickListener { reproducirUltimoDeBiblioteca() }
+ findViewById<Button>(R.id.btnBibliotecaGestionar).setOnClickListener { abrirGestorBiblioteca() }
  btnDescargarModelo.setOnClickListener { seleccionarModeloLocal() }
  btnGrabar.setOnClickListener { solicitarMicrofonoYAlternar() }
  btnElegirVoz.setOnClickListener { seleccionarArchivoVoz() }
@@ -502,7 +506,7 @@ class MainActivity : AppCompatActivity() {
      btnCancelarTarea.isEnabled = false
      tvEstado.text = "Cancelación solicitada. Se detendrá al terminar la operación nativa en curso."
  }
- btnReproducir.setOnClickListener { reproducir() }
+ btnReproducir.setOnClickListener { colaBiblioteca = emptyList(); indiceColaBiblioteca = -1; reproducir() }
  btnPausar.setOnClickListener { alternarPausaReproduccion() }
  btnDetener.setOnClickListener { detenerReproduccion() }
  seekPlayback.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -2867,6 +2871,229 @@ class MainActivity : AppCompatActivity() {
      }, "BARDO-Archivar").start()
  }
 
+
+ private fun preferenciasBiblioteca() = getSharedPreferences("bardo_library", MODE_PRIVATE)
+
+ private fun favoritosBiblioteca(): MutableSet<String> =
+     preferenciasBiblioteca().getStringSet("favorites", emptySet())?.toMutableSet() ?: mutableSetOf()
+
+ private fun guardarFavoritosBiblioteca(favoritos: Set<String>) {
+     preferenciasBiblioteca().edit().putStringSet("favorites", favoritos.toSet()).apply()
+ }
+
+ private fun playlistsBiblioteca(): JSONObject =
+     runCatching { JSONObject(preferenciasBiblioteca().getString("playlists", "{}") ?: "{}") }
+         .getOrElse { JSONObject() }
+
+ private fun nombresPlaylistsBiblioteca(): List<String> {
+     val json = playlistsBiblioteca()
+     val nombres = mutableListOf<String>()
+     val keys = json.keys()
+     while (keys.hasNext()) nombres += keys.next()
+     return nombres.sorted()
+ }
+
+ private fun crearPlaylistBiblioteca(archivoInicial: File? = null) {
+     val entrada = EditText(this).apply { hint = "Nombre de la lista" }
+     AlertDialog.Builder(this)
+         .setTitle("Crear lista de reproducción")
+         .setView(entrada)
+         .setNegativeButton("Cancelar", null)
+         .setPositiveButton("Crear") { _, _ ->
+             val nombre = entrada.text.toString().trim().take(60)
+             if (nombre.isBlank()) {
+                 tvEstado.text = "Escribe un nombre para la lista."
+                 return@setPositiveButton
+             }
+             val json = playlistsBiblioteca()
+             if (json.has(nombre)) {
+                 tvEstado.text = "Ya existe una lista con ese nombre."
+                 return@setPositiveButton
+             }
+             val archivos = JSONArray()
+             archivoInicial?.let { archivos.put(it.absolutePath) }
+             json.put(nombre, archivos)
+             preferenciasBiblioteca().edit().putString("playlists", json.toString()).apply()
+             actualizarBiblioteca()
+             tvEstado.text = "Lista «$nombre» creada."
+         }.show()
+ }
+
+ private fun agregarArchivoAPlaylist(archivo: File) {
+     val nombres = nombresPlaylistsBiblioteca()
+     if (nombres.isEmpty()) {
+         crearPlaylistBiblioteca(archivo)
+         return
+     }
+     val opciones = nombres.toMutableList().apply { add("＋ Crear lista nueva") }
+     AlertDialog.Builder(this)
+         .setTitle("Añadir «${archivo.nameWithoutExtension}» a...")
+         .setItems(opciones.toTypedArray()) { _, indice ->
+             if (indice == opciones.lastIndex) {
+                 crearPlaylistBiblioteca(archivo)
+             } else {
+                 val nombre = opciones[indice]
+                 val json = playlistsBiblioteca()
+                 val lista = json.optJSONArray(nombre) ?: JSONArray()
+                 val ruta = archivo.absolutePath
+                 val yaExiste = (0 until lista.length()).any { lista.optString(it) == ruta }
+                 if (!yaExiste) lista.put(ruta)
+                 json.put(nombre, lista)
+                 preferenciasBiblioteca().edit().putString("playlists", json.toString()).apply()
+                 actualizarBiblioteca()
+                 tvEstado.text = "Añadida a «$nombre»."
+             }
+         }.show()
+ }
+
+ private fun reproducirPlaylistBiblioteca(nombre: String) {
+     val lista = playlistsBiblioteca().optJSONArray(nombre) ?: JSONArray()
+     val archivos = (0 until lista.length()).mapNotNull { indice ->
+         File(lista.optString(indice)).takeIf { it.isFile && it.extension.lowercase() in setOf("mp3", "wav") }
+     }
+     if (archivos.isEmpty()) {
+         tvEstado.text = "La lista «$nombre» no contiene archivos disponibles."
+         return
+     }
+     colaBiblioteca = archivos
+     indiceColaBiblioteca = 0
+     rutaAudio = archivos.first().absolutePath
+     val esMp3 = archivos.first().extension.equals("mp3", ignoreCase = true)
+     rutaMp3Compartir = archivos.first().absolutePath.takeIf { esMp3 }
+     btnCompartir.visibility = if (esMp3) View.VISIBLE else View.GONE
+     btnGuardar.visibility = View.VISIBLE
+     btnReproducir.visibility = View.VISIBLE
+     tvEstado.text = "Reproduciendo lista «$nombre» · ${archivos.size} pistas."
+     reproducir()
+ }
+
+ private fun mostrarPlaylistsBiblioteca() {
+     val nombres = nombresPlaylistsBiblioteca()
+     if (nombres.isEmpty()) {
+         crearPlaylistBiblioteca()
+         return
+     }
+     AlertDialog.Builder(this)
+         .setTitle("Listas de reproducción")
+         .setItems(nombres.toTypedArray()) { _, indice ->
+             reproducirPlaylistBiblioteca(nombres[indice])
+         }
+         .setNegativeButton("Cerrar", null)
+         .show()
+ }
+
+ private fun abrirGestorBiblioteca() {
+     val raiz = LinearLayout(this).apply {
+         orientation = LinearLayout.VERTICAL
+         setPadding(18, 8, 18, 8)
+     }
+     val buscar = EditText(this).apply {
+         hint = "Buscar canción o instrumental..."
+         singleLine = true
+     }
+     val soloFavoritos = CheckBox(this).apply { text = "Mostrar solo favoritos" }
+     val acciones = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+     val nuevaLista = Button(this).apply { text = "Nueva lista"; isAllCaps = false }
+     val listas = Button(this).apply { text = "Reproducir lista"; isAllCaps = false }
+     acciones.addView(nuevaLista, LinearLayout.LayoutParams(0, -2, 1f))
+     acciones.addView(listas, LinearLayout.LayoutParams(0, -2, 1f))
+     val contenedor = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+     val scroll = ScrollView(this).apply {
+         addView(contenedor)
+         layoutParams = LinearLayout.LayoutParams(-1, (resources.displayMetrics.heightPixels * 0.48f).toInt())
+     }
+     raiz.addView(buscar)
+     raiz.addView(soloFavoritos)
+     raiz.addView(acciones)
+     raiz.addView(scroll)
+     val dialogo = AlertDialog.Builder(this)
+         .setTitle("Biblioteca BARDO")
+         .setView(raiz)
+         .setNegativeButton("Cerrar", null)
+         .create()
+
+     fun renderizar() {
+         contenedor.removeAllViews()
+         val favoritos = favoritosBiblioteca()
+         val consulta = buscar.text.toString().trim()
+         val archivos = directorioBiblioteca().listFiles { file ->
+             file.isFile && file.extension.lowercase() in setOf("mp3", "wav")
+         }?.sortedByDescending { it.lastModified() }.orEmpty()
+         val filtrados = archivos.filter { archivo ->
+             (!soloFavoritos.isChecked || archivo.absolutePath in favoritos) &&
+                 (consulta.isBlank() || archivo.nameWithoutExtension.contains(consulta, ignoreCase = true))
+         }
+         if (filtrados.isEmpty()) {
+             contenedor.addView(TextView(this).apply {
+                 text = "No hay pistas que coincidan con la búsqueda."
+                 setTextColor(android.graphics.Color.LTGRAY)
+                 setPadding(8, 18, 8, 18)
+             })
+             return
+         }
+         filtrados.forEach { archivo ->
+             val fila = LinearLayout(this).apply {
+                 orientation = LinearLayout.HORIZONTAL
+                 gravity = Gravity.CENTER_VERTICAL
+                 setPadding(0, 5, 0, 5)
+             }
+             val titulo = TextView(this).apply {
+                 text = archivo.nameWithoutExtension
+                 setTextColor(android.graphics.Color.WHITE)
+                 textSize = 12f
+                 maxLines = 2
+             }
+             val favorito = CheckBox(this).apply {
+                 text = "★"
+                 isChecked = archivo.absolutePath in favoritos
+                 setOnCheckedChangeListener { _, marcado ->
+                     val actualizados = favoritosBiblioteca()
+                     if (marcado) actualizados.add(archivo.absolutePath) else actualizados.remove(archivo.absolutePath)
+                     guardarFavoritosBiblioteca(actualizados)
+                     actualizarBiblioteca()
+                 }
+             }
+             val reproducirPista = Button(this).apply {
+                 text = "▶"
+                 isAllCaps = false
+                 setOnClickListener {
+                     colaBiblioteca = listOf(archivo)
+                     indiceColaBiblioteca = 0
+                     rutaAudio = archivo.absolutePath
+                     val esMp3 = archivo.extension.equals("mp3", ignoreCase = true)
+                     rutaMp3Compartir = archivo.absolutePath.takeIf { esMp3 }
+                     btnCompartir.visibility = if (esMp3) View.VISIBLE else View.GONE
+                     btnGuardar.visibility = View.VISIBLE
+                     dialogo.dismiss()
+                     reproducir()
+                 }
+             }
+             val agregar = Button(this).apply {
+                 text = "+Lista"
+                 isAllCaps = false
+                 setOnClickListener { agregarArchivoAPlaylist(archivo) }
+             }
+             fila.addView(titulo, LinearLayout.LayoutParams(0, -2, 1f))
+             fila.addView(favorito)
+             fila.addView(reproducirPista)
+             fila.addView(agregar)
+             contenedor.addView(fila)
+             val separador = View(this).apply {
+                 setBackgroundColor(android.graphics.Color.parseColor("#243450"))
+                 layoutParams = LinearLayout.LayoutParams(-1, 1)
+             }
+             contenedor.addView(separador)
+         }
+     }
+
+     buscar.addTextChangedListener { renderizar() }
+     soloFavoritos.setOnCheckedChangeListener { _, _ -> renderizar() }
+     nuevaLista.setOnClickListener { crearPlaylistBiblioteca() }
+     listas.setOnClickListener { mostrarPlaylistsBiblioteca() }
+     renderizar()
+     dialogo.show()
+ }
+
  private fun actualizarBiblioteca() {
      val vista = findViewById<TextView>(R.id.tvBiblioteca)
      val reproducirUltimo = findViewById<Button>(R.id.btnBibliotecaReproducir)
@@ -2897,6 +3124,8 @@ class MainActivity : AppCompatActivity() {
  }
 
  private fun reproducirUltimoDeBiblioteca() {
+     colaBiblioteca = emptyList()
+     indiceColaBiblioteca = -1
      val ultimo = directorioBiblioteca().listFiles { file ->
          file.isFile && file.extension.lowercase() in setOf("mp3", "wav")
      }?.maxByOrNull { it.lastModified() } ?: return
@@ -2954,7 +3183,21 @@ class MainActivity : AppCompatActivity() {
              if (!isFinishing && !isDestroyed) {
                  btnPausar.text = "Pausar"
                  btnPausar.isEnabled = false
-                 tvEstado.text = "Reproducción finalizada."
+                 val siguienteIndice = indiceColaBiblioteca + 1
+                 if (colaBiblioteca.isNotEmpty() && siguienteIndice < colaBiblioteca.size) {
+                     indiceColaBiblioteca = siguienteIndice
+                     val siguiente = colaBiblioteca[indiceColaBiblioteca]
+                     rutaAudio = siguiente.absolutePath
+                     val esMp3Siguiente = siguiente.extension.equals("mp3", ignoreCase = true)
+                     rutaMp3Compartir = siguiente.absolutePath.takeIf { esMp3Siguiente }
+                     btnCompartir.visibility = if (esMp3Siguiente) View.VISIBLE else View.GONE
+                     tvEstado.text = "Reproduciendo siguiente pista de la lista..."
+                     handler.post { reproducir() }
+                 } else {
+                     colaBiblioteca = emptyList()
+                     indiceColaBiblioteca = -1
+                     tvEstado.text = "Reproducción finalizada."
+                 }
              }
          }
          nuevo.setOnErrorListener { fallido, what, extra ->
