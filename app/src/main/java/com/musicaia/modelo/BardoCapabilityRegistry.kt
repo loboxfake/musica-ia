@@ -23,8 +23,8 @@ object BardoCapabilityRegistry {
 
     private fun gemmaStatus(facts: RuntimeFacts): Status = when {
         !facts.gemmaFilePresent -> Status.NEEDS_MODEL
-        !facts.resourceBlockReason.isNullOrBlank() -> Status.NEEDS_RESOURCES
         facts.availableMemoryBytes < MIN_GEMMA_FREE_MEMORY_BYTES -> Status.NEEDS_MEMORY
+        !facts.resourceBlockReason.isNullOrBlank() -> Status.NEEDS_RESOURCES
         else -> Status.AVAILABLE
     }
 
