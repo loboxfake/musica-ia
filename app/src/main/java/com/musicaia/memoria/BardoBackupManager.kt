@@ -51,7 +51,12 @@ object BardoBackupManager {
                 }
             }
 
-        val total = files.sumOf { it.second.length() }
+        require(files.size <= MAX_ENTRIES) { "La copia contiene demasiados archivos." }
+        val conversationJson = conversations.exportJson()
+        require(conversationJson.toByteArray(Charsets.UTF_8).size <= 20 * 1024 * 1024) {
+            "El historial supera el límite de 20 MB para una copia."
+        }
+        val total = files.sumOf { it.second.length() } + conversationJson.toByteArray(Charsets.UTF_8).size
         require(total <= MAX_BACKUP_BYTES) {
             "Los datos de respaldo ocupan ${total / (1024L * 1024L)} MB; el límite de esta copia es 100 MB."
         }
@@ -66,24 +71,31 @@ object BardoBackupManager {
             .put("knowledgeCount", knowledge.list().size)
             .put("includesActivity", activity.isFile)
             .put("note", "Gemma y los archivos multimedia no se duplican. Los modelos permanecen en Descargas/bardo/Modelos y los audios en sus carpetas BARDO.")
-        ZipOutputStream(output.outputStream().buffered()).use { zip ->
-            zip.putNextEntry(ZipEntry("manifest.json"))
-            zip.write(manifest.toString(2).toByteArray(Charsets.UTF_8))
-            zip.closeEntry()
-            zip.putNextEntry(ZipEntry("conversations.json"))
-            zip.write(conversations.exportJson().toByteArray(Charsets.UTF_8))
-            zip.closeEntry()
-            for ((entryName, file) in files) {
-                require(!entryName.startsWith("/") && !entryName.split('/').contains("..")) {
-                    "Ruta de copia no válida."
-                }
-                zip.putNextEntry(ZipEntry(entryName))
-                file.inputStream().buffered().use { it.copyTo(zip) }
+        try {
+            ZipOutputStream(output.outputStream().buffered()).use { zip ->
+                zip.putNextEntry(ZipEntry("manifest.json"))
+                zip.write(manifest.toString(2).toByteArray(Charsets.UTF_8))
                 zip.closeEntry()
+                zip.putNextEntry(ZipEntry("conversations.json"))
+                zip.write(conversationJson.toByteArray(Charsets.UTF_8))
+                zip.closeEntry()
+                for ((entryName, file) in files) {
+                    require(!entryName.startsWith("/") && !entryName.split('/').contains("..")) {
+                        "Ruta de copia no válida."
+                    }
+                    zip.putNextEntry(ZipEntry(entryName))
+                    file.inputStream().buffered().use { it.copyTo(zip) }
+                    zip.closeEntry()
+                }
             }
+            check(output.isFile && output.length() > 100L && output.length() <= MAX_BACKUP_BYTES) {
+                "La copia resultante está vacía o supera 100 MB."
+            }
+            return output
+        } catch (error: Throwable) {
+            output.delete()
+            throw error
         }
-        check(output.isFile && output.length() > 100L) { "No se pudo crear una copia válida." }
-        return output
     }
 
     fun inspectBackup(file: File): BackupInfo {
@@ -91,6 +103,7 @@ object BardoBackupManager {
         ZipFile(file).use { zip ->
             val manifestEntry = zip.getEntry("manifest.json")
                 ?: throw IllegalArgumentException("El ZIP no contiene el manifiesto de BARDO.")
+            require(manifestEntry.size in 1..(128L * 1024L)) { "Manifiesto de copia demasiado grande." }
             val manifest = zip.getInputStream(manifestEntry).bufferedReader().use { JSONObject(it.readText()) }
             require(manifest.optInt("schemaVersion") == 1) { "Versión de copia de BARDO no compatible." }
             require(zip.getEntry("conversations.json") != null) { "La copia no contiene conversaciones." }
@@ -137,7 +150,7 @@ object BardoBackupManager {
             val conversationJson = zip.getInputStream(conversationsEntry).bufferedReader().use { it.readText() }
             addedConversations = conversations.importJson(conversationJson)
 
-            val existentes = knowledge.list().map { it.sha256.lowercase() }.toSet()
+            val existentes = knowledge.list().map { it.sha256.lowercase() }.toMutableSet()
             val metaNames = names.filter { it.startsWith("knowledge/") && it.endsWith(".json") }
             for (metaName in metaNames) {
                 val base = metaName.removeSuffix(".json")
@@ -165,6 +178,7 @@ object BardoBackupManager {
                             meta.optString("source", "Copia BARDO"),
                             text
                         )
+                        existentes += digest.lowercase()
                         addedKnowledge++
                     }
                 }.onFailure { warnings += "Referencia omitida (${metaName.substringAfterLast('/')}): ${it.message}" }
