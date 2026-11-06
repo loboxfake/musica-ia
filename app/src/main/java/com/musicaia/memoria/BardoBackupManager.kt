@@ -22,6 +22,7 @@ object BardoBackupManager {
 
     data class RestoreResult(
         val conversationsAdded: Int,
+        val messagesAdded: Int,
         val knowledgeAdded: Int,
         val warnings: List<String>
     )
@@ -124,6 +125,7 @@ object BardoBackupManager {
         inspectBackup(file)
         val warnings = mutableListOf<String>()
         var addedConversations = 0
+        var addedMessages = 0
         var addedKnowledge = 0
         ZipFile(file).use { zip ->
             val entries = zip.entries()
@@ -148,7 +150,10 @@ object BardoBackupManager {
                 ?: throw IllegalArgumentException("Falta el historial de conversaciones.")
             require(conversationsEntry.size in 1..(20L * 1024L * 1024L)) { "El historial supera el límite permitido." }
             val conversationJson = zip.getInputStream(conversationsEntry).bufferedReader().use { it.readText() }
-            addedConversations = conversations.importJson(conversationJson)
+            val beforeConversations = conversations.listConversations().size
+            addedMessages = conversations.importJson(conversationJson)
+            val afterConversations = conversations.listConversations().size
+            addedConversations = (afterConversations - beforeConversations).coerceAtLeast(0)
 
             val existentes = knowledge.list().map { it.sha256.lowercase() }.toMutableSet()
             val metaNames = names.filter { it.startsWith("knowledge/") && it.endsWith(".json") }
@@ -189,6 +194,6 @@ object BardoBackupManager {
                 }.onFailure { warnings += "Referencia omitida (${metaName.substringAfterLast('/')}): ${it.message}" }
             }
         }
-        return RestoreResult(addedConversations, addedKnowledge, warnings)
+        return RestoreResult(addedConversations, addedMessages, addedKnowledge, warnings)
     }
 }
