@@ -122,7 +122,7 @@
                 <ImageView android:id="@+id/imgPortada" android:layout_width="200dp" android:layout_height="200dp" android:layout_gravity="center_horizontal" android:layout_marginTop="12dp" android:visibility="gone"/>
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="8dp">
                     <Button android:id="@+id/btnReproducir" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:text="Reproducir" android:textAllCaps="false" android:visibility="gone"/>
-                    <Button android:id="@+id/btnGuardar" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:layout_marginStart="8dp" android:text="Exportar MP3 320" android:textAllCaps="false" android:visibility="gone"/>
+                    <Button android:id="@+id/btnGuardar" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:layout_marginStart="8dp" android:text="Guardar MP3" android:textAllCaps="false" android:visibility="gone"/>
                 </LinearLayout>
                 <Button android:id="@+id/btnCompartir" android:layout_width="match_parent" android:layout_height="46dp" android:layout_marginTop="7dp" android:text="Compartir MP3" android:textAllCaps="false" android:visibility="gone"/>
 
