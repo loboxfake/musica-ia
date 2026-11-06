@@ -27,14 +27,6 @@ android {
         }
     }
 
-    signingConfigs {
-        getByName("debug") {
-            storeFile = file("../debug.keystore")
-            storePassword = "debug123"
-            keyAlias = "debugkey"
-            keyPassword = "debug123"
-        }
-    }
 
     if (project.findProperty("withAudioNative") == "true") {
         ndkVersion = "27.2.12479018"
