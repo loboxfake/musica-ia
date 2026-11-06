@@ -1689,7 +1689,8 @@ class MainActivity : AppCompatActivity() {
          .putString(BardoTaskService.KEY_MESSAGE, "BARDO está iniciando el proceso aislado de audio.")
          .putLong("started_at", System.currentTimeMillis())
          .apply()
-     BardoTaskService.iniciar(this, if (modoSoloInstrumental) promptInstrumental else entradaTexto, letraManual, modoSoloInstrumental)
+     val pruebaRapida = findViewById<android.widget.CheckBox>(R.id.checkPruebaRapida).isChecked
+     BardoTaskService.iniciar(this, if (modoSoloInstrumental) promptInstrumental else entradaTexto, letraManual, modoSoloInstrumental, pruebaRapida)
      tvEstado.text = "BARDO está trabajando. Puedes salir de la pantalla; la tarea continuará con su notificación."
  } catch (error: Exception) {
      getSharedPreferences(BardoTaskService.PREFS, MODE_PRIVATE).edit()
