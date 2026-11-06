@@ -180,8 +180,8 @@ class MainActivity : AppCompatActivity() {
  private var rutaInstrumental: String? = null
 
  private val datosConver = mutableMapOf<String, String>()
- private val camposRequeridos = listOf("tema", "estilo", "ambiente", "ritmo", "idioma")
- private val camposOpcionales = listOf("tipo", "vozFuente")
+ private val camposRequeridos = listOf("tema", "estilo", "ambiente", "ritmo", "idioma", "tipo")
+ private val camposOpcionales = listOf("vozFuente")
  private val notaIA = "BARDO recoge tus preferencias. La generación de letras requiere Gemma local descargado y verificado; sin él, el chat funciona en modo guiado."
 
  private val reloj = object : Runnable {
@@ -1240,7 +1240,7 @@ class MainActivity : AppCompatActivity() {
 
     val lower = texto.lowercase()
     if (lower in listOf("crear", "crear canción", "crear cancion", "sí", "si", "continuar")) {
-        val faltan = camposRequeridos.filter { datosConver[it].isNullOrBlank() }
+        val faltan = camposRequeridos.filter { datosConver[it].isNullOrBlank() } + listOfNotNull(if ((datosConver["tipo"].orEmpty().contains("voz", true) || datosConver["tipo"].orEmpty().contains("ambas", true)) && datosConver["vozFuente"].isNullOrBlank()) "vozFuente" else null)
         if (faltan.isNotEmpty()) {
             responderConOrquestador(texto, "Antes necesito: ${faltan.joinToString(", ")}. ${preguntaParaCampo(faltan.first())}")
             return
@@ -1262,7 +1262,7 @@ class MainActivity : AppCompatActivity() {
     val campo = when (campoExplicito) {
         "voz" -> "vozFuente"
         else -> campoExplicito
-    } ?: (camposRequeridos + camposOpcionales).firstOrNull { datosConver[it].isNullOrBlank() }
+    } ?: siguienteCampoPendiente()
 
     if (campo == null) {
         responderConOrquestador(texto, "Los datos creativos ya están completos. El chat está en modo guiado; escribe 'crear' para iniciar o indica el campo que quieres cambiar.")
@@ -1270,6 +1270,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     var valor = (valorExplicito ?: texto).trim()
+    if (campo == "tema") valor = Regex("(?i)^(?:quiero\\s+)?(?:una\\s+)?canci[oó]n\\s+(?:sobre|de)\\s+").replace(valor, "").trim().ifBlank { texto.trim() }
     if (campo == "tipo" && lower == "ambas") valor = "ambas (voz e instrumental)"
     if (campo == "tipo" && (lower == "ninguna" || lower == "solo instrumental")) valor = "solo instrumental"
     if (campo == "vozFuente") {
@@ -1288,7 +1289,7 @@ class MainActivity : AppCompatActivity() {
     guardarPreferenciasCreativas()
     actualizarUI()
 
-    val siguiente = (camposRequeridos + camposOpcionales).firstOrNull { datosConver[it].isNullOrBlank() }
+    val siguiente = siguienteCampoPendiente()
     val mensaje = if (siguiente != null) {
         "Anotado en '$campo': $valor. ${preguntaParaCampo(siguiente)}"
     } else {
@@ -1425,6 +1426,16 @@ class MainActivity : AppCompatActivity() {
      }, "BARDO-General-Chat").start()
  }
 
+ private fun siguienteCampoPendiente(): String? {
+     val pendienteObligatorio = camposRequeridos.firstOrNull { datosConver[it].isNullOrBlank() }
+     if (pendienteObligatorio != null) return pendienteObligatorio
+     val tipo = datosConver["tipo"].orEmpty()
+     val requiereFuenteVoz = tipo.contains("voz", ignoreCase = true) || tipo.contains("ambas", ignoreCase = true)
+     if (requiereFuenteVoz && datosConver["vozFuente"].isNullOrBlank()) return "vozFuente"
+     if (!requiereFuenteVoz) datosConver["vozFuente"] = "ninguna"
+     return null
+ }
+
  private fun preguntaParaCampo(campo: String): String = when (campo) {
     "tema" -> "¿De qué quieres que trate la canción?"
     "estilo" -> "¿Qué estilo musical prefieres (pop, rock, rap, balada, electrónica...)?"
@@ -1442,7 +1453,7 @@ class MainActivity : AppCompatActivity() {
      } else if (grupoModo.checkedRadioButtonId == R.id.modoLetra) {
          editLetra.text.toString().isNotBlank()
      } else {
-         camposRequeridos.all { !datosConver[it].isNullOrBlank() }
+         (camposRequeridos.all { !datosConver[it].isNullOrBlank() })
      }
      // No ocultar el motivo deshabilitando silenciosamente el botón: permitir el toque
      // para que crearCancion() informe cuando esta APK ligera carece del motor nativo.
