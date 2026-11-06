@@ -42,7 +42,7 @@
                             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="BARDO · NÚCLEO ORQUESTADOR" android:textColor="#F0F6FF" android:textSize="14sp" android:textStyle="bold"/>
                             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Modelo local · Memoria propia · Skills modulares" android:textColor="#A9B8D2" android:textSize="12sp"/>
                         </LinearLayout>
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="● OFFLINE / LOCAL" android:textColor="#16CFF4" android:textSize="10sp" android:textStyle="bold"/>
+                        <TextView android:id="@+id/tvEstadoLocal" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="● GEMMA PENDIENTE" android:textColor="#D9B86B" android:textSize="10sp" android:textStyle="bold" android:contentDescription="Estado del modelo local Gemma"/>
                     </LinearLayout>
                     <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="14dp" android:layout_marginBottom="12dp" android:background="#29466E"/>
                     <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="CONVERSACIÓN" android:textColor="#8FA4C1" android:textSize="10sp" android:textStyle="bold" android:letterSpacing="0.12"/>
