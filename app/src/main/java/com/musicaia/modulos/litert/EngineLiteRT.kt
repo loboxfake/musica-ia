@@ -41,6 +41,12 @@ object EngineLiteRT {
                     return@submit true
                 } catch (error: Throwable) {
                     ultimoError = error
+                    // Un OOM no es un fallo de backend recuperable: no intentar CPU,
+                    // porque duplicaría la presión de memoria y puede cerrar el proceso.
+                    if (error is OutOfMemoryError) {
+                        cerrarInterno()
+                        throw error
+                    }
                     // No cerrar Engine si initialize() no llegó a completarse.
                     if (inicializado) runCatching { candidato?.close() }
                 }
@@ -59,6 +65,12 @@ object EngineLiteRT {
             try {
                 actual.sendMessage(prompt, maxOutputToken = 900).toString()
             } catch (error: Throwable) {
+                // No reintentar una inferencia que agotó RAM con el backend CPU.
+                // Se libera el estado nativo y se devuelve el error real al llamador.
+                if (error is OutOfMemoryError) {
+                    cerrarInterno()
+                    throw error
+                }
                 if (!backendGpu) throw error
                 val path = modelPath ?: throw error
                 val cache = cachePath ?: throw error
