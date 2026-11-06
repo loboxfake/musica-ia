@@ -95,7 +95,7 @@ object DescargadorModelos {
                         return fallar("El servidor anunció $totalRemoto bytes; se esperaban $tamanoEsperadoBytes.")
                     }
                 }
-                else -> return fallar("El servidor de modelos respondió HTTP $status \${connection.responseMessage.orEmpty()}.")
+                else -> return fallar("El servidor de modelos respondió HTTP $status ${connection.responseMessage.orEmpty()}.")
             }
             RandomAccessFile(parte, "rw").use { raf ->
                 if (inicio == 0L) raf.setLength(0L) else raf.seek(inicio)
@@ -117,7 +117,7 @@ object DescargadorModelos {
                 }
             }
             if (!parte.isFile || parte.length() != tamanoEsperadoBytes) {
-                return fallar("Descarga incompleta: \${parte.length()} de $tamanoEsperadoBytes bytes. El parcial se conserva para reanudar.")
+                return fallar("Descarga incompleta: ${parte.length()} de $tamanoEsperadoBytes bytes. El parcial se conserva para reanudar.")
             }
             if (!sha256(parte).equals(shaEsperado, ignoreCase = true)) {
                 parte.delete()
@@ -128,7 +128,7 @@ object DescargadorModelos {
             else fallar("El modelo se validó, pero no pudo publicarse en su ubicación final.")
         } catch (e: Exception) {
             val detalle = e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
-            return fallar("Error durante la descarga (\${e.javaClass.simpleName}): $detalle")
+            return fallar("Error durante la descarga (${e.javaClass.simpleName}): $detalle")
         } finally {
             connection?.disconnect()
         }
