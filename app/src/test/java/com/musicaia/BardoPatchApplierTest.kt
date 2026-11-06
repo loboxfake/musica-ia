@@ -30,6 +30,30 @@ class BardoPatchApplierTest {
         }
     }
 
+    @Test fun refusesProtectedCoreAndWorkflowFiles() {
+        val base = createTempDir(prefix = "bardo-patch-core-protected")
+        try {
+            val cases = listOf(
+                "app/src/main/java/com/musicaia/desarrollo/BardoDeveloperWorker.kt" to "class ProtectedWorker",
+                ".github/workflows/full-build.yml" to "name: ProtectedWorkflow"
+            )
+            cases.forEachIndexed { index, (path, original) ->
+                val source = File(base, "source-$index").apply { mkdirs() }
+                val file = File(source, path).apply {
+                    parentFile?.mkdirs()
+                    writeText(original + "\\n")
+                }
+                val patch = "--- a/$path\\n+++ b/$path\\n@@ -1 +1 @@\\n-$original\\n+class Altered\\n"
+                assertTrue("Debe rechazarse $path", runCatching {
+                    BardoPatchApplier.aplicar(source, patch, base)
+                }.isFailure)
+                assertEquals(original + "\\n", file.readText())
+            }
+        } finally {
+            base.deleteRecursively()
+        }
+    }
+
     @Test fun refusesProtectedModo3File() {
         val base = createTempDir(prefix = "bardo-patch-protected")
         try {
