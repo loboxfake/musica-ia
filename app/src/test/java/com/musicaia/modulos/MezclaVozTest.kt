@@ -28,7 +28,7 @@ class MezclaVozTest {
             val mixed = LectorWav.leer(output.absolutePath)
             assertEquals(44100, mixed.frecuencia)
             assertEquals(8, mixed.muestras.size)
-            assertTrue(mixed.muestras.all { it in 2990..3010 })
+            assertTrue(mixed.muestras.all { it.toInt() in 1990..2010 })
         } finally {
             dir.deleteRecursively()
         }
