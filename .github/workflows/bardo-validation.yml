@@ -30,5 +30,16 @@ jobs:
         with:
           gradle-version: 8.10.2
           cache-disabled: true
+      - name: Set up Go for Gitleaks
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+      - name: Scan complete Git history with redacted findings
+        env:
+          GITLEAKS_ENABLE_SUMMARY: 'false'
+        run: |
+          set -euo pipefail
+          go install github.com/zricethezav/gitleaks/v8@v8.24.3
+          "$(go env GOPATH)/bin/gitleaks" git . --log-opts="--all" --redact --exit-code 1 --no-banner
       - name: Run unit tests and compile debug APK
         run: gradle testDebugUnitTest assembleDebug --no-daemon --stacktrace
