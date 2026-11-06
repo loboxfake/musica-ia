@@ -2,6 +2,8 @@ package com.musicaia.memoria
 
 import java.io.File
 import java.nio.file.Files
+import org.json.JSONObject
+import java.security.MessageDigest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -38,6 +40,35 @@ class BardoKnowledgeStoreTest {
             assertFalse(store.allForPrompt().contains("contenido manipulado"))
         } finally {
             directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun maliciousReferenceIdCannotEscapeKnowledgeDirectory() {
+        val directory = Files.createTempDirectory("bardo-knowledge-path").toFile()
+        try {
+            val outside = File(directory.parentFile, "outside-bardo-reference.txt")
+            val secret = "outside content must never be indexed"
+            outside.writeText(secret)
+            val digest = MessageDigest.getInstance("SHA-256")
+                .digest(secret.toByteArray(Charsets.UTF_8))
+                .joinToString("") { "%02x".format(it) }
+            val metadata = JSONObject()
+                .put("id", "../outside-bardo-reference")
+                .put("title", "Referencia manipulada")
+                .put("source", "test")
+                .put("createdAt", System.currentTimeMillis())
+                .put("characters", secret.length)
+                .put("sha256", digest)
+            File(directory, "malicious.json").writeText(metadata.toString())
+
+            val store = BardoKnowledgeStore(directory)
+            assertTrue(store.list().isEmpty())
+            assertTrue(store.search("outside content").isEmpty())
+            assertFalse(store.allForPrompt().contains(secret))
+        } finally {
+            directory.deleteRecursively()
+            File(directory.parentFile, "outside-bardo-reference.txt").delete()
         }
     }
 
