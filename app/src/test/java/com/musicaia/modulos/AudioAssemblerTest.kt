@@ -41,6 +41,32 @@ class AudioAssemblerTest {
         }
     }
 
+    @Test
+    fun trimsLongSilentTailBeforeCrossfadingSegments() {
+        val directory = createTempDir(prefix = "audio-assembler-trim-test")
+        try {
+            val first = File(directory, "first.wav")
+            val second = File(directory, "second.wav")
+            val output = File(directory, "joined.wav")
+            val withTailSilence = ShortArray(1000) { index -> if (index < 700) 1000 else 0 }
+            writeTestWav(first, withTailSilence)
+            writeTestWav(second, withTailSilence)
+
+            AudioAssembler.assemble(
+                inputFiles = listOf(first, second),
+                outputFile = output,
+                crossfadeMs = 100,
+                fadeOutMs = 100
+            )
+
+            val header = ByteBuffer.wrap(output.readBytes()).order(ByteOrder.LITTLE_ENDIAN)
+            // 780 retained frames per clip (700 audible + 80 ms tail) minus 100 ms overlap.
+            assertEquals(1460 * 2, header.getInt(40))
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
     private fun writeTestWav(file: File, samples: ShortArray) {
         val dataBytes = samples.size * 2
         val output = ByteBuffer.allocate(44 + dataBytes).order(ByteOrder.LITTLE_ENDIAN)
