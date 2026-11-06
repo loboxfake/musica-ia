@@ -1311,6 +1311,33 @@ class MainActivity : AppCompatActivity() {
      val taskIdAdjunto = java.util.UUID.randomUUID().toString()
      BardoActivityStore.record(this, taskIdAdjunto, "importacion", "stored", "archivo_copiado", "Adjunto recibido: $nombre ($mime, ${destino.length()} bytes).", null, destino.absolutePath)
      val extension = nombre.substringAfterLast('.', "").lowercase()
+     if (extension == "zip") {
+         BardoActivityStore.record(this, taskIdAdjunto, "estudio_codigo", "running", "inspeccion_zip", "BARDO está inspeccionando un ZIP de código sin ejecutar su contenido.", 10, destino.absolutePath)
+         Thread({
+             val auditoria = runCatching {
+                 val base = File(filesDir, "bardo_code_imports")
+                 if (!base.exists() && !base.mkdirs()) throw IllegalStateException("No se pudo crear el espacio de análisis de código.")
+                 val importado = destino.inputStream().use { com.musicaia.desarrollo.BardoDeveloperCore.importarZip(it, base) }
+                 val informe = com.musicaia.desarrollo.BardoDeveloperCore.analizar(importado.directory).render()
+                 "Snapshot: " + importado.files + " archivos · " + importado.bytes + " bytes · " + importado.skipped + " omitidos.\n\n" + informe
+             }
+             runOnUiThread {
+                 if (isFinishing || isDestroyed) return@runOnUiThread
+                 val informe = auditoria.getOrNull()
+                 if (informe != null) {
+                     BardoActivityStore.record(this, taskIdAdjunto, "estudio_codigo", "completed", "auditoria_estatica", "Auditoría estática completada. No se ejecutó ni compiló el código.", 100, destino.absolutePath)
+                     anexarChat("\nBARDO · ESTUDIO DE CÓDIGO\n" + informe)
+                     tvEstado.text = "Auditoría estática del ZIP completada; no equivale a compilación ni pruebas."
+                 } else {
+                     val error = auditoria.exceptionOrNull()?.message ?: "Error desconocido."
+                     BardoActivityStore.record(this, taskIdAdjunto, "estudio_codigo", "failed", "error", error, null, destino.absolutePath)
+                     anexarChat("\nBARDO: No pude analizar el ZIP: " + error)
+                     tvEstado.text = "Falló la inspección del ZIP."
+                 }
+             }
+         }, "BARDO-Code-ZIP-Study").start()
+         return
+     }
      val esTexto = mime.startsWith("text/") || mime in setOf("application/json", "application/xml") ||
          extension in setOf("txt", "md", "markdown", "json", "csv", "xml", "log")
      anexarChat("\nTú: He adjuntado «$nombre» ($mime, ${destino.length()} bytes).")
