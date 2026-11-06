@@ -2250,7 +2250,8 @@ class MainActivity : AppCompatActivity() {
              rutaAudio = mp3.takeIf { it.isNotBlank() && File(it).isFile && File(it).length() > 1024L } ?: audio
              rutaMp3Compartir = mp3.takeIf { it.isNotBlank() && File(it).isFile && File(it).length() > 128L }
              btnCompartir.visibility = if (rutaMp3Compartir != null) View.VISIBLE else View.GONE
-             archivarTareaEnCarpetaBardo(audio, mp3, letra, solo)
+             if (requiereMezclaVozUsuario()) mezclarVozUsuario(audio, letra)
+             else archivarTareaEnCarpetaBardo(audio, mp3, letra, solo)
              btnReproducir.visibility = View.VISIBLE
              btnGuardar.visibility = View.VISIBLE
              val mp3Info = if (rutaAudio != audio) "${File(rutaAudio!!).length()} bytes · MP3 320 kbps" else "MP3 no disponible"
@@ -2363,7 +2364,8 @@ class MainActivity : AppCompatActivity() {
                  rutaAudio = mp3.takeIf { it.isNotBlank() && File(it).isFile } ?: audio
                  rutaMp3Compartir = mp3.takeIf { it.isNotBlank() && File(it).isFile && File(it).length() > 128L }
                  btnCompartir.visibility = if (rutaMp3Compartir != null) View.VISIBLE else View.GONE
-                 archivarTareaEnCarpetaBardo(audio, mp3, prefs.getString("lyrics", "").orEmpty(), prefs.getBoolean("solo", false))
+                 if (requiereMezclaVozUsuario()) mezclarVozUsuario(audio, prefs.getString("lyrics", "").orEmpty())
+                 else archivarTareaEnCarpetaBardo(audio, mp3, prefs.getString("lyrics", "").orEmpty(), prefs.getBoolean("solo", false))
                  rutaInstrumental = audio
                  btnReproducir.visibility = View.VISIBLE
                  btnGuardar.visibility = View.VISIBLE
@@ -2422,6 +2424,84 @@ class MainActivity : AppCompatActivity() {
  }
  }
 
+
+ private fun requiereMezclaVozUsuario(): Boolean {
+     val tipo = datosConver["tipo"].orEmpty()
+     return tipo.contains("voz", ignoreCase = true) || tipo.contains("ambas", ignoreCase = true)
+ }
+
+ /**
+  * Modo de mezcla con voz propia: utiliza el mezclador PCM real existente.
+  * El módulo protegido Modo3MezclaVozUsuario.kt se conserva sin modificaciones.
+  */
+ private fun mezclarVozUsuario(instrumentalPath: String, letra: String) {
+     val taskId = java.util.UUID.randomUUID().toString()
+     val voz = rutaVoz?.let(::File)
+     val instrumental = File(instrumentalPath)
+     if (voz == null || !voz.isFile || voz.length() <= 44L) {
+         val mensaje = "Has pedido una mezcla con voz propia, pero no hay una grabación o archivo de voz disponible."
+         BardoActivityStore.record(this, taskId, "mezcla_voz", "blocked", "voz_no_disponible", mensaje, null)
+         anexarChat("\nBARDO: $mensaje Graba tu voz o importa un archivo y vuelve a iniciar la mezcla.")
+         tvEstado.text = mensaje
+         return
+     }
+     if (!voz.extension.equals("wav", ignoreCase = true)) {
+         val mensaje = "El archivo de voz está guardado, pero el mezclador actual requiere WAV PCM de 16 bits. No se ha mezclado ni se ha simulado el resultado."
+         BardoActivityStore.record(this, taskId, "mezcla_voz", "blocked", "formato_voz_no_compatible", mensaje, null, voz.absolutePath)
+         anexarChat("\nBARDO: $mensaje")
+         tvEstado.text = "La voz necesita convertirse a WAV PCM16 antes de mezclar."
+         return
+     }
+     if (!instrumental.isFile || instrumental.length() <= 44L ||
+         voz.length() > 100L * 1024L * 1024L || instrumental.length() > 250L * 1024L * 1024L
+     ) {
+         val mensaje = "La voz o el instrumental no supera las comprobaciones de archivo y tamaño para una mezcla segura."
+         BardoActivityStore.record(this, taskId, "mezcla_voz", "failed", "validacion_archivos", mensaje, null)
+         anexarChat("\nBARDO: $mensaje")
+         tvEstado.text = mensaje
+         return
+     }
+
+     btnGuardar.isEnabled = false
+     btnReproducir.isEnabled = false
+     tvEstado.text = "Mezclando tu voz con el instrumental en segundo plano..."
+     BardoActivityStore.record(this, taskId, "mezcla_voz", "running", "mezcla_pcm", "Mezcla PCM iniciada; voz e instrumental se procesan fuera del hilo de interfaz.", 10)
+     Thread({
+         val destino = File(filesDir, "mezcla_voz_usuario_${System.currentTimeMillis()}.wav")
+         val resultado = runCatching {
+             MezclaVoz.mezclar(voz.absolutePath, instrumental.absolutePath, destino.absolutePath)
+             require(destino.isFile && destino.length() > 44L) { "El mezclador no produjo un WAV válido." }
+             destino
+         }
+         runOnUiThread {
+             btnGuardar.isEnabled = true
+             btnReproducir.isEnabled = true
+             if (isFinishing || isDestroyed) return@runOnUiThread
+             val mezcla = resultado.getOrNull()
+             if (mezcla == null) {
+                 val error = resultado.exceptionOrNull()?.message ?: "Error desconocido al mezclar."
+                 BardoActivityStore.record(this, taskId, "mezcla_voz", "failed", "mezcla_pcm", error, null)
+                 anexarChat("\nBARDO: No pude completar la mezcla real de voz: $error. Se conserva el instrumental original.")
+                 tvEstado.text = "Falló la mezcla de voz; el instrumental original se conserva."
+             } else {
+                 rutaAudio = mezcla.absolutePath
+                 rutaInstrumental = instrumental.absolutePath
+                 rutaMp3Compartir = null
+                 rutaExportacion = null
+                 rutaExportacionTemporal = false
+                 btnCompartir.visibility = View.GONE
+                 btnGuardar.visibility = View.VISIBLE
+                 btnReproducir.visibility = View.VISIBLE
+                 BardoActivityStore.record(this, taskId, "mezcla_voz", "completed", "wav_mezclado", "Mezcla real de voz propia e instrumental guardada.", 100, mezcla.absolutePath)
+                 tvResultado.text = "MEZCLA REAL CON TU VOZ\\nWAV: ${mezcla.length()} bytes\\nVoz: ${voz.name}\\nInstrumental: ${instrumental.name}"
+                 anexarChat("\nBARDO: La mezcla real con tu voz está terminada y guardada en WAV. Puedes reproducirla y exportarla a MP3.")
+                 tvEstado.text = "Mezcla real con voz propia completada."
+                 archivarTareaEnCarpetaBardo(mezcla.absolutePath, "", letra, false)
+                 actualizarBiblioteca()
+             }
+         }
+     }, "BARDO-Voice-Mix").start()
+ }
 
  private fun archivarTareaEnCarpetaBardo(audioPath: String, mp3Path: String, letra: String, solo: Boolean) {
      if (uriCarpetaBardo == null || audioPath.isBlank()) return
