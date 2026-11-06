@@ -63,6 +63,12 @@ class BardoDeveloperWorker(
             }
             BardoActivityStore.record(applicationContext, taskId, "autoestudio", "running", "snapshot_preparado", "Snapshot de código disponible para auditoría estática.", 15, snapshot.absolutePath)
 
+            val estadoAudio = applicationContext.getSharedPreferences("bardo_background_tasks", Context.MODE_PRIVATE)
+                .getString("state", "").orEmpty()
+            check(estadoAudio != "running") {
+                "La generación de audio está activa. El autoestudio esperará para no competir por la RAM del teléfono."
+            }
+
             val model = LiteRTLMModule.modelFile(applicationContext)
             check(model.isFile && model.length() == LiteRTLMModule.EXPECTED_SIZE_BYTES) {
                 "Gemma local no está instalado o su tamaño no coincide. No se descargó ningún archivo."
@@ -196,7 +202,7 @@ $authorizedReferences
                     .putString("last_auto_study_message", message)
                     .apply()
             }
-            if (message.contains("RAM libre insuficiente") || message.contains("Gemma local no está instalado")) {
+            if (message.contains("RAM libre insuficiente") || message.contains("Gemma local no está instalado") || message.contains("generación de audio está activa")) {
                 Result.retry()
             } else {
                 Result.failure()
