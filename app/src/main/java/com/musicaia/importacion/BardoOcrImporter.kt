@@ -67,7 +67,7 @@ object BardoOcrImporter {
                     try {
                         val text = recognize(bitmap, recognizer)
                         if (text.isNotBlank()) append("[Fotograma aprox. ").append(timestampMs / 1000L)
-                            .append(" s]\\n").append(text).append('\\n')
+                            .append(" s]\n").append(text).append('\n')
                     } finally {
                         bitmap.recycle()
                     }
@@ -94,8 +94,8 @@ object BardoOcrImporter {
                     if (bitmap !== original) original.recycle()
                     try {
                         val text = recognize(bitmap, recognizer)
-                        if (text.isNotBlank()) append("[Página ").append(page + 1).append("]\\n")
-                            .append(text).append('\\n')
+                        if (text.isNotBlank()) append("[Página ").append(page + 1).append("]\n")
+                            .append(text).append('\n')
                     } finally {
                         bitmap.recycle()
                     }
