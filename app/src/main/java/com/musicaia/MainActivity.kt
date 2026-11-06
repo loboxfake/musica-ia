@@ -519,7 +519,7 @@ class MainActivity : AppCompatActivity() {
                  android.graphics.Color.parseColor(if (id == navId) accentColorUI else "#8FA2BE")
              )
              item.setBackgroundResource(
-                 if (id == navId) R.drawable.bg_icon_button else android.R.color.transparent
+                 if (id == navId) R.drawable.bg_nav_active else android.R.color.transparent
              )
              item.alpha = if (id == navId) 1f else 0.82f
              findViewById<View>(sectionId).visibility =
