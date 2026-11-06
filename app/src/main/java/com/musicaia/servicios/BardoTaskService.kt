@@ -31,6 +31,7 @@ class BardoTaskService : Service() {
         const val EXTRA_PROMPT = "prompt"
         const val EXTRA_LYRICS_MANUAL = "lyrics_manual"
         const val EXTRA_SOLO = "solo_instrumental"
+        const val EXTRA_QUICK_TEST = "quick_test"
         const val EXTRA_STATE = "task_state"
         const val EXTRA_MESSAGE = "task_message"
         const val EXTRA_AUDIO = "audio_path"
@@ -46,13 +47,14 @@ class BardoTaskService : Service() {
         private const val CHANNEL_ID = "bardo_audio_tasks"
         private const val NOTIFICATION_ID = 7314
 
-        fun iniciar(context: android.content.Context, prompt: String, letraManual: String, soloInstrumental: Boolean) {
+        fun iniciar(context: android.content.Context, prompt: String, letraManual: String, soloInstrumental: Boolean, quickTest: Boolean = false) {
             require(prompt.isNotBlank()) { "La tarea necesita una descripción." }
             val intent = Intent(context, BardoTaskService::class.java).apply {
                 action = ACTION_START
                 putExtra(EXTRA_PROMPT, prompt)
                 putExtra(EXTRA_LYRICS_MANUAL, letraManual)
                 putExtra(EXTRA_SOLO, soloInstrumental)
+                putExtra(EXTRA_QUICK_TEST, quickTest)
             }
             ContextCompat.startForegroundService(context, intent)
         }
@@ -62,6 +64,7 @@ class BardoTaskService : Service() {
     private var ejecutando = false
     private var inicioMs = 0L
     private var modoSolo = false
+    private var pruebaRapida = false
     private var totalPasosAudio = 20
     private val cancelacionSolicitada = AtomicBoolean(false)
     // El latido no debe depender del hilo principal: la inferencia nativa puede
@@ -115,6 +118,7 @@ class BardoTaskService : Service() {
         val prompt = intent.getStringExtra(EXTRA_PROMPT).orEmpty()
         val letraManual = intent.getStringExtra(EXTRA_LYRICS_MANUAL).orEmpty()
         modoSolo = intent.getBooleanExtra(EXTRA_SOLO, false)
+        pruebaRapida = intent.getBooleanExtra(EXTRA_QUICK_TEST, false)
         if (prompt.isBlank()) {
             publicarEstado("failed", "La descripción de la tarea está vacía.")
             stopSelf(startId)
@@ -149,6 +153,7 @@ class BardoTaskService : Service() {
         modulos += ModuloInstrumental(
             applicationContext,
             prompt,
+            quickTest = pruebaRapida,
             onSegmentProgress = { actual, total, detalle ->
                 totalPasosAudio = total.coerceAtLeast(1)
                 val transcurrido = ((System.currentTimeMillis() - inicioMs) / 1000L).coerceAtLeast(0L)
@@ -180,8 +185,7 @@ class BardoTaskService : Service() {
                 val letra = (resultados.firstOrNull { it.first == "letra" }?.second as? Dato.Texto)?.texto.orEmpty()
                 val segundos = ((System.currentTimeMillis() - inicioMs) / 1000L).toInt()
                 getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_AUDIO, audio.rutaWav).apply()
-                val pasoMp3 = (totalPasosAudio - 1).coerceAtLeast(1)
-                val mensajeMp3 = "INSTRUMENTAL $pasoMp3/$totalPasosAudio · WAV validado (${archivo.length()} bytes). Preparando MP3 320 kbps para Archivo…"
+                val mensajeMp3 = "WAV validado (${archivo.length()} bytes). Preparando MP3 320 kbps para Archivo…"
                 actualizarNotificacion(mensajeMp3, ((pasoMp3 * 90f) / totalPasosAudio).toInt().coerceIn(0, 95))
                 publicarEstado("running", mensajeMp3)
                 if (!Mp3Exporter.available) throw IllegalStateException("El WAV se generó, pero el codificador MP3 nativo no está disponible en esta APK.")
@@ -206,7 +210,7 @@ class BardoTaskService : Service() {
                         retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
                     } finally { retriever.release() }
                 }.getOrDefault(0L)
-                if (mp3DurationMs < 180_000L) {
+                if (mp3DurationMs < if (pruebaRapida) 1_500L else 180_000L) {
                     mp3.delete()
                     throw IllegalStateException("El MP3 se guardó, pero Android no pudo validar una duración de al menos 3 minutos.")
                 }
