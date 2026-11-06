@@ -2427,7 +2427,11 @@ class MainActivity : AppCompatActivity() {
 
  private fun requiereMezclaVozUsuario(): Boolean {
      val tipo = datosConver["tipo"].orEmpty()
-     return tipo.contains("voz", ignoreCase = true) || tipo.contains("ambas", ignoreCase = true)
+     val fuente = datosConver["vozFuente"].orEmpty()
+     val requiereVoz = tipo.contains("voz", ignoreCase = true) || tipo.contains("ambas", ignoreCase = true)
+     val fuenteAusente = fuente.isBlank() || fuente.contains("ningun", ignoreCase = true) ||
+         fuente.contains("sin voz", ignoreCase = true) || fuente.contains("no especificado", ignoreCase = true)
+     return requiereVoz && !fuenteAusente
  }
 
  /**
@@ -2453,7 +2457,7 @@ class MainActivity : AppCompatActivity() {
          return
      }
      if (!instrumental.isFile || instrumental.length() <= 44L ||
-         voz.length() > 100L * 1024L * 1024L || instrumental.length() > 250L * 1024L * 1024L
+         voz.length() > 60L * 1024L * 1024L || instrumental.length() > 120L * 1024L * 1024L
      ) {
          val mensaje = "La voz o el instrumental no supera las comprobaciones de archivo y tamaño para una mezcla segura."
          BardoActivityStore.record(this, taskId, "mezcla_voz", "failed", "validacion_archivos", mensaje, null)
@@ -2462,6 +2466,13 @@ class MainActivity : AppCompatActivity() {
          return
      }
 
+     if (memoriaLibreActualBytes() < 1_500_000_000L) {
+         val mensaje = "Memoria libre insuficiente para mezclar ambos WAV con seguridad. Libera memoria y vuelve a intentarlo."
+         BardoActivityStore.record(this, taskId, "mezcla_voz", "blocked", "proteccion_ram", mensaje, null)
+         anexarChat("\nBARDO: $mensaje")
+         tvEstado.text = mensaje
+         return
+     }
      btnGuardar.isEnabled = false
      btnReproducir.isEnabled = false
      tvEstado.text = "Mezclando tu voz con el instrumental en segundo plano..."
@@ -2516,9 +2527,14 @@ class MainActivity : AppCompatActivity() {
              require(wav.isFile && wav.length() > 44L) { "El WAV de la tarea ya no está disponible." }
              val marca = System.currentTimeMillis()
              val mp3 = File(mp3Path)
+             val sufijo = when {
+                 solo -> "Instrumental"
+                 mp3Path.isBlank() -> "Mezcla"
+                 else -> "Cancion"
+             }
              val nombreBase = mp3.takeIf { it.isFile && it.length() > 128L }?.nameWithoutExtension
                  ?: "BARDO_" + DateTimeFormatter.ofPattern("yyyyMMdd_HHmm")
-                     .withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(marca)) + "_Instrumental"
+                     .withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(marca)) + "_$sufijo"
              guardarArchivoEnCarpetaBardo(wav, categoria, "$nombreBase.wav", "audio/wav")
              if (mp3.isFile && mp3.length() > 128L) guardarArchivoEnCarpetaBardo(mp3, categoria, "$nombreBase.mp3", "audio/mpeg")
              if (letra.isNotBlank()) {
