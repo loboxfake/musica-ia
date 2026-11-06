@@ -49,15 +49,19 @@ class Catalogo {
                     tiempo_estimado_s = obj.optInt("tiempo_estimado_s", 10),
                     motor = obj.getString("motor")
                 )
-                modelos[modelo.id] = modelo
                 require(modelo.sha256.matches(Regex("(?i)[0-9a-f]{64}"))) {
                     "El modelo ${modelo.id} no declara un SHA-256 válido."
                 }
                 require(modelo.licencia.isNotBlank() && modelo.atribucion.isNotBlank()) {
                     "El modelo ${modelo.id} debe declarar licencia y atribución."
                 }
-                Log.d(TAG, "Cargado modelo ${modelo.id}")
-            }
+                cargados += modelo
+                Log.d(TAG, "Validado modelo ${modelo.id}")
+                }
+                synchronized(modelos) {
+                    modelos.clear()
+                    cargados.forEach { modelos[it.id] = it }
+                }
             } finally {
                 conn.disconnect()
             }
@@ -67,13 +71,9 @@ class Catalogo {
         }
     }
 
-    fun obtenerModelo(id: String): ManifiestoModelo? {
-        return modelos[id]
-    }
+    fun obtenerModelo(id: String): ManifiestoModelo? = synchronized(modelos) { modelos[id] }
 
-    fun listarModelos(): List<ManifiestoModelo> {
-        return modelos.values.toList()
-    }
+    fun listarModelos(): List<ManifiestoModelo> = synchronized(modelos) { modelos.values.toList() }
 
     // VERIFICACIÓN REAL SHA-256: lee archivo por bloques, compara y borra si no coincide
     fun verificarSha256(archivo: File, sha256Esperado: String): Boolean {
