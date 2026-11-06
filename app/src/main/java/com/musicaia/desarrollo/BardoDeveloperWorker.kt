@@ -11,8 +11,9 @@ import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
-import com.musicaia.BardoDeveloperActivity
+import com.musicaia.MainActivity
 import com.musicaia.memoria.BardoKnowledgeStore
+import com.musicaia.memoria.BardoActivityStore
 import com.musicaia.modelo.BardoCapabilityRegistry
 import com.musicaia.modulos.litert.EngineLiteRT
 import com.musicaia.modulos.litert.LiteRTLMModule
@@ -43,8 +44,10 @@ class BardoDeveloperWorker(
         val reportFile = File(workspace, "ultima_auditoria.md")
         val memoryFile = File(workspace, "memoria_tecnica.md")
         var modelStarted = false
+        val taskId = java.util.UUID.randomUUID().toString()
         try {
             workspace.mkdirs()
+            BardoActivityStore.record(applicationContext, taskId, "autoestudio", "running", "inicio", "BARDO ha iniciado el autoestudio local aislado.", 0)
             setForeground(foregroundInfo("BARDO está preparando el autoestudio local…"))
 
             var snapshot = prefs.getString("snapshot_path", null)
@@ -58,6 +61,7 @@ class BardoDeveloperWorker(
                 snapshot = imported.directory
                 prefs.edit().putString("snapshot_path", snapshot.absolutePath).apply()
             }
+            BardoActivityStore.record(applicationContext, taskId, "autoestudio", "running", "snapshot_preparado", "Snapshot de código disponible para auditoría estática.", 15, snapshot.absolutePath)
 
             val model = LiteRTLMModule.modelFile(applicationContext)
             check(model.isFile && model.length() == LiteRTLMModule.EXPECTED_SIZE_BYTES) {
@@ -75,6 +79,7 @@ class BardoDeveloperWorker(
                 "La verificación SHA-256 de Gemma ha fallado."
             }
 
+            BardoActivityStore.record(applicationContext, taskId, "autoestudio", "running", "verificacion_modelo", "Gemma y la memoria disponible han superado las comprobaciones previas.", 35, model.absolutePath)
             setForeground(foregroundInfo("BARDO está cargando Gemma local…"))
             check(EngineLiteRT.inicializar(
                 model.absolutePath,
@@ -82,6 +87,7 @@ class BardoDeveloperWorker(
             )) { "LiteRT-LM no pudo inicializar el modelo local." }
             modelStarted = true
 
+            BardoActivityStore.record(applicationContext, taskId, "autoestudio", "running", "inferencia_local", "Gemma local está analizando el snapshot; el código no se ejecuta.", 55)
             val audit = BardoDeveloperCore.analizar(snapshot)
             val auditText = audit.render()
             val sourceText = BardoDeveloperCore.extractos(snapshot, audit, 16000)
@@ -142,6 +148,7 @@ $authorizedReferences
                 File(workspace, "candidato-" + timestamp + "-auditoria.md")
                     .writeText(candidateAudit, Charsets.UTF_8)
                 prefs.edit().putString("candidate_path", applied.directory.absolutePath).apply()
+                BardoActivityStore.record(applicationContext, taskId, "autoestudio", "candidate", "candidato_aislado", "Se creó una propuesta aislada; requiere compilación y aprobación.", 85, applied.directory.absolutePath)
                 summary += "\n\nCANDIDATO AISLADO CREADO\nArchivos: " +
                     applied.changedFiles.joinToString() +
                     "\nAuditoría posterior:\n" + candidateAudit +
@@ -163,6 +170,7 @@ $authorizedReferences
 
             summary += "\n\n## Respuesta del modelo\n\n" + response
             reportFile.writeText(summary, Charsets.UTF_8)
+            BardoActivityStore.record(applicationContext, taskId, "autoestudio", "completed", "informe_guardado", "Autoestudio local completado. La propuesta no se integró en el código instalado.", 100, reportFile.absolutePath)
             prefs.edit()
                 .putLong("last_auto_study_at", timestamp)
                 .putString("last_auto_study_status", "completed")
@@ -176,6 +184,7 @@ $authorizedReferences
             val message = error.javaClass.simpleName + ": " + (error.message ?: "Error sin detalle")
             runCatching {
                 workspace.mkdirs()
+                BardoActivityStore.record(applicationContext, taskId, "autoestudio", "failed", "error", message, null, reportFile.absolutePath)
                 reportFile.writeText(
                     "AUTOESTUDIO NO COMPLETADO\n\n" + message +
                         "\n\nNo se modificó el código instalado.",
@@ -215,7 +224,7 @@ $authorizedReferences
         val openActivity = PendingIntent.getActivity(
             applicationContext,
             NOTIFICATION_ID,
-            android.content.Intent(applicationContext, BardoDeveloperActivity::class.java),
+            android.content.Intent(applicationContext, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
