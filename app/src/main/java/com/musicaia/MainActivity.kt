@@ -3178,7 +3178,10 @@ class MainActivity : AppCompatActivity() {
          }.getOrDefault("")
          "♫  " + file.nameWithoutExtension + " · %.1f MB".format(mb) + duracion + " · " + file.extension.uppercase()
      }
-     vista.text = "CREACIONES GUARDADAS · " + archivos.size + "\n\n" + resumen
+     val cantidadFavoritos = favoritosBiblioteca().size
+     val cantidadListas = nombresPlaylistsBiblioteca().size
+     vista.text = "CREACIONES GUARDADAS · " + archivos.size +
+         "\nFavoritos: $cantidadFavoritos · Listas: $cantidadListas\n\n" + resumen
      reproducirUltimo.visibility = View.VISIBLE
      reproducirUltimo.text = "Reproducir última creación"
  }
