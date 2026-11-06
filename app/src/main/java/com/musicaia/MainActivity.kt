@@ -3049,7 +3049,7 @@ class MainActivity : AppCompatActivity() {
      }
      val buscar = EditText(this).apply {
          hint = "Buscar canción o instrumental..."
-         singleLine = true
+         setSingleLine(true)
      }
      val soloFavoritos = CheckBox(this).apply { text = "Mostrar solo favoritos" }
      val acciones = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
