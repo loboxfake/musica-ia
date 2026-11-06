@@ -126,6 +126,35 @@ jobs:
             exit 1
           fi
 
+      - name: Sign APK with private BARDO upload key
+        env:
+          BARDO_KEYSTORE_BASE64: ${{ secrets.BARDO_KEYSTORE_BASE64 }}
+          BARDO_KEYSTORE_PASSWORD: ${{ secrets.BARDO_KEYSTORE_PASSWORD }}
+          BARDO_KEY_ALIAS: ${{ secrets.BARDO_KEY_ALIAS }}
+          BARDO_KEY_PASSWORD: ${{ secrets.BARDO_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          set +x
+          : "${BARDO_KEYSTORE_BASE64:?Missing BARDO_KEYSTORE_BASE64 repository secret}"
+          : "${BARDO_KEYSTORE_PASSWORD:?Missing BARDO_KEYSTORE_PASSWORD repository secret}"
+          : "${BARDO_KEY_ALIAS:?Missing BARDO_KEY_ALIAS repository secret}"
+          : "${BARDO_KEY_PASSWORD:?Missing BARDO_KEY_PASSWORD repository secret}"
+          apk=$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n 1)
+          test -s "$apk"
+          key="$RUNNER_TEMP/bardo-upload-key.jks"
+          signed="$RUNNER_TEMP/bardo-signed.apk"
+          trap 'rm -f "$key" "$signed"' EXIT
+          printf '%s' "$BARDO_KEYSTORE_BASE64" | base64 --decode > "$key"
+          test -s "$key"
+          build_tools=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
+          "$build_tools/apksigner" sign --ks "$key" --ks-key-alias "$BARDO_KEY_ALIAS" \
+            --ks-pass env:BARDO_KEYSTORE_PASSWORD --key-pass env:BARDO_KEY_PASSWORD \
+            --out "$signed" "$apk"
+          "$build_tools/apksigner" verify --verbose "$signed"
+          mv "$signed" "$apk"
+          rm -f "$key"
+          trap - EXIT
+
       - name: Audit APK contents and integrity
         run: |
           set -euo pipefail
@@ -205,7 +234,7 @@ jobs:
               description: state === "success" ? "Unit tests, native build and APK audit passed" : "Full offline build or APK audit failed"
             });
 
-      - name: Publish audited APK as a private GitHub release
+      - name: Publish audited APK to GitHub Releases
         id: publish
         env:
           GH_TOKEN: ${{ github.token }}
