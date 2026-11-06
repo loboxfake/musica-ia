@@ -33,5 +33,7 @@ class ModuloLetra(context: Context, private val modoManual: Boolean = false) : M
         return Dato.Texto(ConversacionLiteRT.solicitarLetra(solicitud))
     }
 
-    override fun descargar() {}
+    override fun descargar() {
+        if (!modoManual) EngineLiteRT.cerrar()
+    }
 }
