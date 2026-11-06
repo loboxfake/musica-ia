@@ -28,7 +28,9 @@ object AudioAssembler {
         require(inputFiles.isNotEmpty()) { "No hay segmentos de audio para unir." }
         require(crossfadeMs >= 0 && fadeOutMs >= 0) { "Duración de fundido no válida." }
 
-        val clips = inputFiles.map(::readPcm16Wav)
+        val clips = inputFiles.map(::readPcm16Wav).map {
+            trimTrailingSilence(it, threshold = 104, minimumSilenceMs = 200, keepTailMs = 80)
+        }
         val reference = clips.first()
         require(clips.all {
             it.sampleRate == reference.sampleRate && it.channels == reference.channels
@@ -47,9 +49,10 @@ object AudioAssembler {
             mixed.copyInto(output, 0, 0, prefixSamples)
 
             for (frame in 0 until overlap) {
-                val progress = (frame + 1).toFloat() / (overlap + 1).toFloat()
-                val oldGain = 1f - progress
-                val newGain = progress
+                val progress = (frame + 1).toDouble() / (overlap + 1).toDouble()
+                val angle = progress * (Math.PI / 2.0)
+                val oldGain = kotlin.math.cos(angle).toFloat()
+                val newGain = kotlin.math.sin(angle).toFloat()
                 for (channel in 0 until channels) {
                     val oldSample = mixed[prefixSamples + frame * channels + channel].toFloat()
                     val newSample = clip.samples[frame * channels + channel].toFloat()
@@ -65,6 +68,9 @@ object AudioAssembler {
             mixed = output
         }
 
+        require(!hasInternalSilenceLongerThan(mixed, channels, reference.sampleRate, threshold = 104, maximumSilenceMs = 200, excludeTailMs = fadeOutMs)) {
+            "El audio unido contiene un silencio interno superior a 0,2 s por debajo de -50 dBFS. No se guardará un resultado que incumpla el control de continuidad."
+        }
         applyFades(
             samples = mixed,
             channels = channels,
@@ -74,6 +80,45 @@ object AudioAssembler {
         )
         writePcm16Wav(outputFile, reference.sampleRate, channels, mixed)
         return outputFile
+    }
+
+    private fun trimTrailingSilence(
+        clip: Clip, threshold: Int, minimumSilenceMs: Int, keepTailMs: Int
+    ): Clip {
+        val channels = clip.channels
+        val frames = clip.frames
+        val minimumFrames = clip.sampleRate.toLong() * minimumSilenceMs / 1000L
+        val keepFrames = (clip.sampleRate.toLong() * keepTailMs / 1000L).toInt()
+        var lastAudible = frames - 1
+        while (lastAudible >= 0) {
+            var peak = 0
+            for (channel in 0 until channels) peak = maxOf(peak, kotlin.math.abs(clip.samples[lastAudible * channels + channel].toInt()))
+            if (peak > threshold) break
+            lastAudible--
+        }
+        val silentFrames = frames - 1 - lastAudible
+        if (silentFrames < minimumFrames) return clip
+        val retainedFrames = (lastAudible + 1 + keepFrames).coerceIn(1, frames)
+        return clip.copy(samples = clip.samples.copyOf(retainedFrames * channels))
+    }
+
+    private fun hasInternalSilenceLongerThan(
+        samples: ShortArray, channels: Int, sampleRate: Int, threshold: Int,
+        maximumSilenceMs: Int, excludeTailMs: Int
+    ): Boolean {
+        val frames = samples.size / channels
+        val scanEnd = (frames - sampleRate.toLong() * excludeTailMs / 1000L).coerceAtLeast(0L).toInt()
+        val maximumFrames = sampleRate.toLong() * maximumSilenceMs / 1000L
+        var silentFrames = 0L
+        for (frame in 0 until scanEnd) {
+            var peak = 0
+            for (channel in 0 until channels) peak = maxOf(peak, kotlin.math.abs(samples[frame * channels + channel].toInt()))
+            if (peak <= threshold) {
+                silentFrames++
+                if (silentFrames > maximumFrames) return true
+            } else silentFrames = 0L
+        }
+        return false
     }
 
     private fun readPcm16Wav(file: File): Clip {
