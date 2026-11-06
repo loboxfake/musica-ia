@@ -117,7 +117,8 @@ class ModuloInstrumental(
             sectionNames.forEachIndexed { index, section ->
                 if (isCancellationRequested()) throw java.util.concurrent.CancellationException("Cancelación solicitada por el usuario.")
                 onSegmentProgress(index + 1, sectionNames.size + 2, "Preparando ${section.substringBefore(':')}")
-                val prompt = buildPrompt(section, lyrics)
+                val previousSection = sectionNames.getOrNull(index - 1)
+                val prompt = buildPrompt(section, lyrics, previousSection)
                 val segment = File(workDir, "segment_%02d.wav".format(index + 1))
                 val generated = AudioGenNative.generateNative(
                     modelDir.absolutePath,
@@ -156,7 +157,7 @@ class ModuloInstrumental(
         }
     }
 
-    private fun buildPrompt(section: String, lyrics: String): String {
+    private fun buildPrompt(section: String, lyrics: String, previousSection: String?): String {
         val genre = field("Estilo")
         val mood = field("Ambiente")
         val tempo = field("Ritmo")
@@ -190,7 +191,7 @@ class ModuloInstrumental(
 
         val tempoEnglish = when {
             tempo.contains("lent", true) -> "slow tempo around 75 BPM"
-            tempo.contains("rápid", true) || tempo.contains("rapid", true) -> "up-tempo around 125 BPM"
+            tempo.contains("rápid", true) || tempo.contains("rapid", true) -> "up-tempo around 128 BPM, strict steady pulse"
             tempo.isBlank() -> "mid-tempo around 105 BPM"
             else -> "mid-tempo around 105 BPM, requested feel: ${tempo.take(40)}"
         }
@@ -222,7 +223,10 @@ class ModuloInstrumental(
             "Instrumentation: $instruments. Theme: $themeEnglish. " +
             "Professional studio production, coherent harmony, clean mix, natural dynamics. " +
             "Song section: $section. "
-        return base + if (lyricHint.isNotBlank()) {
+        val continuity = previousSection?.let {
+            "Continue the same key center, tempo, groove, instrumentation palette and melodic identity established in the previous section ($it); make only a natural arrangement transition, do not restart the song or change tempo. "
+        }.orEmpty()
+        return base + continuity + if (lyricHint.isNotBlank()) {
             "Emotional inspiration from these lyrics: $lyricHint."
         } else ""
     }
