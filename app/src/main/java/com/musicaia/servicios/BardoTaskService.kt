@@ -14,6 +14,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.musicaia.MainActivity
+import com.musicaia.memoria.BardoActivityStore
 import com.musicaia.modelo.Dato
 import com.musicaia.modelo.ModuloIA
 import com.musicaia.modelo.Orquestador
@@ -63,6 +64,7 @@ class BardoTaskService : Service() {
     private val orquestador = Orquestador()
     private var ejecutando = false
     private var inicioMs = 0L
+    private var taskId = ""
     private var modoSolo = false
     private var pruebaRapida = false
     private var totalPasosAudio = 20
@@ -126,6 +128,8 @@ class BardoTaskService : Service() {
         }
 
         ejecutando = true
+        taskId = java.util.UUID.randomUUID().toString()
+        BardoActivityStore.record(this, taskId, if (modoSolo) "instrumental" else "cancion", "running", "inicio", "BARDO ha iniciado una tarea de creación musical.", 0)
         cancelacionSolicitada.set(false)
         inicioMs = System.currentTimeMillis()
         runCatching { heartbeatFile.writeText(inicioMs.toString()) }
@@ -234,6 +238,7 @@ class BardoTaskService : Service() {
                     .putString(KEY_STATE, "completed").putString(KEY_MESSAGE, mensajeFinal)
                     .putString(KEY_AUDIO, audio.rutaWav).putString(KEY_MP3, mp3.absolutePath).putString("lyrics", letra)
                     .putBoolean("solo", modoSolo).putInt("elapsed", segundos).apply()
+                BardoActivityStore.record(this, taskId, if (modoSolo) "instrumental" else "cancion", "completed", "validacion", mensajeFinal, 100, mp3.absolutePath)
                 enviarActualizacion("completed", mensajeFinal, audio.rutaWav, letra, segundos, mp3.absolutePath)
                 actualizarNotificacion(mensajeFinal, 100)
                 Log.i("BARDO-TaskService", "WAV válido: ${archivo.length()} bytes; MP3 válido: ${mp3.length()} bytes")
@@ -270,6 +275,18 @@ class BardoTaskService : Service() {
 
     private fun publicarEstado(estado: String, mensaje: String) {
         getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_STATE, estado).putString(KEY_MESSAGE, mensaje).apply()
+        val progreso = Regex("INSTRUMENTAL (\\\\d+)/(\\\\d+)").find(mensaje)?.let { match ->
+            val actual = match.groupValues[1].toIntOrNull() ?: 0
+            val total = match.groupValues[2].toIntOrNull()?.coerceAtLeast(1) ?: 1
+            (actual * 100 / total).coerceIn(0, 99)
+        }
+        val etapa = when {
+            mensaje.contains("MP3", true) -> "exportacion"
+            mensaje.contains("segment", true) || mensaje.contains("INSTRUMENTAL", true) -> "generacion_audio"
+            mensaje.contains("Gemma", true) || mensaje.contains("letra", true) -> "letra"
+            else -> "orquestacion"
+        }
+        BardoActivityStore.record(this, taskId.ifBlank { "task-unknown" }, if (modoSolo) "instrumental" else "cancion", estado, etapa, mensaje, progreso)
         enviarActualizacion(estado, mensaje, "", "", 0)
     }
 
