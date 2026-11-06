@@ -1240,15 +1240,15 @@ class MainActivity : AppCompatActivity() {
              val eventos = BardoActivityStore.recent(this@MainActivity, 250)
              texto.text = if (eventos.isEmpty()) {
                  "Todavía no hay tareas registradas en esta versión."
-             } else eventos.joinToString("\\n\\n────────────────────\\n\\n") { evento ->
+             } else eventos.joinToString("\n\n────────────────────\n\n") { evento ->
                  val fecha = DateTimeFormatter.ofPattern("dd/MM HH:mm:ss").withZone(ZoneId.systemDefault())
                      .format(Instant.ofEpochMilli(evento.timestamp))
                  buildString {
-                     append(fecha).append(" · ").append(evento.category.uppercase()).append("\\n")
+                     append(fecha).append(" · ").append(evento.category.uppercase()).append("\n")
                      append(evento.state.uppercase()).append(" · ").append(evento.stage)
                      evento.progress?.let { append(" · ").append(it).append("%") }
-                     append("\\n").append(evento.message)
-                     evento.artifact?.let { append("\\nResultado: ").append(it) }
+                     append("\n").append(evento.message)
+                     evento.artifact?.let { append("\nResultado: ").append(it) }
                  }
              }
              handler.postDelayed(this, 2500L)
@@ -1269,7 +1269,7 @@ class MainActivity : AppCompatActivity() {
          tvEstado.text = "No se pudo preparar el espacio de importación."
          return
      }
-     val nombreSeguro = nombre.substringAfterLast('/').substringAfterLast('\\\\')
+     val nombreSeguro = nombre.substringAfterLast('/').substringAfterLast('\\')
          .replace(Regex("[^A-Za-z0-9._-]"), "_").take(100).ifBlank { "archivo" }
      val destino = File(carpeta, "${System.currentTimeMillis()}_${nombreSeguro}")
      try {
@@ -1290,35 +1290,35 @@ class MainActivity : AppCompatActivity() {
      } catch (error: Exception) {
          destino.delete()
          tvEstado.text = "No se pudo importar el archivo: ${error.message}"
-         anexarChat("\\nBARDO: No he podido importar «$nombre»: ${error.message}")
+         anexarChat("\nBARDO: No he podido importar «$nombre»: ${error.message}")
          return
      }
 
      val extension = nombre.substringAfterLast('.', "").lowercase()
      val esTexto = mime.startsWith("text/") || mime in setOf("application/json", "application/xml") ||
          extension in setOf("txt", "md", "markdown", "json", "csv", "xml", "log")
-     anexarChat("\\nTú: He adjuntado «$nombre» ($mime, ${destino.length()} bytes).")
+     anexarChat("\nTú: He adjuntado «$nombre» ($mime, ${destino.length()} bytes).")
      if (!esTexto) {
-         anexarChat("\\nBARDO: El archivo se ha conservado en el espacio privado de importaciones. En esta versión todavía no tengo un procesador verificado para interpretar automáticamente este formato; no voy a fingir que he analizado su contenido. La ruta interna es ${destino.name}.")
+         anexarChat("\nBARDO: El archivo se ha conservado en el espacio privado de importaciones. En esta versión todavía no tengo un procesador verificado para interpretar automáticamente este formato; no voy a fingir que he analizado su contenido. La ruta interna es ${destino.name}.")
          tvEstado.text = "Adjunto conservado; análisis del formato pendiente de un procesador compatible."
          return
      }
      val contenido = runCatching { destino.inputStream().bufferedReader(Charsets.UTF_8).use { it.readText().take(30000) } }
          .getOrElse {
-             anexarChat("\\nBARDO: No pude decodificar el texto como UTF-8: ${it.message}")
+             anexarChat("\nBARDO: No pude decodificar el texto como UTF-8: ${it.message}")
              return
          }
-     anexarChat("\\nBARDO: He extraído ${contenido.length} caracteres de «$nombre». Puedo analizar este contenido en el contexto del chat. ¿Quieres además incorporarlo a mi biblioteca de conocimiento persistente?")
+     anexarChat("\nBARDO: He extraído ${contenido.length} caracteres de «$nombre». Puedo analizar este contenido en el contexto del chat. ¿Quieres además incorporarlo a mi biblioteca de conocimiento persistente?")
      AlertDialog.Builder(this)
          .setTitle("Adjunto listo para analizar")
-         .setMessage("Archivo: $nombre\\nTipo: $mime\\nTexto extraído: ${contenido.length} caracteres.\\n\\n¿Autorizas guardar una copia de referencia en la memoria de conocimiento de BARDO?")
+         .setMessage("Archivo: $nombre\nTipo: $mime\nTexto extraído: ${contenido.length} caracteres.\n\n¿Autorizas guardar una copia de referencia en la memoria de conocimiento de BARDO?")
          .setNegativeButton("Solo analizar en este chat", null)
          .setPositiveButton("Analizar y aprender") { _, _ ->
              runCatching {
                  knowledgeStore.importText("Adjunto del chat", nombre, contenido)
                  actualizarEstadoConocimiento()
-                 anexarChat("\\nBARDO: Referencia «$nombre» incorporada a la biblioteca local, conservando su procedencia.")
-             }.onFailure { anexarChat("\\nBARDO: No pude guardar la referencia: ${it.message}") }
+                 anexarChat("\nBARDO: Referencia «$nombre» incorporada a la biblioteca local, conservando su procedencia.")
+             }.onFailure { anexarChat("\nBARDO: No pude guardar la referencia: ${it.message}") }
          }.show()
  }
 
