@@ -76,6 +76,8 @@ dependencies {
     implementation("androidx.work:work-runtime-ktx:2.9.0")
     // LiteRT-LM 0.16.1 (Ruta A) — coordinación exacta a verificar al compilar
     implementation("com.google.ai.edge.litertlm:litertlm-android:0.16.1")
+    // Extracción local de texto PDF; no requiere red en tiempo de ejecución.
+    implementation("com.tom-roush:pdfbox-android:2.0.27.0")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")
