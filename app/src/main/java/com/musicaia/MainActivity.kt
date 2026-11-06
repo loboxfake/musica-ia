@@ -1409,7 +1409,7 @@ class MainActivity : AppCompatActivity() {
     if (texto.isEmpty()) return
     chatEntrada.text.clear()
 
-    if (Regex("(?i)\\\\b(autoestudio|estudiar el c[oó]digo|revisar el proyecto|auditar el c[oó]digo)\\\\b").containsMatchIn(texto)) {
+    if (Regex("(?i)\\b(autoestudio|estudiar el c[oó]digo|revisar el proyecto|auditar el c[oó]digo)\\b").containsMatchIn(texto)) {
         iniciarAutoestudioDesdeChat(texto)
         return
     }
