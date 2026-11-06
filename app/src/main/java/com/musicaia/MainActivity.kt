@@ -1409,6 +1409,11 @@ class MainActivity : AppCompatActivity() {
     if (texto.isEmpty()) return
     chatEntrada.text.clear()
 
+    if (Regex("(?i)\\\\b(autoestudio|estudiar el c[oó]digo|revisar el proyecto|auditar el c[oó]digo)\\\\b").containsMatchIn(texto)) {
+        iniciarAutoestudioDesdeChat(texto)
+        return
+    }
+
     val intent = BardoIntentRouter.classify(texto, creationInProgress = datosConver.isNotEmpty())
     if (intent == BardoIntentRouter.Intent.GENERAL_CHAT) {
         responderChatLibre(texto)
@@ -1550,6 +1555,44 @@ class MainActivity : AppCompatActivity() {
               tvEstado.text = if (respuesta != null) "Respuesta generada por Gemma local; siguiente paso guiado." else "Modo guiado disponible; el modelo local no pudo responder."
           }
      }, "BARDO-Orquestador-Chat").start()
+ }
+
+
+ private fun iniciarAutoestudioDesdeChat(textoUsuario: String) {
+     val taskId = java.util.UUID.randomUUID().toString()
+     anexarChat("\\nTú: $textoUsuario")
+     val modelo = LiteRTLMModule.modelFile(this)
+     if (!modelo.isFile || modelo.length() != LiteRTLMModule.EXPECTED_SIZE_BYTES) {
+         BardoActivityStore.record(this, taskId, "autoestudio", "blocked", "modelo_no_disponible", "El autoestudio local necesita Gemma verificado.", null)
+         anexarChat("\\nBARDO: Para estudiar el código localmente necesito que Gemma esté instalado y verificado. No enviaré el proyecto a ningún servicio externo.")
+         tvEstado.text = "Autoestudio pendiente: falta Gemma local."
+         return
+     }
+     val bloqueo = bloqueoGemmaPorMemoria()
+     if (bloqueo != null) {
+         BardoActivityStore.record(this, taskId, "autoestudio", "blocked", "proteccion_ram", bloqueo, null)
+         anexarChat("\\nBARDO: No inicio el autoestudio para proteger el teléfono: $bloqueo")
+         tvEstado.text = "Autoestudio bloqueado preventivamente por RAM."
+         return
+     }
+     val request = androidx.work.OneTimeWorkRequestBuilder<com.musicaia.desarrollo.BardoDeveloperWorker>()
+         .setInputData(androidx.work.workDataOf("task_id" to taskId))
+         .build()
+     runCatching {
+         androidx.work.WorkManager.getInstance(applicationContext).enqueueUniqueWork(
+             com.musicaia.desarrollo.BardoDeveloperWorker.UNIQUE_WORK,
+             androidx.work.ExistingWorkPolicy.KEEP,
+             request
+         )
+     }.onSuccess {
+         BardoActivityStore.record(this, taskId, "autoestudio", "queued", "cola_trabajo", "Autoestudio local añadido a la cola. No modifica el código instalado.", 0)
+         anexarChat("\\nBARDO: He puesto el autoestudio local en cola. Revisaré el snapshot del proyecto con Gemma, generaré un informe y, si existe una mejora respaldada, crearé una copia candidata aislada. No integraré cambios en el núcleo ni en la firma. Puedes seguir usando el chat; consulta Actividad para ver el progreso.")
+         tvEstado.text = "Autoestudio local en cola."
+     }.onFailure { error ->
+         BardoActivityStore.record(this, taskId, "autoestudio", "failed", "encolado", error.message ?: "No se pudo iniciar WorkManager.", null)
+         anexarChat("\\nBARDO: No pude poner el autoestudio en cola: ${error.message}")
+         tvEstado.text = "No se pudo iniciar el autoestudio."
+     }
  }
 
  private fun responderChatLibre(textoUsuario: String, activityTaskId: String? = null) {
