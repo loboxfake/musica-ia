@@ -58,6 +58,7 @@
                     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="7dp">
                         <Button android:id="@+id/btnNuevaConversacion" android:layout_width="0dp" android:layout_height="42dp" android:layout_weight="1" android:text="Nueva conversación" android:textAllCaps="false" android:textSize="11sp"/>
                         <Button android:id="@+id/btnVerHistorial" android:layout_width="0dp" android:layout_height="42dp" android:layout_weight="1" android:layout_marginStart="6dp" android:text="Historial" android:textAllCaps="false" android:textSize="11sp"/>
+                        <Button android:id="@+id/btnActividadBardo" android:layout_width="0dp" android:layout_height="42dp" android:layout_weight="1" android:layout_marginStart="6dp" android:text="Actividad" android:textAllCaps="false" android:textSize="11sp"/>
                     </LinearLayout>
                     <Button android:id="@+id/btnBuscarHistorial" android:layout_width="match_parent" android:layout_height="42dp" android:layout_marginTop="5dp" android:text="Buscar en conversaciones" android:textAllCaps="false" android:textSize="11sp"/>
                     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
