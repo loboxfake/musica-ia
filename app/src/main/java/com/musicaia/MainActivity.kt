@@ -360,6 +360,10 @@ class MainActivity : AppCompatActivity() {
                  }.exceptionOrNull()
                  if (error != null && borrarOrigenAlCancelar) File(origen).delete()
                  runOnUiThread {
+                     if (borrarOrigenAlCancelar && rutaMp3Compartir == origen) {
+                         rutaMp3Compartir = null
+                         btnCompartir.visibility = View.GONE
+                     }
                      rutaExportacion = null
                      rutaExportacionTemporal = false
                      if (!isFinishing && !isDestroyed) {
@@ -372,7 +376,13 @@ class MainActivity : AppCompatActivity() {
                  }
              }, "BARDO-MP3-Save").start()
          } else {
-             if (borrarOrigenAlCancelar) origen?.let { File(it).delete() }
+             if (borrarOrigenAlCancelar) {
+                 origen?.let { File(it).delete() }
+                 if (rutaMp3Compartir == origen) {
+                     rutaMp3Compartir = null
+                     btnCompartir.visibility = View.GONE
+                 }
+             }
              rutaExportacion = null
              rutaExportacionTemporal = false
          }
@@ -2131,6 +2141,9 @@ class MainActivity : AppCompatActivity() {
  btnCancelarTarea.isEnabled = true
  btnReproducir.visibility = View.GONE
  rutaAudio = null
+ rutaMp3Compartir = null
+ rutaExportacion = null
+ rutaExportacionTemporal = false
  rutaInstrumental = null
  imgPortada.visibility = View.GONE
  progreso.visibility = View.VISIBLE
@@ -2679,8 +2692,8 @@ class MainActivity : AppCompatActivity() {
  }
 
  val mp3Existente = listOfNotNull(
-     rutaMp3Compartir?.let(::File),
-     File(origen).takeIf { it.extension.equals("mp3", true) }
+     File(origen).takeIf { it.extension.equals("mp3", true) },
+     rutaMp3Compartir?.let(::File)
  ).firstOrNull { it.isFile && it.length() > 128L }
  if (mp3Existente != null) {
      val carpetaConfigurada = uriCarpetaBardo != null
