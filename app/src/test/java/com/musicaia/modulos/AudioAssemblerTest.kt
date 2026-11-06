@@ -67,6 +67,59 @@ class AudioAssemblerTest {
         }
     }
 
+    @Test
+    fun allowsIntentionalMusicalPauseAwayFromSegmentJoin() {
+        val directory = createTempDir(prefix = "audio-assembler-musical-pause-test")
+        try {
+            val first = File(directory, "first.wav")
+            val second = File(directory, "second.wav")
+            val output = File(directory, "joined.wav")
+            val firstSamples = ShortArray(2000) { index ->
+                if (index in 500..1000) 0 else 1000
+            }
+            writeTestWav(first, firstSamples)
+            writeTestWav(second, ShortArray(2000) { 1000 })
+
+            AudioAssembler.assemble(
+                inputFiles = listOf(first, second),
+                outputFile = output,
+                crossfadeMs = 100,
+                fadeOutMs = 100
+            )
+
+            assertTrue(output.isFile)
+            assertTrue(output.length() > 44L)
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun rejectsLongSilenceThatCrossesSegmentJoin() {
+        val directory = createTempDir(prefix = "audio-assembler-seam-gap-test")
+        try {
+            val first = File(directory, "first.wav")
+            val second = File(directory, "second.wav")
+            val output = File(directory, "joined.wav")
+            writeTestWav(first, ShortArray(1000) { index -> if (index < 700) 1000 else 0 })
+            writeTestWav(second, ShortArray(1000) { index -> if (index < 350) 0 else 1000 })
+
+            try {
+                AudioAssembler.assemble(
+                    inputFiles = listOf(first, second),
+                    outputFile = output,
+                    crossfadeMs = 100,
+                    fadeOutMs = 100
+                )
+                throw AssertionError("Expected a seam silence validation failure.")
+            } catch (expected: IllegalArgumentException) {
+                assertTrue(expected.message.orEmpty().contains("unión entre segmentos"))
+            }
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
     private fun writeTestWav(file: File, samples: ShortArray) {
         val dataBytes = samples.size * 2
         val output = ByteBuffer.allocate(44 + dataBytes).order(ByteOrder.LITTLE_ENDIAN)
