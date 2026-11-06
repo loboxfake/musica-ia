@@ -84,6 +84,7 @@
                         android:paddingTop="5dp" android:paddingBottom="9dp"
                         android:text="Describe el sonido que quieres. El orquestador coordinará el motor de audio local."
                         android:textColor="#A9B8D2" android:textSize="12sp"/>
+                    <CheckBox android:id="@+id/checkPruebaRapida" android:layout_width="match_parent" android:layout_height="wrap_content" android:buttonTint="#4ED1F1" android:text="Prueba rápida · 1 segmento (validación de audio)" android:textColor="#DCEAFF" android:textSize="13sp" android:paddingTop="6dp" android:paddingBottom="6dp"/>
                     <EditText android:id="@+id/editPromptInstrumental" android:layout_width="match_parent"
                         android:layout_height="wrap_content" android:gravity="top" android:minLines="4"
                         android:hint="Ej.: instrumental cinematográfico épico, cuerdas, piano y percusión..."
