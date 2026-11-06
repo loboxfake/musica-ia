@@ -1922,9 +1922,12 @@ class MainActivity : AppCompatActivity() {
              val wav = File(audioPath)
              require(wav.isFile && wav.length() > 44L) { "El WAV de la tarea ya no está disponible." }
              val marca = System.currentTimeMillis()
-             guardarArchivoEnCarpetaBardo(wav, categoria, "BARDO_$marca.wav", "audio/wav")
              val mp3 = File(mp3Path)
-             if (mp3.isFile && mp3.length() > 128L) guardarArchivoEnCarpetaBardo(mp3, categoria, "BARDO_$marca.mp3", "audio/mpeg")
+             val nombreBase = mp3.takeIf { it.isFile && it.length() > 128L }?.nameWithoutExtension
+                 ?: "BARDO_" + DateTimeFormatter.ofPattern("yyyyMMdd_HHmm")
+                     .withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(marca)) + "_Instrumental"
+             guardarArchivoEnCarpetaBardo(wav, categoria, "$nombreBase.wav", "audio/wav")
+             if (mp3.isFile && mp3.length() > 128L) guardarArchivoEnCarpetaBardo(mp3, categoria, "$nombreBase.mp3", "audio/mpeg")
              if (letra.isNotBlank()) {
                  val temporal = File(cacheDir, "BARDO_$marca.txt")
                  try {
