@@ -125,7 +125,7 @@ jobs:
 
       - name: Build full APK with on-device audio model
         run: |
-          gradle assembleDebug -PwithAudioNative=true -PbardoVersionCode="$((1000 + GITHUB_RUN_NUMBER))" -PetSrcPath="$RUNNER_TEMP/executorch" 2>&1 | tee full-build.log
+          gradle assembleRelease -PwithAudioNative=true -PbardoVersionCode="$((1000 + GITHUB_RUN_NUMBER))" -PetSrcPath="$RUNNER_TEMP/executorch" 2>&1 | tee full-build.log
           status=${PIPESTATUS[0]}
           if [ "$status" -ne 0 ]; then
             grep -E "error:|CMake Error|FAILED|What went wrong" full-build.log | tail -100 || true
@@ -145,7 +145,7 @@ jobs:
           : "${BARDO_KEYSTORE_PASSWORD:?Missing BARDO_KEYSTORE_PASSWORD repository secret}"
           : "${BARDO_KEY_ALIAS:?Missing BARDO_KEY_ALIAS repository secret}"
           : "${BARDO_KEY_PASSWORD:?Missing BARDO_KEY_PASSWORD repository secret}"
-          apk=$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n 1)
+          apk=$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n 1)
           test -s "$apk"
           key="$RUNNER_TEMP/bardo-upload-key.jks"
           signed="$RUNNER_TEMP/bardo-signed.apk"
@@ -169,12 +169,14 @@ jobs:
             exit 1
           fi
           echo "Certificado BARDO verificado."
+          # Auditar y publicar exactamente el binario ya firmado.
+          cp "$signed" "$apk"
           trap - EXIT
 
       - name: Audit APK contents and integrity
         run: |
           set -euo pipefail
-          apk=$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n 1)
+          apk=$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n 1)
           test -n "$apk"
           python3 - "$apk" <<'PY'
           import hashlib, pathlib, sys, zipfile
@@ -233,7 +235,7 @@ jobs:
       - name: Audit APK for embedded credentials and signing material
         run: |
           set -euo pipefail
-          python3 tools/audit_apk_secrets.py "$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n 1)"
+          python3 tools/audit_apk_secrets.py "$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n 1)"
 
       - name: Report full offline APK audit status
         if: always()
@@ -247,24 +249,19 @@ jobs:
               sha: context.sha,
               state,
               context: "BARDO / full offline APK audit",
-              description: state === "success" ? "Unit tests, native build and APK audit passed" : "Full offline build or APK audit failed"
+              description: state === "success" ? "Unit tests, native build, signed release APK and APK audit passed" : "Full offline build or APK audit failed"
             });
 
-      - name: Publish audited APK to GitHub Releases
+      - name: Publish audited APK as a workflow artifact
         id: publish
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          apk=$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n 1)
-          test -s "$apk"
-          tag="bardo-build-${GITHUB_RUN_NUMBER}"
-          gh release create "$tag" "$apk" full-apk-audit.txt \
-            --repo "$GITHUB_REPOSITORY" \
-            --target "$GITHUB_SHA" \
-            --title "BARDO · APK offline completa #${GITHUB_RUN_NUMBER}" \
-            --notes "Powered by Stability AI. Incluye Stable Audio Open Small bajo los términos de su licencia distribuida en assets/audio_model/LICENSE; NOTICE incluido dentro de la APK. Auditoría incluida como asset. La publicación confirma compilación y empaquetado, no sustituye la prueba real en el Xiaomi 11T Pro." \
-            --prerelease
+        uses: actions/upload-artifact@v4
+        with:
+          name: BARDO-full-offline-${{ github.run_number }}
+          path: |
+            app/build/outputs/apk/release/*.apk
+            full-apk-audit.txt
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Report full offline APK release status
         if: always()
@@ -278,6 +275,6 @@ jobs:
               sha: context.sha,
               state,
               context: "BARDO / full offline APK release",
-              description: state === "success" ? "Audited APK published to GitHub Releases" : "Audited APK release was not published"
+              description: state === "success" ? "Signed audited APK uploaded as workflow artifact" : "Audited APK release was not published"
             });
 
