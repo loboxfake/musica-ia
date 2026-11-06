@@ -157,7 +157,7 @@
                     <TextView android:id="@+id/estadoAudioModelo" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="7dp" android:text="Instrumental IA: comprobando motor local..." android:textColor="#A9B8D2" android:textSize="12sp"/>
                     <TextView android:id="@+id/estadoVozModelo" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="7dp" android:text="Voz cantada IA: todavía no integrada; no se simula." android:textColor="#E8B987" android:textSize="12sp"/>
                     <ProgressBar android:id="@+id/progresoModelo" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="1000" android:visibility="gone"/>
-                    <Button android:id="@+id/btnDescargarModelo" android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="8dp" android:text="Gestionar modelo Gemma 4 E2B · 2,6 GB" android:textAllCaps="false"/>
+                    <Button android:id="@+id/btnDescargarModelo" android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="8dp" android:text="Seleccionar e importar Gemma 4 E2B" android:textAllCaps="false"/>
                     <TextView android:id="@+id/estadoConocimiento" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="8dp" android:text="Conocimiento importado: ninguno." android:textColor="#A9B8D2" android:textSize="12sp"/>
                     <Button android:id="@+id/btnImportarConocimiento" android:layout_width="match_parent"
                         android:layout_height="48dp" android:layout_marginTop="8dp"
