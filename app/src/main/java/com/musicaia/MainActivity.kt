@@ -82,6 +82,7 @@ class MainActivity : AppCompatActivity() {
  }
  private var rutaAudio: String? = null
  private var rutaExportacion: String? = null
+ private var rutaMp3Compartir: String? = null
  private var rutaVoz: String? = null
  private var rutaGrabacionVoz: String? = null
  private var grabadora: GrabadoraWav? = null
@@ -158,6 +159,7 @@ class MainActivity : AppCompatActivity() {
  private lateinit var btnCancelarTarea: Button
  private lateinit var btnReproducir: Button
  private lateinit var btnGuardar: Button
+ private lateinit var btnCompartir: Button
  private lateinit var tvEstado: TextView
  private lateinit var tvTiempo: TextView
  private lateinit var tvResultado: TextView
@@ -344,12 +346,12 @@ class MainActivity : AppCompatActivity() {
                          File(origen).inputStream().buffered().use { it.copyTo(destino) }
                      }
                  }.exceptionOrNull()
-                 File(origen).delete()
+                 if (error != null) File(origen).delete()
                  runOnUiThread {
                      rutaExportacion = null
                      if (!isFinishing && !isDestroyed) {
                          tvEstado.text = if (error == null) {
-                             "Canción exportada en MP3 a 320 kbps."
+                             "Canción exportada en MP3 a 320 kbps. Ya puedes compartirla."
                          } else {
                              "No se pudo guardar el MP3: ${error.message}"
                          }
@@ -359,6 +361,8 @@ class MainActivity : AppCompatActivity() {
          } else {
              origen?.let { File(it).delete() }
              rutaExportacion = null
+             rutaMp3Compartir = null
+             btnCompartir.visibility = View.GONE
          }
      }
 
@@ -399,6 +403,7 @@ class MainActivity : AppCompatActivity() {
  btnPausar = findViewById(R.id.btnPausar)
  btnDetener = findViewById(R.id.btnDetener)
  btnGuardar = findViewById(R.id.btnGuardar)
+ btnCompartir = findViewById(R.id.btnCompartir)
  tvEstado = findViewById(R.id.estado)
  tvTiempo = findViewById(R.id.tiempo)
  tvResultado = findViewById(R.id.textoResultado)
@@ -479,6 +484,7 @@ class MainActivity : AppCompatActivity() {
      override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) { }
  })
  btnGuardar.setOnClickListener { guardarCancion() }
+ btnCompartir.setOnClickListener { compartirCancionMp3() }
 
  if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
  == PackageManager.PERMISSION_GRANTED) {
@@ -540,7 +546,7 @@ class MainActivity : AppCompatActivity() {
      val claveConversacion = id?.let { "preferencias_creativas_$it" }
      val tienePreferenciasPropias = claveConversacion?.let { prefs.contains(it) } == true
      val datos = if (tienePreferenciasPropias) claveConversacion?.let { prefs.getString(it, null) }
-         else prefs.getString("preferencias_creativas", null)
+         else null
      if (!datos.isNullOrBlank()) runCatching {
          val json = JSONObject(datos)
          json.keys().forEach { key -> datosConver[key] = json.getString(key) }
@@ -626,8 +632,9 @@ class MainActivity : AppCompatActivity() {
      val nueva = conversationStore.createConversation(titulo)
      activeConversationId = nueva.id
      datosConver.clear()
-     guardarPreferenciasCreativas()
      getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE).edit()
+         .putString("preferencias_creativas_${nueva.id}", "{}")
+         .remove("preferencias_creativas")
          .putString("active_conversation_id", nueva.id).apply()
      chatLog.text = ""
      renderizarBurbujasChat()
@@ -910,7 +917,6 @@ class MainActivity : AppCompatActivity() {
          textSize = 15f
          setTextColor(android.graphics.Color.rgb(235, 242, 255))
          setLineSpacing(dp(3).toFloat(), 1f)
-         maxWidth = dp(276)
          setTextIsSelectable(true)
      }
      burbuja.addView(encabezado)
@@ -931,8 +937,9 @@ class MainActivity : AppCompatActivity() {
      fila.addView(
          burbuja,
          LinearLayout.LayoutParams(
+             0,
              LinearLayout.LayoutParams.WRAP_CONTENT,
-             LinearLayout.LayoutParams.WRAP_CONTENT
+             1f
          )
      )
      if (usuario) {
@@ -992,7 +999,7 @@ class MainActivity : AppCompatActivity() {
      getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE).edit()
          .putString("historial_chat", limitado)
          .putString("active_conversation_id", activeConversationId)
-         .putString("preferencias_creativas", preferencias.toString())
+         .remove("preferencias_creativas")
          .apply()
  }
 
@@ -1000,7 +1007,7 @@ class MainActivity : AppCompatActivity() {
      val preferencias = JSONObject()
      datosConver.forEach { (key, value) -> preferencias.put(key, value) }
      val editor = getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE).edit()
-         .putString("preferencias_creativas", preferencias.toString())
+         .remove("preferencias_creativas")
      activeConversationId?.let { editor.putString("preferencias_creativas_$it", preferencias.toString()) }
      editor.apply()
  }
@@ -1262,10 +1269,11 @@ class MainActivity : AppCompatActivity() {
     if (campo == "tipo" && lower == "ambas") valor = "ambas (voz e instrumental)"
     if (campo == "tipo" && (lower == "ninguna" || lower == "solo instrumental")) valor = "solo instrumental"
     if (campo == "vozFuente") {
+        val fuenteIndicada = valor.lowercase(java.util.Locale.ROOT)
         valor = when {
-            lower.contains("ningun") || lower.contains("sin voz") || lower.contains("no quiero") || lower == "no" -> "ninguna"
-            lower.contains("archivo") || lower.contains("fichero") || lower.contains("importar") -> "archivo"
-            lower.contains("grabad") || lower.contains("grabar") || lower.contains("microfono") -> "grabada"
+            fuenteIndicada.contains("ningun") || fuenteIndicada.contains("sin voz") || fuenteIndicada.contains("no quiero") || fuenteIndicada == "no" -> "ninguna"
+            fuenteIndicada.contains("archivo") || fuenteIndicada.contains("fichero") || fuenteIndicada.contains("importar") -> "archivo"
+            fuenteIndicada.contains("grabad") || fuenteIndicada.contains("grabar") || fuenteIndicada.contains("microfono") -> "grabada"
             else -> {
                 responderConOrquestador(texto, "No he identificado la fuente de voz. Indica: ninguna, archivo o grabada.")
                 return
@@ -1294,6 +1302,7 @@ class MainActivity : AppCompatActivity() {
      anexarChat("\nTú: $textoUsuario")
      val modelo = LiteRTLMModule.modelFile(this)
      if (!modelo.isFile || modelo.length() != LiteRTLMModule.EXPECTED_SIZE_BYTES) {
+         anexarChat("\nBARDO: MODO GUIADO, SIN IA GENERATIVA. Gemma aún no está descargado y no estoy generando respuestas con un modelo. Puedo ayudarte mediante preguntas y opciones guiadas. Para activar la conversación generativa local, ve a Laboratorio y pulsa «Gestionar modelo Gemma 4 E2B».")
          anexarChat("\nBARDO: $respuestaGuiada")
          return
      }
@@ -2141,6 +2150,26 @@ class MainActivity : AppCompatActivity() {
      return String.format(java.util.Locale.ROOT, "%02d:%02d", total / 60, total % 60)
  }
 
+ private fun compartirCancionMp3() {
+     val ruta = rutaMp3Compartir ?: return
+     val archivo = File(ruta)
+     if (!archivo.isFile || archivo.length() <= 128L) {
+         btnCompartir.visibility = View.GONE
+         tvEstado.text = "El MP3 temporal ya no está disponible. Vuelve a exportarlo."
+         return
+     }
+     runCatching {
+         val uri = androidx.core.content.FileProvider.getUriForFile(this, "$packageName.fileprovider", archivo)
+         val compartir = Intent(Intent.ACTION_SEND).apply {
+             type = "audio/mpeg"
+             putExtra(Intent.EXTRA_STREAM, uri)
+             clipData = android.content.ClipData.newUri(contentResolver, archivo.name, uri)
+             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+         }
+         startActivity(Intent.createChooser(compartir, "Compartir canción MP3"))
+     }.onFailure { tvEstado.text = "No se pudo abrir el menú para compartir: ${it.message}" }
+ }
+
  private fun guardarCancion() {
  val origen = rutaAudio
  if (origen == null) {
@@ -2171,15 +2200,20 @@ class MainActivity : AppCompatActivity() {
              temporal.delete()
              return@runOnUiThread
          }
-         if (correcto && guardarEnCarpeta && guardado?.isSuccess == true) {
-             temporal.delete()
-             tvEstado.text = "Canción MP3 guardada en Descargas/BARDO/Canciones."
-         } else if (correcto) {
+         if (correcto) {
+             rutaMp3Compartir = temporal.absolutePath
+             btnCompartir.visibility = View.VISIBLE
+             if (guardarEnCarpeta && guardado?.isSuccess == true) {
+                 tvEstado.text = "Canción MP3 guardada en Descargas/BARDO/Canciones. Ya puedes compartirla."
+             } else {
              if (guardarEnCarpeta) tvEstado.text = "No se pudo guardar en BARDO: ${guardado?.exceptionOrNull()?.message}. Elige otro destino."
              rutaExportacion = temporal.absolutePath
              selectorGuardar.launch(nombre)
+             }
          } else {
              temporal.delete()
+             rutaMp3Compartir = null
+             btnCompartir.visibility = View.GONE
              tvEstado.text = "No se pudo crear el MP3. El WAV original se conserva."
          }
      }
