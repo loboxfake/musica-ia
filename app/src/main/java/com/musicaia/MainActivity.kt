@@ -168,7 +168,7 @@ class MainActivity : AppCompatActivity() {
  private lateinit var estadoModelo: TextView
  private lateinit var progresoModelo: ProgressBar
  private var descargaEnCurso = false
- private var modeloChatVerificado = false
+ @Volatile private var modeloChatVerificado = false
  private var configuracionInterfazPendiente = ""
  private var accentColorUI = "#16CFF4"
  private var navActivoId = R.id.navOrquestador
@@ -1340,6 +1340,7 @@ class MainActivity : AppCompatActivity() {
           runOnUiThread {
               btnEnviar.isEnabled = true
               if (isFinishing || isDestroyed) return@runOnUiThread
+              actualizarInsigniaNucleo()
               val comentario = respuesta?.let { "\nBARDO (Gemma local): $it" }.orEmpty()
               anexarChat("$comentario\nBARDO (siguiente paso): $respuestaGuiada")
               tvEstado.text = if (respuesta != null) "Respuesta generada por Gemma local; siguiente paso guiado." else "Modo guiado disponible; el modelo local no pudo responder."
@@ -1398,6 +1399,7 @@ class MainActivity : AppCompatActivity() {
          runOnUiThread {
              btnEnviar.isEnabled = true
              if (isFinishing || isDestroyed) return@runOnUiThread
+             actualizarInsigniaNucleo()
              val respuesta = resultado.getOrNull()
              if (respuesta != null) {
                  anexarChat("\nBARDO: $respuesta")
