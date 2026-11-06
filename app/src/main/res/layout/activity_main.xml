@@ -63,7 +63,7 @@
                     <Button android:id="@+id/btnBuscarHistorial" android:layout_width="match_parent" android:layout_height="42dp" android:layout_marginTop="5dp" android:text="Buscar en conversaciones" android:textAllCaps="false" android:textSize="11sp"/>
                     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
                         <Button android:id="@+id/btnExportarHistorial" android:layout_width="0dp" android:layout_height="42dp" android:layout_weight="1" android:text="Exportar" android:textAllCaps="false" android:textSize="11sp"/>
-                        <Button android:id="@+id/btnImportarHistorial" android:layout_width="0dp" android:layout_height="42dp" android:layout_weight="1" android:layout_marginStart="6dp" android:text="Importar" android:textAllCaps="false" android:textSize="11sp"/>
+                        <Button android:id="@+id/btnImportarHistorial" android:layout_width="0dp" android:layout_height="42dp" android:layout_weight="1" android:layout_marginStart="6dp" android:text="Importar" android:textAllCaps="false" android:textSize="11sp" android:visibility="gone"/>
                     </LinearLayout>
                 </LinearLayout>
             </LinearLayout>
@@ -163,7 +163,7 @@
                     <TextView android:id="@+id/estadoConocimiento" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="8dp" android:text="Conocimiento importado: ninguno." android:textColor="#A9B8D2" android:textSize="12sp"/>
                     <Button android:id="@+id/btnImportarConocimiento" android:layout_width="match_parent"
                         android:layout_height="48dp" android:layout_marginTop="8dp"
-                        android:text="Importar conversación de otro asistente" android:textAllCaps="false"/>
+                        android:text="Importar conversación de otro asistente" android:textAllCaps="false" android:visibility="gone"/>
                     <Button android:id="@+id/btnBorrarConocimiento" android:layout_width="match_parent"
                         android:layout_height="46dp" android:layout_marginTop="6dp"
                         android:text="Borrar conocimiento importado" android:textAllCaps="false" android:visibility="gone"/>
