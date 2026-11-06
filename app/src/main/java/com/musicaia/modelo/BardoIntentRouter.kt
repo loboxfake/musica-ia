@@ -35,6 +35,10 @@ object BardoIntentRouter {
         )
         if (explicitMusicRequest.any { text.contains(it) }) return Intent.MUSIC_CREATION
 
+        // Una vez iniciada una creación, cada respuesta debe completar o modificar
+        // el siguiente campo pendiente; no se desvía accidentalmente al chat libre.
+        if (creationInProgress) return Intent.MUSIC_CREATION
+
         return Intent.GENERAL_CHAT
     }
 
