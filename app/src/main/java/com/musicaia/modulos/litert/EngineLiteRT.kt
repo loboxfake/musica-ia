@@ -92,6 +92,11 @@ object EngineLiteRT {
             }
         }.get()
 
+    /** Libera Gemma completamente antes de cargar otro modelo pesado. */
+    fun cerrar() {
+        executor.submit<Unit> { cerrarInterno() }.get()
+    }
+
     fun cerrarAsync() {
         executor.execute { cerrarInterno() }
     }
