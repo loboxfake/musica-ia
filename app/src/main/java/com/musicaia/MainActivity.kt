@@ -82,6 +82,7 @@ class MainActivity : AppCompatActivity() {
  }
  private var rutaAudio: String? = null
  private var rutaExportacion: String? = null
+ private var rutaExportacionTemporal = false
  private var rutaMp3Compartir: String? = null
  private var rutaVoz: String? = null
  private var rutaGrabacionVoz: String? = null
@@ -346,6 +347,7 @@ class MainActivity : AppCompatActivity() {
  private val selectorGuardar =
      registerForActivityResult(ActivityResultContracts.CreateDocument("audio/mpeg")) { uri ->
          val origen = rutaExportacion
+         val borrarOrigenAlCancelar = rutaExportacionTemporal
          if (uri != null && origen != null) {
              tvEstado.text = "Guardando MP3 en el destino elegido..."
              Thread({
@@ -356,12 +358,13 @@ class MainActivity : AppCompatActivity() {
                          File(origen).inputStream().buffered().use { it.copyTo(destino) }
                      }
                  }.exceptionOrNull()
-                 if (error != null) File(origen).delete()
+                 if (error != null && borrarOrigenAlCancelar) File(origen).delete()
                  runOnUiThread {
                      rutaExportacion = null
+                     rutaExportacionTemporal = false
                      if (!isFinishing && !isDestroyed) {
                          tvEstado.text = if (error == null) {
-                             "Canción exportada en MP3 a 320 kbps. Ya puedes compartirla."
+                             "Canción exportada en MP3. El archivo de origen se ha conservado."
                          } else {
                              "No se pudo guardar el MP3: ${error.message}"
                          }
@@ -369,10 +372,9 @@ class MainActivity : AppCompatActivity() {
                  }
              }, "BARDO-MP3-Save").start()
          } else {
-             origen?.let { File(it).delete() }
+             if (borrarOrigenAlCancelar) origen?.let { File(it).delete() }
              rutaExportacion = null
-             rutaMp3Compartir = null
-             btnCompartir.visibility = View.GONE
+             rutaExportacionTemporal = false
          }
      }
 
@@ -2227,7 +2229,7 @@ class MainActivity : AppCompatActivity() {
              btnCompartir.visibility = if (rutaMp3Compartir != null) View.VISIBLE else View.GONE
              archivarTareaEnCarpetaBardo(audio, mp3, letra, solo)
              btnReproducir.visibility = View.VISIBLE
-             btnGuardar.visibility = if (rutaAudio == audio) View.VISIBLE else View.GONE
+             btnGuardar.visibility = View.VISIBLE
              val mp3Info = if (rutaAudio != audio) "${File(rutaAudio!!).length()} bytes · MP3 320 kbps" else "MP3 no disponible"
              tvResultado.text = "WAV fuente validado: ${File(audio).length()} bytes\n$mp3Info" + if (letra.isNotBlank()) "\nLetra guardada en Archivo." else ""
              tvEstado.text = mensajeActual
@@ -2341,7 +2343,7 @@ class MainActivity : AppCompatActivity() {
                  archivarTareaEnCarpetaBardo(audio, mp3, prefs.getString("lyrics", "").orEmpty(), prefs.getBoolean("solo", false))
                  rutaInstrumental = audio
                  btnReproducir.visibility = View.VISIBLE
-                 btnGuardar.visibility = if (rutaAudio == audio) View.VISIBLE else View.GONE
+                 btnGuardar.visibility = View.VISIBLE
                  progreso.visibility = View.VISIBLE
                  progreso.max = 20
                  progreso.progress = 20
@@ -2672,12 +2674,41 @@ class MainActivity : AppCompatActivity() {
  private fun guardarCancion() {
  val origen = rutaAudio
  if (origen == null) {
- tvEstado.text = "No hay canción para guardar."
- return
+     tvEstado.text = "No hay canción para guardar."
+     return
  }
+
+ val mp3Existente = listOfNotNull(
+     rutaMp3Compartir?.let(::File),
+     File(origen).takeIf { it.extension.equals("mp3", true) }
+ ).firstOrNull { it.isFile && it.length() > 128L }
+ if (mp3Existente != null) {
+     val carpetaConfigurada = uriCarpetaBardo != null
+     btnGuardar.isEnabled = false
+     tvEstado.text = "Guardando el MP3 ya generado, sin volver a codificarlo..."
+     Thread({
+         val guardado = if (carpetaConfigurada) runCatching {
+             guardarArchivoEnCarpetaBardo(mp3Existente, "Canciones", mp3Existente.name, "audio/mpeg")
+         } else null
+         runOnUiThread {
+             btnGuardar.isEnabled = true
+             if (isFinishing || isDestroyed) return@runOnUiThread
+             if (carpetaConfigurada && guardado?.isSuccess == true) {
+                 tvEstado.text = "MP3 original guardado en Descargas/BARDO/Canciones. No se ha vuelto a comprimir."
+             } else {
+                 guardado?.exceptionOrNull()?.let { Log.e(etiqueta, "No se pudo archivar el MP3 existente", it) }
+                 rutaExportacion = mp3Existente.absolutePath
+                 rutaExportacionTemporal = false
+                 selectorGuardar.launch(mp3Existente.name)
+             }
+         }
+     }, "BARDO-MP3-Save-Existing").start()
+     return
+ }
+
  if (!Mp3Exporter.available) {
- tvEstado.text = "El codificador MP3 no está disponible en esta compilación."
- return
+     tvEstado.text = "El codificador MP3 no está disponible en esta compilación."
+     return
  }
 
  val estiloBase = datosConver["estilo"] ?: editPromptInstrumental.text.toString()
@@ -2713,6 +2744,7 @@ class MainActivity : AppCompatActivity() {
              } else {
              if (guardarEnCarpeta) tvEstado.text = "No se pudo guardar en BARDO: ${guardado?.exceptionOrNull()?.message}. Elige otro destino."
              rutaExportacion = temporal.absolutePath
+             rutaExportacionTemporal = true
              selectorGuardar.launch(nombre)
              }
          } else {
