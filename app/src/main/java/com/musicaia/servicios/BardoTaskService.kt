@@ -210,9 +210,10 @@ class BardoTaskService : Service() {
                         retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
                     } finally { retriever.release() }
                 }.getOrDefault(0L)
-                if (mp3DurationMs < if (pruebaRapida) 1_500L else 180_000L) {
+                val minimumMp3DurationMs = if (pruebaRapida) 1_500L else 180_000L
+                if (mp3DurationMs < minimumMp3DurationMs) {
                     mp3.delete()
-                    throw IllegalStateException("El MP3 se guardó, pero Android no pudo validar una duración de al menos 3 minutos.")
+                    throw IllegalStateException(if (pruebaRapida) "El MP3 de prueba no alcanza 1,5 segundos." else "El MP3 se guardó, pero Android no pudo validar una duración de al menos 3 minutos.")
                 }
                 val mensajeValidado = "INSTRUMENTAL $totalPasosAudio/$totalPasosAudio · MP3 320 kbps validado (${mp3DurationMs / 1000L}s, ${mp3.length()} bytes)"
                 actualizarNotificacion(mensajeValidado, 100)
