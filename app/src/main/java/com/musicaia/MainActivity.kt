@@ -1511,10 +1511,13 @@ class MainActivity : AppCompatActivity() {
              btnDescargarModelo.isEnabled = true
              progresoModelo.visibility = View.GONE
              if (correcto) {
+                 modeloChatVerificado = true
                  estadoModelo.text = "Modelo descargado y SHA-256 verificado. Ya puedes generar letras sin Internet."
              } else {
+                 modeloChatVerificado = false
                  estadoModelo.text = "No se pudo validar la descarga. Comprueba espacio libre y conexión; puedes reintentar."
              }
+             actualizarInsigniaNucleo()
          }
      }.start()
  }
