@@ -2744,48 +2744,86 @@ class MainActivity : AppCompatActivity() {
  }
 
  private fun archivarTareaEnCarpetaBardo(audioPath: String, mp3Path: String, letra: String, solo: Boolean) {
-     if (uriCarpetaBardo == null || audioPath.isBlank()) return
+     if (audioPath.isBlank()) return
      val prefs = getSharedPreferences("bardo_storage", MODE_PRIVATE)
      val origenWav = File(audioPath)
      val archiveKey = "$audioPath|${origenWav.lastModified()}|${origenWav.length()}"
-     if (prefs.getString("last_archived_task_key", null) == archiveKey) return
+     val localAlready = prefs.getString("last_archived_local_task_key", null) == archiveKey
+     val publicAlready = prefs.getString("last_archived_public_task_key", null) == archiveKey
+     if (localAlready && (uriCarpetaBardo == null || publicAlready)) return
+
      Thread({
-         val resultado = runCatching {
-             val categoria = if (solo) "Instrumentales" else "Canciones"
-             val wav = File(audioPath)
-             require(wav.isFile && wav.length() > 44L) { "El WAV de la tarea ya no está disponible." }
-             val marca = System.currentTimeMillis()
-             val mp3 = File(mp3Path)
-             val sufijo = when {
-                 solo -> "Instrumental"
-                 mp3Path.isBlank() -> "Mezcla"
-                 else -> "Cancion"
-             }
-             val nombreBase = mp3.takeIf { it.isFile && it.length() > 128L }?.nameWithoutExtension
-                 ?: "BARDO_" + DateTimeFormatter.ofPattern("yyyyMMdd_HHmm")
-                     .withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(marca)) + "_$sufijo"
-             guardarArchivoEnCarpetaBardo(wav, categoria, "$nombreBase.wav", "audio/wav")
-             if (mp3.isFile && mp3.length() > 128L) guardarArchivoEnCarpetaBardo(mp3, categoria, "$nombreBase.mp3", "audio/mpeg")
-             if (letra.isNotBlank()) {
-                 val temporal = File(cacheDir, "BARDO_$marca.txt")
-                 try {
-                     temporal.writeText(letra, Charsets.UTF_8)
-                     guardarArchivoEnCarpetaBardo(temporal, "Proyectos", temporal.name, "text/plain")
-                 } finally { temporal.delete() }
-             }
+         val wav = File(audioPath)
+         val mp3 = File(mp3Path)
+         val marca = System.currentTimeMillis()
+         val sufijo = when {
+             solo -> "Instrumental"
+             mp3Path.isBlank() -> "Mezcla"
+             else -> "Cancion"
          }
-         runOnUiThread {
-             if (resultado.isSuccess) {
-                 prefs.edit().putString("last_archived_task_key", archiveKey).apply()
-                 if (!isFinishing && !isDestroyed) {
-                     val destino = if (solo) "Instrumentales" else "Canciones"
-                     tvEstado.text = "Creación guardada también en Descargas/BARDO/$destino."
+         val nombreBase = mp3.takeIf { it.isFile && it.length() > 128L }?.nameWithoutExtension
+             ?: "BARDO_" + DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")
+                 .withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(marca)) + "_$sufijo"
+
+         var errorLocal: Throwable? = null
+         var errorPublico: Throwable? = null
+         if (!localAlready) {
+             try {
+                 require(wav.isFile && wav.length() > 44L) { "El WAV de la tarea ya no está disponible." }
+                 val carpetaLocal = directorioBiblioteca()
+                 File(carpetaLocal, "$nombreBase.wav").outputStream().buffered().use { output ->
+                     wav.inputStream().buffered().use { it.copyTo(output) }
                  }
-             } else {
-                 Log.e(etiqueta, "No se pudo copiar la creación a la carpeta BARDO", resultado.exceptionOrNull())
+                 if (mp3.isFile && mp3.length() > 128L) {
+                     File(carpetaLocal, "$nombreBase.mp3").outputStream().buffered().use { output ->
+                         mp3.inputStream().buffered().use { it.copyTo(output) }
+                     }
+                 }
+                 if (letra.isNotBlank()) File(carpetaLocal, "$nombreBase.txt").writeText(letra, Charsets.UTF_8)
+                 prefs.edit().putString("last_archived_local_task_key", archiveKey).apply()
+             } catch (error: Throwable) {
+                 errorLocal = error
              }
          }
-     }, "BARDO-External-Archive").start()
+
+         if (uriCarpetaBardo != null && !publicAlready) {
+             try {
+                 require(wav.isFile && wav.length() > 44L) { "El WAV de la tarea ya no está disponible." }
+                 val categoria = if (solo) "Instrumentales" else "Canciones"
+                 guardarArchivoEnCarpetaBardo(wav, categoria, "$nombreBase.wav", "audio/wav")
+                 if (mp3.isFile && mp3.length() > 128L) {
+                     guardarArchivoEnCarpetaBardo(mp3, categoria, "$nombreBase.mp3", "audio/mpeg")
+                 }
+                 if (letra.isNotBlank()) {
+                     val temporal = File(cacheDir, "$nombreBase.txt")
+                     try {
+                         temporal.writeText(letra, Charsets.UTF_8)
+                         guardarArchivoEnCarpetaBardo(temporal, "Proyectos", temporal.name, "text/plain")
+                     } finally { temporal.delete() }
+                 }
+                 prefs.edit().putString("last_archived_public_task_key", archiveKey).apply()
+             } catch (error: Throwable) {
+                 errorPublico = error
+             }
+         }
+
+         runOnUiThread {
+             if (isFinishing || isDestroyed) return@runOnUiThread
+             actualizarBiblioteca()
+             if (errorLocal != null) {
+                 Log.e(etiqueta, "No se pudo archivar la creación en la biblioteca privada", errorLocal)
+                 tvEstado.text = "La creación existe, pero no se pudo guardar en la biblioteca: ${errorLocal?.message}"
+             } else if (errorPublico != null) {
+                 Log.e(etiqueta, "No se pudo copiar la creación a la carpeta BARDO", errorPublico)
+                 tvEstado.text = "Creación guardada en la biblioteca. No se pudo copiar a Descargas/BARDO: ${errorPublico?.message}"
+             } else if (uriCarpetaBardo != null) {
+                 val destino = if (solo) "Instrumentales" else "Canciones"
+                 tvEstado.text = "Creación guardada en la biblioteca y en Descargas/BARDO/$destino."
+             } else {
+                 tvEstado.text = "Creación guardada en la biblioteca local. Configura Descargas/BARDO para archivarla también allí."
+             }
+         }
+     }, "BARDO-Archive-Task").start()
  }
 
  private fun directorioBiblioteca(): File = File(filesDir, "biblioteca").apply { mkdirs() }
