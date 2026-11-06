@@ -1,0 +1,9 @@
+Powered by Stability AI
+
+This application includes Stable Audio Open Small model artifacts for local instrumental music generation.
+Stable Audio Open Small is distributed under the Apache License, Version 2.0.
+The complete license text is included alongside the model files at assets/audio_model/LICENSE in the APK.
+Project: https://github.com/Stability-AI/stable-audio-tools
+Model source used by the export workflow: https://huggingface.co/joeriben/stable-audio-open-small
+
+Stable Audio Open Small is provided by Stability AI and its upstream model contributors. BARDO is an independent application and is not an official Stability AI product.
