@@ -188,18 +188,18 @@ jobs:
               "assets/audio_model/spiece.model",
               "assets/audio_model/LICENSE",
               "assets/NOTICE.txt",
-              "res/mipmap-mdpi-v4/ic_launcher.webp",
-              "res/mipmap-hdpi-v4/ic_launcher.webp",
-              "res/mipmap-xhdpi-v4/ic_launcher.webp",
-              "res/mipmap-xxhdpi-v4/ic_launcher.webp",
-              "res/mipmap-xxxhdpi-v4/ic_launcher.webp",
-              "res/mipmap-mdpi-v4/ic_launcher_foreground.webp",
-              "res/mipmap-hdpi-v4/ic_launcher_foreground.webp",
-              "res/mipmap-xhdpi-v4/ic_launcher_foreground.webp",
-              "res/mipmap-xxhdpi-v4/ic_launcher_foreground.webp",
-              "res/mipmap-xxxhdpi-v4/ic_launcher_foreground.webp",
-              "res/mipmap-anydpi-v26/ic_launcher.xml",
-              "res/mipmap-anydpi-v26/ic_launcher_round.xml",
+              "res/mipmap-mdpi-v4_ic_launcher.webp",
+              "res/mipmap-hdpi-v4_ic_launcher.webp",
+              "res/mipmap-xhdpi-v4_ic_launcher.webp",
+              "res/mipmap-xxhdpi-v4_ic_launcher.webp",
+              "res/mipmap-xxxhdpi-v4_ic_launcher.webp",
+              "res/mipmap-mdpi-v4_ic_launcher_foreground.webp",
+              "res/mipmap-hdpi-v4_ic_launcher_foreground.webp",
+              "res/mipmap-xhdpi-v4_ic_launcher_foreground.webp",
+              "res/mipmap-xxhdpi-v4_ic_launcher_foreground.webp",
+              "res/mipmap-xxxhdpi-v4_ic_launcher_foreground.webp",
+              "res/mipmap-anydpi-v26_ic_launcher.xml",
+              "res/mipmap-anydpi-v26_ic_launcher_round.xml",
               "lib/arm64-v8a/libaudiogen.so",
               "lib/arm64-v8a/libmp3encoder.so",
               "lib/arm64-v8a/libmp3lame.so",
@@ -266,7 +266,7 @@ jobs:
             app/build/outputs/apk/release/*.apk
             full-apk-audit.txt
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 1
 
       - name: Report full offline APK release status
         if: always()
