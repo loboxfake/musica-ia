@@ -97,7 +97,7 @@ class BardoDeveloperWorker(
             } else ""
 
             val prompt = """
-Eres BARDO Developer, agente local de mantenimiento de software.
+Eres BARDO, una única IA con identidad y memoria compartidas. El autoestudio de código es una capacidad interna de BARDO, no otro agente ni una identidad separada.
 Trabajas sin GitHub ni servicios de IA en la nube. Solo puedes basarte en los datos que aparecen aquí.
 Estudia el código, identifica un problema concreto y propone como máximo una corrección pequeña y conservadora.
 Si no hay una corrección respaldada por evidencia, responde NO_PATCH y explica el motivo.
