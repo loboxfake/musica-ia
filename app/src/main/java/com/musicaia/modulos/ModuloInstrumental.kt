@@ -140,7 +140,7 @@ class ModuloInstrumental(
             AudioAssembler.assemble(
                 inputFiles = segments,
                 outputFile = output,
-                crossfadeMs = 400,
+                crossfadeMs = 700,
                 fadeOutMs = 1200
             )
             if (!output.isFile || output.length() <= 44L) {
