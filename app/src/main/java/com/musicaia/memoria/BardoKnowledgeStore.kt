@@ -83,7 +83,7 @@ class BardoKnowledgeStore internal constructor(private val directory: File) {
         buildString {
             ranked.forEach { (entry, text, score) ->
                 if (length < maxChars) {
-                    val header = "\\n[Referencia: ${entry.title} · Fuente: ${entry.source} · coincidencias: $score]\\n"
+                    val header = "\n[Referencia: ${entry.title} · Fuente: ${entry.source} · coincidencias: $score]\n"
                     val room = maxChars - length - header.length
                     if (room > 0) { append(header); append(text.take(room)) }
                 }
@@ -96,7 +96,7 @@ class BardoKnowledgeStore internal constructor(private val directory: File) {
             for (entry in list()) {
                 if (length >= maxChars) break
                 val text = readVerified(entry) ?: continue
-                val header = "\\n[Referencia autorizada: ${entry.title} · Fuente: ${entry.source}]\\n"
+                val header = "\n[Referencia autorizada: ${entry.title} · Fuente: ${entry.source}]\n"
                 val room = maxChars - length - header.length
                 if (room > 0) {
                     append(header)
