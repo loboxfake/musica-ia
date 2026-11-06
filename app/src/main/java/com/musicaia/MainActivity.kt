@@ -213,6 +213,11 @@ class MainActivity : AppCompatActivity() {
          if (uri != null) importarCopiaSeleccionada(uri)
      }
 
+ private val selectorImportarAudioBiblioteca =
+     registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+         if (uri != null) importarAudioBiblioteca(uri)
+     }
+
  private val selectorVoz =
  registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
  if (uri != null) copiarVoz(uri)
@@ -497,6 +502,7 @@ class MainActivity : AppCompatActivity() {
  findViewById<Button>(R.id.btnActualizarBiblioteca).setOnClickListener { actualizarBiblioteca() }
  findViewById<Button>(R.id.btnBibliotecaReproducir).setOnClickListener { reproducirUltimoDeBiblioteca() }
  findViewById<Button>(R.id.btnBibliotecaGestionar).setOnClickListener { abrirGestorBiblioteca() }
+ findViewById<Button>(R.id.btnBibliotecaImportar).setOnClickListener { selectorImportarAudioBiblioteca.launch(arrayOf("audio/mpeg", "audio/wav")) }
  btnDescargarModelo.setOnClickListener { seleccionarModeloLocal() }
  btnGrabar.setOnClickListener { solicitarMicrofonoYAlternar() }
  btnElegirVoz.setOnClickListener { seleccionarArchivoVoz() }
@@ -2980,6 +2986,60 @@ class MainActivity : AppCompatActivity() {
          }
          .setNegativeButton("Cerrar", null)
          .show()
+ }
+
+
+ private fun importarAudioBiblioteca(uri: Uri) {
+     val nombreOriginal = contentResolver.query(
+         uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null
+     )?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }.orEmpty()
+     val extension = File(nombreOriginal).extension.lowercase()
+     if (extension !in setOf("mp3", "wav")) {
+         tvEstado.text = "La biblioteca admite MP3 y WAV PCM. El archivo no se ha importado."
+         return
+     }
+     val nombreSeguro = nombreOriginal.substringAfterLast('/').substringAfterLast('\\')
+         .replace(Regex("[^A-Za-z0-9._-]"), "_").take(100).ifBlank { "audio.$extension" }
+     val destino = File(directorioBiblioteca(), "IMPORT_${System.currentTimeMillis()}_$nombreSeguro")
+     val taskId = java.util.UUID.randomUUID().toString()
+     BardoActivityStore.record(this, taskId, "biblioteca", "running", "importacion_audio", "Importando un MP3/WAV a la biblioteca local.", 5)
+     tvEstado.text = "Importando audio a la biblioteca..."
+     Thread({
+         val resultado = runCatching {
+             contentResolver.openInputStream(uri)?.use { input ->
+                 FileOutputStream(destino).use { output ->
+                     val buffer = ByteArray(64 * 1024)
+                     var total = 0L
+                     while (true) {
+                         val read = input.read(buffer)
+                         if (read < 0) break
+                         total += read
+                         require(total <= 250L * 1024L * 1024L) { "El audio supera el límite de 250 MB." }
+                         output.write(buffer, 0, read)
+                     }
+                 }
+             } ?: throw IllegalStateException("No se pudo abrir el archivo de audio.")
+             require(destino.isFile && destino.length() > 128L) { "El audio está vacío o incompleto." }
+             destino
+         }
+         runOnUiThread {
+             if (isFinishing || isDestroyed) {
+                 destino.delete()
+                 return@runOnUiThread
+             }
+             val archivo = resultado.getOrNull()
+             if (archivo == null) {
+                 destino.delete()
+                 val error = resultado.exceptionOrNull()?.message ?: "Error desconocido."
+                 BardoActivityStore.record(this, taskId, "biblioteca", "failed", "importacion_audio", error, null)
+                 tvEstado.text = "No se pudo importar el audio: $error"
+             } else {
+                 BardoActivityStore.record(this, taskId, "biblioteca", "completed", "importacion_audio", "Audio importado: ${archivo.name}", 100, archivo.absolutePath)
+                 actualizarBiblioteca()
+                 tvEstado.text = "Audio importado a la biblioteca BARDO: ${archivo.name}"
+             }
+         }
+     }, "BARDO-Library-Import").start()
  }
 
  private fun abrirGestorBiblioteca() {
