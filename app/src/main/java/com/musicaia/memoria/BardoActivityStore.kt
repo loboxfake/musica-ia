@@ -64,9 +64,9 @@ object BardoActivityStore {
         val target = file(context)
         val lockFile = File(target.parentFile, "bardo_activity_timeline.lock")
         java.io.RandomAccessFile(lockFile, "rw").channel.use { channel ->
-            channel.lock().use {
+            channel.lock().use fileLock@{
                 val events = runCatching { JSONObject(target.readText()).optJSONArray("events") }.getOrNull()
-                    ?: return@use emptyList<Event>()
+                    ?: return@fileLock emptyList<Event>()
                 (0 until events.length()).mapNotNull { index ->
                     val item = events.optJSONObject(index) ?: return@mapNotNull null
                     Event(
