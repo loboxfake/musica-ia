@@ -15,6 +15,7 @@ import com.musicaia.MainActivity
 import com.musicaia.memoria.BardoKnowledgeStore
 import com.musicaia.memoria.BardoActivityStore
 import com.musicaia.modelo.BardoCapabilityRegistry
+import com.musicaia.modelo.BardoResourceBudget
 import com.musicaia.modulos.litert.EngineLiteRT
 import com.musicaia.modulos.litert.LiteRTLMModule
 import java.io.File
@@ -74,11 +75,11 @@ class BardoDeveloperWorker(
                 "Gemma local no está instalado o su tamaño no coincide. No se descargó ningún archivo."
             }
 
-            val activityManager = applicationContext.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-            val memoryInfo = ActivityManager.MemoryInfo()
-            activityManager.getMemoryInfo(memoryInfo)
-            check(memoryInfo.availMem >= MIN_FREE_MEMORY_BYTES) {
-                "Memoria RAM libre insuficiente para cargar Gemma de forma prudente. Se reintentará más tarde."
+            val bloqueoRecursos = BardoResourceBudget.blockingReason(
+                applicationContext, MIN_FREE_MEMORY_BYTES
+            )
+            check(bloqueoRecursos == null) {
+                bloqueoRecursos ?: "Los recursos del dispositivo no permiten cargar Gemma."
             }
 
             check(LiteRTLMModule.verificarModelo(model)) {
@@ -202,7 +203,12 @@ $authorizedReferences
                     .putString("last_auto_study_message", message)
                     .apply()
             }
-            if (message.contains("RAM libre insuficiente") || message.contains("Gemma local no está instalado") || message.contains("generación de audio está activa")) {
+            if (message.contains("RAM libre insuficiente") ||
+                message.contains("Batería baja") ||
+                message.contains("demasiado caliente") ||
+                message.contains("Gemma local no está instalado") ||
+                message.contains("generación de audio está activa")
+            ) {
                 Result.retry()
             } else {
                 Result.failure()
