@@ -21,6 +21,35 @@ class BardoCapabilityRegistryTest {
     }
 
     @Test
+    fun blocksLocalModelWhenFreeMemoryIsBelowSafeThreshold() {
+        val items = BardoCapabilityRegistry.snapshot(
+            BardoCapabilityRegistry.RuntimeFacts(
+                gemmaFilePresent = true,
+                audioEnginePresent = true,
+                mp3EncoderPresent = true,
+                availableMemoryBytes = BardoCapabilityRegistry.MIN_GEMMA_FREE_MEMORY_BYTES - 1
+            )
+        ).associateBy { it.id }
+        assertEquals(BardoCapabilityRegistry.Status.NEEDS_MEMORY, items.getValue("general_chat").status)
+        assertEquals(BardoCapabilityRegistry.Status.NEEDS_MEMORY, items.getValue("lyrics").status)
+        assertTrue(items.getValue("general_chat").detail.contains("4 GB"))
+    }
+
+    @Test
+    fun allowsLocalModelWhenMemoryThresholdIsMet() {
+        val items = BardoCapabilityRegistry.snapshot(
+            BardoCapabilityRegistry.RuntimeFacts(
+                gemmaFilePresent = true,
+                audioEnginePresent = true,
+                mp3EncoderPresent = true,
+                availableMemoryBytes = BardoCapabilityRegistry.MIN_GEMMA_FREE_MEMORY_BYTES
+            )
+        ).associateBy { it.id }
+        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("general_chat").status)
+        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("lyrics").status)
+    }
+
+    @Test
     fun distinguishesAvailableCapabilitiesFromApprovalGatedOnes() {
         val items = BardoCapabilityRegistry.snapshot(
             BardoCapabilityRegistry.RuntimeFacts(true, true, true)
