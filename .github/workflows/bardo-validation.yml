@@ -11,7 +11,8 @@ permissions:
 
 concurrency:
   group: bardo-validation-${{ github.ref }}
-  cancel-in-progress: true
+  # Las validaciones completas no deben cancelarse por un push posterior.
+  cancel-in-progress: false
 
 jobs:
   validate:
