@@ -657,7 +657,15 @@ class MainActivity : AppCompatActivity() {
          ?: throw IllegalStateException("No se pudo crear la carpeta $nombre.")
  }
 
- private fun crearEstructuraCarpetaBardo() {
+  private fun guardarArchivoEnRaizCarpetaBardo(origen: File, nombre: String, mimeType: String) {
+     val destino = DocumentsContract.createDocument(contentResolver, raizCarpetaBardo(), mimeType, nombre)
+         ?: throw IllegalStateException("Android no pudo crear $nombre en la carpeta BARDO.")
+     val output = contentResolver.openOutputStream(destino, "w")
+         ?: throw IllegalStateException("No se pudo abrir el archivo de destino.")
+     output.use { stream -> origen.inputStream().buffered().use { it.copyTo(stream) } }
+ }
+
+private fun crearEstructuraCarpetaBardo() {
      val root = raizCarpetaBardo()
      listOf("Modelos", "Instaladores", "Canciones", "Instrumentales", "Proyectos", "Voces", "Historial", "Copias de seguridad")
          .forEach { buscarOCrearSubcarpetaBardo(root, it) }
@@ -3398,13 +3406,13 @@ class MainActivity : AppCompatActivity() {
      tvEstado.text = "Guardando el MP3 ya generado, sin volver a codificarlo..."
      Thread({
          val guardado = if (carpetaConfigurada) runCatching {
-             guardarArchivoEnCarpetaBardo(mp3Existente, "Canciones", mp3Existente.name, "audio/mpeg")
+             guardarArchivoEnRaizCarpetaBardo(mp3Existente, mp3Existente.name, "audio/mpeg")
          } else null
          runOnUiThread {
              btnGuardar.isEnabled = true
              if (isFinishing || isDestroyed) return@runOnUiThread
              if (carpetaConfigurada && guardado?.isSuccess == true) {
-                 tvEstado.text = "MP3 original guardado en Descargas/BARDO/Canciones. No se ha vuelto a comprimir."
+                 tvEstado.text = "MP3 original guardado en la carpeta BARDO. No se ha vuelto a comprimir."
              } else {
                  guardado?.exceptionOrNull()?.let { Log.e(etiqueta, "No se pudo archivar el MP3 existente", it) }
                  rutaExportacion = mp3Existente.absolutePath
@@ -3437,7 +3445,7 @@ class MainActivity : AppCompatActivity() {
          Mp3Exporter.encodeWavToMp3(origen, temporal.absolutePath, 320)
      }.getOrDefault(false) && temporal.isFile && temporal.length() > 128L
      val guardado = if (correcto && guardarEnCarpeta) runCatching {
-         guardarArchivoEnCarpetaBardo(temporal, "Canciones", nombre, "audio/mpeg")
+         guardarArchivoEnRaizCarpetaBardo(temporal, nombre, "audio/mpeg")
      } else null
 
      runOnUiThread {
@@ -3450,7 +3458,7 @@ class MainActivity : AppCompatActivity() {
              rutaMp3Compartir = temporal.absolutePath
              btnCompartir.visibility = View.VISIBLE
              if (guardarEnCarpeta && guardado?.isSuccess == true) {
-                 tvEstado.text = "Canción MP3 guardada en Descargas/BARDO/Canciones. Ya puedes compartirla."
+                 tvEstado.text = "Canción MP3 guardada en la carpeta BARDO. Ya puedes compartirla."
              } else {
              if (guardarEnCarpeta) tvEstado.text = "No se pudo guardar en BARDO: ${guardado?.exceptionOrNull()?.message}. Elige otro destino."
              rutaExportacion = temporal.absolutePath
