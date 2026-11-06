@@ -130,7 +130,7 @@ class ModuloInstrumental(
                     (System.currentTimeMillis().toInt() + index * 37)
                 )
                 if (generated.isNullOrBlank() || !segment.isFile || segment.length() <= 44L) {
-                    throw IllegalStateException("El modelo de audio no generó el segmento ${index + 1}/${sectionNames.size}.")
+                    throw IllegalStateException("El modelo de audio no generó el segmento ${index + 1}/${sectionsToGenerate.size}.")
                 }
                 segments.add(segment)
                 val segmentSeconds = ((System.currentTimeMillis() - segmentStartedAt) / 1000L).coerceAtLeast(0L)
