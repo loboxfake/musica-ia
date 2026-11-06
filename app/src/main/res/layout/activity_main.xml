@@ -164,7 +164,7 @@
                         android:text="Importar conversación de otro asistente" android:textAllCaps="false"/>
                     <Button android:id="@+id/btnBorrarConocimiento" android:layout_width="match_parent"
                         android:layout_height="46dp" android:layout_marginTop="6dp"
-                        android:text="Borrar conocimiento importado" android:textAllCaps="false"/> android:visibility="gone"/>
+                        android:text="Borrar conocimiento importado" android:textAllCaps="false" android:visibility="gone"/>
                     <Button android:id="@+id/btnAbrirDeveloper" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="56dp" android:layout_marginTop="10dp" android:paddingStart="12dp" android:paddingEnd="12dp" android:text="Abrir BARDO Developer Core · Investigación y código" android:textAllCaps="false" android:maxLines="2" android:ellipsize="end"/>
                     <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="8dp" android:text="Próximas capacidades: catálogo de modelos, skills verificadas y memoria de aprendizaje." android:textColor="#8295B1" android:textSize="11sp"/>
                 </LinearLayout>
@@ -180,14 +180,14 @@
                     <Button android:id="@+id/btnElegirCarpetaBardo" android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="7dp" android:text="Elegir carpeta BARDO en Descargas" android:textAllCaps="false"/>
                     <Button android:id="@+id/btnExportarInterfaz" android:layout_width="match_parent"
                         android:layout_height="48dp" android:layout_marginTop="12dp"
-                        android:text="Exportar configuración de interfaz" android:textAllCaps="false"/> android:visibility="gone"/>
+                        android:text="Exportar configuración de interfaz" android:textAllCaps="false" android:visibility="gone"/>
                     <Button android:id="@+id/btnImportarInterfaz" android:layout_width="match_parent"
                         android:layout_height="48dp" android:layout_marginTop="7dp"
-                        android:text="Importar diseño desde archivo" android:textAllCaps="false"/> android:visibility="gone"/>
+                        android:text="Importar diseño desde archivo" android:textAllCaps="false" android:visibility="gone"/>
                     <Button android:id="@+id/btnBorrarMemoria" android:layout_width="match_parent"
                         android:layout_height="48dp" android:layout_marginTop="12dp"
                         android:text="Borrar memoria e historial local"
-                        android:textAllCaps="false"/> android:visibility="gone"/>
+                        android:textAllCaps="false" android:visibility="gone"/>
                 </LinearLayout>
             </LinearLayout>
         </LinearLayout>
