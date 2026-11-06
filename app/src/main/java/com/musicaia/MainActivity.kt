@@ -2531,7 +2531,7 @@ class MainActivity : AppCompatActivity() {
      val esMp3 = ultimo.extension.equals("mp3", ignoreCase = true)
      rutaMp3Compartir = ultimo.absolutePath.takeIf { esMp3 }
      btnCompartir.visibility = if (esMp3) View.VISIBLE else View.GONE
-     btnGuardar.visibility = if (esMp3) View.GONE else View.VISIBLE
+     btnGuardar.visibility = View.VISIBLE
      btnReproducir.visibility = View.VISIBLE
      reproducir()
  }
