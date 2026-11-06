@@ -169,9 +169,13 @@ class ModuloInstrumental(
             return Dato.Audio(output.absolutePath, finalInfo.sampleRate)
         } catch (error: Throwable) {
             diagnosticos += "RESULT | STATE=FAIL | CAUSE=${error.javaClass.simpleName}: ${error.message ?: "sin detalle"}"
-            throw error
+            if (error is java.util.concurrent.CancellationException) throw error
+            throw IllegalStateException(
+                "${error.message ?: error.javaClass.simpleName} WAV parciales: ${workDir.absolutePath}. Diagnóstico: ${informeDiagnostico.absolutePath}",
+                error
+            )
         } finally {
-            informeDiagnostico.writeText(diagnosticos.joinToString("\\n") + "\\n", Charsets.UTF_8)
+            informeDiagnostico.writeText(diagnosticos.joinToString("\n") + "\n", Charsets.UTF_8)
             if (generacionCompleta) {
                 workDir.deleteRecursively()
             } else {
@@ -212,7 +216,7 @@ class ModuloInstrumental(
             else -> mood.take(60)
         }
 
-        val bpmSolicitado = Regex("""(?i)(?:\\b(\\d{2,3})\\s*bpm\\b|\\bbpm\\s*(\\d{2,3})\\b|\\b(\\d{2,3})\\b)""")
+        val bpmSolicitado = Regex("""(?i)(?:\b(\d{2,3})\s*bpm\b|\bbpm\s*(\d{2,3})\b|\b(\d{2,3})\b)""")
             .find(tempo)?.groupValues?.drop(1)?.firstNotNullOfOrNull { it.toIntOrNull() }
             ?.takeIf { it in 40..220 }
         val tempoEnglish = when {
