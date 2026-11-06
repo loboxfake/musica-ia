@@ -38,6 +38,7 @@ object AudioAssembler {
 
         var mixed = clips.first().samples
         val channels = reference.channels
+        val seamRanges = mutableListOf<IntRange>()
         val crossfadeFrames = (reference.sampleRate.toLong() * crossfadeMs / 1000L)
             .coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
 
@@ -45,7 +46,9 @@ object AudioAssembler {
             val overlap = min(crossfadeFrames, min(mixed.size / channels, clip.frames))
             val currentFrames = mixed.size / channels
             val output = ShortArray(mixed.size + clip.samples.size - overlap * channels)
-            val prefixSamples = (currentFrames - overlap) * channels
+            val prefixFrames = currentFrames - overlap
+            val prefixSamples = prefixFrames * channels
+            seamRanges += prefixFrames..(prefixFrames + overlap)
             mixed.copyInto(output, 0, 0, prefixSamples)
 
             for (frame in 0 until overlap) {
@@ -68,8 +71,8 @@ object AudioAssembler {
             mixed = output
         }
 
-        require(!hasInternalSilenceLongerThan(mixed, channels, reference.sampleRate, threshold = 104, maximumSilenceMs = 200, excludeTailMs = fadeOutMs)) {
-            "El audio unido contiene un silencio interno superior a 0,2 s por debajo de -50 dBFS. No se guardará un resultado que incumpla el control de continuidad."
+        require(!hasBoundarySilenceLongerThan(mixed, channels, reference.sampleRate, threshold = 104, maximumSilenceMs = 200, seamRanges = seamRanges)) {
+            "Se detectó un silencio superior a 0,2 s alrededor de una unión entre segmentos. No se guardará un resultado con una discontinuidad en la transición."
         }
         applyFades(
             samples = mixed,
@@ -102,21 +105,40 @@ object AudioAssembler {
         return clip.copy(samples = clip.samples.copyOf(retainedFrames * channels))
     }
 
-    private fun hasInternalSilenceLongerThan(
-        samples: ShortArray, channels: Int, sampleRate: Int, threshold: Int,
-        maximumSilenceMs: Int, excludeTailMs: Int
+    /**
+     * Solo comprueba las zonas de empalme. Los silencios musicales intencionados
+     * dentro de un segmento no deben confundirse con huecos introducidos al unir WAV.
+     */
+    private fun hasBoundarySilenceLongerThan(
+        samples: ShortArray,
+        channels: Int,
+        sampleRate: Int,
+        threshold: Int,
+        maximumSilenceMs: Int,
+        seamRanges: List<IntRange>
     ): Boolean {
+        if (seamRanges.isEmpty()) return false
         val frames = samples.size / channels
-        val scanEnd = (frames - sampleRate.toLong() * excludeTailMs / 1000L).coerceAtLeast(0L).toInt()
         val maximumFrames = sampleRate.toLong() * maximumSilenceMs / 1000L
-        var silentFrames = 0L
-        for (frame in 0 until scanEnd) {
-            var peak = 0
-            for (channel in 0 until channels) peak = maxOf(peak, kotlin.math.abs(samples[frame * channels + channel].toInt()))
-            if (peak <= threshold) {
-                silentFrames++
-                if (silentFrames > maximumFrames) return true
-            } else silentFrames = 0L
+        for (seam in seamRanges) {
+            val scanStart = (seam.first.toLong() - maximumFrames).coerceAtLeast(0L).toInt()
+            val scanEnd = (seam.last.toLong() + maximumFrames + 1L).coerceAtMost(frames.toLong()).toInt()
+            var silentStart = -1
+            for (frame in scanStart until scanEnd) {
+                var peak = 0
+                for (channel in 0 until channels) {
+                    peak = maxOf(peak, kotlin.math.abs(samples[frame * channels + channel].toInt()))
+                }
+                if (peak <= threshold) {
+                    if (silentStart < 0) silentStart = frame
+                    val silentLength = frame - silentStart + 1
+                    if (silentLength.toLong() > maximumFrames && silentStart <= seam.last && frame >= seam.first) {
+                        return true
+                    }
+                } else {
+                    silentStart = -1
+                }
+            }
         }
         return false
     }
