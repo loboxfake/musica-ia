@@ -17,11 +17,19 @@ class Catalogo {
     fun cargarDesdeUrl(url: String) {
         try {
             val urlObj = URL(url)
+            require(urlObj.protocol.equals("https", ignoreCase = true)) {
+                "El catálogo de modelos solo admite HTTPS."
+            }
             val conn = urlObj.openConnection() as java.net.HttpURLConnection
-            conn.connect()
-            val stream: InputStream = conn.inputStream
-            val json = conn.inputStream.bufferedReader().useLines { lines -> lines.joinToString("\n") }
-            conn.disconnect()
+            conn.connectTimeout = 15_000
+            conn.readTimeout = 30_000
+            conn.instanceFollowRedirects = true
+            try {
+                conn.connect()
+                require(conn.responseCode == HttpURLConnection.HTTP_OK) {
+                    "El catálogo respondió HTTP ${conn.responseCode}."
+                }
+                val json = conn.inputStream.bufferedReader().useLines { lines -> lines.joinToString("\n") }
 
             val array = JSONArray(json)
             for (i in 0 until array.length()) {
@@ -34,6 +42,7 @@ class Catalogo {
                     tamanoMb = obj.getDouble("tamano_mb"),
                     ramMinimaMb = obj.getInt("ram_minima_mb"),
                     licencia = obj.getString("licencia"),
+                    atribucion = obj.optString("atribucion", "No indicada"),
                     usoComercial = obj.getBoolean("uso_comercial"),
                     urlDescarga = obj.getString("url_descarga"),
                     sha256 = obj.getString("sha256"),
@@ -41,10 +50,20 @@ class Catalogo {
                     motor = obj.getString("motor")
                 )
                 modelos[modelo.id] = modelo
+                require(modelo.sha256.matches(Regex("(?i)[0-9a-f]{64}"))) {
+                    "El modelo ${modelo.id} no declara un SHA-256 válido."
+                }
+                require(modelo.licencia.isNotBlank() && modelo.atribucion.isNotBlank()) {
+                    "El modelo ${modelo.id} debe declarar licencia y atribución."
+                }
                 Log.d(TAG, "Cargado modelo ${modelo.id}")
+            }
+            } finally {
+                conn.disconnect()
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error cargando catálogo", e)
+            throw IllegalStateException("No se pudo cargar el catálogo verificado: ${e.message ?: e.javaClass.simpleName}", e)
         }
     }
 
