@@ -50,7 +50,6 @@ import com.musicaia.modulos.ModuloMezcla
 import com.musicaia.modulos.AudioGenNative
 import com.musicaia.modulos.Mp3Exporter
 import com.musicaia.modulos.ModuloInstrumental
-import com.musicaia.modulos.DescargadorModelos
 import com.musicaia.modulos.litert.EngineLiteRT
 import com.musicaia.modulos.litert.LiteRTLMModule
 import com.musicaia.servicios.BardoTaskService
@@ -202,6 +201,11 @@ class MainActivity : AppCompatActivity() {
  registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
  if (uri != null) copiarVoz(uri)
  }
+
+ private val selectorImportarModelo =
+     registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+         if (uri != null) importarModeloSeleccionado(uri)
+     }
 
 
 
@@ -458,7 +462,7 @@ class MainActivity : AppCompatActivity() {
  findViewById<Button>(R.id.btnBorrarMemoria).setOnClickListener { confirmarBorradoMemoria() }
  findViewById<Button>(R.id.btnActualizarBiblioteca).setOnClickListener { actualizarBiblioteca() }
  findViewById<Button>(R.id.btnBibliotecaReproducir).setOnClickListener { reproducirUltimoDeBiblioteca() }
- btnDescargarModelo.setOnClickListener { confirmarDescargaModelo() }
+ btnDescargarModelo.setOnClickListener { seleccionarModeloLocal() }
  btnGrabar.setOnClickListener { solicitarMicrofonoYAlternar() }
  btnElegirVoz.setOnClickListener { seleccionarArchivoVoz() }
  btnCrear.setOnClickListener { crearCancion() }
@@ -1473,69 +1477,130 @@ class MainActivity : AppCompatActivity() {
          "Voz cantada IA: pendiente de integración real. No se usa audio de tono como sustituto."
  }
 
+
  private fun actualizarEstadoModelo() {
      val file = LiteRTLMModule.modelFile(this)
      val disponible = file.isFile && file.length() == LiteRTLMModule.EXPECTED_SIZE_BYTES
      estadoModelo.text = if (disponible) {
-         "Modelo local descargado. Se verificará SHA-256 antes de cargarlo."
+         "Modelo presente en el almacenamiento privado de BARDO. Se comprobará SHA-256 antes de cargarlo."
      } else {
-         "Modelo de letras no descargado. La descarga inicial requiere Internet; después funciona sin nube."
+         "Gemma local todavía no está importado. Descarga el archivo oficial y selecciónalo desde BARDO/MODELOS."
      }
  }
 
- private fun confirmarDescargaModelo() {
+ private fun seleccionarModeloLocal() {
      if (descargaEnCurso) return
-     AlertDialog.Builder(this)
-         .setTitle("Descargar modelo local")
-         .setMessage("Se descargará Gemma 4 E2B (2,6 GB) al almacenamiento privado de la app. La descarga se puede reanudar y se comprobará tamaño y SHA-256. Después, la generación de letras se ejecutará en el teléfono sin nube.")
-         .setNegativeButton("Cancelar", null)
-         .setPositiveButton("Descargar") { _, _ -> iniciarDescargaModelo() }
-         .show()
+     selectorImportarModelo.launch(arrayOf("*/*"))
  }
 
- private fun iniciarDescargaModelo() {
+ private fun importarModeloSeleccionado(uri: Uri) {
      if (descargaEnCurso) return
      descargaEnCurso = true
      btnDescargarModelo.isEnabled = false
      progresoModelo.visibility = View.VISIBLE
      progresoModelo.isIndeterminate = false
      progresoModelo.progress = 0
-     estadoModelo.text = "Preparando descarga del modelo local..."
-     Log.i(etiqueta, "Inicio solicitado de descarga Gemma: ${LiteRTLMModule.EXPECTED_SIZE_BYTES} bytes")
+     estadoModelo.text = "Preparando importación y verificación de Gemma..."
+     modeloChatVerificado = false
 
      Thread({
          var correcto = false
          var detalleError: String? = null
+         val destino = LiteRTLMModule.modelFile(applicationContext)
+         val temporal = File(destino.parentFile, destino.name + ".importing")
          try {
-             val destino = LiteRTLMModule.modelFile(applicationContext)
-             correcto = DescargadorModelos.descargar(
-                 url = LiteRTLMModule.MODEL_URL,
-                 destino = destino,
-                 shaEsperado = LiteRTLMModule.EXPECTED_SHA256,
-                 confirmar = true,
-                 progreso = { descargado, total ->
-                     if (total > 0L) {
-                         val porcentaje = ((descargado * 1000L) / total).toInt().coerceIn(0, 1000)
+             val nombre = contentResolver.query(
+                 uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null
+             )?.use { cursor ->
+                 if (cursor.moveToFirst()) cursor.getString(0) else null
+             }
+             if (nombre != LiteRTLMModule.MODEL_FILENAME) {
+                 throw IllegalArgumentException(
+                     "El archivo seleccionado se llama '${nombre ?: "desconocido"}'. Debe llamarse exactamente '${LiteRTLMModule.MODEL_FILENAME}'."
+                 )
+             }
+
+             val carpeta = destino.parentFile
+                 ?: throw IllegalStateException("No se pudo determinar la carpeta privada de modelos.")
+             if (!carpeta.exists() && !carpeta.mkdirs()) {
+                 throw IllegalStateException("Android no pudo crear la carpeta privada de modelos.")
+             }
+             val espacioNecesario = LiteRTLMModule.EXPECTED_SIZE_BYTES + 128L * 1024L * 1024L
+             if (carpeta.usableSpace < espacioNecesario) {
+                 val disponibleGb = carpeta.usableSpace / (1024.0 * 1024.0 * 1024.0)
+                 val requeridoGb = espacioNecesario / (1024.0 * 1024.0 * 1024.0)
+                 throw IllegalStateException(
+                     "Espacio interno insuficiente: disponibles %.2f GB; necesarios aproximadamente %.2f GB.".format(disponibleGb, requeridoGb)
+                 )
+             }
+
+             val digest = java.security.MessageDigest.getInstance("SHA-256")
+             var copiados = 0L
+             val entrada = contentResolver.openInputStream(uri)
+                 ?: throw IllegalStateException("Android no pudo abrir el archivo seleccionado.")
+             entrada.use { input ->
+                 java.io.FileOutputStream(temporal, false).use { output ->
+                     val buffer = ByteArray(128 * 1024)
+                     while (true) {
+                         val leidos = input.read(buffer)
+                         if (leidos < 0) break
+                         if (leidos == 0) continue
+                         copiados += leidos
+                         if (copiados > LiteRTLMModule.EXPECTED_SIZE_BYTES) {
+                             throw IllegalStateException("El archivo supera el tamaño oficial esperado; se ha detenido la copia.")
+                         }
+                         digest.update(buffer, 0, leidos)
+                         output.write(buffer, 0, leidos)
+                         val porcentaje = ((copiados * 1000L) / LiteRTLMModule.EXPECTED_SIZE_BYTES)
+                             .toInt().coerceIn(0, 1000)
                          runOnUiThread {
                              if (!isFinishing && !isDestroyed) {
                                  progresoModelo.progress = porcentaje
-                                 val mib = descargado / (1024.0 * 1024.0)
-                                 val totalMib = total / (1024.0 * 1024.0)
-                                 estadoModelo.text = "Descargando Gemma: %.1f / %.1f MiB (%.1f%%)".format(mib, totalMib, porcentaje / 10.0)
+                                 val mib = copiados / (1024.0 * 1024.0)
+                                 val totalMib = LiteRTLMModule.EXPECTED_SIZE_BYTES / (1024.0 * 1024.0)
+                                 estadoModelo.text = "Importando Gemma: %.1f / %.1f MiB (%.1f%%)".format(mib, totalMib, porcentaje / 10.0)
                              }
                          }
                      }
-                 },
-                 tamanoEsperadoBytes = LiteRTLMModule.EXPECTED_SIZE_BYTES,
-                 onError = { detalleError = it }
-             )
-             if (!correcto && detalleError.isNullOrBlank()) {
-                 detalleError = "El descargador terminó sin validar el modelo y no proporcionó un motivo."
+                     output.fd.sync()
+                 }
              }
-         } catch (e: Exception) {
-             detalleError = "Error inesperado (${e.javaClass.simpleName}): ${e.message ?: "sin detalle"}"
-             Log.e(etiqueta, "Fallo al iniciar o ejecutar la descarga de Gemma", e)
+
+             if (copiados != LiteRTLMModule.EXPECTED_SIZE_BYTES) {
+                 throw IllegalStateException(
+                     "Archivo incompleto: se copiaron $copiados bytes; se esperaban ${LiteRTLMModule.EXPECTED_SIZE_BYTES}."
+                 )
+             }
+             val shaReal = digest.digest().joinToString("") { "%02x".format(it) }
+             if (!shaReal.equals(LiteRTLMModule.EXPECTED_SHA256, ignoreCase = true)) {
+                 throw SecurityException(
+                     "El SHA-256 no coincide con el modelo oficial. No se instalará el archivo."
+                 )
+             }
+
+             try {
+                 java.nio.file.Files.move(
+                     temporal.toPath(),
+                     destino.toPath(),
+                     java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                     java.nio.file.StandardCopyOption.ATOMIC_MOVE
+                 )
+             } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
+                 java.nio.file.Files.move(
+                     temporal.toPath(),
+                     destino.toPath(),
+                     java.nio.file.StandardCopyOption.REPLACE_EXISTING
+                 )
+             }
+             if (!destino.isFile || destino.length() != LiteRTLMModule.EXPECTED_SIZE_BYTES) {
+                 throw IllegalStateException("La copia final no superó la comprobación de tamaño.")
+             }
+             correcto = true
+         } catch (error: Exception) {
+             detalleError = "${error.javaClass.simpleName}: ${error.message ?: "sin detalle"}"
+             Log.e(etiqueta, "No se pudo importar el modelo local", error)
          } finally {
+             if (!correcto) runCatching { temporal.delete() }
              runOnUiThread {
                  descargaEnCurso = false
                  if (!isFinishing && !isDestroyed) {
@@ -1543,18 +1608,17 @@ class MainActivity : AppCompatActivity() {
                      progresoModelo.visibility = View.GONE
                      if (correcto) {
                          modeloChatVerificado = true
-                         estadoModelo.text = "Modelo descargado y SHA-256 verificado. Ya puedes generar letras sin Internet."
-                         Log.i(etiqueta, "Gemma descargado y validado correctamente")
+                         estadoModelo.text = "Gemma importado correctamente. Tamaño y SHA-256 oficial verificados. BARDO podrá intentar cargarlo al iniciar una conversación."
+                         Log.i(etiqueta, "Modelo Gemma importado y SHA-256 verificado.")
                      } else {
                          modeloChatVerificado = false
-                         estadoModelo.text = "Descarga no completada: ${detalleError ?: "causa no disponible"}"
-                         Log.e(etiqueta, "Descarga de Gemma no completada: ${detalleError ?: "causa no disponible"}")
+                         estadoModelo.text = "No se pudo importar Gemma: ${detalleError ?: "causa no disponible"}. El modelo anterior, si existía, se conserva."
                      }
                      actualizarInsigniaNucleo()
                  }
              }
          }
-     }, "BARDO-Gemma-Download").start()
+     }, "BARDO-Gemma-Import").start()
  }
 
  private fun detalleSalidaProcesoAudio(inicioTareaMs: Long, pidTarea: Int): String {
