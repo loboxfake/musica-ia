@@ -165,11 +165,16 @@ object BardoBackupManager {
                     require(metaEntry.size in 1..(128L * 1024L)) { "Ficha de referencia demasiado grande." }
                     require(textEntry.size in 1..(500L * 1024L)) { "Texto de referencia demasiado grande." }
                     val meta = zip.getInputStream(metaEntry).bufferedReader().use { JSONObject(it.readText()) }
+                    require(meta.optString("id") == base.substringAfterLast('/')) {
+                        "El identificador de la referencia no coincide con el nombre del archivo."
+                    }
                     val text = zip.getInputStream(textEntry).bufferedReader().use { it.readText() }
+                    val shaDeclarado = meta.optString("sha256")
+                    require(shaDeclarado.matches(Regex("[0-9a-fA-F]{64}"))) { "La ficha contiene una huella no válida." }
                     val digest = MessageDigest.getInstance("SHA-256")
                         .digest(text.toByteArray(Charsets.UTF_8))
                         .joinToString("") { "%02x".format(it) }
-                    require(digest.equals(meta.optString("sha256"), ignoreCase = true)) {
+                    require(digest.equals(shaDeclarado, ignoreCase = true)) {
                         "La huella de la referencia no coincide."
                     }
                     if (digest.lowercase() !in existentes) {
