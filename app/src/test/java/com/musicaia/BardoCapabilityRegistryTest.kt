@@ -36,6 +36,21 @@ class BardoCapabilityRegistryTest {
     }
 
     @Test
+    fun blocksGemmaWhenBatteryOrThermalBudgetIsNotSafe() {
+        val items = BardoCapabilityRegistry.snapshot(
+            BardoCapabilityRegistry.RuntimeFacts(
+                gemmaFilePresent = true,
+                audioEnginePresent = true,
+                mp3EncoderPresent = true,
+                availableMemoryBytes = BardoCapabilityRegistry.MIN_GEMMA_FREE_MEMORY_BYTES,
+                resourceBlockReason = "Batería baja (9%)."
+            )
+        ).associateBy { it.id }
+        assertEquals(BardoCapabilityRegistry.Status.NEEDS_RESOURCES, items.getValue("general_chat").status)
+        assertEquals("Batería baja (9%).", items.getValue("general_chat").detail)
+    }
+
+    @Test
     fun allowsLocalModelWhenMemoryThresholdIsMet() {
         val items = BardoCapabilityRegistry.snapshot(
             BardoCapabilityRegistry.RuntimeFacts(
