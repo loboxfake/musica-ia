@@ -157,9 +157,9 @@ jobs:
             --out "$signed" "$apk"
           "$build_tools/apksigner" verify --verbose "$signed"
           cert_output="$("$build_tools/apksigner" verify --print-certs --verbose "$signed")"
-          printf '%s\\n' "$cert_output"
+          printf '%s\n' "$cert_output"
           expected_cert_sha256="c46232017513c3171ba04d91cf579a72202a834f0bcd1c0a22e0c9de0e030368"
-          if ! printf '%s\\n' "$cert_output" | grep -Fqi "Signer #1 certificate SHA-256 digest: $expected_cert_sha256"; then
+          if ! printf '%s\n' "$cert_output" | grep -Fqi "Signer #1 certificate SHA-256 digest: $expected_cert_sha256"; then
             echo "::error::La APK no está firmada con el certificado BARDO autorizado."
             exit 1
           fi
