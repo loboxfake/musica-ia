@@ -205,6 +205,11 @@ class MainActivity : AppCompatActivity() {
          if (uri != null) procesarAdjuntoChat(uri)
      }
 
+ private val selectorImportarBackup =
+     registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+         if (uri != null) importarCopiaSeleccionada(uri)
+     }
+
  private val selectorVoz =
  registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
  if (uri != null) copiarVoz(uri)
@@ -466,6 +471,10 @@ class MainActivity : AppCompatActivity() {
      selectorImportarHistorial.launch(arrayOf("application/json", "text/*"))
  }
  findViewById<Button>(R.id.btnElegirCarpetaBardo).setOnClickListener { selectorElegirCarpetaBardo.launch(null) }
+ findViewById<Button>(R.id.btnCrearCopiaBardo).setOnClickListener { crearCopiaSeguridadBardo() }
+ findViewById<Button>(R.id.btnRestaurarCopiaBardo).setOnClickListener {
+     selectorImportarBackup.launch(arrayOf("application/zip", "application/octet-stream"))
+ }
  findViewById<Button>(R.id.btnVerCapacidades).setOnClickListener { mostrarCapacidades() }
  actualizarEtiquetaCarpetaBardo()
  findViewById<Button>(R.id.btnImportarConocimiento).setOnClickListener {
@@ -1321,6 +1330,129 @@ class MainActivity : AppCompatActivity() {
 
  private fun seleccionarArchivoVoz() {
  selectorVoz.launch(arrayOf("audio/wav", "audio/*"))
+ }
+
+
+ private fun crearCopiaSeguridadBardo() {
+     if (uriCarpetaBardo == null) {
+         tvEstado.text = "Primero selecciona Descargas/bardo para guardar la copia."
+         selectorElegirCarpetaBardo.launch(null)
+         return
+     }
+     val taskId = java.util.UUID.randomUUID().toString()
+     BardoActivityStore.record(this, taskId, "copia_seguridad", "running", "preparacion", "Preparando una copia local de conversaciones, conocimiento y registros.", 5)
+     tvEstado.text = "BARDO está preparando la copia de seguridad..."
+     Thread({
+         var temporal: File? = null
+         val resultado = runCatching {
+             temporal = com.musicaia.memoria.BardoBackupManager.createBackup(
+                 applicationContext, conversationStore, knowledgeStore
+             )
+             val archivo = temporal ?: throw IllegalStateException("No se creó el archivo de copia.")
+             guardarArchivoEnCarpetaBardo(archivo, "Copias de seguridad", archivo.name, "application/zip")
+             archivo.length()
+         }
+         temporal?.delete()
+         BardoActivityStore.record(
+             applicationContext, taskId, "copia_seguridad",
+             if (resultado.isSuccess) "completed" else "failed",
+             "archivo_zip",
+             resultado.exceptionOrNull()?.message ?: "Copia guardada en Descargas/bardo/Copias de seguridad.",
+             if (resultado.isSuccess) 100 else null
+         )
+         runOnUiThread {
+             if (isFinishing || isDestroyed) return@runOnUiThread
+             tvEstado.text = resultado.fold(
+                 { bytes -> "Copia BARDO guardada en Copias de seguridad (${bytes / 1024L} KB). No incluye los modelos ni los audios, que permanecen en sus carpetas." },
+                 { error -> "No se pudo crear la copia: ${error.message}" }
+             )
+         }
+     }, "BARDO-Backup-Create").start()
+ }
+
+ private fun importarCopiaSeleccionada(uri: Uri) {
+     val temporal = File(cacheDir, "BARDO_restore_${System.currentTimeMillis()}.zip")
+     val taskId = java.util.UUID.randomUUID().toString()
+     BardoActivityStore.record(this, taskId, "restauracion", "running", "lectura_copia", "Leyendo el archivo de copia seleccionado.", 5)
+     tvEstado.text = "Comprobando la copia de seguridad..."
+     Thread({
+         val inspeccion = runCatching {
+             contentResolver.openInputStream(uri)?.use { input ->
+                 java.io.FileOutputStream(temporal).use { output ->
+                     val buffer = ByteArray(64 * 1024)
+                     var total = 0L
+                     while (true) {
+                         val read = input.read(buffer)
+                         if (read < 0) break
+                         total += read
+                         require(total <= 100L * 1024L * 1024L) { "La copia supera el límite de 100 MB." }
+                         output.write(buffer, 0, read)
+                     }
+                 }
+             } ?: throw IllegalStateException("No se pudo abrir el archivo seleccionado.")
+             com.musicaia.memoria.BardoBackupManager.inspectBackup(temporal)
+         }
+         runOnUiThread {
+             if (isFinishing || isDestroyed) {
+                 temporal.delete()
+                 return@runOnUiThread
+             }
+             val info = inspeccion.getOrNull()
+             if (info == null) {
+                 temporal.delete()
+                 val error = inspeccion.exceptionOrNull()?.message ?: "Copia no válida."
+                 BardoActivityStore.record(this, taskId, "restauracion", "failed", "validacion", error, null)
+                 tvEstado.text = "No se pudo validar la copia: $error"
+                 return@runOnUiThread
+             }
+             val fecha = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
+                 .withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(info.createdAt))
+             val actividadIncluida = if (info.includesActivity) "sí" else "no"
+             AlertDialog.Builder(this)
+                 .setTitle("Restaurar copia de BARDO")
+                 .setMessage(
+                     "Fecha: $fecha\nConversaciones: ${info.conversationCount}\nReferencias de conocimiento: ${info.knowledgeCount}\nRegistro de actividad incluido: $actividadIncluida\n\nLa restauración combina conversaciones y conocimiento; no borra los datos actuales. El ZIP no está cifrado. Los modelos y audios no se restauran porque permanecen en sus carpetas."
+                 )
+                 .setNegativeButton("Cancelar") { _, _ -> temporal.delete() }
+                 .setPositiveButton("Restaurar y combinar") { _, _ ->
+                     restaurarCopiaSeguridadValidada(temporal, taskId)
+                 }
+                 .setCancelable(false)
+                 .show()
+         }
+     }, "BARDO-Backup-Inspect").start()
+ }
+
+ private fun restaurarCopiaSeguridadValidada(temporal: File, taskId: String) {
+     BardoActivityStore.record(this, taskId, "restauracion", "running", "combinacion", "Validando e incorporando conversaciones y referencias sin sobrescribir el historial actual.", 35, temporal.absolutePath)
+     tvEstado.text = "Restaurando y combinando los datos..."
+     Thread({
+         val resultado = runCatching {
+             com.musicaia.memoria.BardoBackupManager.restoreBackup(
+                 temporal, conversationStore, knowledgeStore
+             )
+         }
+         temporal.delete()
+         runOnUiThread {
+             if (isFinishing || isDestroyed) return@runOnUiThread
+             val restaurado = resultado.getOrNull()
+             if (restaurado == null) {
+                 val error = resultado.exceptionOrNull()?.message ?: "Error desconocido."
+                 BardoActivityStore.record(this, taskId, "restauracion", "failed", "combinacion", error, null)
+                 tvEstado.text = "No se pudo restaurar la copia: $error"
+             } else {
+                 actualizarEstadoConocimiento()
+                 BardoActivityStore.record(this, taskId, "restauracion", "completed", "combinacion", "Conversaciones añadidas: ${restaurado.conversationsAdded}; referencias añadidas: ${restaurado.knowledgeAdded}.", 100)
+                 val avisos = if (restaurado.warnings.isEmpty()) "" else "\n\nAvisos:\n" + restaurado.warnings.take(8).joinToString("\n")
+                 AlertDialog.Builder(this)
+                     .setTitle("Restauración terminada")
+                     .setMessage("Conversaciones nuevas: ${restaurado.conversationsAdded}\nReferencias nuevas: ${restaurado.knowledgeAdded}$avisos")
+                     .setPositiveButton("Aceptar", null)
+                     .show()
+                 tvEstado.text = "Copia restaurada y combinada sin borrar los datos actuales."
+             }
+         }
+     }, "BARDO-Backup-Restore").start()
  }
 
  private fun mostrarActividadBardo() {
