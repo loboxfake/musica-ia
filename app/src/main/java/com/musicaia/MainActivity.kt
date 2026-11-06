@@ -809,6 +809,28 @@ class MainActivity : AppCompatActivity() {
      return "Gemma está instalado, pero Android informa solo $gb GB de RAM disponible. BARDO no intentará cargar el modelo para reducir el riesgo de cierre por falta de memoria. Cierra otras aplicaciones y vuelve a intentarlo cuando haya al menos 4 GB disponibles."
  }
 
+ private fun actualizarInsigniaNucleo() {
+     val insignia = findViewById<TextView>(R.id.tvEstadoLocal)
+     val modelo = LiteRTLMModule.modelFile(this)
+     val texto = when {
+         !modelo.isFile || modelo.length() != LiteRTLMModule.EXPECTED_SIZE_BYTES -> "● GEMMA PENDIENTE"
+         bloqueoGemmaPorMemoria() != null -> "● RAM INSUFICIENTE"
+         modeloChatVerificado -> "● SHA-256 VERIFICADO"
+         else -> "● GEMMA SIN VALIDAR"
+     }
+     insignia.text = texto
+     insignia.setTextColor(
+         android.graphics.Color.parseColor(
+             when {
+                 texto.contains("VERIFICADO") -> "#16CFF4"
+                 texto.contains("INSUFICIENTE") -> "#E8B987"
+                 else -> "#D9B86B"
+             }
+         )
+     )
+     insignia.contentDescription = "Estado del modelo local: " + texto.removePrefix("● ")
+ }
+
  private fun dp(valor: Int): Int = (valor * resources.displayMetrics.density).toInt()
 
  private fun renderizarBurbujasChat() {
@@ -1544,6 +1566,7 @@ class MainActivity : AppCompatActivity() {
      super.onResume()
      handler.removeCallbacks(vigilanteTarea)
      handler.post(vigilanteTarea)
+     actualizarInsigniaNucleo()
  }
 
  override fun onPause() {
