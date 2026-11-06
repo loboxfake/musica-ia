@@ -188,18 +188,8 @@ jobs:
               "assets/audio_model/spiece.model",
               "assets/audio_model/LICENSE",
               "assets/NOTICE.txt",
-              "res/mipmap-mdpi-v4_ic_launcher.webp",
-              "res/mipmap-hdpi-v4_ic_launcher.webp",
-              "res/mipmap-xhdpi-v4_ic_launcher.webp",
-              "res/mipmap-xxhdpi-v4_ic_launcher.webp",
-              "res/mipmap-xxxhdpi-v4_ic_launcher.webp",
-              "res/mipmap-mdpi-v4_ic_launcher_foreground.webp",
-              "res/mipmap-hdpi-v4_ic_launcher_foreground.webp",
-              "res/mipmap-xhdpi-v4_ic_launcher_foreground.webp",
-              "res/mipmap-xxhdpi-v4_ic_launcher_foreground.webp",
-              "res/mipmap-xxxhdpi-v4_ic_launcher_foreground.webp",
-              "res/mipmap-anydpi-v26_ic_launcher.xml",
-              "res/mipmap-anydpi-v26_ic_launcher_round.xml",
+              "AndroidManifest.xml",
+              "resources.arsc",
               "lib/arm64-v8a/libaudiogen.so",
               "lib/arm64-v8a/libmp3encoder.so",
               "lib/arm64-v8a/libmp3lame.so",
@@ -215,6 +205,16 @@ jobs:
               if bad:
                   raise SystemExit(f"ZIP_CORRUPT_ENTRY: {bad}")
               names = set(z.namelist())
+              launcher_names = sorted(name for name in names if "ic_launcher" in name)
+              main_icons = [name for name in launcher_names if name.endswith(".webp") and "foreground" not in name]
+              foreground_icons = [name for name in launcher_names if "ic_launcher_foreground" in name and name.endswith(".webp")]
+              adaptive_icons = [name for name in launcher_names if name.endswith("ic_launcher.xml") or name.endswith("ic_launcher_round.xml")]
+              print("PACKAGED_LAUNCHER_ENTRIES: " + ", ".join(launcher_names))
+              if len(main_icons) < 5 or len(foreground_icons) < 5 or len(adaptive_icons) < 2:
+                  raise SystemExit(
+                      "LAUNCHER_RESOURCES_INCOMPLETE: "
+                      f"main={len(main_icons)}, foreground={len(foreground_icons)}, adaptive={len(adaptive_icons)}"
+                  )
               missing = [name for name in required if name not in names]
               if missing:
                   raise SystemExit("MISSING_APK_ENTRIES: " + ", ".join(missing))
