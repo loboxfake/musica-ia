@@ -30,8 +30,8 @@ class Catalogo {
                     "El catálogo respondió HTTP ${conn.responseCode}."
                 }
                 val json = conn.inputStream.bufferedReader().useLines { lines -> lines.joinToString("\n") }
-
-            val array = JSONArray(json)
+                val array = JSONArray(json)
+                val cargados = mutableListOf<ManifiestoModelo>()
             for (i in 0 until array.length()) {
                 val obj = array.getJSONObject(i)
                 val modelo = ManifiestoModelo(
