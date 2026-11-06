@@ -481,7 +481,7 @@ class MainActivity : AppCompatActivity() {
  findViewById<Button>(R.id.btnElegirCarpetaBardo).setOnClickListener { selectorElegirCarpetaBardo.launch(null) }
  findViewById<Button>(R.id.btnCrearCopiaBardo).setOnClickListener { crearCopiaSeguridadBardo() }
  findViewById<Button>(R.id.btnRestaurarCopiaBardo).setOnClickListener {
-     selectorImportarBackup.launch(arrayOf("application/zip", "application/octet-stream"))
+     selectorImportarBackup.launch(arrayOf("*/*"))
  }
  findViewById<Button>(R.id.btnVerCapacidades).setOnClickListener { mostrarCapacidades() }
  actualizarEtiquetaCarpetaBardo()
@@ -1421,7 +1421,7 @@ class MainActivity : AppCompatActivity() {
              AlertDialog.Builder(this)
                  .setTitle("Restaurar copia de BARDO")
                  .setMessage(
-                     "Fecha: $fecha\nConversaciones: ${info.conversationCount}\nReferencias de conocimiento: ${info.knowledgeCount}\nRegistro de actividad incluido: $actividadIncluida\n\nLa restauración combina conversaciones y conocimiento; no borra los datos actuales. El ZIP no está cifrado. Los modelos y audios no se restauran porque permanecen en sus carpetas."
+                     "Fecha: $fecha\nConversaciones: ${info.conversationCount}\nReferencias de conocimiento: ${info.knowledgeCount}\nRegistro de actividad incluido: $actividadIncluida\n\nLa restauración combina conversaciones y conocimiento; no borra los datos actuales. El registro de actividad y las preferencias quedan archivados en el ZIP, pero no se reintegran automáticamente. El ZIP no está cifrado. Los modelos y audios no se restauran porque permanecen en sus carpetas."
                  )
                  .setNegativeButton("Cancelar") { _, _ -> temporal.delete() }
                  .setPositiveButton("Restaurar y combinar") { _, _ ->
