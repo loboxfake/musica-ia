@@ -13,6 +13,7 @@ import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import com.musicaia.BardoDeveloperActivity
 import com.musicaia.memoria.BardoKnowledgeStore
+import com.musicaia.modelo.BardoCapabilityRegistry
 import com.musicaia.modulos.litert.EngineLiteRT
 import com.musicaia.modulos.litert.LiteRTLMModule
 import java.io.File
@@ -33,7 +34,7 @@ class BardoDeveloperWorker(
         const val UNIQUE_WORK = "bardo_autonomous_developer"
         private const val CHANNEL_ID = "bardo_developer_background"
         private const val NOTIFICATION_ID = 8732
-        private const val MIN_FREE_MEMORY_BYTES = 4_000L * 1024L * 1024L
+        private const val MIN_FREE_MEMORY_BYTES = BardoCapabilityRegistry.MIN_GEMMA_FREE_MEMORY_BYTES
     }
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
