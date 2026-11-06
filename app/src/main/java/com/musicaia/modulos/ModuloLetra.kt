@@ -34,6 +34,6 @@ class ModuloLetra(context: Context, private val modoManual: Boolean = false) : M
     }
 
     override fun descargar() {
-        if (!modoManual) EngineLiteRT.cerrar()
+        EngineLiteRT.cerrar()
     }
 }
