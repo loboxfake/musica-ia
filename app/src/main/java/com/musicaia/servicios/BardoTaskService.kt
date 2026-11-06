@@ -186,14 +186,23 @@ class BardoTaskService : Service() {
                 val segundos = ((System.currentTimeMillis() - inicioMs) / 1000L).toInt()
                 getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_AUDIO, audio.rutaWav).apply()
                 val mensajeMp3 = "WAV validado (${archivo.length()} bytes). Preparando MP3 320 kbps para Archivo…"
-                actualizarNotificacion(mensajeMp3, ((pasoMp3 * 90f) / totalPasosAudio).toInt().coerceIn(0, 95))
+                actualizarNotificacion(mensajeMp3, 95)
                 publicarEstado("running", mensajeMp3)
                 if (!Mp3Exporter.available) throw IllegalStateException("El WAV se generó, pero el codificador MP3 nativo no está disponible en esta APK.")
                 val biblioteca = java.io.File(filesDir, "biblioteca")
                 if (!biblioteca.exists() && !biblioteca.mkdirs()) throw IllegalStateException("No se pudo crear la carpeta Archivo de BARDO.")
                 val marca = System.currentTimeMillis()
-                val mp3 = java.io.File(biblioteca, "BARDO_$marca.mp3")
-                val temporal = java.io.File(biblioteca, "BARDO_$marca.mp3.part")
+                val estiloOriginal = Regex("(?i)Estilo\\s*:\\s*([^\\n.]+)").find(prompt)?.groupValues?.get(1)
+                    ?: prompt.take(36)
+                val estiloNormalizado = java.text.Normalizer.normalize(estiloOriginal, java.text.Normalizer.Form.NFD)
+                    .replace(Regex("\\p{Mn}+"), "")
+                val estiloArchivo = Regex("[^A-Za-z0-9]+").replace(estiloNormalizado, "_")
+                    .trim('_').take(28).ifBlank { "instrumental" }
+                val fechaArchivo = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmm")
+                    .withZone(java.time.ZoneId.systemDefault()).format(java.time.Instant.ofEpochMilli(marca))
+                val nombreBase = "BARDO_${fechaArchivo}_${estiloArchivo}"
+                val mp3 = java.io.File(biblioteca, "$nombreBase.mp3")
+                val temporal = java.io.File(biblioteca, "$nombreBase.mp3.part")
                 val codificado = Mp3Exporter.encodeWavToMp3(archivo.absolutePath, temporal.absolutePath, 320)
                 if (!codificado || !temporal.isFile || temporal.length() < 1024L) {
                     temporal.delete()
@@ -218,7 +227,7 @@ class BardoTaskService : Service() {
                 val mensajeValidado = "INSTRUMENTAL $totalPasosAudio/$totalPasosAudio · MP3 320 kbps validado (${mp3DurationMs / 1000L}s, ${mp3.length()} bytes)"
                 actualizarNotificacion(mensajeValidado, 100)
                 publicarEstado("running", mensajeValidado)
-                if (letra.isNotBlank()) java.io.File(biblioteca, "BARDO_$marca.txt").writeText(letra)
+                if (letra.isNotBlank()) java.io.File(biblioteca, "$nombreBase.txt").writeText(letra)
                 val duracion = mp3DurationMs / 1000L
                 val mensajeFinal = "MP3 guardado en Archivo · ${duracion / 60} min ${duracion % 60}s · ${mp3.length()} bytes · 320 kbps"
                 getSharedPreferences(PREFS, MODE_PRIVATE).edit()
