@@ -144,6 +144,7 @@ class MainActivity : AppCompatActivity() {
  private lateinit var chatLog: TextView
  private lateinit var chatMessages: LinearLayout
  private lateinit var chatScroll: ScrollView
+ private var chatHeightListener: android.view.ViewTreeObserver.OnGlobalLayoutListener? = null
  private lateinit var chatEntrada: EditText
  private lateinit var conversationStore: BardoConversationStore
  private lateinit var knowledgeStore: BardoKnowledgeStore
@@ -401,6 +402,7 @@ class MainActivity : AppCompatActivity() {
  chatLog = findViewById(R.id.chatLog)
  chatMessages = findViewById(R.id.chatMessages)
  chatScroll = findViewById(R.id.chatScroll)
+ configurarChatAdaptativo()
  chatEntrada = findViewById(R.id.chatEntrada)
  conversationStore = BardoConversationStore(this)
  knowledgeStore = BardoKnowledgeStore(this)
@@ -863,6 +865,26 @@ class MainActivity : AppCompatActivity() {
  }
 
  private fun dp(valor: Int): Int = (valor * resources.displayMetrics.density).toInt()
+
+ private fun configurarChatAdaptativo() {
+     val raiz = chatScroll.rootView
+     val listener = android.view.ViewTreeObserver.OnGlobalLayoutListener {
+         val altoVentana = raiz.height
+         if (altoVentana > 0) {
+             val densidad = resources.displayMetrics.density
+             val minimo = (160f * densidad).toInt()
+             val maximo = (360f * densidad).toInt()
+             val objetivo = (altoVentana * 0.32f).toInt().coerceIn(minimo, maximo)
+             val parametros = chatScroll.layoutParams
+             if (parametros.height != objetivo) {
+                 parametros.height = objetivo
+                 chatScroll.layoutParams = parametros
+             }
+         }
+     }
+     chatHeightListener = listener
+     raiz.viewTreeObserver.addOnGlobalLayoutListener(listener)
+ }
 
  private fun renderizarBurbujasChat() {
      if (!::chatMessages.isInitialized || !::chatScroll.isInitialized) return
@@ -2166,6 +2188,15 @@ class MainActivity : AppCompatActivity() {
  }
 
  override fun onDestroy() {
+     chatHeightListener?.let { listener ->
+         runCatching { chatScroll.rootView.viewTreeObserver.removeOnGlobalLayoutListener(listener) }
+     }
+     chatHeightListener = null
+     val grabadoraAlCerrar = grabadora
+     grabadora = null
+     if (grabadoraAlCerrar != null) {
+         Thread({ runCatching { grabadoraAlCerrar.detener() } }, "BARDO-Voice-Stop-OnDestroy").start()
+     }
  if (receptorTareasRegistrado) {
      runCatching { unregisterReceiver(receptorTareas) }
      receptorTareasRegistrado = false
@@ -2173,7 +2204,6 @@ class MainActivity : AppCompatActivity() {
  super.onDestroy()
  handler.removeCallbacks(reloj)
  handler.removeCallbacks(relojReproductor)
- try { grabadora?.detener() } catch (_: Exception) { }
  try { player?.release() } catch (_: Exception) { }
  EngineLiteRT.cerrarAsync()
  }
