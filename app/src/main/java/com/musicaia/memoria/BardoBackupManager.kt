@@ -132,35 +132,41 @@ object BardoBackupManager {
             }
 
             val conversationsEntry = zip.getEntry("conversations.json")
+                ?: throw IllegalArgumentException("Falta el historial de conversaciones.")
+            require(conversationsEntry.size in 1..(20L * 1024L * 1024L)) { "El historial supera el límite permitido." }
             val conversationJson = zip.getInputStream(conversationsEntry).bufferedReader().use { it.readText() }
-            require(conversationJson.length <= 20 * 1024 * 1024) { "El historial supera el límite permitido." }
             addedConversations = conversations.importJson(conversationJson)
 
+            val existentes = knowledge.list().map { it.sha256.lowercase() }.toSet()
             val metaNames = names.filter { it.startsWith("knowledge/") && it.endsWith(".json") }
             for (metaName in metaNames) {
                 val base = metaName.removeSuffix(".json")
                 val textName = "$base.txt"
                 val metaEntry = zip.getEntry(metaName) ?: continue
-                val textEntry = zip.getEntry(textName) ?: run {
+                val textEntry = zip.getEntry(textName)
+                if (textEntry == null) {
                     warnings += "Falta el texto de una referencia: ${metaName.substringAfterLast('/')}"
                     continue
                 }
                 runCatching {
+                    require(metaEntry.size in 1..(128L * 1024L)) { "Ficha de referencia demasiado grande." }
+                    require(textEntry.size in 1..(500L * 1024L)) { "Texto de referencia demasiado grande." }
                     val meta = zip.getInputStream(metaEntry).bufferedReader().use { JSONObject(it.readText()) }
                     val text = zip.getInputStream(textEntry).bufferedReader().use { it.readText() }
-                    require(text.length <= 500_000) { "Una referencia supera 500.000 caracteres." }
                     val digest = MessageDigest.getInstance("SHA-256")
                         .digest(text.toByteArray(Charsets.UTF_8))
                         .joinToString("") { "%02x".format(it) }
                     require(digest.equals(meta.optString("sha256"), ignoreCase = true)) {
                         "La huella de la referencia no coincide."
                     }
-                    knowledge.importText(
-                        meta.optString("title", "Referencia importada"),
-                        meta.optString("source", "Copia BARDO"),
-                        text
-                    )
-                    addedKnowledge++
+                    if (digest.lowercase() !in existentes) {
+                        knowledge.importText(
+                            meta.optString("title", "Referencia importada"),
+                            meta.optString("source", "Copia BARDO"),
+                            text
+                        )
+                        addedKnowledge++
+                    }
                 }.onFailure { warnings += "Referencia omitida (${metaName.substringAfterLast('/')}): ${it.message}" }
             }
         }
