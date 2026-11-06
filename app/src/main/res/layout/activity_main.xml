@@ -140,6 +140,9 @@
                         android:layout_height="46dp" android:layout_marginTop="7dp"
                         android:text="Reproducir última creación" android:textAllCaps="false"
                         android:visibility="gone"/>
+                    <Button android:id="@+id/btnBibliotecaGestionar" android:layout_width="match_parent"
+                        android:layout_height="46dp" android:layout_marginTop="7dp"
+                        android:text="Buscar, favoritos y listas de reproducción" android:textAllCaps="false"/>
                 <LinearLayout android:id="@+id/playerControls" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingTop="8dp" android:visibility="gone">
                     <SeekBar android:id="@+id/seekPlayback" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="1000" android:contentDescription="Posición de reproducción"/>
                     <TextView android:id="@+id/tvPlaybackTime" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="00:00 / 00:00" android:textColor="#A9B8D2" android:textSize="12sp"/>
