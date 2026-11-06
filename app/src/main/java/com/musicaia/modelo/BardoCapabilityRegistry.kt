@@ -2,7 +2,7 @@ package com.musicaia.modelo
 
 /** Registro declarativo de capacidades y sus requisitos reales. */
 object BardoCapabilityRegistry {
-    enum class Status { AVAILABLE, NEEDS_MODEL, NEEDS_MEMORY, NEEDS_FULL_APK, REQUIRES_USER_ACTION, NOT_IMPLEMENTED }
+    enum class Status { AVAILABLE, NEEDS_MODEL, NEEDS_MEMORY, NEEDS_RESOURCES, NEEDS_FULL_APK, REQUIRES_USER_ACTION, NOT_IMPLEMENTED }
 
     const val MIN_GEMMA_FREE_MEMORY_BYTES = 4_000L * 1024L * 1024L
 
@@ -17,11 +17,13 @@ object BardoCapabilityRegistry {
         val gemmaFilePresent: Boolean,
         val audioEnginePresent: Boolean,
         val mp3EncoderPresent: Boolean,
-        val availableMemoryBytes: Long = Long.MAX_VALUE
+        val availableMemoryBytes: Long = Long.MAX_VALUE,
+        val resourceBlockReason: String? = null
     )
 
     private fun gemmaStatus(facts: RuntimeFacts): Status = when {
         !facts.gemmaFilePresent -> Status.NEEDS_MODEL
+        !facts.resourceBlockReason.isNullOrBlank() -> Status.NEEDS_RESOURCES
         facts.availableMemoryBytes < MIN_GEMMA_FREE_MEMORY_BYTES -> Status.NEEDS_MEMORY
         else -> Status.AVAILABLE
     }
@@ -29,6 +31,7 @@ object BardoCapabilityRegistry {
     private fun gemmaDetail(facts: RuntimeFacts): String = when (gemmaStatus(facts)) {
         Status.NEEDS_MODEL -> "Necesita descargar Gemma local (aprox. 2,6 GB)."
         Status.NEEDS_MEMORY -> "Gemma está presente, pero Android informa menos de 4 GB de RAM disponible. Cierra otras aplicaciones y vuelve a intentarlo. La comprobación es preventiva, no una garantía de compatibilidad."
+        Status.NEEDS_RESOURCES -> facts.resourceBlockReason.orEmpty()
         else -> "Gemma está presente y hay memoria disponible suficiente según el umbral preventivo. Se verifica su SHA-256 y compatibilidad al cargar."
     }
 
@@ -43,6 +46,7 @@ object BardoCapabilityRegistry {
                 when (localModelStatus) {
                     Status.NEEDS_MODEL -> "Necesita Gemma local."
                     Status.NEEDS_MEMORY -> "Necesita más memoria RAM libre para cargar Gemma de forma prudente."
+                    Status.NEEDS_RESOURCES -> facts.resourceBlockReason.orEmpty()
                     else -> "Generación local condicionada a que Gemma supere la verificación y pueda ejecutarse."
                 }
             ),
