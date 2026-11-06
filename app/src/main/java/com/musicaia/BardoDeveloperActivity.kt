@@ -15,6 +15,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.appcompat.app.AppCompatActivity
 import com.musicaia.memoria.BardoKnowledgeStore
+import com.musicaia.modelo.BardoCapabilityRegistry
 import com.musicaia.desarrollo.BardoDeveloperCore
 import com.musicaia.desarrollo.BardoPatchApplier
 import com.musicaia.modulos.litert.EngineLiteRT
@@ -235,8 +236,9 @@ class BardoDeveloperActivity : AppCompatActivity() {
         val manager = getSystemService(ACTIVITY_SERVICE) as ActivityManager
         val memory = ActivityManager.MemoryInfo()
         manager.getMemoryInfo(memory)
-        if (memory.availMem < 2_800L * 1024L * 1024L) {
-            output.text = "BARDO ha detenido la carga preventiva: Android informa menos de 2,8 GB de RAM disponible. Cierra otras aplicaciones y vuelve a intentarlo. No se ha iniciado la inferencia."
+        if (memory.availMem < BardoCapabilityRegistry.MIN_GEMMA_FREE_MEMORY_BYTES) {
+            val freeGb = memory.availMem / (1024L * 1024L * 1024L)
+            output.text = "BARDO ha detenido la carga preventiva: Android informa $freeGb GB de RAM disponible y se requieren al menos 4 GB como umbral prudente. Cierra otras aplicaciones y vuelve a intentarlo. No se ha iniciado la inferencia."
             return
         }
         setBusy(true, "Verificando modelo e iniciando análisis local…")
