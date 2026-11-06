@@ -1735,7 +1735,9 @@ class MainActivity : AppCompatActivity() {
          if (audio.isNotBlank() && File(audio).isFile && File(audio).length() > 44L) {
              rutaInstrumental = audio
              rutaAudio = mp3.takeIf { it.isNotBlank() && File(it).isFile && File(it).length() > 1024L } ?: audio
-              archivarTareaEnCarpetaBardo(audio, mp3, letra, solo)
+             rutaMp3Compartir = mp3.takeIf { it.isNotBlank() && File(it).isFile && File(it).length() > 128L }
+             btnCompartir.visibility = if (rutaMp3Compartir != null) View.VISIBLE else View.GONE
+             archivarTareaEnCarpetaBardo(audio, mp3, letra, solo)
              btnReproducir.visibility = View.VISIBLE
              btnGuardar.visibility = if (rutaAudio == audio) View.VISIBLE else View.GONE
              val mp3Info = if (rutaAudio != audio) "${File(rutaAudio!!).length()} bytes · MP3 320 kbps" else "MP3 no disponible"
@@ -1846,6 +1848,8 @@ class MainActivity : AppCompatActivity() {
              val mp3 = prefs.getString(BardoTaskService.KEY_MP3, "").orEmpty()
              if (audio.isNotBlank() && File(audio).isFile && File(audio).length() > 44L) {
                  rutaAudio = mp3.takeIf { it.isNotBlank() && File(it).isFile } ?: audio
+                 rutaMp3Compartir = mp3.takeIf { it.isNotBlank() && File(it).isFile && File(it).length() > 128L }
+                 btnCompartir.visibility = if (rutaMp3Compartir != null) View.VISIBLE else View.GONE
                  archivarTareaEnCarpetaBardo(audio, mp3, prefs.getString("lyrics", "").orEmpty(), prefs.getBoolean("solo", false))
                  rutaInstrumental = audio
                  btnReproducir.visibility = View.VISIBLE
@@ -2018,7 +2022,10 @@ class MainActivity : AppCompatActivity() {
          file.isFile && file.extension.lowercase() in setOf("mp3", "wav")
      }?.maxByOrNull { it.lastModified() } ?: return
      rutaAudio = ultimo.absolutePath
-     btnGuardar.visibility = View.VISIBLE
+     val esMp3 = ultimo.extension.equals("mp3", ignoreCase = true)
+     rutaMp3Compartir = ultimo.absolutePath.takeIf { esMp3 }
+     btnCompartir.visibility = if (esMp3) View.VISIBLE else View.GONE
+     btnGuardar.visibility = if (esMp3) View.GONE else View.VISIBLE
      btnReproducir.visibility = View.VISIBLE
      reproducir()
  }
