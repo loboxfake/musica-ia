@@ -231,6 +231,11 @@ jobs:
           "$AAPT" dump badging "$apk" | tee -a full-apk-audit.txt
           grep -q "package: name='com.musicaia'" full-apk-audit.txt
           grep -q "sdkVersion:'26'" full-apk-audit.txt
+          if grep -q "application-debuggable" full-apk-audit.txt; then
+            echo "::error::La APK de distribución no debe ser debuggable."
+            exit 1
+          fi
+          echo "RELEASE_APK_NON_DEBUGGABLE: PASS" | tee -a full-apk-audit.txt
 
       - name: Audit APK for embedded credentials and signing material
         run: |
