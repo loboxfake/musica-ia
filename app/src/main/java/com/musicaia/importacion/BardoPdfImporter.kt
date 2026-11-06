@@ -6,7 +6,7 @@ import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import java.io.File
 
-/** Extracción local de texto PDF; no realiza OCR ni interpreta imágenes escaneadas. */
+/** Extracción local de texto PDF, con OCR limitado para documentos escaneados. */
 object BardoPdfImporter {
     private val initLock = Any()
     @Volatile private var initialized = false
