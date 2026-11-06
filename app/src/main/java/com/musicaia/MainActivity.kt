@@ -1000,7 +1000,7 @@ class MainActivity : AppCompatActivity() {
          textSize = 15f
          setTextColor(android.graphics.Color.rgb(235, 242, 255))
          setLineSpacing(dp(3).toFloat(), 1f)
-         maxWidth = ((resources.displayMetrics.widthPixels / resources.displayMetrics.density).toInt() - dp(120)).coerceAtLeast(dp(180))
+         maxWidth = (resources.displayMetrics.widthPixels - dp(120)).coerceAtLeast(dp(180))
          setTextIsSelectable(true)
      }
      burbuja.addView(encabezado)
