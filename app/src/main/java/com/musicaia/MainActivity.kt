@@ -3146,7 +3146,7 @@ class MainActivity : AppCompatActivity() {
          }
      }
 
-     buscar.addTextChangedListener { renderizar() }
+     buscar.addTextChangedListener(afterTextChanged = { renderizar() })
      soloFavoritos.setOnCheckedChangeListener { _, _ -> renderizar() }
      nuevaLista.setOnClickListener { crearPlaylistBiblioteca() }
      listas.setOnClickListener { mostrarPlaylistsBiblioteca() }
