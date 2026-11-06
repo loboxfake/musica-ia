@@ -4,5 +4,4 @@
 *.apk
 /catalogo/modelos/
 *.keystore
-!debug.keystore
 .idea/
