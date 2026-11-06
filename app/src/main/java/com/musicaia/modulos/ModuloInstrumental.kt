@@ -82,9 +82,11 @@ class ModuloInstrumental(
         }
 
         val lyrics = (entrada as? Dato.Texto)?.texto.orEmpty()
-        val workDir = File(ctx.cacheDir, "audio_segments")
-        if (workDir.exists()) workDir.deleteRecursively()
+        val workDir = File(ctx.cacheDir, "audio_segments_${System.currentTimeMillis()}")
         if (!workDir.mkdirs()) throw IllegalStateException("No se pudo crear el directorio temporal de audio.")
+        val diagnosticos = mutableListOf<String>()
+        val informeDiagnostico = File(ctx.filesDir, "audio_generation_diagnostics.txt")
+        var generacionCompleta = false
 
         // Stable Audio Open Small generates at most 11 seconds per pass.
         // Eighteen sections with 400 ms crossfades yield more than three minutes.
@@ -126,11 +128,21 @@ class ModuloInstrumental(
                     (System.currentTimeMillis().toInt() + index * 37)
                 )
                 if (generated.isNullOrBlank() || !segment.isFile || segment.length() <= 44L) {
-                    throw IllegalStateException("El modelo de audio no generó el segmento ${index + 1}/${sectionsToGenerate.size}.")
+                    val causa = "El motor no produjo un WAV utilizable."
+                    diagnosticos += "SEGMENT ${index + 1}/${sectionsToGenerate.size} | STATE=FAIL | CAUSE=$causa"
+                    throw IllegalStateException("El modelo de audio no generó el segmento ${index + 1}/${sectionsToGenerate.size}: $causa")
+                }
+                val info = WavSegmentDiagnostics.inspect(segment)
+                val duracionMinima = if (quickTest) 1.5 else 5.0
+                val estadoSegmento = if (info.durationSeconds >= duracionMinima) "PASS" else "FAIL"
+                val tiempoSegmento = ((System.currentTimeMillis() - segmentStartedAt) / 1000L).coerceAtLeast(0L)
+                val detalle = "SEGMENT ${index + 1}/${sectionsToGenerate.size} | STATE=$estadoSegmento | EXPECTED=11.0s | ACTUAL=%.3fs | FRAMES=${info.frames} | SAMPLE_RATE=${info.sampleRate}Hz | CHANNELS=${info.channels} | BITS=${info.bitsPerSample} | BYTES=${segment.length()} | ELAPSED=${tiempoSegmento}s".format(java.util.Locale.ROOT, info.durationSeconds)
+                diagnosticos += detalle
+                if (estadoSegmento != "PASS") {
+                    throw IllegalStateException("Segmento ${index + 1}/${sectionsToGenerate.size} demasiado corto (%.3fs; mínimo %.1fs).".format(java.util.Locale.ROOT, info.durationSeconds, duracionMinima))
                 }
                 segments.add(segment)
-                val segmentSeconds = ((System.currentTimeMillis() - segmentStartedAt) / 1000L).coerceAtLeast(0L)
-                onSegmentProgress(index + 1, sectionsToGenerate.size, "Segmento ${index + 1}/${sectionsToGenerate.size} generado en ${segmentSeconds}s (${segment.length()} bytes)")
+                onSegmentProgress(index + 1, sectionsToGenerate.size, "Segmento ${index + 1}/${sectionsToGenerate.size} · PASS · %.2fs · ${info.frames} frames · ${info.sampleRate} Hz · ${tiempoSegmento}s".format(java.util.Locale.ROOT, info.durationSeconds))
                 if (isCancellationRequested()) throw java.util.concurrent.CancellationException("Cancelación solicitada por el usuario.")
             }
 
@@ -146,15 +158,25 @@ class ModuloInstrumental(
             if (!output.isFile || output.length() <= 44L) {
                 throw IllegalStateException("El WAV instrumental final está vacío.")
             }
-            val durationSeconds = (output.length() - 44L).toDouble() / (44100.0 * 2.0 * 2.0)
+            val finalInfo = WavSegmentDiagnostics.inspect(output)
             val minimumDuration = if (quickTest) 2.0 else 180.0
-            if (durationSeconds < minimumDuration) {
+            if (finalInfo.durationSeconds < minimumDuration) {
                 throw IllegalStateException(if (quickTest) "La prueba rápida generó menos de 2 segundos de audio." else "El instrumental generado dura menos de 3 minutos.")
             }
-            onSegmentProgress(sectionsToGenerate.size, sectionsToGenerate.size, "WAV final validado (${output.length()} bytes)")
-            return Dato.Audio(output.absolutePath, 44100)
+            diagnosticos += "FINAL | STATE=PASS | DURATION=%.3fs | FRAMES=${finalInfo.frames} | SAMPLE_RATE=${finalInfo.sampleRate}Hz | CHANNELS=${finalInfo.channels} | BYTES=${output.length()}".format(java.util.Locale.ROOT, finalInfo.durationSeconds)
+            onSegmentProgress(sectionsToGenerate.size, sectionsToGenerate.size, "WAV final validado · %.1fs · ${finalInfo.sampleRate} Hz · ${output.length()} bytes".format(java.util.Locale.ROOT, finalInfo.durationSeconds))
+            generacionCompleta = true
+            return Dato.Audio(output.absolutePath, finalInfo.sampleRate)
+        } catch (error: Throwable) {
+            diagnosticos += "RESULT | STATE=FAIL | CAUSE=${error.javaClass.simpleName}: ${error.message ?: "sin detalle"}"
+            throw error
         } finally {
-            workDir.deleteRecursively()
+            informeDiagnostico.writeText(diagnosticos.joinToString("\\n") + "\\n", Charsets.UTF_8)
+            if (generacionCompleta) {
+                workDir.deleteRecursively()
+            } else {
+                android.util.Log.e("BARDO-AudioGen", "Se conservan WAV parciales y diagnóstico en ${workDir.absolutePath}")
+            }
         }
     }
 
@@ -190,11 +212,15 @@ class ModuloInstrumental(
             else -> mood.take(60)
         }
 
+        val bpmSolicitado = Regex("""(?i)(?:\\b(\\d{2,3})\\s*bpm\\b|\\bbpm\\s*(\\d{2,3})\\b|\\b(\\d{2,3})\\b)""")
+            .find(tempo)?.groupValues?.drop(1)?.firstNotNullOfOrNull { it.toIntOrNull() }
+            ?.takeIf { it in 40..220 }
         val tempoEnglish = when {
-            tempo.contains("lent", true) -> "slow tempo around 75 BPM"
-            tempo.contains("rápid", true) || tempo.contains("rapid", true) -> "up-tempo around 128 BPM, strict steady pulse"
-            tempo.isBlank() -> "mid-tempo around 105 BPM"
-            else -> "mid-tempo around 105 BPM, requested feel: ${tempo.take(40)}"
+            bpmSolicitado != null -> "exactly $bpmSolicitado BPM, fixed steady tempo throughout the entire song"
+            tempo.contains("lent", true) -> "slow tempo around 75 BPM, fixed steady pulse"
+            tempo.contains("rápid", true) || tempo.contains("rapid", true) -> "up-tempo around 128 BPM, fixed steady pulse"
+            tempo.isBlank() -> "mid-tempo around 105 BPM, fixed steady pulse"
+            else -> "mid-tempo around 105 BPM, fixed steady pulse; requested feel: ${tempo.take(40)}"
         }
 
         val instruments = when {
