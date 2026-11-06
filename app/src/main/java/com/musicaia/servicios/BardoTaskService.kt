@@ -152,20 +152,36 @@ class BardoTaskService : Service() {
             letraManual.isNotBlank() -> Dato.Texto("[LETRA_USUARIO]\n$letraManual\n\n$prompt")
             else -> Dato.Texto(prompt)
         }
-        val modulos = mutableListOf<ModuloIA>()
-        if (!modoSolo) modulos += ModuloLetra(applicationContext, letraManual.isNotBlank())
-        modulos += ModuloInstrumental(
-            applicationContext,
-            prompt,
-            quickTest = pruebaRapida,
-            onSegmentProgress = { actual, total, detalle ->
-                totalPasosAudio = total.coerceAtLeast(1)
-                val transcurrido = ((System.currentTimeMillis() - inicioMs) / 1000L).coerceAtLeast(0L)
-                val mensaje = "INSTRUMENTAL $actual/$total · ${transcurrido}s · $detalle"
-                actualizarNotificacion(mensaje, ((actual * 90f) / total).toInt().coerceIn(0, 90))
-                publicarEstado("running", mensaje)
-            },
-            isCancellationRequested = { cancelacionSolicitada.get() }
+        val plan = try {
+            com.musicaia.modelo.BardoModuleCatalog.createMusicPlan(
+                context = applicationContext,
+                instrumentalOnly = modoSolo,
+                manualLyrics = letraManual.isNotBlank(),
+                prompt = prompt,
+                quickTest = pruebaRapida,
+                onSegmentProgress = { actual, total, detalle ->
+                    totalPasosAudio = total.coerceAtLeast(1)
+                    val transcurrido = ((System.currentTimeMillis() - inicioMs) / 1000L).coerceAtLeast(0L)
+                    val mensaje = "INSTRUMENTAL $actual/$total · ${transcurrido}s · $detalle"
+                    actualizarNotificacion(mensaje, ((actual * 90f) / total).toInt().coerceIn(0, 90))
+                    publicarEstado("running", mensaje)
+                },
+                isCancellationRequested = { cancelacionSolicitada.get() }
+            )
+        } catch (error: Exception) {
+            ejecutando = false
+            val mensaje = "No se pudo preparar el plan de módulos: ${error.message ?: error.javaClass.simpleName}"
+            BardoActivityStore.record(this, taskId, if (modoSolo) "instrumental" else "cancion", "failed", "seleccion_modulos", mensaje, null)
+            publicarEstado("failed", mensaje)
+            stopSelf(startId)
+            return
+        }
+        val modulos = plan.modules
+        BardoActivityStore.record(
+            this, taskId, if (modoSolo) "instrumental" else "cancion",
+            "running", "plan_seleccionado",
+            "Módulos seleccionados desde el registro de capacidades: ${plan.selectedModuleIds.joinToString(" → ")}.",
+            8
         )
 
         orquestador.setListener(object : Orquestador.ProgresoListener {
