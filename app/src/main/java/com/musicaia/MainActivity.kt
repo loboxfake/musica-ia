@@ -1167,33 +1167,41 @@ class MainActivity : AppCompatActivity() {
  }
 
  private fun alternarGrabacion() {
-     if (grabadora != null) {
-         try {
-             grabadora?.detener()
-             grabadora = null
-             val ruta = rutaGrabacionVoz
-             rutaGrabacionVoz = null
-             if (ruta != null && File(ruta).isFile && File(ruta).length() > 44L) {
-                 rutaVoz = ruta
-                 archivarVozUsuario(File(ruta), "audio/wav")
+     val activa = grabadora
+     if (activa != null) {
+         grabadora = null
+         val ruta = rutaGrabacionVoz
+         rutaGrabacionVoz = null
+         btnGrabar.isEnabled = false
+         btnGrabar.text = "Guardando..."
+         tvEstadoVoz.text = "Finalizando la grabación en segundo plano..."
+         Thread({
+             val error = runCatching { activa.detener() }.exceptionOrNull()
+             runOnUiThread {
+                 btnGrabar.isEnabled = true
                  btnGrabar.text = "Grabar voz"
-                 tvEstadoVoz.text = "Muestra vocal guardada: voz_grabada.wav"
-             } else {
-                 btnGrabar.text = "Grabar voz"
-                 tvEstadoVoz.text = "La grabación no produjo un WAV válido."
+                 if (error != null) {
+                     tvEstadoVoz.text = "Error al finalizar la grabación: ${error.message}"
+                     return@runOnUiThread
+                 }
+                 if (ruta != null && File(ruta).isFile && File(ruta).length() > 44L) {
+                     rutaVoz = ruta
+                     archivarVozUsuario(File(ruta), "audio/wav")
+                     tvEstadoVoz.text = "Muestra vocal guardada: voz_grabada.wav"
+                 } else {
+                     tvEstadoVoz.text = "La grabación no produjo un WAV válido."
+                 }
              }
-         } catch (e: Exception) {
-             grabadora = null
-             btnGrabar.text = "Grabar voz"
-             tvEstadoVoz.text = "Error al detener la grabación: ${e.message}"
-         }
+         }, "BARDO-Voice-Finalize").start()
          return
      }
+
      val dir = getExternalFilesDir(null) ?: filesDir
      val ruta = File(dir, "voz_grabada.wav").absolutePath
-     grabadora = GrabadoraWav(ruta)
+     val nuevaGrabadora = GrabadoraWav(ruta)
+     grabadora = nuevaGrabadora
      try {
-         grabadora!!.iniciar()
+         nuevaGrabadora.iniciar()
          rutaGrabacionVoz = ruta
          btnGrabar.text = "Detener"
          tvEstadoVoz.text = "Grabando... pulsa Detener para guardar la muestra."
@@ -1205,40 +1213,65 @@ class MainActivity : AppCompatActivity() {
  }
 
  private fun copiarVoz(uri: Uri) {
-     try {
-         val nombreOriginal = contentResolver.query(
-             uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null
-         )?.use { cursor ->
-             if (cursor.moveToFirst()) cursor.getString(0) else null
-         }.orEmpty()
-         val extension = File(nombreOriginal).extension.lowercase()
-             .takeIf { it in setOf("wav", "mp3", "m4a", "flac", "ogg", "aac") } ?: "audio"
-         val nombre = "voz_usuario_${System.currentTimeMillis()}.$extension"
-         val destino = File(getExternalFilesDir(null) ?: filesDir, nombre)
-         val entrada = contentResolver.openInputStream(uri)
-             ?: throw IllegalStateException("No se pudo abrir el audio seleccionado.")
-         entrada.use { source ->
-             destino.outputStream().buffered().use { output -> source.copyTo(output) }
-         }
-         if (!destino.isFile || destino.length() <= 44L) {
-             destino.delete()
-             throw IllegalStateException("El archivo de voz está vacío o incompleto.")
-         }
-         rutaVoz = destino.absolutePath
-         val mimeVoz = when (extension) {
-             "wav" -> "audio/wav"
-             "mp3" -> "audio/mpeg"
-             "m4a" -> "audio/mp4"
-             "flac" -> "audio/flac"
-             "ogg" -> "audio/ogg"
-             "aac" -> "audio/aac"
-             else -> "application/octet-stream"
-         }
-         archivarVozUsuario(destino, mimeVoz)
-         tvEstadoVoz.text = "Muestra vocal importada: $nombre"
-     } catch (e: Exception) {
-         tvEstadoVoz.text = "No se pudo cargar el archivo de voz: ${e.message}"
+     val nombreOriginal = contentResolver.query(
+         uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null
+     )?.use { cursor ->
+         if (cursor.moveToFirst()) cursor.getString(0) else null
+     }.orEmpty()
+     val extension = File(nombreOriginal).extension.lowercase()
+         .takeIf { it in setOf("wav", "mp3", "m4a", "flac", "ogg", "aac") }
+     if (extension == null) {
+         tvEstadoVoz.text = "Formato de voz no reconocido. Selecciona WAV, MP3, M4A, FLAC, OGG o AAC."
+         return
      }
+     val nombre = "voz_usuario_${System.currentTimeMillis()}.$extension"
+     val destino = File(getExternalFilesDir(null) ?: filesDir, nombre)
+     val taskId = java.util.UUID.randomUUID().toString()
+     BardoActivityStore.record(this, taskId, "archivo_voz", "running", "importacion", "Copiando la muestra vocal en segundo plano.", 5)
+     tvEstadoVoz.text = "Importando archivo de voz..."
+     Thread({
+         val resultado = runCatching {
+             contentResolver.openInputStream(uri)?.use { source ->
+                 destino.outputStream().buffered().use { output ->
+                     val buffer = ByteArray(64 * 1024)
+                     var total = 0L
+                     while (true) {
+                         val read = source.read(buffer)
+                         if (read < 0) break
+                         total += read
+                         require(total <= 100L * 1024L * 1024L) { "El archivo de voz supera el límite de 100 MB." }
+                         output.write(buffer, 0, read)
+                     }
+                 }
+             } ?: throw IllegalStateException("No se pudo abrir el audio seleccionado.")
+             require(destino.isFile && destino.length() > 44L) { "El archivo de voz está vacío o incompleto." }
+             destino
+         }
+         runOnUiThread {
+             if (isFinishing || isDestroyed) return@runOnUiThread
+             val archivo = resultado.getOrNull()
+             if (archivo == null) {
+                 destino.delete()
+                 val error = resultado.exceptionOrNull()?.message ?: "Error desconocido."
+                 BardoActivityStore.record(this, taskId, "archivo_voz", "failed", "importacion", error, null)
+                 tvEstadoVoz.text = "No se pudo cargar el archivo de voz: $error"
+             } else {
+                 rutaVoz = archivo.absolutePath
+                 val mimeVoz = when (extension) {
+                     "wav" -> "audio/wav"
+                     "mp3" -> "audio/mpeg"
+                     "m4a" -> "audio/mp4"
+                     "flac" -> "audio/flac"
+                     "ogg" -> "audio/ogg"
+                     "aac" -> "audio/aac"
+                     else -> "application/octet-stream"
+                 }
+                 archivarVozUsuario(archivo, mimeVoz)
+                 BardoActivityStore.record(this, taskId, "archivo_voz", "completed", "importacion", "Muestra vocal importada: $nombre", 100, archivo.absolutePath)
+                 tvEstadoVoz.text = "Muestra vocal importada: $nombre"
+             }
+         }
+     }, "BARDO-Voice-Import").start()
  }
 
  private fun archivarVozUsuario(origen: File, mimeType: String) {
