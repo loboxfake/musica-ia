@@ -1507,8 +1507,18 @@ class MainActivity : AppCompatActivity() {
          tvEstado.text = "Adjunto conservado; análisis del formato pendiente de un procesador compatible."
          return
      }
-     val contenido = runCatching { destino.inputStream().bufferedReader(Charsets.UTF_8).use { it.readText().take(8000) } }
-         .getOrElse {
+     val contenido = runCatching {
+         destino.inputStream().bufferedReader(Charsets.UTF_8).use { reader ->
+             val texto = StringBuilder(8000)
+             val buffer = CharArray(2048)
+             while (texto.length < 8000) {
+                 val leidos = reader.read(buffer, 0, minOf(buffer.size, 8000 - texto.length))
+                 if (leidos <= 0) break
+                 texto.append(buffer, 0, leidos)
+             }
+             texto.toString()
+         }
+     }.getOrElse {
              anexarChat("\nBARDO: No pude decodificar el texto como UTF-8: ${it.message}")
              return
          }
