@@ -10,6 +10,7 @@ class ManifiestoModelo(
     val tamanoMb: Double,
     val ramMinimaMb: Int,
     val licencia: String,
+    val atribucion: String = "No indicada",
     val usoComercial: Boolean,
     val urlDescarga: String,
     val sha256: String,
@@ -25,10 +26,11 @@ class ManifiestoModelo(
             put("tamano_mb", tamanoMb)
             put("ram_minima_mb", ramMinimaMb)
             put("licencia", licencia)
+            put("atribucion", atribucion)
             put("uso_comercial", usoComercial)
             put("url_descarga", urlDescarga)
             put("sha256", sha256)
-            put("tiempo_estimado_s", 2)
+            put("tiempo_estimado_s", tiempo_estimado_s)
             put("motor", motor)
         }
     }
