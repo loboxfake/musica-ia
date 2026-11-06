@@ -37,6 +37,7 @@ import com.musicaia.modulos.ModuloLetra
 import com.musicaia.modelo.Orquestador
 import com.musicaia.modelo.BardoIntentRouter
 import com.musicaia.modelo.BardoCapabilityRegistry
+import com.musicaia.modelo.BardoResourceBudget
 import com.musicaia.memoria.BardoConversationStore
 import com.musicaia.memoria.BardoKnowledgeStore
 import com.musicaia.memoria.BardoActivityStore
@@ -720,7 +721,8 @@ class MainActivity : AppCompatActivity() {
              gemmaFilePresent = modelo.isFile && modelo.length() == LiteRTLMModule.EXPECTED_SIZE_BYTES,
              audioEnginePresent = AudioGenNative.available,
              mp3EncoderPresent = Mp3Exporter.available,
-             availableMemoryBytes = memoriaLibre
+             availableMemoryBytes = memoriaLibre,
+             resourceBlockReason = BardoResourceBudget.blockingReason(this, BardoCapabilityRegistry.MIN_GEMMA_FREE_MEMORY_BYTES)
          )
      )
      val texto = capacidades.joinToString("\n\n") { item ->
@@ -728,6 +730,7 @@ class MainActivity : AppCompatActivity() {
              BardoCapabilityRegistry.Status.AVAILABLE -> "Disponible según los componentes detectados"
              BardoCapabilityRegistry.Status.NEEDS_MODEL -> "Necesita modelo local"
              BardoCapabilityRegistry.Status.NEEDS_MEMORY -> "Memoria RAM libre insuficiente"
+             BardoCapabilityRegistry.Status.NEEDS_RESOURCES -> "Bloqueado por recursos del dispositivo"
              BardoCapabilityRegistry.Status.NEEDS_FULL_APK -> "Necesita APK offline completa"
              BardoCapabilityRegistry.Status.REQUIRES_USER_ACTION -> "Requiere autorización explícita"
              BardoCapabilityRegistry.Status.NOT_IMPLEMENTED -> "Todavía no implementada"
@@ -853,13 +856,10 @@ class MainActivity : AppCompatActivity() {
      return info.availMem
  }
 
- private fun bloqueoGemmaPorMemoria(): String? {
-     val libre = memoriaLibreActualBytes()
-     val minimo = BardoCapabilityRegistry.MIN_GEMMA_FREE_MEMORY_BYTES
-     if (libre >= minimo) return null
-     val gb = libre / (1024L * 1024L * 1024L)
-     return "Gemma está instalado, pero Android informa solo $gb GB de RAM disponible. BARDO no intentará cargar el modelo para reducir el riesgo de cierre por falta de memoria. Cierra otras aplicaciones y vuelve a intentarlo cuando haya al menos 4 GB disponibles."
- }
+ private fun bloqueoGemmaPorMemoria(): String? =
+     BardoResourceBudget.blockingReason(
+         this, BardoCapabilityRegistry.MIN_GEMMA_FREE_MEMORY_BYTES
+     )
 
  private fun actualizarInsigniaNucleo() {
      val insignia = findViewById<TextView>(R.id.tvEstadoLocal)
