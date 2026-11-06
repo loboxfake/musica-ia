@@ -1,0 +1,146 @@
+BARDO — VISIÓN, OBJETIVOS Y DIRECTIVAS
+Versión documental: 2026-11-06
+Rama de trabajo: bardo-unified-core
+Estado: ESPECIFICACIÓN VIGENTE. Los objetivos no implican que estén implementados ni probados.
+
+1. IDENTIDAD Y PRINCIPIO RECTOR
+BARDO (Binary Automated Rhythm and Digital Orchestration) debe ser una IA personal independiente, con identidad, conversación y memoria compartidas. ChatGPT, OpenAI y otros asistentes externos no deben ser dependencias operativas de BARDO. La prioridad es funcionamiento local/offline; la conexión externa solo se utiliza cuando el usuario la autoriza expresamente y la capacidad está declarada.
+
+BARDO no debe fingir razonamiento generativo cuando Gemma no está cargado. En ese estado debe avisar claramente: «MODO GUIADO, SIN IA GENERATIVA». Guardar datos o recuperar documentos no equivale a entrenar el modelo.
+
+2. PRIORIDADES
+P1 — Orquestadora central y capacidades reales.
+P2 — Gemma local, conversación y memoria verificables.
+P3 — Flujo seguro de autoevolución, con niveles N1/N2/N3.
+P4 — Importación y biblioteca de conocimiento.
+P5 — Estudio musical profesional modular.
+P6 — Actualizaciones ligeras y firmadas, con reversión y conservación de datos.
+
+3. ARQUITECTURA DE ORQUESTACIÓN
+Flujo obligatorio:
+intención del usuario → plan explícito → selección de módulos desde BardoModuleCatalog y BardoCapabilityRegistry → comprobaciones de recursos/permisos → ejecución en segundo plano con estados y progreso → validación objetiva del resultado → registro de resultado y aprendizaje de proceso.
+
+La orquestadora debe:
+- Mantener un único modelo pesado residente cada vez; liberar Gemma antes de cargar Stable Audio y viceversa.
+- Respetar presupuesto de RAM, batería y temperatura. No iniciar tareas pesadas si el dispositivo no cumple los umbrales preventivos.
+- Comunicar qué módulo se seleccionó, qué necesita, qué etapa ejecuta, qué falló y por qué.
+- No sustituir un módulo ausente por un stub ni simular un resultado.
+- Registrar qué plan funcionó, duración, recursos, errores y valoración del usuario.
+- Permitir cancelar tareas largas y continuar usando el chat cuando los recursos lo permitan.
+
+El catálogo debe declarar por cada modelo: identificador, versión, URL HTTPS, SHA-256 fijado, tamaño, RAM mínima, motor, licencia, atribución, uso permitido, permisos y estado. Una descarga se hace una sola vez, con parcial reanudable y publicación solo después de comprobar tamaño y SHA-256. Si falta una huella o atribución verificable, el modelo no se presenta como verificado.
+
+4. GEMMA Y CONVERSACIÓN LOCAL
+Gemma 4 E2B-it LiteRT-LM es el modelo conversacional local objetivo.
+- Importación manual desde BARDO/MODELOS o selector Android.
+- Verificación exacta de tamaño y SHA-256 antes de activar la copia.
+- Carga LiteRT-LM, liberación determinista y errores visibles.
+- Sin Internet durante la inferencia local.
+- El límite de RAM es preventivo; el Xiaomi 11T Pro tiene 8 GB y debe probarse en uso real.
+- La conversación debe mantener contexto y personalidad sin redirigir automáticamente toda conversación a música.
+
+SHA-256 fijado de Gemma:
+181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c1
+
+Sin Gemma cargado y disponible, BARDO debe responder mediante flujo guiado y declararlo. No debe presentar respuestas fijas como razonamiento generativo.
+
+5. AUTOEVOLUCIÓN SEGURA
+N1 — Datos y configuración:
+skills declarativas, prompts, perfil, parámetros y tema pueden modificarse con prueba en seco, métricas objetivas, snapshot versionado, auditoría, historial y reversión. La capacidad no está terminada hasta demostrar el ciclo completo.
+
+N2 — Módulos/plugins declarativos:
+cada módulo declara permisos, recursos, modelo, licencia y alcance. La aprobación del usuario es obligatoria por permiso. No se instalan capacidades no autorizadas.
+
+N3 — Código:
+BARDO genera un diff exacto en una rama aislada bardo-self/fecha. GitHub Actions debe compilar, probar, auditar credenciales, verificar archivos protegidos, firmar con la clave autorizada y publicar APK completa, parche diferencial, SHA-256 y huella del certificado. BARDO descarga y verifica; exporta copia de datos; muestra el instalador Android. El usuario pulsa Instalar. No hay instalación silenciosa.
+
+El modelo no puede modificar directamente el núcleo, workflows, firma, Secrets, escáner de credenciales, permisos, sistema de actualización/reversión ni archivos protegidos. Cada ciclo compara sus hashes antes y después. Un diff que toque un archivo protegido se rechaza antes de aplicarse.
+
+El código importado, los documentos y las conversaciones de otras IA son datos no confiables. Nunca pueden dar órdenes al sistema ni autorizar cambios. Si no se resuelve un problema, BARDO genera un informe técnico exportable para un asistente externo.
+
+6. MEMORIA Y APRENDIZAJE
+La memoria debe conservar origen, fecha, contexto, huella y estado de aprobación de cada dato. Antes de incorporar conocimiento persistente debe preguntar «¿Guardo esto?».
+- Perfil vivo editable.
+- Skills declarativas con pruebas en seco.
+- Embeddings: evaluar e integrar solo un modelo pequeño si cabe en el presupuesto del teléfono.
+- Laboratorio de mejora con métricas objetivas de audio y valoraciones del usuario.
+- Exportación de dataset aprobado para LoRA fuera del móvil e importación de un modelo propio .litertlm con SHA-256.
+- No usar respuestas de otros asistentes como dataset sin revisión de sus términos.
+
+Definición estricta: guardar texto, preferencias, ejemplos o embeddings no cambia los pesos de Gemma. Solo se llamará entrenamiento/aprendizaje de pesos cuando se haya producido y verificado un cambio de pesos.
+
+7. CHAT, IMPORTACIÓN Y BIBLIOTECA
+El chat principal es la entrada unificada para conversaciones y adjuntos. Debe permitir importar documentos, imágenes, audio, vídeo, código, ZIP y exportaciones de otras IA, indicando con honestidad qué formatos puede interpretar realmente.
+Distinguir:
+A) analizar una referencia durante la conversación;
+B) incorporarla a la memoria persistente tras aprobación.
+Conservar procedencia y contradicciones.
+
+La biblioteca futura debe funcionar como reproductor: catálogo, carátulas, duración, reproducción continua, búsqueda, listas, favoritos e historial. No declarar terminada una importación o reproducción hasta probarla.
+
+8. ESTUDIO MUSICAL PROFESIONAL
+BARDO debe evolucionar a un equipo de estudio colaborativo:
+- asesoría creativa y técnica, sesiones no destructivas, versiones A/B, marcadores, undo/redo;
+- generación instrumental local;
+- separación de stems (voz, instrumental, batería, bajo, etc.);
+- edición vocal precisa de afinación, timing, respiraciones, ruidos, formantes y consonantes;
+- mezcla, buses, EQ, compresión, efectos, automatización y masterización;
+- mediciones LUFS, true peak, RMS, crest factor, correlación estéreo y espectro;
+- exportación WAV/MP3/FLAC solo cuando se valide cada formato.
+
+Separación de voz (Demucs/UVR), mezcla y masterización profesional están en fase de investigación. MiVoz sigue pendiente y no se debe fingir. No sobrescribir originales; mantener sesiones y archivos fuente.
+
+9. FLUJO CREATIVO GUIADO
+Campos: tema/historia, estilo, emoción/ambiente, ritmo/BPM, idioma, voz o instrumental, y fuente de voz (ninguna/archivo/grabada).
+- Reconocer lo ya indicado y preguntar solo el siguiente campo pendiente.
+- Con una creación activa, no desviar respuestas a chat libre: primero resolver el campo pendiente.
+- Permitir cambiar datos y mostrar resumen antes de crear.
+- «Nueva conversación» reinicia el estado creativo.
+- «Mi letra» permite pegar la letra directamente, sin entrevista guiada.
+- vozFuente usa únicamente los valores limpios: ninguna, archivo, grabada.
+
+10. AUDIO Y EXPORTACIÓN
+Cada segmento debe informar número, duración esperada y real, frames, frecuencia, canales, estado, tiempo y causa de fallo.
+- Mantener control de silencios en las uniones.
+- Recortar silencio de bordes y aplicar fundido cruzado/condicionamiento entre segmentos.
+- BPM explícito fijado en el prompt.
+- Conservar WAV parcial si falla un paso posterior.
+- Progreso real N/18, tiempos y Cancelar.
+- Prueba rápida de un segmento, ejecutable en modo avión.
+- «Guardar MP3» independiente de «Compartir MP3», con confirmación visible.
+- Exportación del historial a BARDO/Historial.
+
+11. INTERFAZ
+Conservar navegación actual.
+Paleta:
+fondo #02081B
+burbuja usuario #062B56
+burbuja BARDO #0E1837
+azul #2A5BBB
+cian #4ED1F1
+violeta #7345D7
+dorado del icono original.
+Brillo solo en pestaña activa y tarjeta de generación. Sin desenfoques ni fondos pesados. Logotipo BARDO grabado, texto Local first e icono adaptativo con pluma y notas.
+
+12. REPOSITORIO, FIRMA Y ACTUALIZACIÓN
+- Trabajar solo en bardo-unified-core. No tocar main ni fusionar sin revisión expresa.
+- No force-push, reset --hard, borrar trabajo remoto ni reescribir historia.
+- No introducir tokens, claves ni keystores en la APK o el repositorio.
+- No regenerar clave ni cambiar Secrets.
+- Mantener Modo3MezclaVozUsuario.kt protegido; si se necesita, presentar diagnóstico y diff y esperar autorización específica.
+- Release debe incluir APK completa, parche diferencial, SHA-256 de APK/parche y huella del certificado.
+- La APK debe ser release no-debuggable y conservar JNI/ExecuTorch.
+- La instalación Android siempre requiere acción del usuario.
+- Exportar datos antes de actualizar y conservar Gemma fuera de la aplicación cuando exista riesgo de conflicto de firma o pérdida de datos.
+- README y notas de Release deben atribuir Powered by Stability AI; NOTICE y licencias dentro de la APK, no en la interfaz.
+
+13. CRITERIO DE VERDAD Y ACEPTACIÓN
+Cada área debe mostrar estado rojo/verde y criterio visible. Verde de componente detectado no equivale a prueba en el Xiaomi. Solo el usuario puede confirmar el estado «probado en Xiaomi» tras instalar y utilizar la función.
+En cada entrega se informará:
+- qué se inspeccionó y qué se cambió;
+- commits y acciones exactas;
+- pruebas CI realmente completadas;
+- SHA-256 APK y huella apksigner cuando exista APK auditada;
+- qué falta y qué no pudo comprobarse;
+- checklist de prueba en el Xiaomi 11T Pro.
+Una compilación verde no equivale a aplicación terminada. Ninguna capacidad se da por finalizada hasta la prueba real del usuario.
