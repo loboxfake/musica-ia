@@ -1574,7 +1574,7 @@ class MainActivity : AppCompatActivity() {
              if (isFinishing || isDestroyed) return@runOnUiThread
              actualizarInsigniaNucleo()
              val respuesta = resultado.getOrNull()
-             BardoActivityStore.record(this@MainActivity, idActividad, if (respuesta != null) "completed" else "failed", "respuesta_local", respuesta?.take(1000) ?: (resultado.exceptionOrNull()?.message ?: "No se obtuvo respuesta local."), if (respuesta != null) 100 else null)
+             BardoActivityStore.record(this@MainActivity, idActividad, if (activityTaskId == null) "conversacion" else "analisis_documental", if (respuesta != null) "completed" else "failed", "respuesta_local", respuesta?.take(1000) ?: (resultado.exceptionOrNull()?.message ?: "No se obtuvo respuesta local."), if (respuesta != null) 100 else null)
              if (respuesta != null) {
                  anexarChat("\nBARDO: $respuesta")
                  tvEstado.text = "Respuesta generada localmente."
