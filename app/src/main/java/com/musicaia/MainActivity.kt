@@ -172,7 +172,7 @@ class MainActivity : AppCompatActivity() {
  private var descargaEnCurso = false
  @Volatile private var modeloChatVerificado = false
  private var configuracionInterfazPendiente = ""
- private var accentColorUI = "#16CFF4"
+ private var accentColorUI = "#4ED1F1"
  private var navActivoId = R.id.navOrquestador
  private val tabsDisponibles = listOf("orchestrator", "create", "library", "lab", "system")
  private var navigationOrder = tabsDisponibles
@@ -880,22 +880,22 @@ class MainActivity : AppCompatActivity() {
          setPadding(dp(14), dp(10), dp(14), dp(11))
          val colores = when {
              usuario -> intArrayOf(
-                 android.graphics.Color.rgb(27, 86, 151),
-                 android.graphics.Color.rgb(19, 43, 91)
+                 android.graphics.Color.rgb(6, 43, 86),
+                 android.graphics.Color.rgb(6, 43, 86)
              )
              sistema -> intArrayOf(
                  android.graphics.Color.rgb(48, 39, 69),
                  android.graphics.Color.rgb(24, 25, 47)
              )
              else -> intArrayOf(
-                 android.graphics.Color.rgb(29, 43, 83),
-                 android.graphics.Color.rgb(13, 25, 49)
+                 android.graphics.Color.rgb(14, 24, 55),
+                 android.graphics.Color.rgb(14, 24, 55)
              )
          }
          val borde = when {
-             usuario -> android.graphics.Color.rgb(22, 207, 244)
+             usuario -> android.graphics.Color.rgb(78, 209, 241)
              sistema -> android.graphics.Color.rgb(133, 107, 183)
-             else -> android.graphics.Color.rgb(91, 82, 174)
+             else -> android.graphics.Color.rgb(115, 69, 215)
          }
          background = GradientDrawable(GradientDrawable.Orientation.BL_TR, colores).apply {
              cornerRadius = dp(18).toFloat()
@@ -907,7 +907,7 @@ class MainActivity : AppCompatActivity() {
          textSize = 10.5f
          setTypeface(typeface, android.graphics.Typeface.BOLD)
          setTextColor(
-             if (usuario) android.graphics.Color.rgb(122, 229, 255)
+             if (usuario) android.graphics.Color.rgb(78, 209, 241)
              else if (sistema) android.graphics.Color.rgb(217, 184, 107)
              else android.graphics.Color.rgb(173, 157, 255)
          )
@@ -1042,8 +1042,8 @@ class MainActivity : AppCompatActivity() {
  private fun aplicarConfiguracionInterfaz(json: JSONObject) {
      fun texto(clave: String, defecto: String, max: Int): String =
          json.optString(clave, defecto).trim().take(max).ifBlank { defecto }
-     val acento = json.optString("accentColor", "#16CFF4")
-         .takeIf { it.matches(Regex("^#[0-9A-Fa-f]{6}$")) } ?: "#16CFF4"
+     val acento = json.optString("accentColor", "#4ED1F1")
+         .takeIf { it.matches(Regex("^#[0-9A-Fa-f]{6}$")) } ?: "#4ED1F1"
      accentColorUI = acento
      findViewById<TextView>(R.id.tvBrandName).text = texto("brandName", "BARDO", 24)
      findViewById<TextView>(R.id.tvBrandSubtitle).text = texto("subtitle", "BINARY AUTOMATED RHYTHM AND DIGITAL ORCHESTRATION", 48)
