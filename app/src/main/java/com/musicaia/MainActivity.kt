@@ -1175,6 +1175,7 @@ class MainActivity : AppCompatActivity() {
              rutaGrabacionVoz = null
              if (ruta != null && File(ruta).isFile && File(ruta).length() > 44L) {
                  rutaVoz = ruta
+                 archivarVozUsuario(File(ruta), "audio/wav")
                  btnGrabar.text = "Grabar voz"
                  tvEstadoVoz.text = "Muestra vocal guardada: voz_grabada.wav"
              } else {
@@ -1224,10 +1225,43 @@ class MainActivity : AppCompatActivity() {
              throw IllegalStateException("El archivo de voz está vacío o incompleto.")
          }
          rutaVoz = destino.absolutePath
+         val mimeVoz = when (extension) {
+             "wav" -> "audio/wav"
+             "mp3" -> "audio/mpeg"
+             "m4a" -> "audio/mp4"
+             "flac" -> "audio/flac"
+             "ogg" -> "audio/ogg"
+             "aac" -> "audio/aac"
+             else -> "application/octet-stream"
+         }
+         archivarVozUsuario(destino, mimeVoz)
          tvEstadoVoz.text = "Muestra vocal importada: $nombre"
      } catch (e: Exception) {
          tvEstadoVoz.text = "No se pudo cargar el archivo de voz: ${e.message}"
      }
+ }
+
+ private fun archivarVozUsuario(origen: File, mimeType: String) {
+     val taskId = java.util.UUID.randomUUID().toString()
+     if (uriCarpetaBardo == null) {
+         BardoActivityStore.record(this, taskId, "archivo_voz", "needs_folder", "carpeta_no_configurada", "La voz permanece en el almacenamiento privado; configura Descargas/bardo para archivarla en Voces.", null, origen.absolutePath)
+         return
+     }
+     BardoActivityStore.record(this, taskId, "archivo_voz", "running", "archivo_voces", "Guardando la grabación o muestra vocal en Descargas/bardo/Voces.", 10, origen.absolutePath)
+     Thread({
+         val resultado = runCatching {
+             guardarArchivoEnCarpetaBardo(origen, "Voces", origen.name, mimeType)
+         }
+         BardoActivityStore.record(
+             applicationContext, taskId, "archivo_voz",
+             if (resultado.isSuccess) "completed" else "failed",
+             "archivo_voces",
+             resultado.exceptionOrNull()?.message ?: "Muestra vocal archivada en Voces.",
+             if (resultado.isSuccess) 100 else null,
+             origen.absolutePath
+         )
+         if (resultado.isFailure) Log.e(etiqueta, "No se pudo archivar la muestra vocal", resultado.exceptionOrNull())
+     }, "BARDO-Voice-Archive").start()
  }
 
  private fun seleccionarArchivoVoz() {
