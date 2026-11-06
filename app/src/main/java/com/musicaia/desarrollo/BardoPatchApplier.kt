@@ -6,6 +6,29 @@ import java.io.File
 object BardoPatchApplier {
     data class Result(val directory: File, val changedFiles: List<String>)
 
+    // Protección aplicada por código: no depende de que Gemma siga instrucciones en el prompt.
+    private val protectedPaths = setOf(
+        "app/src/main/java/com/musicaia/MainActivity.kt",
+        "app/src/main/java/com/musicaia/desarrollo/BardoPatchApplier.kt",
+        "app/src/main/java/com/musicaia/desarrollo/BardoDeveloperCore.kt",
+        "app/src/main/java/com/musicaia/desarrollo/BardoDeveloperWorker.kt",
+        "app/src/main/java/com/musicaia/modulos/litert/EngineLiteRT.kt",
+        "app/src/main/java/com/musicaia/modulos/litert/LiteRTLMModule.kt",
+        "app/src/main/java/com/musicaia/modelo/BardoCapabilityRegistry.kt",
+        "app/src/main/java/com/musicaia/modulos/Modo3MezclaVozUsuario.kt",
+        "app/src/main/AndroidManifest.xml",
+        "app/build.gradle.kts",
+        "build.gradle.kts",
+        "settings.gradle.kts",
+        "gradle/wrapper/gradle-wrapper.properties"
+    )
+    private val protectedPrefixes = listOf(".github/workflows/", "gradle/wrapper/")
+
+    private fun isProtected(path: String): Boolean =
+        path in protectedPaths ||
+            path.endsWith("Modo3MezclaVozUsuario.kt", ignoreCase = true) ||
+            protectedPrefixes.any { path.startsWith(it) }
+
     fun aplicar(root: File, patchText: String, workspace: File): Result {
         require(root.isDirectory) { "No existe el snapshot de origen." }
         val lines = patchText.lines()
@@ -30,8 +53,8 @@ object BardoPatchApplier {
                     !oldPath.contains(':') && oldPath.split('/').none { it.isBlank() || it == "." || it == ".." }) {
                     "Solo se permiten cambios en archivos existentes con rutas seguras."
                 }
-                require(!oldPath.endsWith("Modo3MezclaVozUsuario.kt", ignoreCase = true)) {
-                    "Protección activa: Modo3MezclaVozUsuario.kt no se puede modificar."
+                require(!isProtected(oldPath)) {
+                    "Protección activa: el archivo pertenece al núcleo protegido, a Modo3 o a la configuración de build/workflows: " + oldPath
                 }
                 val sourceFile = File(root, oldPath).canonicalFile
                 require(sourceFile.path.startsWith(root.canonicalPath + File.separator) && sourceFile.isFile) {
