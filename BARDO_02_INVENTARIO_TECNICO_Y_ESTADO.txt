@@ -338,3 +338,10 @@ Protecciones verificadas en esta revisión:
 - Run integral 42350622162: ya completó correctamente Run unit tests (SUCCESS). En el último chequeo, Install pinned PyTorch headers for ExecuTorch CMake estaba IN_PROGRESS. La compilación nativa, firma, auditoría aapt corregida, escáner y publicación siguen pendientes.
 - Run de validación 42350622187: Gitleaks SUCCESS; compilación debug/pruebas no había finalizado en el último chequeo.
 - No cambiar el estado global a verde hasta completar todos los pasos y confirmar el artefacto firmado y auditado.
+
+19. RESULTADO DE VALIDACIÓN Y SUBFASE EXECUTORCH — 2026-11-07
+
+- Run 42350622187, commit 24cb5b0d6e91b2e86c35f1c168e91b2fa27411ca: SUCCESS. Gitleaks sobre el historial completo y Run unit tests and compile debug APK terminaron correctamente.
+- Run integral 42350622162: Run unit tests SUCCESS (07:19:48Z); instalación de PyTorch headers SUCCESS (07:20:07Z).
+- En el último chequeo, Checkout pinned ExecuTorch source seguía IN_PROGRESS. No declarar el build integral terminado; aún no hay resultado nuevo de assembleRelease, firma, auditoría aapt, escaneo de credenciales o publicación.
+- El commit de corrección de auditoría 24cb5b0d6e91b2e86c35f1c168e91b2fa27411ca permanece siendo el SHA que compila el run integral. Los commits documentales posteriores no modifican el código de aplicación ni ese run.
