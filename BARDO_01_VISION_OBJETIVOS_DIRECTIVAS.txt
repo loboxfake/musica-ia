@@ -222,3 +222,14 @@ DIRECTIVA DE RAMAS — 2026-11-07:
 - RAMA ÚNICA ACTUAL: main. Esta directiva, posterior a las instrucciones históricas que mencionaban bardo-unified-core, confirma que el desarrollo, las correcciones, CI y entrega se realizan en main. Las referencias antiguas sobre bardo-unified-core quedan como historia, no como rama de trabajo vigente.
 - No force-push, no reset --hard, no reescritura de historia, no cambio de firma/Secrets y no modificación de Modo3MezclaVozUsuario.kt sin autorización específica.
 - Los commits y builds intermedios son evidencia de progreso, no entregas instalables que deban probarse. La fase integral solo se presenta al usuario cuando exista una APK candidata final auditada.
+
+
+21. PRECISIÓN DE LA AUTONOMÍA DE PROGRAMACIÓN — 2026-11-07
+
+La auditoría de código vigente distingue el autoestudio ya existente de la autonomía de programación que falta construir:
+- Capacidad existente: importar y analizar snapshots de código, consultar Gemma local, guardar memoria e informes y aplicar diffs a una copia candidata aislada. No ejecuta el código importado ni compila el candidato.
+- Capacidad objetivo pendiente: ejecutar pruebas y compilaciones reproducibles sobre candidatos en un entorno aislado; recuperar logs, resultados y artefactos; verificar hashes/protecciones; presentar diff y evidencia; solicitar aprobación antes de integrar/publicar/instalar.
+- Se requiere un puente de CI/GitHub seguro y explícitamente autorizado, con permisos mínimos y credenciales fuera del APK. Nunca incrustar tokens de GitHub de privilegio amplio en la aplicación ni permitir que instrucciones de documentos/modelos ejecuten comandos.
+- La aplicación Android no debe afirmar que puede compilar proyectos completos localmente si no dispone de JDK, Android SDK, NDK, Gradle y recursos suficientes. Cuando la compilación dependa de CI u ordenador, declarar esa dependencia con claridad.
+- El núcleo protegido no puede autoeditarse mediante el mismo PatchApplier que analiza código de terceros. La evolución del núcleo necesita un flujo separado de propuesta, revisión, CI, aprobación y reversión.
+- Hasta que ese ciclo pase pruebas reproducibles, BARDO se describe como autoestudio local con propuestas aisladas, no como programador autónomo completo.
