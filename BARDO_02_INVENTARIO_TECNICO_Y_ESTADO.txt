@@ -225,3 +225,45 @@ APK SHA-256 de entrega: NO DISPONIBLE.
 Certificado esperado: c46232017513c3171ba04d91cf579a72202a834f0bcd1c0a22e0c9de0e030368.
 Release pública nueva: NO DISPONIBLE.
 No instalar una APK nueva hasta recibir número exacto de acción, APK auditada, SHA-256, huella del certificado y comparación de firma con la app instalada.
+
+15. SEGUIMIENTO DE INSPECCIÓN — 2026-11-07
+
+Repositorio y ramas:
+- Repositorio visible como público en GitHub.
+- Rama de trabajo bardo-unified-core: HEAD 0a3b26a9f023b4b731c04e3527de95adfc96c7b2.
+- main permanece en 7b0b075199d00df5e13fd6da6f3aecb19c7c0511; no se ha modificado ni fusionado.
+- Comparación actual: bardo-unified-core está 486 commits por delante y 4 por detrás de main; ramas divergentes. No integrar automáticamente.
+- PR #1 sigue abierto, en borrador, base main y head bardo-device-fixes; GitHub indica mergeable=false. No se ha fusionado.
+- Los dos documentos de especificación e inventario están en la rama de trabajo.
+
+Cambios realizados en esta inspección:
+- Commit 32d3840b6b7f696128c4e5afce1fbe3fa0804b29: aislar las llamadas Log.e del Orquestador para que un fallo del logger Android no sustituya la excepción original ni haga fallar pruebas JVM.
+- Commit 0a3b26a9f023b4b731c04e3527de95adfc96c7b2: ampliar los disparadores de full-build.yml para que los cambios en app/src, configuración Gradle, catálogo y herramientas activen la compilación offline completa en bardo-unified-core.
+- No se ha modificado Modo3MezclaVozUsuario.kt. Git blob SHA-1 confirmado: 8f2745fa841a06af43bf909732fba834474bf7dc.
+- No se han cambiado keystore ni Secrets. No se han leído ni exportado credenciales.
+
+Validación:
+- Run 42347461829, commit 32d3840b6b7f696128c4e5afce1fbe3fa0804b29: SUCCESS.
+- Gitleaks sobre el historial completo: SUCCESS.
+- testDebugUnitTest: SUCCESS.
+- assembleDebug: SUCCESS.
+- Se corrigieron dos pruebas que fallaban por llamadas a android.util.Log.e no simuladas en JVM.
+- Run 42347674509, commit 0a3b26a9f023b4b731c04e3527de95adfc96c7b2: en ejecución al redactar este seguimiento; Gitleaks SUCCESS y pruebas/compilación ligera en curso.
+
+Build integral:
+- Run 42347674482, commit 0a3b26a9f023b4b731c04e3527de95adfc96c7b2: en ejecución.
+- Generación de recursos de launcher: SUCCESS.
+- Snapshot de fuentes empaquetado: SUCCESS.
+- Descarga del paquete Stable Audio: SUCCESS. Procedencia observada: run 41786737921, artefacto stable-audio-open-small-executorch, artefacto ID 13301369681, tamaño 876993696 bytes, digest del ZIP sha256:f27ce09cb44547e4ef3b6bf84fce39c09c70a5377105a3f1c5a2f698d5bde560.
+- Java 17, Android CMake/NDK y Gradle: SUCCESS.
+- Pruebas unitarias dentro del build integral: SUCCESS.
+- Instalación de encabezados PyTorch: SUCCESS.
+- Checkout/submódulos ExecuTorch: en ejecución al redactar este seguimiento.
+- Compilación nativa, firma, auditoría de APK, escáner de credenciales y publicación de artefacto: pendientes.
+- No hay todavía una APK nueva auditada disponible para instalar.
+
+Ajustes y límites todavía pendientes:
+- BardoModuleCatalog sigue declarando modelSha256=null para Stable Audio. El digest anterior identifica el ZIP del artefacto de GitHub, no los SHA-256 individuales de los tres modelos .pte ni del tokenizer. No presentarlos como huellas individuales verificadas.
+- El workflow integral publica actualmente un artefacto de Actions con retención de 1 día; no publica parche diferencial ni Release pública en esta rama.
+- No se ha completado una prueba real en el Xiaomi 11T Pro de Gemma, conversación en modo avión, generación instrumental, escucha WAV/MP3, cancelación, ni Modo3.
+- El estado verde de CI no equivale a prueba física. No declarar capacidades terminadas hasta la confirmación del usuario.
