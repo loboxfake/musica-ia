@@ -174,3 +174,14 @@ Se precisa el objetivo de entrega integral:
 16. IDENTIFICACIÓN CORRECTA DEL BINARIO DE DISTRIBUCIÓN — 2026-11-07
  
 La APK que se entrega al usuario debe llamarse app-release.apk una vez firmada. No conservar el sufijo app-release-unsigned.apk después de sustituir el contenido por la APK firmada, porque el nombre contradice el estado criptográfico real y puede inducir a error. El workflow debe renombrar el binario después de firmarlo y antes de auditarlo, crear el artefacto y publicarlo en Release. Mantener intacto el certificado BARDO y los Secrets existentes.
+
+16. DIRECTIVA DEL USUARIO: ENTREGA INTEGRAL EN UNA SOLA FASE — 2026-11-07
+
+La ejecución de BARDO debe organizarse como una única fase de integración y aceptación, no como entregas funcionales fragmentadas ni como declaraciones de finalización basadas en cada build intermedio.
+
+- Consolidar en una sola APK release firmada y coherente todas las capacidades que se acuerden para esta entrega, sus módulos, dependencias nativas, recursos y modelos que legalmente y técnicamente puedan empaquetarse.
+- Los modelos demasiado grandes o incompatibles con los recursos del dispositivo podrán requerir descarga local posterior, pero deberán aparecer claramente como capacidad condicionada; nunca simular su disponibilidad ni presentarlos como incluidos si no lo están.
+- Una fase solo se considera cerrada cuando: pruebas automatizadas y auditorías pasan; APK y certificado se verifican; la Release contiene el binario inequívocamente nombrado y su informe; las capacidades se validan en el Xiaomi 11T Pro con pruebas reales de interfaz, RAM/temperatura, inferencia, audio, WAV/MP3 y reproducción; y los documentos maestros quedan sincronizados.
+- Los builds intermedios son evidencia de progreso, no entregas finales. No abrir una nueva subfase funcional por comodidad si se puede consolidar en el ciclo actual sin comprometer la seguridad o la trazabilidad.
+- Mantener la separación entre capacidades implementadas, compiladas, empaquetadas, ejecutadas en CI y probadas físicamente. Cada estado se declara por separado.
+- Mantener main intacta, no fusionar ramas ni alterar Modo3, keystore o Secrets salvo autorización explícita y específica.
