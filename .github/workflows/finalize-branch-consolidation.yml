@@ -37,7 +37,6 @@ jobs:
       - name: Remove old branch names only if their heads are fully consolidated
         env:
           GH_TOKEN: ${{ github.token }}
-          EXPECTED_LEGACY_HEAD: 28332da4b4706758600bd25f63bc2e67c840b377
         run: |
           set -euo pipefail
           for branch in bardo-unified-core bardo-device-fixes bardo-worker-hardening base-verde ruta-a-compile; do
@@ -47,8 +46,8 @@ jobs:
               echo "Branch $branch already absent."
               continue
             fi
-            if [ "$current" != "$EXPECTED_LEGACY_HEAD" ]; then
-              echo "::error::Branch $branch has unexpected head $current; refusing to delete unintegrated work."
+            if ! git merge-base --is-ancestor "$current" "$GITHUB_SHA"; then
+              echo "::error::Branch $branch head $current is not contained in main; refusing to delete unintegrated work."
               exit 1
             fi
             gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$branch"
