@@ -680,3 +680,13 @@ Protecciones:
 - No se borra el archivo protegido, ni se ha modificado en estos commits.
 - Gemma del usuario en Descargas/BARDO/Modelos no se descarga de nuevo; el permiso SAF se restaura al reiniciar y el original permanece intacto.
 - El autoestudio guarda intentos, resultados, memoria técnica y propuestas aisladas; no afirma entrenamiento de pesos ni aplica cambios al APK instalado automáticamente.
+
+
+42. CORRECCIÓN DEL FALLO DE MEMORIA EN BUILD #184 — 2026-11-07
+
+- Build #184 / run 42371142114, commit 5a807e1ae8d6aace2d156207bbf15410c9f13061: pruebas unitarias SUCCESS, modelo local SUCCESS, checkout recursivo de ExecuTorch SUCCESS, compilación C/C++ y Kotlin avanzó hasta el empaquetado de Release.
+- Fallo preciso: tarea Gradle `:app:compressReleaseAssets` terminó con `Java heap space`. No hubo fallo de código fuente, Kotlin, CMake o ExecuTorch; por ese motivo se omitieron firma, auditoría, publicación y limpieza de ramas.
+- Diagnóstico: `gradle.properties` limitaba la JVM Gradle a `-Xmx2048m`; los assets del runtime offline (modelo, bibliotecas y snapshot) superaron ese heap en el empaquetado Release.
+- Corrección: subir heap a 4 GiB, limitar Gradle a 2 workers y desactivar paralelismo Gradle para reducir picos de memoria. Se conserva la compresión normal de assets y la auditoría de integridad; no se excluyen archivos ni se rebaja el control de seguridad.
+- La build #183 del commit consolidado 28332da4b4706758600bd25f63bc2e67c840b377 ya pasó todas las pruebas y publicó una APK completamente auditada. Esta corrección habilita una repetición sobre el HEAD canónico actual.
+- Estado de dispositivo: ninguna ejecución CI sustituye instalación, inferencia Gemma, generación de WAV, reproducción y exportación MP3 en Xiaomi 11T Pro. Continúa pendiente prueba física.
