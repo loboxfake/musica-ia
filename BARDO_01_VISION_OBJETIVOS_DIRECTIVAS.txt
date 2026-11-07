@@ -242,3 +242,8 @@ La interfaz/registro de capacidades debe distinguir explícitamente:
 - Compilación/ejecución de proyectos y pruebas de candidatos: NO IMPLEMENTADAS hasta que exista ejecutor aislado y resultados reproducibles.
 - Desarrollo integrado con GitHub (ramas, PR, ejecución CI, recuperación de logs/artefactos): NO IMPLEMENTADO hasta que exista un puente autorizado, seguro y verificable.
 Estas declaraciones evitan presentar el autoestudio actual como autonomía de programación completa. Su estado solo cambiará después de implementar y probar los flujos de extremo a extremo.
+
+
+23. REPRODUCIBILIDAD DE LA INSTANTÁNEA DOCUMENTAL EN APK — 2026-11-07
+
+Los cambios en los documentos maestros BARDO_01/BARDO_02, la documentación técnica, ESPECIFICACION.md y README deben activar la compilación integral, porque esos documentos se empaquetan en la instantánea de autoestudio incluida en la APK. La build final debe contener los mismos documentos que el commit fuente declarado; no entregar una APK cuyo snapshot interno omita actualizaciones documentales posteriores.
