@@ -170,6 +170,7 @@ Se precisa el objetivo de entrega integral:
 - La Release debe identificar commit fuente, SHA-256 de APK, huella SHA-256 del certificado, ABI y límites de validación. No afirmar que se ha probado en dispositivo hasta recibir confirmación del usuario.
 - El proceso debe ser reproducible e idempotente por número de ejecución; no regenerar ni sustituir el certificado o Secrets.
 - Esta mejora de distribución no autoriza cambios en main, fusiones de ramas ni modificaciones de Modo3.
+- Si GitHub Actions rechaza la creación de Release con 403 pese a `contents: write`, conservar el artefacto firmado auditado y registrar el bloqueo. No cambiar, regenerar ni introducir Secrets/tokens sin autorización específica; solicitar al propietario que ajuste permisos de Actions/App o apruebe otro mecanismo seguro.
  
 16. IDENTIFICACIÓN CORRECTA DEL BINARIO DE DISTRIBUCIÓN — 2026-11-07
  
