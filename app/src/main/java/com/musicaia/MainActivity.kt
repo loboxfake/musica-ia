@@ -1873,6 +1873,21 @@ private fun crearEstructuraCarpetaBardo() {
         }
     }
     datosConver[campo] = valor
+    if (campo == "tipo") {
+        if (BardoIntentRouter.isInstrumentalOnlyType(valor)) {
+            val promptInstrumental = listOf(
+                "Tema: ${datosConver["tema"].orEmpty()}",
+                "Estilo: ${datosConver["estilo"].orEmpty()}",
+                "Ambiente: ${datosConver["ambiente"].orEmpty()}",
+                "Ritmo: ${datosConver["ritmo"].orEmpty()}",
+                "Idioma: ${datosConver["idioma"].orEmpty()}"
+            ).filterNot { it.substringAfter(": ").isBlank() }.joinToString(". ")
+            editPromptInstrumental.setText(promptInstrumental)
+            grupoModo.check(R.id.modoInstrumental)
+        } else {
+            grupoModo.check(R.id.modoConversacion)
+        }
+    }
     guardarPreferenciasCreativas()
     actualizarUI()
 
@@ -2088,7 +2103,7 @@ private fun crearEstructuraCarpetaBardo() {
      val pendienteObligatorio = camposRequeridos.firstOrNull { datosConver[it].isNullOrBlank() }
      if (pendienteObligatorio != null) return pendienteObligatorio
      val tipo = datosConver["tipo"].orEmpty()
-     val requiereFuenteVoz = tipo.contains("voz", ignoreCase = true) || tipo.contains("ambas", ignoreCase = true)
+     val requiereFuenteVoz = BardoIntentRouter.requiresUserVoice(tipo)
      if (requiereFuenteVoz && datosConver["vozFuente"].isNullOrBlank()) return "vozFuente"
      if (!requiereFuenteVoz) datosConver["vozFuente"] = "ninguna"
      return null
@@ -2409,6 +2424,22 @@ private fun crearEstructuraCarpetaBardo() {
      tvEstado.text = "Describe el instrumental que quieres crear."
      return
  }
+ if (!modoSoloInstrumental && BardoIntentRouter.requiresUserVoice(datosConver["tipo"].orEmpty())) {
+     val fuente = datosConver["vozFuente"].orEmpty()
+     if (fuente.equals("ninguna", ignoreCase = true) || fuente.contains("sin voz", ignoreCase = true) || fuente.isBlank()) {
+         tvEstado.text = "La síntesis de voz cantada IA no está implementada. Para incluir voz, importa o graba una voz propia; si no, cambia el tipo a instrumental."
+         return
+     }
+     val vozUsuario = rutaVoz?.let(::File)
+     if (vozUsuario == null || !vozUsuario.isFile || vozUsuario.length() <= 44L) {
+         tvEstado.text = "Has elegido una canción con voz propia, pero todavía no hay un archivo o grabación de voz disponible."
+         return
+     }
+     if (!vozUsuario.extension.equals("wav", ignoreCase = true)) {
+         tvEstado.text = "La mezcla actual requiere voz en WAV PCM16. Convierte o importa un WAV compatible antes de crear."
+         return
+     }
+ }
  ocupado = true
  grupoModo.isEnabled = false
  btnCrear.isEnabled = false
@@ -2693,7 +2724,7 @@ private fun crearEstructuraCarpetaBardo() {
  private fun requiereMezclaVozUsuario(): Boolean {
      val tipo = datosConver["tipo"].orEmpty()
      val fuente = datosConver["vozFuente"].orEmpty()
-     val requiereVoz = tipo.contains("voz", ignoreCase = true) || tipo.contains("ambas", ignoreCase = true)
+     val requiereVoz = BardoIntentRouter.requiresUserVoice(tipo)
      val fuenteAusente = fuente.isBlank() || fuente.contains("ningun", ignoreCase = true) ||
          fuente.contains("sin voz", ignoreCase = true) || fuente.contains("no especificado", ignoreCase = true)
      return requiereVoz && !fuenteAusente
