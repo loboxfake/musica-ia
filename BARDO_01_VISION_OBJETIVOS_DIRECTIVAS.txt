@@ -247,3 +247,20 @@ Estas declaraciones evitan presentar el autoestudio actual como autonomía de pr
 23. REPRODUCIBILIDAD DE LA INSTANTÁNEA DOCUMENTAL EN APK — 2026-11-07
 
 Los cambios en los documentos maestros BARDO_01/BARDO_02, la documentación técnica, ESPECIFICACION.md y README deben activar la compilación integral, porque esos documentos se empaquetan en la instantánea de autoestudio incluida en la APK. La build final debe contener los mismos documentos que el commit fuente declarado; no entregar una APK cuyo snapshot interno omita actualizaciones documentales posteriores.
+
+
+24. RESOLUCIÓN DEFINITIVA DE RAMA PRINCIPAL TRAS AUDITORÍA DE HISTORIA — 2026-11-07
+
+Tras la revisión de la historia consolidada, la rama principal y única de desarrollo/entrega queda fijada como main.
+
+Evidencia de la decisión:
+- El commit de consolidación 28332da4b4706758600bd25f63bc2e67c840b377 es un commit de seis padres: main histórico 7b0b0751; bardo-unified-core 81d3d89f; bardo-worker-hardening 7fc9b5a3; bardo-device-fixes cd73c075; base-verde f68ea19c; ruta-a-compile a97866a2.
+- Los seis tips figuran como padres del mismo commit de consolidación, no como ramas con cambios sin integrar.
+- Las comparaciones de cada tip contra main devuelven behind_by=0: ningún tip histórico contiene commits que falten en main. Los conteos ahead_by reflejan commits posteriores de main respecto a cada tip y no trabajo perdido.
+- GitHub devuelve actualmente una sola referencia de rama: main. No recrear bardo-unified-core ni otras ramas históricas para continuar.
+
+Regla operativa que sustituye cualquier instrucción histórica incompatible:
+- Todo código, corrección, documentación, CI y publicación de BARDO/MusicalIA se realiza directamente en main, mediante commits normales fast-forward.
+- No crear ramas paralelas, no reescribir ni borrar historia, no force-push y no usar reset --hard.
+- Las antiguas referencias bardo-unified-core, bardo-device-fixes, bardo-worker-hardening, base-verde y ruta-a-compile se conservan como etiquetas históricas de sus líneas integradas; no son ramas de trabajo vigentes.
+- Si en el futuro se propone otra rama, debe justificarse y aprobarse expresamente; esta directiva mantiene main como fuente única de verdad.

@@ -763,3 +763,38 @@ Resultado funcional de esta modificación:
 - Es una corrección de transparencia del registro y sus pruebas, no la implementación del ejecutor de código ni del puente GitHub. La autonomía de programación completa sigue pendiente.
 - El siguiente trabajo de implementación debe resolver, con un diseño seguro, el entorno aislado para ejecutar pruebas/compilación y la integración CI con identidad autorizada, credenciales fuera de la APK, ramas/PR revisables, recuperación de logs y artefactos, comprobación de protecciones y rollback.
 - Los documentos maestros se mantienen sincronizados. Último commit documental de BARDO_01 en este ciclo: 1a27c7e075a502f0c1bea0c0a2e9e862d086e816. Este commit actualiza el inventario con los cambios y los estados CI observados.
+
+
+46. AUDITORÍA COMPLETA DE LA HISTORIA GIT Y DECISIÓN DE RAMA PRINCIPAL — 2026-11-07
+
+Repositorio/estado:
+- Repositorio: loboxfake/musica-ia.
+- GitHub devuelve actualmente una sola rama activa: main.
+- HEAD al iniciar esta auditoría: 2aef993e398761d5c8446b9e651477595055a685; la actualización documental que registra esta auditoría se añadirá como un commit fast-forward posterior.
+
+Enumeración de commits:
+- Se recorrió la API de commits de main con paginación per_page=100.
+- Página 1: 100; página 2: 100; página 3: 100; página 4: 100; página 5: 100; página 6: 100; página 7: 23; página 8: 0.
+- Total: 623 registros de commit, 623 SHA únicos, 0 duplicados. Se revisaron los identificadores, mensajes, padres y secuencia de esos registros.
+- Las áreas representadas por los mensajes incluyen interfaz/chat, audio WAV/MP3/voz, motores y modelos Gemma/LiteRT/ExecuTorch/Stable Audio, memoria/conocimiento/autoestudio, seguridad, firma, auditorías, workflows, releases, documentación y pruebas. Las categorías por texto se solapan y no se suman como particiones.
+- Esta enumeración comprueba la historia alcanzable y la secuencia de commits; no equivale a una lectura línea por línea de cada parche de los 623 commits. La verificación de integridad entre ramas se apoya además en la relación de ancestros descrita abajo.
+
+Consolidación de seis historiales:
+- Commit de consolidación: 28332da4b4706758600bd25f63bc2e67c840b377, mensaje «merge: consolidate all BARDO development histories into main».
+- Padres exactos del commit: main histórico 7b0b075199d00df5e13fd6da6f3aecb19c7c0511; bardo-unified-core 81d3d89ffdb5ce4e6c517e6d69608ade7c2aaa56; bardo-worker-hardening 7fc9b5a3444b846cfe0940245145fc93dce5a3f2; bardo-device-fixes cd73c07566b1481b926aa4b59722234fab337540; base-verde f68ea19cae9a81070c382edb26e6aac2e6d0868d; ruta-a-compile a97866a21e9dc683e972aae44731622067a0ef30.
+- GitHub compare de cada uno de esos seis SHA como base contra main actual devolvió status=ahead y behind_by=0 en todos los casos. ahead_by observado: 559 (main histórico), 23 (bardo-unified-core), 402 (bardo-worker-hardening), 378 (bardo-device-fixes), 599 (base-verde), 362 (ruta-a-compile). Esos números son commits posteriores de main respecto al tip, no commits exclusivos perdidos del tip.
+- Resultado: los seis tips históricos son ancestros de main; ninguno tiene commits que falten en main. La consolidación de seis padres preserva la relación de historia sin cherry-pick/rebase destructivo.
+- Las referencias de rama antiguas no aparecen en la consulta actual; no recrearlas.
+
+Decisión:
+- Se resuelve la discrepancia de instrucciones históricas: bardo-unified-core fue la rama de integración de la etapa anterior; al ejecutarse la consolidación de seis padres en 28332da4, main pasó a ser la rama canónica vigente.
+- La rama principal y única de trabajo desde ahora es main. Todo desarrollo, corrección, CI, documentación y release continúa ahí mediante commits fast-forward. No crear ramas paralelas ni volver a bardo-unified-core.
+- No se ha hecho reset --hard, force-push, rebase ni borrado de commits. Las ramas antiguas no se han recreado.
+- Modo3MezclaVozUsuario.kt mantiene el blob SHA-1 protegido 8f2745fa841a06af43bf909732fba834474bf7dc.
+
+Estado del error Kotlin descubierto en esta revisión:
+- Build #189 / run 42378594374 sobre 3becbebe: FAILURE en :app:compileDebugKotlin por falta de coma separadora después de la entrada github_development dentro de BardoCapabilityRegistry.snapshot. El fallo impidió tests posteriores, ExecuTorch, APK, firma y auditorías.
+- La misma línea defectuosa existía en #186; #189 volvió a fallar al entrar a testDebugUnitTest, pero la causa de Kotlin estaba en compilación debug.
+- Corrección aplicada en commit 2aef993e398761d5c8446b9e651477595055a685: coma añadida entre las entradas github_development y voice_synthesis. Build #190 / run 42379078924 y validación #339 / run 42379078944 se encontraban IN_PROGRESS al registrar esta nota; consultar el resultado final antes de declarar éxito.
+- El SHA de Modo3 se volvió a consultar en main y sigue siendo 8f2745fa841a06af43bf909732fba834474bf7dc.
+- APK final de autonomía: todavía NO DISPONIBLE. No instalar #185 ni ningún build previo como entrega final de esta fase.
