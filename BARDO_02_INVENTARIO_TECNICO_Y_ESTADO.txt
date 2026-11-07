@@ -449,3 +449,13 @@ Build #160 / run 42353954810 / commit 1baac8682f622d2512f83c542571c960e9d80517: 
 - Build #161 / run 42356276736 seguía en `Build full APK with on-device audio model`; build #168 / run 42356638808 estaba PENDING para el commit de código `af2c855`. Las builds #162–#167 fueron CANCELLED por sustitución de ejecuciones. La validación #289 seguía en pruebas/compilación debug; validación #295 para el último commit estaba PENDING. No declarar CI final hasta que la ejecución integral más reciente termine auditando y publicando.
 - Rama actual antes de esta entrada: `af2c85578968562bd81ad221528d049f5e60f0f4`. `main` sigue `7b0b075199d00df5e13fd6da6f3aecb19c7c0511`; Modo3 blob sigue `8f2745fa841a06af43bf909732fba834474bf7dc`.
 - Sigue pendiente instalar y probar físicamente en Xiaomi 11T Pro; las capacidades marcadas NOT_IMPLEMENTED no forman parte de la aceptación como funcionales en esta APK.
+
+28. AUDITORÍA DE FIRMA REFORZADA Y CORRECCIÓN PREVIA A LA ENTREGA — 2026-11-07
+
+- Commit `5bce0af249744c47c020a61deb5e1f736e2acffc`: el informe de APK incorpora commit fuente, número de ejecución y huella de certificado; la Release incluye la referencia de commit y run.
+- Revisión estática del nuevo bloque detectó un defecto de escape: `printf '%s\\n'` impedía que sed recibiera líneas separadas y podía dejar vacía la huella extraída; además los esquemas V2/V3 se habían consignado como texto fijo. No se dejó pasar a una entrega final.
+- Commit `465d32e3dd17ca9a83ef7e2f9d9f3b91ced69fb4` corrige los saltos de línea y exige que `apksigner verify --verbose` confirme realmente V2 y V3, además de volver a comparar la huella con el certificado BARDO autorizado.
+- Commit `d53c63595586c99a71b4add27ee852128eb32952` corrige el heredoc de notas de Release para expandir el commit fuente y número de ejecución en lugar de publicar variables literales.
+- Build #170 / run 42356728600 fue CANCELLED al entrar la corrección del heredoc; build #171 / run 42356743045 está PENDING y contiene el bloque corregido completo. Validación #298 / run 42356728412 está IN_PROGRESS; validación #299 / run 42356743090 PENDING para el commit posterior. Build #161 / run 42356276736 sigue IN_PROGRESS desde el commit antiguo `dcc13d2`; no se ha declarado finalizado ni se ha publicado Release #161.
+- La compilación integral más reciente que debe aceptarse es #171; verificar en su informe la presencia de `SOURCE_COMMIT`, `WORKFLOW_RUN`, `CERTIFICATE_SHA256` y líneas `SIGNATURE_SCHEME` V2/V3, y comprobar el asset exacto `app-release.apk`.
+- No se han tocado `main`, Modo3, keystore ni Secrets. El estado de instalación y prueba física Xiaomi 11T Pro sigue pendiente.
