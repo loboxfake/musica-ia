@@ -8,7 +8,7 @@ Install normal updates over the existing BARDO installation. Android package upd
 
 ## Initial offline package
 
-The `Build full offline APK` workflow can be started manually (`workflow_dispatch`) and runs on relevant pushes to the canonical `main` branch only. It packages the exact triggering `main` commit, retrieves the pinned Stable Audio model pack from a successful preparation run on `main`, compiles the native runtime, runs tests and audits the APK before publishing a prerelease asset. It does not check out or consume artifacts from retired development branches.
+The `Build full offline APK` workflow can be started manually (`workflow_dispatch`) and runs on relevant pushes to the canonical `main` branch only. It packages the exact triggering `main` commit, retrieves the pinned Stable Audio model pack from a successful preparation run on `main`, compiles the native runtime, runs tests and audits the APK before publishing a prerelease asset. After publication, it verifies that `main` is the only active branch; this check is read-only and never deletes branch references.
 
 The first generation attempt calls `ModuloInstrumental.cargar()`, which copies the model files from APK assets into `filesDir/stable_audio_model`. Once all model files have been copied successfully, later lightweight APK updates preserve them. If the initial copy never completed, a lightweight update cannot recreate missing bundled assets; the full offline package is then required.
 

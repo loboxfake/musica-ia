@@ -843,3 +843,19 @@ CI después de corregir el separador Kotlin del CapabilityRegistry:
 - Corrección propuesta/aplicada en el siguiente commit: full-build.yml solo acepta una exportación exitosa de prepare-audio-model.yml en main; si falta, falla de forma explícita en lugar de utilizar una rama retirada. docs/UPDATE_SYSTEM y docs/BARDO_EVOLUTION_ARCHITECTURE se alinean a main.
 - La arquitectura de autoevolución se alinea con la orden de rama única: BARDO prepara copias candidatas aisladas sin crear ramas Git paralelas; la integración aprobada es un commit fast-forward en main.
 - No se modifica Modo3, keystore ni Secrets. No se recrea ninguna rama histórica.
+
+
+49. REVISIÓN DE GITHUB Y FALLO AISLADO DE LA BUILD #194 — 2026-11-07
+
+Comprobación actual de GitHub:
+- Rama activa devuelta: main únicamente.
+- HEAD revisado antes de esta corrección: 3b7553afb2e60e7e01c97b90a170c1e3cf8ce822.
+- Validación BARDO #343 / run 42379729847 sobre ese HEAD: SUCCESS; Gitleaks sobre historial completo, tests unitarios y assembleDebug completados.
+- Build full offline #194 / run 42379729807 sobre el mismo HEAD: FAILURE en el paso 20, después de que pasos 10–19 hubieran concluido SUCCESS.
+- Pasos #194 verificados SUCCESS: tests unitarios; instalación PyTorch; checkout/submódulos ExecuTorch; APK Release nativa; firma con certificado BARDO; auditoría de contenido/integridad; auditoría de credenciales/material de firma; publicación de workflow artifact; publicación de GitHub Release.
+- Release bardo-build-194 existe y apunta al commit exacto 3b7553afb2e60e7e01c97b90a170c1e3cf8ce822. Assets: app-release.apk (937,465,149 bytes; SHA-256 8ebe3f943c82110fac9077e597bced0951ecf7a9f73d703b3dd489ff26288657) y full-apk-audit.txt (6,198 bytes; SHA-256 33f57ed00ae0f5c9ac04b13937e359056f2a6e1b2bee9df0ce1f23f915600c3f).
+- Causa confirmada por log del job: el paso de limpieza intentó ejecutar git merge-base --is-ancestor 28332da4b4706758600bd25f63bc2e67c840b377 GITHUB_SHA, pero el commit histórico no estaba disponible en el checkout y Git devolvió «fatal: Not a valid commit name». El paso no borró ramas: el error ocurrió antes del bucle de DELETE.
+- Corrección aplicada en el siguiente cambio: sustituir el paso destructivo/de historia local por verificación remota no destructiva de que la única rama activa es main. Si hay cualquier otra rama, CI falla sin modificar ninguna referencia.
+- La APK #194 es una compilación firmada y auditada, pero el workflow global terminó en FAILURE. Se espera una nueva build completa SUCCESS antes de avisar para instalar.
+- Modo3MezclaVozUsuario.kt conserva el blob SHA-1 protegido 8f2745fa841a06af43bf909732fba834474bf7dc.
+- El siguiente ciclo CI se debe vincular al commit exacto que incorpora el workflow corregido y los dos documentos maestros; no reutilizar ni renombrar la APK #194 como nueva entrega.

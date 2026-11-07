@@ -1,7 +1,7 @@
 # BARDO — Arquitectura del asistente personal evolutivo
 
 Estado: especificación inicial de implementación  
-Rama de trabajo actual: `main` (única rama activa)  
+Rama de trabajo actual: `main` (única rama activa; verificación final no destructiva en CI)  
 Base histórica de diseño: `a97866a` (`ruta-a-compile`), incorporada como uno de los seis padres del commit de consolidación `28332da4`.
 
 ## Objetivo del producto

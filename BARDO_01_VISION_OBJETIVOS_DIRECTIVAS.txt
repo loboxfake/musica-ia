@@ -264,3 +264,12 @@ Regla operativa que sustituye cualquier instrucción histórica incompatible:
 - No crear ramas paralelas, no reescribir ni borrar historia, no force-push y no usar reset --hard.
 - Las antiguas referencias bardo-unified-core, bardo-device-fixes, bardo-worker-hardening, base-verde y ruta-a-compile se conservan como etiquetas históricas de sus líneas integradas; no son ramas de trabajo vigentes.
 - Si en el futuro se propone otra rama, debe justificarse y aprobarse expresamente; esta directiva mantiene main como fuente única de verdad.
+
+
+25. CIERRE DE ERROR DE PUBLICACIÓN Y REGLA NO DESTRUCTIVA DE RAMAS — 2026-11-07
+
+- La Release bardo-build-194 corresponde al commit 3b7553afb2e60e7e01c97b90a170c1e3cf8ce822. Sus pasos de tests, compilación nativa, firma, auditoría de APK, auditoría de secretos y publicación finalizaron correctamente.
+- El workflow global #194 terminó en FAILURE únicamente en el paso posterior de limpieza de referencias, que intentó usar merge-base contra un SHA no presente en el checkout superficial. La Release quedó publicada; no debe confundirse el fallo del paso de limpieza con un fallo de compilación o firma.
+- La limpieza automática de referencias antiguas se sustituye por una comprobación no destructiva: tras publicar la APK, CI verifica que la única rama activa sea main. No borra refs, no hace merge, no reescribe historia y no depende de SHA históricos locales.
+- La siguiente build integral sobre el commit que incorpora esta corrección de workflow y ambos documentos maestros debe finalizar completamente en SUCCESS. La existencia de la Release #194 no sustituye esa nueva ejecución.
+- Continuidad: una única rama main, commits fast-forward, ningún reset --hard, force-push, rebase ni borrado automático.
