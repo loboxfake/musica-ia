@@ -161,3 +161,12 @@ Obligaciones:
 - Toda actualización documental se realiza en bardo-unified-core; no modificar main ni fusionar sin autorización expresa.
 
 La petición del usuario del 2026-11-07 establece expresamente esta obligación como directiva permanente.
+
+15. DISTRIBUCIÓN REPRODUCIBLE Y PERMANENCIA DE ENTREGAS — 2026-11-07
+
+Se precisa el objetivo de entrega integral:
+- Una APK release única, firmada con el certificado BARDO autorizado, debe quedar publicada como asset de una GitHub Release prerelease, junto con full-apk-audit.txt.
+- El artefacto temporal de GitHub Actions se conserva como respaldo, pero no sustituye a la Release. Su retención debe ser de 30 días como mínimo operativo configurado.
+- La Release debe identificar commit fuente, SHA-256 de APK, huella SHA-256 del certificado, ABI y límites de validación. No afirmar que se ha probado en dispositivo hasta recibir confirmación del usuario.
+- El proceso debe ser reproducible e idempotente por número de ejecución; no regenerar ni sustituir el certificado o Secrets.
+- Esta mejora de distribución no autoriza cambios en main, fusiones de ramas ni modificaciones de Modo3.
