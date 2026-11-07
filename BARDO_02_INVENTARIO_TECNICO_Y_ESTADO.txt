@@ -474,3 +474,10 @@ Build #160 / run 42353954810 / commit 1baac8682f622d2512f83c542571c960e9d80517: 
 - Commit `c89d8ef40bdd6738d899317a77f2c332dbb56c86`: al cambiar a «instrumental», BARDO marca la fuente de voz como ninguna; si después el usuario cambia a voz/ambas, limpia ese valor para volver a preguntar por la fuente real. Evita que una elección instrumental anterior se herede silenciosamente como una respuesta definitiva de voz.
 - Build #175 / run 42356816535 fue lanzado para el commit `c89d8ef`; la ejecución de validación #304 fue CANCELLED por la actualización documental siguiente. La validación #306 para el commit de corrección del SHA Modo3 quedó PENDING. No declarar el flujo guiado validado hasta una ejecución de pruebas posterior en verde.
 - SHA protegido verificado en este turno: Modo3 blob `8f2745fa841a06af43bf909732fba834474bf7dc`; `main` permanece `7b0b075199d00df5e13fd6da6f3aecb19c7c0511`.
+
+31. DISTINCIÓN ENTRE MODO3 PROTEGIDO Y MEZCLA PCM ACTIVA — 2026-11-07
+
+- Se inspeccionó `Modo3MezclaVozUsuario.kt` sin modificarlo. Su implementación heredada copia el instrumental al archivo de salida y no mezcla las muestras de voz; se conserva intacta por directiva expresa de protección y no se debe declarar funcional como mezclador real.
+- La ruta que actualmente usa la interfaz para voz propia es distinta: `MainActivity.mezclarVozUsuario()` llama a `MezclaVoz.mezclar()` fuera del hilo principal. `MezclaVoz.kt` lee WAV PCM16, convierte canales a mono, remuestrea la voz al sample rate del instrumental, suma las muestras con ganancias y escribe un WAV nuevo.
+- `MezclaVozTest.mixesRecordedVoiceWithInstrumentalAndWritesRealPcmWav` verifica el WAV de salida y sus muestras PCM. Esto demuestra una prueba JVM del algoritmo de mezcla, no una prueba auditiva en el Xiaomi.
+- Mantener la protección Modo3: blob SHA-1 verificado `8f2745fa841a06af43bf909732fba834474bf7dc`. No modificar ni eliminar ese archivo sin autorización específica. Para la aceptación de la aplicación, probar la ruta activa `MezclaVoz` con una grabación real del usuario.
