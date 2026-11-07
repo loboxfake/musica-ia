@@ -742,3 +742,24 @@ Conclusión técnica de esta inspección:
 - Para cumplir la visión, falta diseñar e implementar un ejecutor de validación aislado y un puente GitHub con autorización explícita, permisos mínimos, credenciales fuera de la APK, ramas de propuesta, CI reproducible, revisión de diffs, control de archivos protegidos y reversión. El teléfono no debe recibir ni almacenar un token GitHub de privilegios amplios dentro de la APK.
 - No se realizó cambio de código en esta inspección. Los únicos cambios de este ciclo son documentales: commit cfc43ad58141e09d0246cdc0b19d704505193832 (BARDO_01) y commit 48db34d18499e0bca71cd1f9e8c0469996df44e5 (BARDO_02). HEAD documental resultante: 48db34d18499e0bca71cd1f9e8c0469996df44e5.
 - No se lanzó una nueva build integral desde este HEAD porque el workflow full-build.yml no se dispara por cambios únicamente documentales. La APK #185 sigue siendo un artefacto de un commit anterior y no se ofrece como entrega final de autonomía.
+
+
+45. REGISTRO DE CAMBIO DE CAPACIDADES DE DEVELOPER — 2026-11-07
+
+Cambios de código en main:
+- Commit d439b5432a8304d0cdaa113a70a618461939d3e2: BardoCapabilityRegistry incorpora las capacidades explícitas project_build y github_development con estado NOT_IMPLEMENTED. El texto aclara que el Developer Core actual no ejecuta Gradle/compiladores/pruebas de candidatos ni crea ramas/PR/solicita workflows GitHub desde la aplicación; también prohíbe incrustar tokens GitHub en APK.
+- Commit 61416b9fedf4f27f91ec0c17dc0429f834f6c9d2: BardoCapabilityRegistryTest añade aserciones para mantener esos límites visibles y evitar que futuras modificaciones declaren esas funciones disponibles sin cambiar pruebas.
+- Cambio de registro: patch_sandbox ahora especifica que la auditoría posterior es estática.
+- No se modificó Modo3MezclaVozUsuario.kt. Blob SHA-1 confirmado: 8f2745fa841a06af43bf909732fba834474bf7dc.
+- No se modificaron keystore, Secrets, workflows de firma ni permisos de la aplicación.
+
+CI iniciado para el código:
+- Build full offline #186 / run 42378498248 sobre commit d439b5432a8304d0cdaa113a70a618461939d3e2: estaba IN_PROGRESS al consultar; no declarar resultado.
+- Validación #334 / run 42378505540 sobre commit 61416b9fedf4f27f91ec0c17dc0429f834f6c9d2: PENDING al consultar.
+- Build full offline #187 / run 42378505569 sobre commit 61416b9fedf4f27f91ec0c17dc0429f834f6c9d2: PENDING al consultar.
+- Validaciones #331–#333 quedaron CANCELLED por pushes sucesivos; no se consideran pruebas superadas. La validación #334 es la ejecución que debe revisarse para el HEAD del cambio de tests.
+
+Resultado funcional de esta modificación:
+- Es una corrección de transparencia del registro y sus pruebas, no la implementación del ejecutor de código ni del puente GitHub. La autonomía de programación completa sigue pendiente.
+- El siguiente trabajo de implementación debe resolver, con un diseño seguro, el entorno aislado para ejecutar pruebas/compilación y la integración CI con identidad autorizada, credenciales fuera de la APK, ramas/PR revisables, recuperación de logs y artefactos, comprobación de protecciones y rollback.
+- Los documentos maestros se mantienen sincronizados. Último commit documental de BARDO_01 en este ciclo: 1a27c7e075a502f0c1bea0c0a2e9e862d086e816. Este commit actualiza el inventario con los cambios y los estados CI observados.
