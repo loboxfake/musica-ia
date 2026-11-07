@@ -170,3 +170,7 @@ Se precisa el objetivo de entrega integral:
 - La Release debe identificar commit fuente, SHA-256 de APK, huella SHA-256 del certificado, ABI y límites de validación. No afirmar que se ha probado en dispositivo hasta recibir confirmación del usuario.
 - El proceso debe ser reproducible e idempotente por número de ejecución; no regenerar ni sustituir el certificado o Secrets.
 - Esta mejora de distribución no autoriza cambios en main, fusiones de ramas ni modificaciones de Modo3.
+ 
+16. IDENTIFICACIÓN CORRECTA DEL BINARIO DE DISTRIBUCIÓN — 2026-11-07
+ 
+La APK que se entrega al usuario debe llamarse app-release.apk una vez firmada. No conservar el sufijo app-release-unsigned.apk después de sustituir el contenido por la APK firmada, porque el nombre contradice el estado criptográfico real y puede inducir a error. El workflow debe renombrar el binario después de firmarlo y antes de auditarlo, crear el artefacto y publicarlo en Release. Mantener intacto el certificado BARDO y los Secrets existentes.
