@@ -423,3 +423,13 @@ Build #160 / run 42353954810 / commit 1baac8682f622d2512f83c542571c960e9d80517: 
 - La rama `bardo-unified-core` está en `179d5d6a84f0efff8201e847c190d63362ead701`; comparación con main: 501 commits ahead y 4 behind (diverged). PR #1 NO corresponde a esta rama: es `bardo-device-fixes` → `main`, OPEN/DRAFT, 44 archivos, 185 commits, mergeable=false/dirty. No fusionar ni reutilizar como PR de esta fase.
 - `main` continúa en `7b0b075199d00df5e13fd6da6f3aecb19c7c0511`. `Modo3MezclaVozUsuario.kt` mantiene blob SHA-1 `8f2745fa841a06af43bf909732fba834474bf7dc`. No se tocaron secretos ni keystore.
 - Se incorpora la directiva de fase única: consolidar una sola APK integral y cerrar una única aceptación final. Builds intermedios no significan entrega funcional completa. Cierre pendiente de pruebas físicas en Xiaomi 11T Pro, incluidas inferencia local Gemma cuando supere los umbrales de RAM, generación Stable Audio real, WAV/MP3 y escucha. La APK #160 pesa ~937 MB; comprobar almacenamiento libre.
+
+25. CORRECCIÓN DE CAPACIDADES FALSAS / PLACEHOLDERS — 2026-11-07
+
+- Commit `8d4a3e017e12e7bbc491aaa359c5b5db6c1ced97`: `ModuloVoz` deja de emitir tonos de prueba y ahora devuelve estado explícito NOT_IMPLEMENTED / lanza UnsupportedOperationException. Se elimina la simulación de voz cantada.
+- Commit `bbd2a68ee295e642fe26d43f9817ceb5228a2111`: añade prueba para asegurar que la síntesis vocal sigue declarada como no implementada y no se selecciona.
+- Commit `ca2221c5b934755cd67bbca08d10907a2e575112`: `ModuloMezcla` deja de fabricar un WAV de onda artificial y declara que la mezcla/masterización profesional no está implementada.
+- Commit `9773a4d38db8d850e56b8a5a8067f780ddc8c08b`: `ModuloPortada` deja de producir una tarjeta PNG tipográfica y declara que la portada IA no está implementada.
+- Estas correcciones se alinean con la directiva del usuario: no presentar tonos, ondas sintéticas o imágenes fijas como salida de IA. La mezcla de voz del usuario en Modo3 sigue separada y protegida; no se modificó su archivo.
+- Las ejecuciones de validación #282–#288 y builds #162–#164 aparecen CANCELLED por sustitución/cancelación de ejecuciones durante commits sucesivos; no equivalen a fallos de compilación. Build #161 (run 42356276736, commit dcc13d2) seguía IN_PROGRESS en el último chequeo; build #165 (run 42356457742, commit 9773a4d) y validación #289 (run 42356457755) estaban PENDING. #165 es la compilación integral que debe validar las correcciones de placeholders y el nombre app-release.apk.
+- Estado protegido al último chequeo: `main` = `7b0b075199d00df5e13fd6da6f3aecb19c7c0511`; blob Modo3 = `8f2745fa841a06af43bf909732fba834474bf7dc`; rama bardo-unified-core = `9773a4d38db8d850e56b8a5a8067f780ddc8c08b`.
