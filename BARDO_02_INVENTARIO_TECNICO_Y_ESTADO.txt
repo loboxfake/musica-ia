@@ -468,3 +468,9 @@ Build #160 / run 42353954810 / commit 1baac8682f622d2512f83c542571c960e9d80517: 
 - Esta corrección evita dos falsos positivos: elegir «instrumental» no intenta generar letra con Gemma; elegir «voz» o «ambas» no finge disponer de canto IA. La mezcla de voz propia continúa siendo una ruta separada.
 - Build #173 / run 42356763210 fue CANCELLED por el siguiente commit de corrección; build #174 / run 42356777607 y validación #303 / run 42356777517 están PENDING para el commit de código `df74a212`. Deben completar antes de aceptar este cambio.
 - `main` permanece `7b0b075199d00df5e13fd6da6f3aecb19c7c0511`; Modo3 blob permanece `8f2745fa841a06af43bf909732fba834474bf7dc` (verificar SHA exacto del blob en GitHub antes de cualquier cambio).
+
+30. CORRECCIÓN DE CAMBIO DE TIPO DURANTE EL FLUJO GUIADO — 2026-11-07
+
+- Commit `c89d8ef40bdd6738d899317a77f2c332dbb56c86`: al cambiar a «instrumental», BARDO marca la fuente de voz como ninguna; si después el usuario cambia a voz/ambas, limpia ese valor para volver a preguntar por la fuente real. Evita que una elección instrumental anterior se herede silenciosamente como una respuesta definitiva de voz.
+- Build #175 / run 42356816535 fue lanzado para el commit `c89d8ef`; la ejecución de validación #304 fue CANCELLED por la actualización documental siguiente. La validación #306 para el commit de corrección del SHA Modo3 quedó PENDING. No declarar el flujo guiado validado hasta una ejecución de pruebas posterior en verde.
+- SHA protegido verificado en este turno: Modo3 blob `8f2745fa841a06af43bf909732fba834474bf7dc`; `main` permanece `7b0b075199d00df5e13fd6da6f3aecb19c7c0511`.
