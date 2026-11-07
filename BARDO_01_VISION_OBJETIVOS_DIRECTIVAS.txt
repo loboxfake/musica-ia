@@ -210,3 +210,15 @@ La ejecución de BARDO debe organizarse como una única fase de integración y a
 DIRECTIVA DE RAMAS — 2026-11-07:
 - La rama canónica del repositorio es main. Toda corrección, mejora, CI, release y autoestudio evolutivo deben integrarse y validarse allí.
 - Las antiguas ramas de trabajo se consolidan como referencias históricas sincronizadas; no se debe crear desarrollo divergente en ellas.
+
+
+20. DIRECTIVA DEL USUARIO: CONTINUIDAD INTEGRAL HASTA APK DE PRUEBAS — 2026-11-07
+
+- El usuario ordena continuar el desarrollo sin fragmentar la entrega funcional: integrar en una sola línea de GitHub las capacidades acordadas para la autonomía de BARDO y MusicalIA, corregir errores y ejecutar las validaciones necesarias hasta disponer de una APK instalable.
+- No avisar para instalar APKs intermedias. Avisar al usuario cuando exista una APK final de esta entrega, firmada con la identidad autorizada, auditada, con SHA-256, huella de certificado, informe y checklist de pruebas.
+- Antes de solicitar instalación, comprobar que la Release/artefacto corresponde al HEAD exacto que se declara y que CI terminó correctamente. El usuario realizará la prueba física en Xiaomi 11T Pro; no declarar esa prueba como hecha antes de su confirmación.
+- Mantener siempre actualizados en el mismo ciclo BARDO_01_VISION_OBJETIVOS_DIRECTIVAS.txt y BARDO_02_INVENTARIO_TECNICO_Y_ESTADO.txt.
+- El usuario reafirma que BARDO debe alcanzar autonomía operativa y de desarrollo: investigar, mantener conocimiento/memoria, analizar proyectos, preparar código, ejecutar herramientas y pruebas, diagnosticar fallos y proponer/aplicar cambios bajo el modelo de permisos, aislamiento, auditoría y aprobación ya definido. No prometer autonomía ilimitada ni capacidades no implementadas.
+- RAMA ÚNICA ACTUAL: main. Esta directiva, posterior a las instrucciones históricas que mencionaban bardo-unified-core, confirma que el desarrollo, las correcciones, CI y entrega se realizan en main. Las referencias antiguas sobre bardo-unified-core quedan como historia, no como rama de trabajo vigente.
+- No force-push, no reset --hard, no reescritura de historia, no cambio de firma/Secrets y no modificación de Modo3MezclaVozUsuario.kt sin autorización específica.
+- Los commits y builds intermedios son evidencia de progreso, no entregas instalables que deban probarse. La fase integral solo se presenta al usuario cuando exista una APK candidata final auditada.
