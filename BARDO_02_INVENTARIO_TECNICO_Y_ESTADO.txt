@@ -622,3 +622,28 @@ Build #180 / commit 9d534e512e45ef12da2ae038eb098bf845a03cae:
 - Corrección preparada para el siguiente commit: construir la muestra ficticia concatenando dos literales en tiempo de ejecución; la prueba seguirá verificando que BardoDeveloperCore detecta el token generado, pero el texto contiguo no quedará incrustado en la APK.
 - El run #180 no publicó artefacto ni release porque la comprobación de credenciales falló por esa muestra de test. No descargar ni distribuir el APK #180.
 - La siguiente build añade además un indicador persistente de inferencia Gemma entre recreaciones de Activity, límites CI para la instantánea de autoestudio y auditoría de que los assets .pte/.model estén sin compresión para que AssetManager.openFd pueda abrirlos.
+
+
+40. BUILD INTEGRAL #181 SUPERADA Y PROTECCIÓN DE PROCESOS — 2026-11-07
+
+Build #181:
+- Commit: c490aaa6b73d343730a1352d550110e1267bce98.
+- Workflow full build run 42363821577: COMPLETED / SUCCESS.
+- Validación #321 / run 42363821578: COMPLETED / SUCCESS.
+- GitHub Release: https://github.com/loboxfake/musica-ia/releases/tag/bardo-build-181
+- APK: app-release.apk, package com.musicaia, versionCode 1181, versionName 1.0.1181, minSdk 26, targetSdk 34.
+- Tamaño: 937.452.861 bytes.
+- SHA-256 APK: b941dd70c38cc0511dd06bf6246dd56f0c8f6910d16f003a6d88e760e297c376.
+- SHA-256 informe full-apk-audit.txt: 796a224358fd06bdf225af71bc1abd805407cfc0cd0b409817a02dde76fb096c.
+- Certificado de firma: c46232017513c3171ba04d91cf579a72202a834f0bcd1c0a22e0c9de0e030368; coincide con las releases anteriores #177 y #179, por lo que mantiene la continuidad de firma.
+- Auditoría APK: ZIP íntegro, package com.musicaia, minSdk 26, targetSdk 34, recursos del modelo y bibliotecas nativas presentes, escaneo de credenciales superado.
+- Compatibilidad AssetManager.openFd: conditioners_model.pte, dit_model.pte, autoencoder_model.pte y spiece.model verificados ZIP_STORED (sin compresión).
+- Instantánea de autoestudio: 114 archivos, 785.400 bytes sin comprimir, bajo todos los límites del importador.
+- El falso positivo de #180 se resolvió construyendo el token de test en tiempo de ejecución; el test de detección sigue activo y el escáner no se debilitó.
+- Artifact Actions: BARDO-full-offline-181, ID 13570973206, ZIP SHA-256 20c926965fe6121fa970a60080fd8940cd761e85d0093b061cba1a5935f54e94.
+
+Protección adicional de estado entre procesos preparada para el siguiente commit:
+- La marca de inferencia de chat y la marca de autoestudio guardarán el PID del proceso Android que las inició.
+- MainActivity solo considerará activo un trabajo si el PID corresponde al proceso actual; los estados heredados sin PID se consideran activos durante un margen corto de transición.
+- BardoDeveloperWorker limpia el PID en finally. Si Android mata el proceso abruptamente, el PID antiguo permite distinguir el estado persistido de una tarea realmente activa, evitando bloquear generación de audio durante una hora por una marca obsoleta.
+- Este cambio no altera el modelo ni los resultados; evita falsos bloqueos después de reinicios o cierres del proceso.

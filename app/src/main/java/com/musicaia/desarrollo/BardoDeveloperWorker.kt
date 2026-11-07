@@ -50,6 +50,7 @@ class BardoDeveloperWorker(
             .putLong("last_auto_study_attempt_at", attemptStartedAt)
             .putString("last_auto_study_status", "running")
             .putString("last_auto_study_message", "Preparando el autoestudio local.")
+            .putInt("last_auto_study_pid", android.os.Process.myPid())
             .apply()
         var modelStarted = false
         var candidateAuditFile: File? = null
@@ -273,6 +274,8 @@ $authorizedReferences
             }
             if (retryable) Result.retry() else Result.failure()
         } finally {
+            // Si el proceso muere abruptamente, el PID permite detectar estados running obsoletos.
+            prefs.edit().putInt("last_auto_study_pid", 0).apply()
             if (modelStarted) EngineLiteRT.cerrarAsync()
         }
     }

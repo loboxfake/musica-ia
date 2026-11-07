@@ -1955,6 +1955,7 @@ private fun crearEstructuraCarpetaBardo() {
      getSharedPreferences("bardo_developer", MODE_PRIVATE).edit()
          .putBoolean("gemma_chat_inference_running", activa)
          .putLong("gemma_chat_inference_started_at", if (activa) System.currentTimeMillis() else 0L)
+         .putInt("gemma_chat_inference_pid", if (activa) android.os.Process.myPid() else 0)
          .apply()
  }
 
@@ -2486,17 +2487,27 @@ private fun crearEstructuraCarpetaBardo() {
      return
  }
  val autoStudyPrefs = getSharedPreferences("bardo_developer", MODE_PRIVATE)
+ val now = System.currentTimeMillis()
  val chatInferenceStarted = autoStudyPrefs.getLong("gemma_chat_inference_started_at", 0L)
+ val chatInferencePid = autoStudyPrefs.getInt("gemma_chat_inference_pid", 0)
+ val chatInferenceAgeValid = chatInferenceStarted > 0L && now - chatInferenceStarted < 60L * 60L * 1000L
+ val chatInferenceSameProcess = chatInferencePid == android.os.Process.myPid()
+ val chatInferenceLegacyRecent = chatInferencePid == 0 && chatInferenceStarted > 0L &&
+     now - chatInferenceStarted < 5L * 60L * 1000L
  val chatInferenceActive = autoStudyPrefs.getBoolean("gemma_chat_inference_running", false) &&
-     (chatInferenceStarted <= 0L || System.currentTimeMillis() - chatInferenceStarted < 60L * 60L * 1000L)
+     ((chatInferenceSameProcess && (chatInferenceStarted <= 0L || chatInferenceAgeValid)) || chatInferenceLegacyRecent)
  if (gemmaInferenceEnCurso || chatInferenceActive) {
      tvEstado.text = "Gemma está terminando una respuesta en curso. Espera antes de iniciar la generación de audio."
      return
  }
  val autoStudyStatus = autoStudyPrefs.getString("last_auto_study_status", "").orEmpty()
  val autoStudyAttempt = autoStudyPrefs.getLong("last_auto_study_attempt_at", 0L)
+ val autoStudyPid = autoStudyPrefs.getInt("last_auto_study_pid", 0)
+ val autoStudySameProcess = autoStudyPid == android.os.Process.myPid()
+ val autoStudyLegacyRecent = autoStudyPid == 0 && autoStudyAttempt > 0L &&
+     now - autoStudyAttempt < 5L * 60L * 1000L
  val autoStudyIsActive = autoStudyStatus == "running" &&
-     (autoStudyAttempt <= 0L || System.currentTimeMillis() - autoStudyAttempt < 60L * 60L * 1000L)
+     ((autoStudySameProcess && (autoStudyAttempt <= 0L || now - autoStudyAttempt < 60L * 60L * 1000L)) || autoStudyLegacyRecent)
  if (autoStudyIsActive) {
      tvEstado.text = "BARDO está realizando autoestudio local con Gemma. Espera a que termine para iniciar Stable Audio y evitar competir por la RAM."
      return
