@@ -21,6 +21,11 @@ on:
       - gradle.properties
       - catalogo/**
       - tools/**
+      - docs/**
+      - BARDO_01_VISION_OBJETIVOS_DIRECTIVAS.txt
+      - BARDO_02_INVENTARIO_TECNICO_Y_ESTADO.txt
+      - ESPECIFICACION.md
+      - README.md
 
 permissions:
   actions: read
