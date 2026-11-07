@@ -76,4 +76,11 @@ class BardoModuleCatalogTest {
         assertEquals("181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c1", gemma.modelSha256)
         assertEquals(true, gemma.attribution.contains("Google"))
     }
+
+    @Test
+    fun voiceSynthesisIsExplicitlyNotImplementedAndNeverSelected() {
+        val voice = BardoModuleCatalog.descriptors().first { it.id == "voice_synthesis" }
+        assertEquals(false, voice.implemented)
+        assertEquals("voice_synthesis", voice.capabilityId)
+    }
 }
