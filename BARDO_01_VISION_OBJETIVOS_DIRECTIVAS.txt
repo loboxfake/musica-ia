@@ -296,3 +296,17 @@ La implementación del cliente, los workflows y la pantalla de aprobación debe 
 - El primer commit del puente GitHub (3959e5d5) pasó Gitleaks y actionlint, pero Kotlin detectó un error de sintaxis en BardoCapabilityRegistry al ampliar project_build/github_development.
 - Se reescriben ambas entradas en llamadas multilinea explícitas con los argumentos completos y separados. La compilación integral #196 no se considera válida hasta corregir y volver a ejecutar las pruebas.
 - No se marca la autonomía como entregada hasta superar de nuevo validación y APK integral firmada.
+
+
+28. ENTREGA DE APK INTEGRAL AUDITADA #197 Y ESTADO REAL DEL PUENTE GITHUB — 2026-11-07
+
+- Rama única: main. HEAD de la build aprobada: 16a65c2516222d7c18a0e7f950a134bbbc496098.
+- Validación BARDO #346 / run 42385165524: SUCCESS; incluye Gitleaks, actionlint, testDebugUnitTest y assembleDebug.
+- Build integral #197 / run 42385165649: SUCCESS. Ejecutó tests unitarios, compilación nativa ExecuTorch, APK release, firma, auditoría de integridad/contenido, auditoría de credenciales, publicación de artefacto y Release; comprobó que main es la única rama.
+- Release instalable: https://github.com/loboxfake/musica-ia/releases/tag/bardo-build-197 . APK app-release.apk, versionName 1.0.1197, versionCode 1197, package com.musicaia, ABI arm64-v8a, tamaño 937502013 bytes, SHA-256 1ea85e169a9f7a409f9840b87bbb803f8334cf4866206c1dab8fb3a8f385f140. Certificado SHA-256 c46232017513c3171ba04d91cf579a72202a834f0bcd1c0a22e0c9de0e030368. Firma v2/v3, no-debuggable y escaneo de credenciales PASS.
+- Artefacto Actions BARDO-full-offline-197: ID 13580090398, ZIP SHA-256 8c36b9c26d3a7125722ca27d3068064bf935e0480befbdfb41eaaa5858143276, expira 2026-12-07.
+- Build verde no sustituye la instalación/prueba real en Xiaomi 11T Pro. #197 es apta para iniciar pruebas, no certifica hardware real.
+- project_build/github_development solo AVAILABLE si githubActionsConfigured=true. Sin PAT fine-grained (Actions Read/Write y Contents Read, solo este repo), la app exige configuración. Integración en main exige aprobación humana; no es autonomía ilimitada ni offline.
+- self_install sigue NOT_IMPLEMENTED; el token móvil registró HTTP 403 para publicar Release. La APK se publicó mediante GITHUB_TOKEN temporal de Actions.
+- Gemma conversacional no va empaquetado: debe importarse desde Descargas/BARDO/Modelos y verificarse. Stable Audio sí está empaquetado. Voz cantada, MiVoz y capacidades marcadas NOT_IMPLEMENTED no deben declararse listas.
+- No se ha instalado ni probado físicamente la APK en Xiaomi. Actualizar ambos documentos genera nueva instantánea y requiere nueva build integral.

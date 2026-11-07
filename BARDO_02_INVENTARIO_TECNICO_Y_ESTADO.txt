@@ -906,3 +906,28 @@ APK / pruebas:
 - Corrección: se reescriben las dos entradas como llamadas Capability multilinea con cada argumento separado y ambas llamadas terminadas en coma. Nuevo blob de registry: b72f0d0bf59a729e1b04a24fae0b532c84edf8a6.
 - Build integral #196 también estaba ejecutándose; su resultado debe comprobarse, pero no se acepta como entrega si parte del mismo árbol con el registro defectuoso.
 - Modo3 sigue protegido y no se ha tocado.
+
+
+52. RESULTADO VERIFICADO DE BUILD INTEGRAL #197 — 2026-11-07
+
+- HEAD fuente: 16a65c2516222d7c18a0e7f950a134bbbc496098 (main).
+- Build full offline APK #197 / run 42385165649: SUCCESS. Validación #346 / run 42385165524: SUCCESS.
+- Release: https://github.com/loboxfake/musica-ia/releases/tag/bardo-build-197
+- APK app-release.apk; package com.musicaia; versionName 1.0.1197; versionCode 1197; compileSdk 34; minSdk 26; ABI arm64-v8a; tamaño 937502013 bytes.
+- APK SHA-256: 1ea85e169a9f7a409f9840b87bbb803f8334cf4866206c1dab8fb3a8f385f140.
+- Certificado SHA-256: c46232017513c3171ba04d91cf579a72202a834f0bcd1c0a22e0c9de0e030368; DN CN=AM, OU=K, O=K, L=M, ST=M, C=E; RSA 4096 bits; un signer.
+- Firma apksigner: v2=true y v3=true; RELEASE_APK_NON_DEBUGGABLE PASS; APK credential/signing-material scan PASS.
+- Auditoría: conditioner 220250112 bytes; DiT 343439104; autoencoder 312494592; spiece.model 791656; LICENSE 11852; NOTICE 645; AndroidManifest/resources.arsc presentes; libaudiogen.so, libmp3encoder.so, libmp3lame.so en arm64-v8a.
+- Artifact BARDO-full-offline-197 ID 13580090398; 695603926 bytes; ZIP SHA-256 8c36b9c26d3a7125722ca27d3068064bf935e0480befbdfb41eaaa5858143276; expira 2026-12-07.
+- Todos los pasos #197 SUCCESS: snapshot, descarga modelo, tests, headers PyTorch, checkout/build ExecuTorch, firma, auditorías, publicación artifact/Release, verificación rama única main.
+- #346 SUCCESS: Gitleaks historia completa, actionlint, testDebugUnitTest, assembleDebug.
+
+Limitaciones abiertas:
+- No se ha instalado ni probado en Xiaomi 11T Pro. No declarar prueba de dispositivo.
+- APK pesa ~937.5 MB; usar Wi-Fi y espacio libre suficiente; ABI requerida arm64-v8a.
+- Stable Audio local está incluido. Gemma conversacional no está incluido: usuario debe importarlo y verificarlo localmente. Voz cantada/MiVoz, masterización profesional y portadas IA siguen NOT_IMPLEMENTED según registry/README.
+- project_build y github_development solo AVAILABLE tras configurar PAT fine-grained (repo único, Actions Read/Write + Contents Read). Integración requiere aprobación explícita. No es autonomía ilimitada ni offline.
+- self_install NOT_IMPLEMENTED; el token móvil recibió HTTP 403 al publicar Release. Release #197 publicada con token efímero de Actions.
+- README distingue build de prueba física. No marcar como completado en dispositivo hasta recibir confirmación/logs de Xiaomi.
+
+La actualización de esta instantánea documental debe pasar una nueva build integral en main antes de que la APK resultante sea la entrega documental final. #197 permanece como referencia instalable para pruebas preliminares.
