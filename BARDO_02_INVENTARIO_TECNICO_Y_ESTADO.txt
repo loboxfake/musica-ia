@@ -800,3 +800,37 @@ Estado del error Kotlin descubierto en esta revisión:
 - Corrección aplicada en commit 2aef993e398761d5c8446b9e651477595055a685: coma añadida entre las entradas github_development y voice_synthesis. Build #190 / run 42379078924 y validación #339 / run 42379078944 se encontraban IN_PROGRESS al registrar esta nota; consultar el resultado final antes de declarar éxito.
 - El SHA de Modo3 se volvió a consultar en main y sigue siendo 8f2745fa841a06af43bf909732fba834474bf7dc.
 - APK final de autonomía: todavía NO DISPONIBLE. No instalar #185 ni ningún build previo como entrega final de esta fase.
+
+
+47. REVISIÓN DE COMMITS EXCLUSIVOS ENTRE RAMAS HISTÓRICAS — 2026-11-07
+
+Comparación adicional de bardo-unified-core (tip 81d3d89ffdb5ce4e6c517e6d69608ade7c2aaa56) contra los otros tips históricos:
+
+1) main histórico (tip 7b0b075199d00df5e13fd6da6f3aecb19c7c0511): 4 commits exclusivos respecto a bardo-unified-core, comprobados mediante compare:
+- 5ad4b13b: registra el workflow integral para ejecución manual.
+- 14de38c5: sustituye artefactos por publicación Release y concede contents:write al workflow.
+- ee0805a6: ajuste de formato/comentario del workflow.
+- 7b0b0751: habilita build Android manual.
+Cobertura en main consolidado: full-build.yml conserva workflow_dispatch y publicación de Release; android.yml conserva workflow_dispatch; el formato aislado no contiene funcionalidad de aplicación. Estos cambios están dentro de la historia incorporada por el primer padre del merge 28332da4.
+
+2) bardo-worker-hardening (tip 7fc9b5a3444b846cfe0940245145fc93dce5a3f2): exactamente 3 commits exclusivos respecto a bardo-unified-core:
+- f54b5693: mejora BardoDeveloperWorker.kt; registra el intento antes de iniciar, preserva el último éxito y clasifica fallos transitorios para Result.retry() y fallos permanentes para Result.failure(). El código consolidado actual contiene esa lógica ampliada y además mantiene limpieza del PID/estado.
+- 5b30df04: añade el nombre bardo-worker-hardening al disparador de workflow de aquella rama; no aporta funcionalidad de app.
+- 7fc9b5a3: elimina el checkout fijo de ruta-a-compile para compilar la rama que disparó el workflow; esa lógica de ref exacto ya está resuelta en el workflow canónico de main.
+Conclusión: la corrección del Worker se conserva en el código de main; las otras dos variaciones de workflow eran específicas de ramas y no se necesitan en la línea única main.
+
+3) bardo-device-fixes (tip cd73c07566b1481b926aa4b59722234fab337540): 0 commits exclusivos frente a bardo-unified-core; el tip es ancestro de la línea unificada.
+4) base-verde (tip f68ea19cae9a81070c382edb26e6aac2e6d0868d): 0 commits exclusivos frente a bardo-unified-core; el tip es ancestro de la línea unificada.
+5) ruta-a-compile (tip a97866a21e9dc683e972aae44731622067a0ef30): 0 commits exclusivos frente a bardo-unified-core; el tip es ancestro de la línea unificada.
+
+Comprobación combinada:
+- La comparación de los seis padres de 28332da4 contra main actual continúa con behind_by=0 para todos.
+- Los 623 commits enumerados en páginas 1–7 siguen siendo únicos y alcanzables desde main; página 8 vacía.
+- Esta revisión permite resolver el historial sin cherry-pick ni reconstruir ramas. Los cambios de contenido exclusivos de las líneas principales de trabajo se conservan en el árbol del merge; las dos adaptaciones de workflow específicas de worker-hardening son redundantes en main.
+
+CI después de corregir el separador Kotlin del CapabilityRegistry:
+- Commit 2aef993e398761d5c8446b9e651477595055a685: validación #339 / run 42379078944 SUCCESS, incluyendo Gitleaks, testDebugUnitTest y assembleDebug.
+- Build integral #190 / run 42379078924: tests unitarios SUCCESS, PyTorch headers SUCCESS, checkout/submódulos ExecuTorch SUCCESS; tarea de compilación APK nativa seguía IN_PROGRESS al redactar esta entrada. No hay todavía resultado de firma/auditoría/publicación.
+- Validación #340 / run 42379309465 para HEAD documental a08f53c6: Gitleaks SUCCESS; testDebugUnitTest/assembleDebug IN_PROGRESS al redactar esta entrada.
+- Build #192 / run 42379429052 para HEAD documental f0947a4c: PENDING al redactar esta entrada. Consultar el último run sobre el HEAD final porque ejecuciones pendientes anteriores pueden ser sustituidas por una nueva ejecución del mismo grupo de concurrencia.
+- No se ha probado físicamente la APK en Xiaomi 11T Pro.
