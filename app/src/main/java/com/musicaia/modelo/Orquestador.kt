@@ -97,7 +97,7 @@ class Orquestador {
                         } catch (errorLiberacion: Throwable) {
                             if (falloPrincipal != null) {
                                 falloPrincipal.addSuppressed(errorLiberacion)
-                                Log.e(tag, "También falló la liberación de ${modulo.id}", errorLiberacion)
+                                runCatching { Log.e(tag, "También falló la liberación de ${modulo.id}", errorLiberacion) }
                             } else {
                                 throw IllegalStateException(
                                     "El módulo ${modulo.id} terminó, pero no pudo liberar sus recursos.",
@@ -119,7 +119,7 @@ class Orquestador {
             return copiaResultados
         } catch (error: Throwable) {
             val detalle = "${moduloActual}: ${error.message ?: error.javaClass.simpleName}"
-            Log.e(tag, "Falló el plan de BARDO en $detalle", error)
+            runCatching { Log.e(tag, "Falló el plan de BARDO en $detalle", error) }
             postMain { listener?.onError(detalle) }
             throw error
         } finally {
