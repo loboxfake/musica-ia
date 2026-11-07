@@ -297,7 +297,7 @@ jobs:
           test -s "$apk"
           tag="bardo-build-${GITHUB_RUN_NUMBER}"
           notes="$RUNNER_TEMP/bardo-release-notes.md"
-          cat > "$notes" <<'EOF'
+          cat > "$notes" <<EOF
           BARDO — compilación offline integral.
 
           Incluye una única APK release firmada, el modelo de audio local y las bibliotecas nativas ARM64. La firma, el certificado autorizado, la integridad del paquete, los recursos de launcher, el modo no-debuggable y el escaneo de credenciales se verificaron en GitHub Actions.
