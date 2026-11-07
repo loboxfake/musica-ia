@@ -690,3 +690,36 @@ Protecciones:
 - Corrección: subir heap a 4 GiB, limitar Gradle a 2 workers y desactivar paralelismo Gradle para reducir picos de memoria. Se conserva la compresión normal de assets y la auditoría de integridad; no se excluyen archivos ni se rebaja el control de seguridad.
 - La build #183 del commit consolidado 28332da4b4706758600bd25f63bc2e67c840b377 ya pasó todas las pruebas y publicó una APK completamente auditada. Esta corrección habilita una repetición sobre el HEAD canónico actual.
 - Estado de dispositivo: ninguna ejecución CI sustituye instalación, inferencia Gemma, generación de WAV, reproducción y exportación MP3 en Xiaomi 11T Pro. Continúa pendiente prueba física.
+
+
+43. CONTINUIDAD INTEGRAL Y ESTADO VERIFICADO EN MAIN — 2026-11-07
+
+Directiva vigente del usuario:
+- Continuar el desarrollo de autonomía de BARDO y MusicalIA en una sola rama de GitHub y una única fase integral; corregir errores y no solicitar instalación de APKs intermedias.
+- La rama única actual es main. La mención histórica a bardo-unified-core queda sustituida por la consolidación posterior en main.
+- Avisar para instalar únicamente cuando exista una APK final de esta entrega, correspondiente al HEAD declarado, con CI completo SUCCESS, firma compatible verificada, auditoría completa, SHA-256, huella de certificado e informe. La prueba en Xiaomi 11T Pro queda pendiente hasta confirmación del usuario.
+- Mantener sincronizados BARDO_01_VISION_OBJETIVOS_DIRECTIVAS.txt y este inventario en cada ciclo con consecuencias técnicas.
+
+Estado GitHub inspeccionado en esta continuación:
+- Repositorio: loboxfake/musica-ia. Rama predeterminada y única rama devuelta por GitHub: main.
+- HEAD antes de la actualización documental de esta entrada: 8b79fff370c3e08fc9986da1a440b687f0e9290c.
+- Commit documental de BARDO_01 en este mismo ciclo: cfc43ad58141e09d0246cdc0b19d704505193832. No cambia código de aplicación.
+- PR #1: cerrado y fusionado según consulta anterior de esta continuación.
+- Workflow de consolidación #3 / run 42377074095 para 8b79fff: SUCCESS. Se verificó el ancestro de consolidación, Modo 3 y ausencia de las referencias antiguas; no se borraron ramas mediante esta corrección.
+- Validación BARDO #328 / run 42377074107 para 8b79fff: SUCCESS. Es validación CI; no prueba el dispositivo.
+- Modo3MezclaVozUsuario.kt mantiene Git blob SHA-1 8f2745fa841a06af43bf909732fba834474bf7dc. No se modificó.
+
+Build integral previa #185:
+- Run 42372821751, commit fuente 6137cdee711f5f708ef8dc043a1a54db6b8ba834: conclusión FAILURE en el paso final de limpieza de ramas, no en compilación ni auditoría.
+- Los logs inspeccionados indican tests unitarios SUCCESS, CMake/NDK y ExecuTorch ejecutados, APK firmada y auditoría de contenido/integridad superadas, escaneo de credenciales sin incidencias y publicación de la Release completada antes del paso de limpieza fallido.
+- Release bardo-build-185 contiene app-release.apk de 937456957 bytes; digest reportado por GitHub: sha256:c1f355a6f42cfc5fa9a55daa64cf6f21ee497c8da97ab20253c0b90d6e0d3246.
+- Certificado BARDO esperado según el inventario histórico: c46232017513c3171ba04d91cf579a72202a834f0bcd1c0a22e0c9de0e030368. La APK #185 es una referencia previa, NO la entrega final de la nueva fase de autonomía; no pedir al usuario que la instale.
+- Corrección del workflow de consolidación: commit c625b7bbbc4a308c039003fc0469741b3f3b4251 intentó validar referencias antiguas con manejo incorrecto de 404; el run #2 falló de forma segura sin borrar ramas. Commit 8b79fff reemplazó la limpieza por verificación explícita de que los nombres antiguos ya no existen, sin borrar refs. Run #3 terminó SUCCESS.
+- Estado del Xiaomi 11T Pro: no probado en esta continuación. Gemma, inferencia local, autoestudio operativo, uso de herramientas de programación, generación/escucha WAV y exportación MP3 continúan pendientes de prueba física.
+
+Próximo alcance de implementación (no declarar implementado hasta revisar código y pruebas):
+- Auditar BardoDeveloperWorker/Core, MemoryStore/KnowledgeStore, Orquestador, CapabilityRegistry, PatchApplier, seguridad/aprobaciones, permisos SAF y workflows de build/update.
+- Completar el ciclo de desarrollo autónomo gobernado: análisis de proyecto, plan/diff, sandbox, ejecución real de pruebas/compilación, captura de logs/resultados, informe reproducible, aprobación y rollback. El autoestudio estático actual no equivale a programar, compilar y validar autónomamente.
+- Comprobar herramientas realmente disponibles en Android frente a las que requieren un entorno de compilación externo; declararlas como dependencias si corresponde.
+- Preservar Gemma original en Descargas/BARDO/Modelos y el límite SAF Descargas/BARDO; no descargarlo de nuevo.
+- Preservar Modo3, firma y Secrets. No declarar entrenamiento de pesos ni autonomía plena sin evidencia reproducible.
