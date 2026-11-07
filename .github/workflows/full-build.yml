@@ -178,6 +178,10 @@ jobs:
           echo "Certificado BARDO verificado."
           # Auditar y publicar exactamente el binario ya firmado.
           cp "$signed" "$apk"
+          # Gradle nombra el resultado app-release-unsigned.apk incluso
+          # cuando sustituimos su contenido por el binario ya firmado.
+          # Renombrarlo evita entregar un APK firmado con etiqueta engañosa.
+          mv "$apk" "$(dirname "$apk")/app-release.apk"
           trap - EXIT
 
       - name: Audit APK contents and integrity
