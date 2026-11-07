@@ -391,3 +391,23 @@ Límites y estado de dispositivo:
 - Branch HEAD documental verificado después de las dos actualizaciones: c84d914d4019f4f1177ce72781d76dda7366c4a3. Commit del cambio de workflow: 1baac8682f622d2512f83c542571c960e9d80517.
 - main continúa en 7b0b075199d00df5e13fd6da6f3aecb19c7c0511; Modo3 mantiene blob SHA-1 8f2745fa841a06af43bf909732fba834474bf7dc.
 - No declarar publicada la nueva Release hasta ver el tag bardo-build-160 y los assets app-release APK + full-apk-audit.txt en GitHub Releases y confirmar el status `BARDO / full offline APK release` SUCCESS.
+ 
+22. RESULTADO FINAL BUILD INTEGRAL #160 Y CORRECCIÓN DE NOMBRE DEL APK — 2026-11-07
+ 
+Build #160 / run 42353954810 / commit 1baac8682f622d2512f83c542571c960e9d80517: COMPLETED / SUCCESS. Los pasos Run unit tests, compilación ExecuTorch/NDK ARM64, firma BARDO, auditoría APK, escaneo de credenciales, subida de artefacto, publicación GitHub Release y estado final terminaron SUCCESS.
+- Gradle assembleRelease: BUILD SUCCESSFUL en 7m43s. Se ejecutó testDebugUnitTest y terminó correctamente.
+- Firma apksigner: V2=true, V3=true; huella SHA-256 de certificado c46232017513c3171ba04d91cf579a72202a834f0bcd1c0a22e0c9de0e030368, coincidente con certificado BARDO autorizado.
+- APK audit: ZIP PASS; APK_BYTES 936940861; APK_SHA256 469c78345898d898b45d446f597922af06d955984cf92e91854500609ca77931; recursos launcher PASS; paquete com.musicaia; versionCode 1160/versionName 1.0.1160; minSdk 26, targetSdk 34, ABI arm64-v8a; RELEASE_APK_NON_DEBUGGABLE PASS; escaneo de credenciales PASS.
+- Contenido incluido y no vacío: conditioners_model.pte (220250112 bytes), dit_model.pte (343439104 bytes), autoencoder_model.pte (312494592 bytes), spiece.model, licencia y avisos; libaudiogen.so, libmp3encoder.so y libmp3lame.so ARM64.
+- GitHub Release bardo-build-160 publicada como prerelease con app-release-unsigned.apk (936940861 bytes) y full-apk-audit.txt. El nombre del APK es engañoso: el log demuestra que el archivo fue firmado antes de ser copiado con ese nombre. No confundir nombre con estado de firma; SHA y certificado anteriores son los datos verificados.
+- Artefacto BARDO-full-offline-160, ID 13566509896, 695421805 bytes, expiración 2026-12-07T08:19:02Z (30 días).
+- Commit statuses en 1baac868: BARDO / full offline APK audit SUCCESS y BARDO / full offline APK release SUCCESS.
+- Mejora correctiva en curso: commit dcc13d27dd39ef3a6a349b1f80d02a3afc9b8353 renombra la APK firmada a app-release.apk después de copiar el binario firmado y antes de auditar/publicar. Esto dispara build #161. No declarar corregido ni disponible el nombre nuevo hasta comprobar Release y asset de #161.
+ 
+23. LÍMITES QUE SIGUEN ABIERTOS
+- No se ha instalado ni ejecutado la APK #160 en el Xiaomi 11T Pro. Generación real de audio, latencia, memoria, temperatura, reproducción, exportación WAV/MP3 y funcionamiento de interfaz en dispositivo siguen pendientes.
+- El tamaño cercano a 937 MB requiere espacio libre suficiente.
+- Build verde y presencia de pesos/modelo no prueban que el modelo cargue y genere audio en el dispositivo. No declarar generación IA funcional hasta prueba de ejecución real.
+- main sigue sin modificar; PR #1 sigue abierto/draft/no mergeable. No fusionar ni rebasar main sin autorización expresa.
+- Modo3MezclaVozUsuario.kt conserva blob SHA-1 8f2745fa841a06af43bf909732fba834474bf7dc.
+- Build #161 y validación asociada deben registrarse cuando terminen; no modificar ni regenerar Secrets o keystore.
