@@ -35,6 +35,9 @@ class BardoPatchApplierTest {
         try {
             val cases = listOf(
                 "app/src/main/java/com/musicaia/desarrollo/BardoDeveloperWorker.kt" to "class ProtectedWorker",
+                "app/src/main/java/com/musicaia/BardoDeveloperActivity.kt" to "class ProtectedDeveloperActivity",
+                "app/src/main/java/com/musicaia/BardoGitHubDevelopmentActivity.kt" to "class ProtectedGitHubActivity",
+                "app/src/main/java/com/musicaia/desarrollo/BardoGitHubAutomation.kt" to "class ProtectedGitHubAutomation",
                 ".github/workflows/full-build.yml" to "name: ProtectedWorkflow"
             )
             cases.forEachIndexed { index, (path, original) ->

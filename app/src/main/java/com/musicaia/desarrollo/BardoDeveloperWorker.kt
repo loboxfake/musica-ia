@@ -60,16 +60,32 @@ class BardoDeveloperWorker(
             BardoActivityStore.record(applicationContext, taskId, "autoestudio", "running", "inicio", "BARDO ha iniciado el autoestudio local aislado.", 0)
             setForeground(foregroundInfo("BARDO está preparando el autoestudio local…"))
 
-            var snapshot = prefs.getString("snapshot_path", null)
+            var snapshot = prefs.getString("source_snapshot_path", null)
                 ?.let { File(it) }
                 ?.takeIf { it.isDirectory }
+                ?: prefs.getString("snapshot_path", null)
+                    ?.let { File(it) }
+                    ?.takeIf { it.isDirectory }
+
+            // Migrate older installs where snapshot_path could point at a candidate copy.
+            // Auto-study always starts from the original source snapshot, not a prior proposal.
+            if (snapshot?.name?.startsWith("candidate-") == true) {
+                snapshot = workspace.listFiles()
+                    ?.filter { it.isDirectory && it.name.startsWith("snapshot-") }
+                    ?.maxByOrNull { it.lastModified() }
+            }
 
             if (snapshot == null) {
                 val imported = applicationContext.assets.open("bardo_source_snapshot.zip").use {
                     BardoDeveloperCore.importarZip(it, workspace)
                 }
                 snapshot = imported.directory
-                prefs.edit().putString("snapshot_path", snapshot.absolutePath).apply()
+                prefs.edit()
+                    .putString("snapshot_path", snapshot.absolutePath)
+                    .putString("source_snapshot_path", snapshot.absolutePath)
+                    .apply()
+            } else if (snapshot.name.startsWith("snapshot-")) {
+                prefs.edit().putString("source_snapshot_path", snapshot.absolutePath).apply()
             }
             BardoActivityStore.record(applicationContext, taskId, "autoestudio", "running", "snapshot_preparado", "Snapshot de código disponible para auditoría estática.", 15, snapshot.absolutePath)
 
@@ -163,16 +179,60 @@ $authorizedReferences
                 val candidateAudit = BardoDeveloperCore.analizar(applied.directory).render()
                 candidateAuditFile = File(workspace, "candidato-" + timestamp + "-auditoria.md")
                 candidateAuditFile!!.writeText(candidateAudit, Charsets.UTF_8)
-                prefs.edit().putString("candidate_path", applied.directory.absolutePath).apply()
-                BardoActivityStore.record(applicationContext, taskId, "autoestudio", "candidate", "candidato_aislado", "Se creó una propuesta aislada; requiere compilación y aprobación.", 85, applied.directory.absolutePath)
+
+                val sourceCommit = File(snapshot, "BARDO_SOURCE_COMMIT.txt")
+                    .takeIf { it.isFile }?.readText(Charsets.UTF_8)?.trim().orEmpty()
+                val candidateId = BardoGitHubPolicy.newCandidateId()
+                val githubEligibility = runCatching {
+                    BardoGitHubPolicy.validateBaseSha(sourceCommit)
+                    BardoGitHubPolicy.validateCandidateId(candidateId)
+                    BardoGitHubPolicy.validatePatch(patch)
+                    BardoGitHubPolicy.validateChangedPaths(applied.changedFiles)
+                }
+                val githubReady = githubEligibility.isSuccess
+                val candidateEditor = prefs.edit()
+                    .putString("last_candidate_path", applied.directory.absolutePath)
+                if (githubReady) {
+                    candidateEditor
+                        .putString("candidate_path", applied.directory.absolutePath)
+                        .putString("candidate_patch", patch)
+                        .putString("candidate_base_sha", sourceCommit)
+                        .putString("candidate_files", applied.changedFiles.joinToString("\n"))
+                        .putString("candidate_id", candidateId)
+                        .putBoolean("candidate_validation_succeeded", false)
+                        .remove("candidate_validation_run_id")
+                } else {
+                    // A newer non-submittable proposal must not leave an older candidate active.
+                    candidateEditor
+                        .remove("candidate_path")
+                        .remove("candidate_patch")
+                        .remove("candidate_base_sha")
+                        .remove("candidate_files")
+                        .remove("candidate_id")
+                        .remove("candidate_validation_succeeded")
+                        .remove("candidate_validation_run_id")
+                }
+                candidateEditor.apply()
+
+                val githubStatus = if (githubReady) {
+                    "Candidato listo para validación aislada en GitHub Actions (base $sourceCommit, ID $candidateId). La integración sigue requiriendo aprobación explícita."
+                } else {
+                    "Candidato conservado solo localmente; no puede enviarse a GitHub: " +
+                        (githubEligibility.exceptionOrNull()?.message ?: "falta un SHA base o una ruta permitida.")
+                }
+                BardoActivityStore.record(
+                    applicationContext, taskId, "autoestudio", "candidate",
+                    "candidato_aislado", githubStatus, 85, applied.directory.absolutePath
+                )
                 summary += "\n\nCANDIDATO AISLADO CREADO\nArchivos: " +
                     applied.changedFiles.joinToString() +
                     "\nAuditoría posterior:\n" + candidateAudit +
+                    "\n" + githubStatus +
                     "\nNo compilado ni probado en el teléfono."
                 memoryFile.appendText(
                     "\n- [" + timestamp + "] Candidato " + applied.directory.name +
                         "; archivos: " + applied.changedFiles.joinToString() +
-                        "; pendiente de compilación y prueba física.\n",
+                        "; " + githubStatus + "; pendiente de compilación y prueba física.\n",
                     Charsets.UTF_8
                 )
             } else {

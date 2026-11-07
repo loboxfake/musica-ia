@@ -9,6 +9,9 @@ object BardoPatchApplier {
     // Protección aplicada por código: no depende de que Gemma siga instrucciones en el prompt.
     private val protectedPaths = setOf(
         "app/src/main/java/com/musicaia/MainActivity.kt",
+        "app/src/main/java/com/musicaia/BardoDeveloperActivity.kt",
+        "app/src/main/java/com/musicaia/BardoGitHubDevelopmentActivity.kt",
+        "app/src/main/java/com/musicaia/desarrollo/BardoGitHubAutomation.kt",
         "app/src/main/java/com/musicaia/desarrollo/BardoPatchApplier.kt",
         "app/src/main/java/com/musicaia/desarrollo/BardoDeveloperCore.kt",
         "app/src/main/java/com/musicaia/desarrollo/BardoDeveloperWorker.kt",

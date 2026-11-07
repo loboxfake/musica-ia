@@ -223,7 +223,9 @@ class BardoDeveloperActivity : AppCompatActivity() {
                 result.onSuccess {
                     snapshot = it.directory
                     getSharedPreferences("bardo_developer", MODE_PRIVATE).edit()
-                        .putString("snapshot_path", it.directory.absolutePath).remove("candidate_path")
+                        .putString("snapshot_path", it.directory.absolutePath)
+                        .putString("source_snapshot_path", it.directory.absolutePath)
+                        .remove("candidate_path")
                         .remove("candidate_patch").remove("candidate_base_sha").remove("candidate_files").remove("candidate_id").apply()
                     candidatePatch = ""
                     lastReport = ""
@@ -250,7 +252,9 @@ class BardoDeveloperActivity : AppCompatActivity() {
             runOnUiThread {
                 result.onSuccess {
                     snapshot = it.directory
-                    getSharedPreferences("bardo_developer", MODE_PRIVATE).edit().putString("snapshot_path", it.directory.absolutePath).remove("candidate_path")
+                    getSharedPreferences("bardo_developer", MODE_PRIVATE).edit().putString("snapshot_path", it.directory.absolutePath)
+                        .putString("source_snapshot_path", it.directory.absolutePath)
+                        .remove("candidate_path")
                         .remove("candidate_patch").remove("candidate_base_sha").remove("candidate_files").remove("candidate_id").apply()
                     candidatePatch = ""
                     lastReport = ""
@@ -365,6 +369,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
                     snapshot = applied.directory
                     getSharedPreferences("bardo_developer", MODE_PRIVATE).edit()
                         .putString("snapshot_path", applied.directory.absolutePath)
+                        .putString("source_snapshot_path", original.absolutePath)
                         .putString("candidate_path", applied.directory.absolutePath)
                         .putString("candidate_patch", patch)
                         .putString("candidate_base_sha", sourceCommit)
@@ -513,6 +518,13 @@ class BardoDeveloperActivity : AppCompatActivity() {
                 .putExtra(BardoGitHubDevelopmentActivity.EXTRA_PATCH, patch)
                 .putStringArrayListExtra(BardoGitHubDevelopmentActivity.EXTRA_CHANGED_FILES, ArrayList(paths))
         )
+    }
+
+    override fun onResume() {
+        super.onResume()
+        candidatePatch = getSharedPreferences("bardo_developer", MODE_PRIVATE)
+            .getString("candidate_patch", "").orEmpty()
+        actualizarBotonGithub()
     }
 
     override fun onDestroy() {

@@ -310,3 +310,35 @@ La implementación del cliente, los workflows y la pantalla de aprobación debe 
 - self_install sigue NOT_IMPLEMENTED; el token móvil registró HTTP 403 para publicar Release. La APK se publicó mediante GITHUB_TOKEN temporal de Actions.
 - Gemma conversacional no va empaquetado: debe importarse desde Descargas/BARDO/Modelos y verificarse. Stable Audio sí está empaquetado. Voz cantada, MiVoz y capacidades marcadas NOT_IMPLEMENTED no deben declararse listas.
 - No se ha instalado ni probado físicamente la APK en Xiaomi. Actualizar ambos documentos genera nueva instantánea y requiere nueva build integral.
+
+
+29. AUTONOMÍA OPERATIVA COMO PRIORIDAD Y CONTINUIDAD DEL CANDIDATO — 2026-11-07
+
+La prioridad vigente es que BARDO pueda estudiar el proyecto localmente, preparar una propuesta verificable, ejecutar validación remota aislada, recuperar resultados y preparar la integración en la única rama main. La autonomía no se presenta como completa hasta validar el ciclo de extremo a extremo.
+
+Resultado verificado de APK integral #198:
+- Commit fuente exacto: 98eec5883f277555299aa51c65d4d286a95dbfb2 (main).
+- Build full offline #198 / run 42401554690: SUCCESS en todos los pasos, incluida descarga de Stable Audio, tests, compilación nativa ExecuTorch, APK release, firma, auditorías, publicación de artefacto y Release y comprobación de rama única.
+- Validación #347 / run 42401554683: SUCCESS en Gitleaks del historial completo, actionlint, testDebugUnitTest y assembleDebug.
+- Release prerelease: https://github.com/loboxfake/musica-ia/releases/tag/bardo-build-198. Assets: app-release.apk y full-apk-audit.txt. La Release apunta al commit 98eec5883f277555299aa51c65d4d286a95dbfb2.
+- APK: package com.musicaia; versionName 1.0.1198; versionCode 1198; compileSdk 34; minSdk 26; ABI arm64-v8a; tamaño 937506109 bytes. SHA-256 f2ac4d17589606ab4174611a73e9a23e8db33739e3d65cbeb5493da8c9b5e9ee.
+- Certificado SHA-256: c46232017513c3171ba04d91cf579a72202a834f0bcd1c0a22e0c9de0e030368; firma v2/v3; APK no-debuggable; auditoría de credenciales PASS.
+- Artefacto BARDO-full-offline-198: ID 13586470845; 695606077 bytes; ZIP SHA-256 34bf3dca05e03686c76961530660ff8c92ade1f278c8870247a8a7eb191e49a5; expiración 2026-12-07.
+- La APK #198 es una compilación auditada, no la prueba física ni la entrega final de esta fase integral. No se ha instalado ni probado en el Xiaomi 11T Pro.
+
+Continuidad de autonomía añadida en el commit siguiente a #198:
+- El Worker de autoestudio, cuando Gemma devuelve un diff válido, lo aplica solo a una copia aislada y registra base SHA, identificador, diff y rutas del candidato en el almacenamiento privado de BARDO, siempre que cumpla BardoGitHubPolicy. El candidato queda disponible en BARDO Developer para validación CI.
+- Si falta el SHA base o las rutas exceden la allowlist, el candidato permanece local y el candidato anterior deja de quedar activo. No se integra código automáticamente.
+- Se diferencia source_snapshot_path del snapshot/copia candidata. El autoestudio siguiente parte del snapshot original y no incorpora accidentalmente un parche previo como si ya estuviera integrado en main. Se añade migración para instalaciones anteriores que guardaron una carpeta candidate- como snapshot_path.
+- La pantalla BARDO Developer actualiza los metadatos al volver a primer plano, para recoger candidatos creados por WorkManager.
+- BardoPatchApplier protege también BARDO Developer, la pantalla de integración GitHub y el cliente GitHub, alineando el aislamiento local con la política de CI. Las pruebas unitarias incluyen estos archivos protegidos.
+- BardoGitHubActionsClient.findRun localiza la ejecución por el ID único del candidato aunque head_sha no coincida con el SHA base enviado. Esto permite ver y diagnosticar un run rechazado por base obsoleta en vez de ocultarlo.
+- Estos cambios deben superar los workflows de CI del nuevo commit antes de declararse validados o incluidos en una APK aceptable.
+
+Ciclo funcional previsto y límites:
+- Autoestudio local con Gemma verificado → auditoría estática → diff en copia aislada → candidato elegible → validación en runner efímero sin secretos → aprobación expresa del usuario → commit normal fast-forward en main → build integral y APK firmada.
+- Requiere Gemma realmente importado/verificado y permiso SAF para Descargas/BARDO/Modelos. El modelo Gemma no se empaqueta dentro de la APK; Stable Audio sí.
+- PAT fine-grained limitado a loboxfake/musica-ia, Actions Read/Write + Contents Read, cifrado localmente en Android Keystore. El runner recibe GITHUB_TOKEN temporal. La integración sigue necesitando aprobación expresa.
+- La compilación de candidatos ocurre en GitHub Actions, no en Android. BARDO todavía no se auto-instala ni sustituye su propio APK: self_install permanece NOT_IMPLEMENTED.
+- La rama única es main. No crear ramas de desarrollo paralelas. Modo3, keystore, secretos y workflows de build/firma siguen protegidos.
+- La aceptación integral exige CI verde, APK y certificado auditados, y pruebas reales en Xiaomi 11T Pro de UI, memoria/temperatura, Gemma, audio, WAV/MP3 y reproducción. La fase no se cierra con una build verde por sí sola.

@@ -931,3 +931,30 @@ Limitaciones abiertas:
 - README distingue build de prueba física. No marcar como completado en dispositivo hasta recibir confirmación/logs de Xiaomi.
 
 La actualización de esta instantánea documental debe pasar una nueva build integral en main antes de que la APK resultante sea la entrega documental final. #197 permanece como referencia instalable para pruebas preliminares.
+
+
+53. AUTONOMÍA Y BUILD INTEGRAL #198 — RESULTADOS Y CONTINUIDAD DEL CANDIDATO — 2026-11-07
+
+Evidencia #198 (HEAD 98eec5883f277555299aa51c65d4d286a95dbfb2):
+- Build integral #198 / run 42401554690: SUCCESS. Job full-build ID 128490254475; pasos relevantes SUCCESS: snapshot fuente, modelo Stable Audio, tests, headers PyTorch, checkout/build ExecuTorch, firma, auditorías de contenido/integridad y credenciales, artefacto, Release y comprobación de main única.
+- Validación #347 / run 42401554683: SUCCESS. Job validate ID 128490254628; Gitleaks historial completo, actionlint, testDebugUnitTest y assembleDebug.
+- Release: https://github.com/loboxfake/musica-ia/releases/tag/bardo-build-198. prerelease=true, target commit 98eec5883f277555299aa51c65d4d286a95dbfb2; assets app-release.apk (937506109 bytes) y full-apk-audit.txt (6198 bytes).
+- APK com.musicaia, versionName 1.0.1198, versionCode 1198, compileSdk 34, minSdk 26, arm64-v8a, 937506109 bytes. SHA-256 f2ac4d17589606ab4174611a73e9a23e8db33739e3d65cbeb5493da8c9b5e9ee.
+- Certificado SHA-256 c46232017513c3171ba04d91cf579a72202a834f0bcd1c0a22e0c9de0e030368; firma v2/v3; non-debuggable PASS; escaneo de credenciales PASS.
+- Artefacto BARDO-full-offline-198 ID 13586470845; 695606077 bytes; digest ZIP SHA-256 34bf3dca05e03686c76961530660ff8c92ade1f278c8870247a8a7eb191e49a5; expira 2026-12-07.
+- Branch search paginado: solo main; default_branch=main. Blob protegido de Modo3 continúa 8f2745fa841a06af43bf909732fba834474bf7dc.
+- No hay validación física en Xiaomi 11T Pro. Release #198 no es la APK final de aceptación integral.
+
+Continuidad de autonomía incluida en el commit posterior a #198:
+- BardoDeveloperWorker conserva source_snapshot_path para el snapshot fuente y no reutiliza una carpeta candidate- como base de nuevo autoestudio. Migra instalaciones antiguas buscando el snapshot- original si snapshot_path apuntaba a una copia candidata.
+- Cuando el autoestudio local genera un diff, crea candidato aislado y lo registra con candidate_id, candidate_patch, candidate_base_sha y candidate_files si supera SHA, tamaño, formato y allowlist. Si no es elegible, conserva la copia solo localmente y elimina los metadatos activos de una propuesta anterior para evitar que se envíe por error.
+- BardoDeveloperActivity inicializa source_snapshot_path al importar el snapshot propio o ZIP; al aplicar una propuesta guarda por separado la fuente original y la copia candidata. En onResume recupera metadatos de candidatos generados por WorkManager.
+- BardoPatchApplier protege BardoDeveloperActivity, BardoGitHubDevelopmentActivity y BardoGitHubAutomation, además de las protecciones existentes. BardoPatchApplierTest cubre las tres rutas.
+- BardoGitHubPolicyTest refuerza la protección de rutas del núcleo. BardoGitHubActionsClient.findRun valida candidato/base y busca la ejecución por candidate_id, sin ocultar runs cuyo head_sha difiera por un cambio de main; el workflow de validación sigue rechazando explícitamente una base obsoleta.
+- El commit de estos cambios debe pasar Gitleaks, actionlint, testDebugUnitTest, assembleDebug y build integral antes de atribuirles estado SUCCESS o empaquetarlos como capacidad validada.
+
+Estado real de autonomía:
+- Implementado en código: autoestudio y memoria técnica locales; auditoría estática; creación de diff en copia aislada; metadatos de candidato elegible; puente GitHub para despachar/consultar validación; runner efímero sin secretos; integración normal en main después de aprobación; build integral firmada mediante CI.
+- Requiere configuración/uso: Gemma local en espacio BARDO con SHA verificado y memoria suficiente; permiso SAF al árbol Descargas/BARDO; PAT fine-grained repository-scoped con Actions Read/Write y Contents Read.
+- No implementado: auto-commit sin aprobación, self_install/auto-instalación, build Android local en el teléfono, autoedición del núcleo protegido, síntesis vocal/MiVoz, masterización profesional y portadas IA.
+- No declarar autonomía completa hasta probar en Xiaomi el autoestudio real, carga sostenida de Gemma, candidato, envío y consulta CI, aprobación, commit en main, build y APK instalada.

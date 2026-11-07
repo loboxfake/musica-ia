@@ -243,6 +243,8 @@ class BardoGitHubActionsClient(private val token: String) {
     }
 
     fun findRun(workflow: String, candidateId: String, baseSha: String): BardoGitHubRun? {
+        BardoGitHubPolicy.validateCandidateId(candidateId)
+        BardoGitHubPolicy.validateBaseSha(baseSha)
         val response = request(
             "GET",
             "/actions/workflows/$workflow/runs?branch=main&event=workflow_dispatch&per_page=100",
@@ -259,10 +261,11 @@ class BardoGitHubActionsClient(private val token: String) {
         for (index in 0 until array.length()) {
             val item = array.optJSONObject(index) ?: continue
             val title = item.optString("display_title", "")
-            val headSha = item.optString("head_sha", "")
+            // The candidate ID is unique. Do not filter by head_sha: GitHub records the
+            // branch tip, while the submitted base SHA is a workflow input. A stale-base
+            // run must still be visible so BARDO can report why CI rejected it.
             if (title.contains(prefix, ignoreCase = true) &&
-                title.contains(candidateId, ignoreCase = true) &&
-                headSha.equals(baseSha, ignoreCase = true)
+                title.contains(candidateId, ignoreCase = true)
             ) matches += parseRun(item)
         }
         return matches.maxByOrNull { it.createdAt }
