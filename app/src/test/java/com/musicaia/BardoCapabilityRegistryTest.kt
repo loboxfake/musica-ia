@@ -72,6 +72,10 @@ class BardoCapabilityRegistryTest {
         assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("history").status)
         assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("knowledge").status)
         assertEquals(BardoCapabilityRegistry.Status.REQUIRES_USER_ACTION, items.getValue("research").status)
+        assertEquals(BardoCapabilityRegistry.Status.NOT_IMPLEMENTED, items.getValue("project_build").status)
+        assertEquals(BardoCapabilityRegistry.Status.NOT_IMPLEMENTED, items.getValue("github_development").status)
+        assertTrue(items.getValue("project_build").detail.contains("no ejecuta Gradle"))
+        assertTrue(items.getValue("github_development").detail.contains("No se incrustan tokens"))
         assertTrue(items.getValue("self_install").detail.contains("Android"))
     }
 
