@@ -44,5 +44,10 @@ jobs:
           set -euo pipefail
           go install github.com/zricethezav/gitleaks/v8@v8.24.3
           "$(go env GOPATH)/bin/gitleaks" git . --log-opts="--all" --redact --exit-code 1 --no-banner
+      - name: Lint all GitHub Actions workflows
+        run: |
+          set -euo pipefail
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+          "$(go env GOPATH)/bin/actionlint" -color .github/workflows/*.yml
       - name: Run unit tests and compile debug APK
         run: gradle testDebugUnitTest assembleDebug --no-daemon --stacktrace

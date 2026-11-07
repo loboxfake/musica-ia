@@ -38,6 +38,7 @@ import com.musicaia.modelo.Orquestador
 import com.musicaia.modelo.BardoIntentRouter
 import com.musicaia.modelo.BardoCapabilityRegistry
 import com.musicaia.modelo.BardoResourceBudget
+import com.musicaia.desarrollo.BardoGitHubCredentialStore
 import com.musicaia.memoria.BardoConversationStore
 import com.musicaia.memoria.BardoKnowledgeStore
 import com.musicaia.memoria.BardoActivityStore
@@ -764,7 +765,8 @@ private fun crearEstructuraCarpetaBardo() {
              audioEnginePresent = AudioGenNative.available,
              mp3EncoderPresent = Mp3Exporter.available,
              availableMemoryBytes = memoriaLibre,
-             resourceBlockReason = BardoResourceBudget.blockingReason(this, BardoCapabilityRegistry.MIN_GEMMA_FREE_MEMORY_BYTES)
+             resourceBlockReason = BardoResourceBudget.blockingReason(this, BardoCapabilityRegistry.MIN_GEMMA_FREE_MEMORY_BYTES),
+             githubActionsConfigured = BardoGitHubCredentialStore.hasToken(this)
          )
      )
      val texto = android.text.SpannableStringBuilder()

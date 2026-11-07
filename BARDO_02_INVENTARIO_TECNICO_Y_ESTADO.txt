@@ -859,3 +859,40 @@ Comprobación actual de GitHub:
 - La APK #194 es una compilación firmada y auditada, pero el workflow global terminó en FAILURE. Se espera una nueva build completa SUCCESS antes de avisar para instalar.
 - Modo3MezclaVozUsuario.kt conserva el blob SHA-1 protegido 8f2745fa841a06af43bf909732fba834474bf7dc.
 - El siguiente ciclo CI se debe vincular al commit exacto que incorpora el workflow corregido y los dos documentos maestros; no reutilizar ni renombrar la APK #194 como nueva entrega.
+
+
+50. DESARROLLO DEL PUENTE AUTÓNOMO BARDO → GITHUB ACTIONS — 2026-11-07
+
+Objetivo de esta fase técnica:
+- Dar a BARDO la capacidad de tomar una propuesta de Gemma local, validarla en un runner efímero sin ChatGPT y, tras aprobación en la app, integrarla con un commit fast-forward en main y solicitar una APK completa.
+- La compilación se ejecuta en GitHub Actions; no se afirma que Android tenga Gradle/JDK/NDK locales.
+
+Archivos añadidos/modificados en el candidato de esta fase (pendiente de commit en main y CI):
+- app/src/main/java/com/musicaia/desarrollo/BardoGitHubAutomation.kt: token fine-grained cifrado AES-GCM/Android Keystore, política de rutas protegidas, empaquetado gzip/base64 y cliente REST de Actions.
+- app/src/main/java/com/musicaia/BardoGitHubDevelopmentActivity.kt: configuración del token, envío del candidato, consulta de run, aprobación explícita e integración.
+- BardoDeveloperActivity.kt: botón para pasar el diff aislado y SHA base a la pantalla GitHub; persiste metadatos del candidato.
+- BardoCapabilityRegistry.kt y MainActivity.kt: estados de project_build/github_development pasan a reflejar si existe configuración GitHub; requieren autorización si no existe.
+- AndroidManifest.xml registra la nueva Activity.
+- full-build.yml añade BARDO_SOURCE_COMMIT.txt al ZIP fuente para vincular la propuesta al SHA exacto.
+- bardo-candidate-validation.yml: workflow_dispatch con checkout exacto, sin credenciales persistidas, allowlist y protección de Modo3, tests y assembleDebug; publica informe.
+- bardo-commit-candidate.yml: solo acepta la ejecución de validación SUCCESS, vuelve a probar, exige base SHA actual, commit normal en main y dispatch de full-build.yml.
+- BardoGitHubPolicyTest.kt: pruebas para SHA/candidato, allowlist, protección de Modo3/núcleo/workflows/build, path traversal, duplicados y límites.
+- bardo-validation.yml añadirá actionlint para validar los workflows.
+
+Permisos/token requeridos en el teléfono:
+- Fine-grained PAT, acceso solo al repositorio loboxfake/musica-ia.
+- Repository permissions mínimos: Actions Read and write; Contents Read. La escritura la realiza el GITHUB_TOKEN temporal del workflow commit con permisos acotados, no el PAT guardado en el móvil.
+- Token cifrado localmente; no se escribe en assets, SharedPreferences en claro, logs, informes ni artefactos.
+
+Límites y controles:
+- Solo archivos existentes y modificados (sin altas, borrados o renombrados), hasta 30 ficheros; solo código, tests, recursos y docs.
+- Rechaza Modo3, MainActivity, pantallas/controladores de BARDO, Developer Core, Orquestador, registry, motores LiteRT, manifiesto, build scripts, workflows, Gradle wrapper y rutas no permitidas.
+- Diff hasta 384 KB antes de compresión y entrada de Actions acotada; candidato base debe ser el tip exacto de main. Si main cambia, se rechaza el candidato obsoleto.
+- CI se ejecuta con runner efímero sin secrets y checkout persist-credentials:false. El commit solo se realiza en un segundo workflow tras aprobar en la app y repetir los tests.
+- La aprobación no es automática; BARDO no puede integrarse sin la acción afirmativa del usuario. No hay branches paralelas, force-push ni reset.
+
+APK / pruebas:
+- Última APK integral anterior a este cambio: #195, run 42382399539, commit d0fd1451ee9f8594a44a6fe747c5f258d6ee50c2, SUCCESS integral. APK SHA-256 b80a7aba59dbe9a8cc1011f0c3c64c4fd827cd75c55cb7533eeba65d2edd94ce; Release bardo-build-195.
+- La #195 NO contiene el puente GitHub de esta sección; se mantiene como referencia instalable, no como entrega final de autonomía.
+- SHA protegido de Modo3 confirmado en main antes del puente: 8f2745fa841a06af43bf909732fba834474bf7dc.
+- El puente no se considerará completado hasta que el nuevo commit supere Gitleaks, actionlint, testDebugUnitTest, assembleDebug y build integral firmado; además será necesaria una prueba real tras instalar la APK y configurar el token en el Xiaomi.

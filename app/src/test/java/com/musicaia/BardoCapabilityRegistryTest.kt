@@ -72,11 +72,27 @@ class BardoCapabilityRegistryTest {
         assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("history").status)
         assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("knowledge").status)
         assertEquals(BardoCapabilityRegistry.Status.REQUIRES_USER_ACTION, items.getValue("research").status)
-        assertEquals(BardoCapabilityRegistry.Status.NOT_IMPLEMENTED, items.getValue("project_build").status)
-        assertEquals(BardoCapabilityRegistry.Status.NOT_IMPLEMENTED, items.getValue("github_development").status)
-        assertTrue(items.getValue("project_build").detail.contains("no ejecuta Gradle"))
-        assertTrue(items.getValue("github_development").detail.contains("No se incrustan tokens"))
+        assertEquals(BardoCapabilityRegistry.Status.REQUIRES_USER_ACTION, items.getValue("project_build").status)
+        assertEquals(BardoCapabilityRegistry.Status.REQUIRES_USER_ACTION, items.getValue("github_development").status)
+        assertTrue(items.getValue("project_build").detail.contains("token fine-grained"))
+        assertTrue(items.getValue("github_development").detail.contains("No se incrustan credenciales"))
         assertTrue(items.getValue("self_install").detail.contains("Android"))
+    }
+
+    @Test
+    fun enablesRemoteCandidateBuildAndApprovedMainIntegrationOnlyWhenGitHubIsConfigured() {
+        val items = BardoCapabilityRegistry.snapshot(
+            BardoCapabilityRegistry.RuntimeFacts(
+                gemmaFilePresent = true,
+                audioEnginePresent = true,
+                mp3EncoderPresent = true,
+                githubActionsConfigured = true
+            )
+        ).associateBy { it.id }
+        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("project_build").status)
+        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("github_development").status)
+        assertTrue(items.getValue("project_build").detail.contains("runner efímero"))
+        assertTrue(items.getValue("github_development").acceptanceCriteria.contains("aprobación explícita"))
     }
 
     @Test

@@ -273,3 +273,19 @@ Regla operativa que sustituye cualquier instrucción histórica incompatible:
 - La limpieza automática de referencias antiguas se sustituye por una comprobación no destructiva: tras publicar la APK, CI verifica que la única rama activa sea main. No borra refs, no hace merge, no reescribe historia y no depende de SHA históricos locales.
 - La siguiente build integral sobre el commit que incorpora esta corrección de workflow y ambos documentos maestros debe finalizar completamente en SUCCESS. La existencia de la Release #194 no sustituye esa nueva ejecución.
 - Continuidad: una única rama main, commits fast-forward, ningún reset --hard, force-push, rebase ni borrado automático.
+
+
+26. PUENTE DE DESARROLLO CON GITHUB ACTIONS — IMPLEMENTACIÓN PREVISTA EN ESTA ENTREGA
+
+BARDO dispondrá de un flujo de programación asistida que no depende de ChatGPT para preparar y validar código:
+- Gemma local analiza snapshots y produce un diff; BardoPatchApplier lo aplica únicamente a una copia candidata.
+- La APK lleva BARDO_SOURCE_COMMIT.txt dentro del snapshot para fijar el SHA exacto de origen.
+- La app permite configurar un fine-grained PAT limitado a este repositorio con Actions: Read and write y Contents: Read. Se cifra con AES-GCM usando una clave no exportable de Android Keystore. El token no se empaqueta, no se escribe en el repositorio ni se envía al runner.
+- bardo-candidate-validation.yml aplica el diff en un runner efímero con Contents: read, sin secretos, sin credenciales persistentes y sin modificar main. Ejecuta testDebugUnitTest y assembleDebug; publica un informe de candidato.
+- Si y solo si la validación termina en SUCCESS, BARDO muestra una acción de aprobación explícita. bardo-commit-candidate.yml vuelve a aplicar y validar el mismo diff; comprueba que main sigue en el SHA base y que la ejecución de validación indicada fue SUCCESS; después realiza un commit fast-forward directamente en main y solicita full-build.yml.
+- No se crean ramas paralelas ni PR. No se usan force-push, reset --hard ni borrado de refs.
+- Se limita a modificar archivos existentes en código, pruebas, recursos y documentación; no puede cambiar Modo3, el núcleo protegido, flujos de CI, firma, secretos, Gradle o manifiesto. Límite: hasta 30 archivos, diff comprimido de tamaño acotado. Los candidatos obsoletos se rechazan.
+- El runner GitHub es una dependencia externa opcional para compilar y probar; Gemma y la memoria continúan siendo locales. Sin conexión o token, BARDO conserva auditoría y propuestas aisladas, pero no puede ejecutar la compilación remota. Esto no es compilación Gradle local en Android ni autonomía ilimitada.
+- La integración en main requiere aprobación humana en la aplicación. La nueva APK firmada se publica solo después de que el workflow integral y sus auditorías terminen SUCCESS.
+
+La implementación del cliente, los workflows y la pantalla de aprobación debe superar Gitleaks, actionlint, tests unitarios, compilación de depuración y build integral firmada antes de considerarse incluida en una APK instalable.

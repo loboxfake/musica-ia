@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.content.Intent
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
@@ -33,6 +34,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.musicaia.desarrollo.BardoDeveloperWorker
+import com.musicaia.desarrollo.BardoGitHubPolicy
 
 /** Entorno local de investigación y auditoría. Nunca ejecuta código importado ni modifica el APK instalado. */
 class BardoDeveloperActivity : AppCompatActivity() {
@@ -42,9 +44,12 @@ class BardoDeveloperActivity : AppCompatActivity() {
     private lateinit var btnAsk: Button
     private lateinit var btnExport: Button
     private lateinit var btnApply: Button
+    private lateinit var btnGithub: Button
     private var snapshot: File? = null
     private var lastReport: String = ""
     private var lastProposal: String = ""
+    private var candidatePatch: String = ""
+    private var isBusy: Boolean = false
     private val worker = Executors.newSingleThreadExecutor { task -> Thread(task, "BARDO-Developer").apply { isDaemon = true } }
     private val workspace by lazy { File(filesDir, "bardo_developer") }
     private val reportFile by lazy { File(workspace, "ultima_auditoria.md") }
@@ -89,6 +94,8 @@ class BardoDeveloperActivity : AppCompatActivity() {
         }
         btnAnalyze.isEnabled = snapshot != null
         btnApply.isEnabled = lastProposal.contains("--- a/") && lastProposal.contains("+++ b/")
+        candidatePatch = getSharedPreferences("bardo_developer", MODE_PRIVATE).getString("candidate_patch", "").orEmpty()
+        actualizarBotonGithub()
         val hayReferencias = workspace.listFiles()?.any { it.isFile && it.name.startsWith("referencia-") } == true
         btnAsk.isEnabled = (lastReport.isNotBlank() || hayReferencias) && LiteRTLMModule.modelFile(this).isFile
         if (lastReport.isNotBlank()) output.text = lastReport + if (lastProposal.isNotBlank()) "\n\nPROPUESTA DE AUTOESTUDIO (copia aislada; no aplicada al proyecto original):\n\n" + lastProposal else ""
@@ -114,6 +121,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
         btnAnalyze = addButton(root, "Analizar código y generar auditoría", enabled = snapshot != null) { analizarProyecto() }
         btnAsk = addButton(root, "Consultar a BARDO con Gemma local", enabled = false) { consultarModelo() }
         btnApply = addButton(root, "Aplicar propuesta a una copia aislada", enabled = false) { aplicarPropuesta() }
+        btnGithub = addButton(root, "Validar e integrar candidato con GitHub CI", enabled = false) { abrirDesarrolloGitHub() }
         addButton(root, "Iniciar autoestudio ahora (Gemma local)") { ejecutarAutoestudioAhora() }
         addButton(root, "Activar autoestudio en segundo plano (cada 6 h, al cargar)") { activarAutoestudio() }
         addButton(root, "Pausar autoestudio automático") { pausarAutoestudio() }
@@ -215,9 +223,12 @@ class BardoDeveloperActivity : AppCompatActivity() {
                 result.onSuccess {
                     snapshot = it.directory
                     getSharedPreferences("bardo_developer", MODE_PRIVATE).edit()
-                        .putString("snapshot_path", it.directory.absolutePath).remove("candidate_path").apply()
+                        .putString("snapshot_path", it.directory.absolutePath).remove("candidate_path")
+                        .remove("candidate_patch").remove("candidate_base_sha").remove("candidate_files").remove("candidate_id").apply()
+                    candidatePatch = ""
                     lastReport = ""
                     lastProposal = ""
+                    actualizarBotonGithub()
                     output.text = "Código fuente de esta compilación importado: ${it.files} archivos. Iniciando auditoría estática…"
                     setBusy(false)
                     analizarProyecto()
@@ -239,9 +250,12 @@ class BardoDeveloperActivity : AppCompatActivity() {
             runOnUiThread {
                 result.onSuccess {
                     snapshot = it.directory
-                    getSharedPreferences("bardo_developer", MODE_PRIVATE).edit().putString("snapshot_path", it.directory.absolutePath).remove("candidate_path").apply()
+                    getSharedPreferences("bardo_developer", MODE_PRIVATE).edit().putString("snapshot_path", it.directory.absolutePath).remove("candidate_path")
+                        .remove("candidate_patch").remove("candidate_base_sha").remove("candidate_files").remove("candidate_id").apply()
+                    candidatePatch = ""
                     lastReport = ""
                     lastProposal = ""
+                    actualizarBotonGithub()
                     btnAnalyze.isEnabled = true
                     btnAsk.isEnabled = false
                     output.text = "SNAPSHOT IMPORTADO\n\nArchivos: ${it.files}\nTamaño de fuentes: ${it.bytes / 1024} KB\nEntradas omitidas: ${it.skipped}\n\nPulsa Analizar para revisar patrones de riesgo. El original no se ha modificado."
@@ -344,18 +358,28 @@ class BardoDeveloperActivity : AppCompatActivity() {
             val result = runCatching { BardoPatchApplier.aplicar(original, patch, workspace) }
             runOnUiThread {
                 result.onSuccess { applied ->
+                    val sourceCommit = File(original, "BARDO_SOURCE_COMMIT.txt")
+                        .takeIf { it.isFile }?.readText(Charsets.UTF_8)?.trim().orEmpty()
+                    val candidateId = BardoGitHubPolicy.newCandidateId()
+                    candidatePatch = patch
                     snapshot = applied.directory
                     getSharedPreferences("bardo_developer", MODE_PRIVATE).edit()
-                        .putString("snapshot_path", applied.directory.absolutePath).apply()
+                        .putString("snapshot_path", applied.directory.absolutePath)
+                        .putString("candidate_path", applied.directory.absolutePath)
+                        .putString("candidate_patch", patch)
+                        .putString("candidate_base_sha", sourceCommit)
+                        .putString("candidate_files", applied.changedFiles.joinToString("\n"))
+                        .putString("candidate_id", candidateId)
+                        .putBoolean("candidate_validation_succeeded", false)
+                        .apply()
                     val report = BardoDeveloperCore.analizar(applied.directory)
                     lastReport = report.render()
                     reportFile.writeText(lastReport)
                     btnApply.isEnabled = false
-                    output.text = "PROPUESTA APLICADA A UNA COPIA, NO AL CÓDIGO INSTALADO\n\nArchivos: " +
+                    actualizarBotonGithub()
+                    output.text = "PROPUESTA APLICADA A UNA COPIA AISLADA, NO AL CÓDIGO INSTALADO\n\nArchivos: " +
                         applied.changedFiles.joinToString() + "\n\n" + lastReport +
-                        "\n\nLa copia original se conserva. Esta auditoría no sustituye una compilación ni pruebas en el teléfono."
-                    appendMemory("Cambios de propuesta aplicados a copia candidata " + applied.directory.name +
-                        ": " + applied.changedFiles.joinToString() + ". Pendiente de compilación y prueba.")
+                        "\n\nLa copia original se conserva. La compilación se realizará en un runner efímero cuando envíes el candidato a GitHub."
                 }.onFailure {
                     output.text = "BARDO rechazó la propuesta: " + it.message +
                         "\n\nNo se modificó el snapshot original."
@@ -442,11 +466,53 @@ class BardoDeveloperActivity : AppCompatActivity() {
     }
 
     private fun setBusy(busy: Boolean, message: String = "") {
+        isBusy = busy
         btnAnalyze.isEnabled = !busy && snapshot != null
         btnAsk.isEnabled = !busy && lastReport.isNotBlank() && LiteRTLMModule.modelFile(this).isFile
         btnApply.isEnabled = !busy && lastProposal.contains("--- a/") && lastProposal.contains("+++ b/")
         btnExport.isEnabled = !busy
         if (message.isNotBlank()) output.text = message
+        actualizarBotonGithub()
+    }
+
+    private fun actualizarBotonGithub() {
+        if (!::btnGithub.isInitialized) return
+        val prefs = getSharedPreferences("bardo_developer", MODE_PRIVATE)
+        val baseSha = prefs.getString("candidate_base_sha", "").orEmpty()
+        val candidateId = prefs.getString("candidate_id", "").orEmpty()
+        val patch = prefs.getString("candidate_patch", "").orEmpty()
+        val paths = prefs.getString("candidate_files", "").orEmpty().lines().filter { it.isNotBlank() }
+        btnGithub.isEnabled = !isBusy && runCatching {
+            BardoGitHubPolicy.validateBaseSha(baseSha)
+            BardoGitHubPolicy.validateCandidateId(candidateId)
+            BardoGitHubPolicy.validatePatch(patch)
+            BardoGitHubPolicy.validateChangedPaths(paths)
+        }.isSuccess
+    }
+
+    private fun abrirDesarrolloGitHub() {
+        val prefs = getSharedPreferences("bardo_developer", MODE_PRIVATE)
+        val baseSha = prefs.getString("candidate_base_sha", "").orEmpty()
+        val candidateId = prefs.getString("candidate_id", "").orEmpty()
+        val patch = prefs.getString("candidate_patch", "").orEmpty()
+        val paths = prefs.getString("candidate_files", "").orEmpty().lines().filter { it.isNotBlank() }
+        runCatching {
+            BardoGitHubPolicy.validateBaseSha(baseSha)
+            BardoGitHubPolicy.validateCandidateId(candidateId)
+            BardoGitHubPolicy.validatePatch(patch)
+            BardoGitHubPolicy.validateChangedPaths(paths)
+        }.onFailure {
+            output.text = "Este candidato no puede enviarse a GitHub: ${it.message}"
+            actualizarBotonGithub()
+            return
+        }
+        startActivity(
+            Intent(this, BardoGitHubDevelopmentActivity::class.java)
+                .putExtra(BardoGitHubDevelopmentActivity.EXTRA_BASE_SHA, baseSha)
+                .putExtra(BardoGitHubDevelopmentActivity.EXTRA_CANDIDATE_ID, candidateId)
+                .putExtra(BardoGitHubDevelopmentActivity.EXTRA_PATCH, patch)
+                .putStringArrayListExtra(BardoGitHubDevelopmentActivity.EXTRA_CHANGED_FILES, ArrayList(paths))
+        )
     }
 
     override fun onDestroy() {

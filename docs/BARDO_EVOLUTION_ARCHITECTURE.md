@@ -158,3 +158,8 @@ Chat con burbujas diferenciadas, emblema de BARDO, fecha/hora por mensaje, separ
 
 ## Estado real al iniciar
 La versión probada dispone de UI musical, reproductor WAV y un flujo conversacional parcialmente guiado con integración LiteRT-LM condicionada a que el modelo local exista y pase verificación. No se considera todavía un asistente general, una memoria estructurada completa ni un sistema de autoevolución. Esta especificación define el destino; cada función se marcará como implementada solo tras código, pruebas y verificación.
+
+
+## Puente de validación e integración de candidatos
+
+La app puede usar opcionalmente un fine-grained PAT limitado al repositorio para iniciar workflows. El PAT se guarda cifrado con Android Keystore y se limita a Actions read/write y Contents read. El runner nunca recibe ese PAT ni otros secrets. El workflow de validación aplica un diff a un checkout efímero, revisa allowlist/protecciones y ejecuta tests/assembleDebug. Otro workflow, únicamente después de validación SUCCESS y aprobación explícita dentro de BARDO, repite pruebas, confirma que main no cambió, crea un commit fast-forward y solicita la APK integral. main sigue siendo la única rama. Sin token/red, el modo local conserva auditoría y propuestas aisladas, pero no puede compilar remotamente.

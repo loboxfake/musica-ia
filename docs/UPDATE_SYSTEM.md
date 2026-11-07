@@ -26,3 +26,8 @@ The first generation attempt calls `ModuloInstrumental.cargar()`, which copies t
 - `BARDO / full offline APK release` reports whether the audited full APK was published to GitHub Releases.
 - A release is installable only after the full-offline audit succeeds. A green lightweight compile is not a substitute.
 - A successful release still requires a real playback check on the target phone before audio generation is considered verified.
+
+
+## BARDO developer bridge
+
+BARDO can optionally validate local Gemma-generated patches through a repository-scoped GitHub Actions runner. The app stores a fine-grained token encrypted with Android Keystore; the token is never embedded in the APK or passed to the runner. The validation workflow has read-only repository access, no secrets and no persistent checkout credentials. A separate integration workflow requires an explicit in-app approval, re-runs tests, verifies the exact main base commit and pushes a normal fast-forward commit to main. It then dispatches the signed full APK workflow. No parallel branches are created. This is remote CI, not on-device Gradle execution; without a configured token/network BARDO remains in local static-audit and isolated-proposal mode.

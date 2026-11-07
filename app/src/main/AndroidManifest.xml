@@ -38,6 +38,7 @@
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/bardo_file_paths" />
         </provider>
         <activity android:name=".BardoDeveloperActivity" android:exported="false" />
+        <activity android:name=".BardoGitHubDevelopmentActivity" android:exported="false" />
 
         <activity
             android:name=".MainActivity"
