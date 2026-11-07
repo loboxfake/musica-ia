@@ -343,6 +343,30 @@ jobs:
               --target "$GITHUB_SHA"
           fi
 
+
+      - name: Retire consolidated legacy branch refs after audited main release
+        if: success() && github.ref == 'refs/heads/main' && github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_LEGACY_HEAD: 28332da4b4706758600bd25f63bc2e67c840b377
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor "$EXPECTED_LEGACY_HEAD" "$GITHUB_SHA"
+          for branch in bardo-unified-core bardo-device-fixes bardo-worker-hardening base-verde ruta-a-compile; do
+            ref="repos/$GITHUB_REPOSITORY/git/ref/heads/$branch"
+            current=$(gh api "$ref" --jq '.object.sha' 2>/dev/null || true)
+            if [ -z "$current" ]; then
+              echo "Branch $branch already absent."
+              continue
+            fi
+            if [ "$current" != "$EXPECTED_LEGACY_HEAD" ]; then
+              echo "::error::Branch $branch has unexpected head $current; refusing to delete unintegrated work."
+              exit 1
+            fi
+            gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$branch"
+            echo "Deleted branch reference $branch; its full history is retained in main."
+          done
+
       - name: Report full offline APK release status
         if: always()
         uses: actions/github-script@v7
