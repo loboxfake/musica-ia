@@ -723,3 +723,22 @@ Próximo alcance de implementación (no declarar implementado hasta revisar cód
 - Comprobar herramientas realmente disponibles en Android frente a las que requieren un entorno de compilación externo; declararlas como dependencias si corresponde.
 - Preservar Gemma original en Descargas/BARDO/Modelos y el límite SAF Descargas/BARDO; no descargarlo de nuevo.
 - Preservar Modo3, firma y Secrets. No declarar entrenamiento de pesos ni autonomía plena sin evidencia reproducible.
+
+
+44. AUDITORÍA DE AUTONOMÍA DEL DEVELOPER CORE — 2026-11-07
+
+Inspección de código en main:
+- BardoDeveloperCore.kt: importa ZIP con límites de entradas/tamaño/rutas y realiza análisis estático de texto. No ejecuta código ni compila.
+- BardoDeveloperWorker.kt: WorkManager ejecuta autoestudio local con Gemma; comprueba tamaño/SHA-256 del modelo, RAM/batería/temperatura, analiza snapshot, guarda memoria e informes privados y exporta copias a Descargas/BARDO/Autoestudio mediante SAF. Puede crear una copia candidata aislada a partir de un diff. El propio informe dice que el candidato no se compila ni se prueba.
+- BardoPatchApplier.kt: aplica diffs solo a archivos existentes dentro de una copia; rechaza rutas inseguras, archivos protegidos, workflows, configuración Gradle y Modo3. No cambia el código instalado ni crea commits.
+- BardoDeveloperActivity.kt: ofrece importar ZIP, analizar, consultar Gemma, aplicar propuesta a copia, autoestudio programado y consulta de documentación HTTPS de una lista de dominios. No hay una acción que ejecute Gradle/compiladores sobre el candidato ni integración GitHub para crear ramas/PR/builds.
+- BardoCapabilityRegistry.kt: declara auditoría estática y sandbox de parches disponibles, pero no expresa como capacidades independientes la compilación/ejecución de proyectos ni la gestión de GitHub desde BARDO. Se debe corregir esa visibilidad antes de anunciar autonomía de programación completa.
+- La protección de BardoDeveloperCore, Worker, PatchApplier, Orquestador, catálogo, memoria, manifiesto, workflows y Modo3 impide que un diff de autoestudio cambie directamente el núcleo. Es una salvaguarda intencional; para evolucionar el núcleo se necesita un mecanismo separado, revisado y aprobado.
+- BardoSharedStorage.copyFile limita la exportación a la carpeta BARDO elegida mediante SAF, verifica tamaño copiado y elimina únicamente un destino parcial creado por la operación.
+- MainActivity contiene acceso a BardoDeveloperActivity; el módulo Developer no está ausente, pero su alcance real es auditoría/propuestas y no un entorno completo de desarrollo autónomo.
+
+Conclusión técnica de esta inspección:
+- La implementación actual constituye autoestudio local y preparación de parches aislados, no autonomía completa de programación. No hay todavía ejecución de tests/compilación del candidato ni puente seguro para que BARDO solicite un workflow GitHub y reciba logs/artefactos.
+- Para cumplir la visión, falta diseñar e implementar un ejecutor de validación aislado y un puente GitHub con autorización explícita, permisos mínimos, credenciales fuera de la APK, ramas de propuesta, CI reproducible, revisión de diffs, control de archivos protegidos y reversión. El teléfono no debe recibir ni almacenar un token GitHub de privilegios amplios dentro de la APK.
+- No se realizó cambio de código en esta inspección. Los únicos cambios de este ciclo son documentales: commit cfc43ad58141e09d0246cdc0b19d704505193832 (BARDO_01) y commit 48db34d18499e0bca71cd1f9e8c0469996df44e5 (BARDO_02). HEAD documental resultante: 48db34d18499e0bca71cd1f9e8c0469996df44e5.
+- No se lanzó una nueva build integral desde este HEAD porque el workflow full-build.yml no se dispara por cambios únicamente documentales. La APK #185 sigue siendo un artefacto de un commit anterior y no se ofrece como entrega final de autonomía.
