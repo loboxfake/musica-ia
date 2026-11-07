@@ -304,7 +304,7 @@ DIRECTIVA DOCUMENTAL PERMANENTE — 2026-11-07:
 17. REVISIÓN AMPLIADA DE RAMAS, PR, RELEASES Y BUILD — 2026-11-07
 
 Estado de ramas observado en GitHub:
-- bardo-unified-core: rama activa; HEAD documental actual d33a1b6ce1f5d3de8c33063802601fa6e17c7fa4.
+- bardo-unified-core: rama activa; HEAD previo a esta actualización documental: d33a1b6ce1f5d3de8c33063802601fa6e17c7fa4.
 - main: 7b0b075199d00df5e13fd6da6f3aecb19c7c0511; sin modificaciones en esta fase.
 - Comparación main...bardo-unified-core: 490 commits por delante, 4 por detrás, estado diverged. No hacer merge automático ni reescribir historia.
 - bardo-device-fixes: cd73c07566b1481b926aa4b59722234fab337540; 305 commits por detrás de bardo-unified-core.
@@ -331,3 +331,10 @@ Protecciones verificadas en esta revisión:
 - Modo3MezclaVozUsuario.kt conserva Git blob SHA-1 8f2745fa841a06af43bf909732fba834474bf7dc.
 - No se han modificado Secrets, keystore ni certificado.
 - No se ha fusionado PR ni rama auxiliar.
+
+
+18. ACTUALIZACIÓN DE CI EN CURSO — 2026-11-07
+
+- Run integral 42350622162: ya completó correctamente Run unit tests (SUCCESS). En el último chequeo, Install pinned PyTorch headers for ExecuTorch CMake estaba IN_PROGRESS. La compilación nativa, firma, auditoría aapt corregida, escáner y publicación siguen pendientes.
+- Run de validación 42350622187: Gitleaks SUCCESS; compilación debug/pruebas no había finalizado en el último chequeo.
+- No cambiar el estado global a verde hasta completar todos los pasos y confirmar el artefacto firmado y auditado.
