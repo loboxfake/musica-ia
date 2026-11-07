@@ -976,3 +976,19 @@ Evidencia desde GitHub:
 - Sigue pendiente prueba física: importar/reutilizar Gemma desde Descargas/BARDO/Modelos con SAF, configurar PAT fine-grained, producir candidato real, ejecutar validación, aprobar integración, verificar commit main y build desde BARDO y probar audio/temperatura/RAM en Xiaomi 11T Pro. No se afirma que el usuario haya realizado estos pasos ni que el APK haya sido instalado.
 - Build #200 se disparará por esta sincronización de inventario y visión y debe contener estos registros, con la misma línea de código y rama main.
 
+
+
+55. BUILD INTEGRAL #200 — EVIDENCIA DE GITHUB Y ESTADO DE ACEPTACIÓN — 2026-11-07
+
+- HEAD de la build: 883da561172723e04074a0d5a41de4a4dc871612; rama main.
+- Ramas activas consultadas en GitHub: únicamente main.
+- Build #200 / run 42408804329: completed/success. Job full-build ID 128512254970. Todos los pasos, desde setup hasta complete job, SUCCESS.
+- Validación #349 / run 42408804372: SUCCESS.
+- Release https://github.com/loboxfake/musica-ia/releases/tag/bardo-build-200; prerelease=true; target_commitish=883da561172723e04074a0d5a41de4a4dc871612. Assets app-release.apk 937510205 bytes y full-apk-audit.txt 6198 bytes.
+- APK package com.musicaia; versionName 1.0.1200; versionCode 1200; compileSdk 34; minSdk 26; ABI arm64-v8a; size 937510205 bytes; SHA-256 35e0b0fac105c35f0fc74483c107073e7d26522a493d55330ee5f9f5e3836514.
+- Certificado SHA-256 c46232017513c3171ba04d91cf579a72202a834f0bcd1c0a22e0c9de0e030368. Verificaciones: APK ZIP integrity PASS; launcher resources PASS; non-debuggable PASS; credenciales/material de firma PASS.
+- Artefacto BARDO-full-offline-200 ID 13589036650; 695613877 bytes; ZIP SHA-256 8a27e8c2947a680f87341d6784da3b5319f5cac6e8a1e386f609a533522dca45; expires 2026-12-07.
+- El job imprimió explícitamente: “Active Git branches: main” y “Verified: main is the only active branch. No legacy refs are deleted.”
+- La build empaqueta el modelo de audio local y librerías ARM64. Gemma conversacional no forma parte de esta APK; requiere importación y verificación por el usuario.
+- Límite: no hay prueba de instalación ni ejecución física en Xiaomi 11T Pro. No marcar autonomía extremo a extremo como aceptada hasta verificar Gemma local, permiso SAF, PAT fine-grained, creación/validación/aprobación de candidato, integración fast-forward en main, build y uso real de audio en el dispositivo.
+- self_install sigue NOT_IMPLEMENTED; no afirmar auto-instalación ni autonomía sin intervención humana.
