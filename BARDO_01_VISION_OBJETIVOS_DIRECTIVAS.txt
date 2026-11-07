@@ -233,3 +233,12 @@ La auditoría de código vigente distingue el autoestudio ya existente de la aut
 - La aplicación Android no debe afirmar que puede compilar proyectos completos localmente si no dispone de JDK, Android SDK, NDK, Gradle y recursos suficientes. Cuando la compilación dependa de CI u ordenador, declarar esa dependencia con claridad.
 - El núcleo protegido no puede autoeditarse mediante el mismo PatchApplier que analiza código de terceros. La evolución del núcleo necesita un flujo separado de propuesta, revisión, CI, aprobación y reversión.
 - Hasta que ese ciclo pase pruebas reproducibles, BARDO se describe como autoestudio local con propuestas aisladas, no como programador autónomo completo.
+
+
+22. VISIBILIDAD HONESTA DE LAS CAPACIDADES DE PROGRAMACIÓN — 2026-11-07
+
+La interfaz/registro de capacidades debe distinguir explícitamente:
+- Auditoría estática y preparación de parches aislados: capacidades existentes, con límites declarados.
+- Compilación/ejecución de proyectos y pruebas de candidatos: NO IMPLEMENTADAS hasta que exista ejecutor aislado y resultados reproducibles.
+- Desarrollo integrado con GitHub (ramas, PR, ejecución CI, recuperación de logs/artefactos): NO IMPLEMENTADO hasta que exista un puente autorizado, seguro y verificable.
+Estas declaraciones evitan presentar el autoestudio actual como autonomía de programación completa. Su estado solo cambiará después de implementar y probar los flujos de extremo a extremo.
