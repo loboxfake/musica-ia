@@ -1,11 +1,13 @@
 BARDO — INVENTARIO TÉCNICO Y ESTADO REAL
+NOTA DE VIGENCIA (2026-11-07): Las entradas de inventario anteriores al apartado 46 son registros históricos fechados en su contexto. Las menciones de bardo-unified-core como rama de trabajo describen la etapa previa a la consolidación del commit 28332da4. Desde esa consolidación, main es la única rama activa. No interpretar los estados históricos como estado actual.
+
 Fecha de inspección: 2026-11-07
 Rama canónica de integración: main
 Estado: inventario técnico; ninguna función se marca como probada en el Xiaomi hasta confirmación del usuario.
 
 1. REPOSITORIO Y CONTROL DE CAMBIOS
 Repositorio: loboxfake/musica-ia
-Rama de trabajo: bardo-unified-core
+Rama de trabajo histórica: bardo-unified-core (integrada en main; no es una rama activa)
 HEAD al crear este inventario: f2fe04b06c7d86ff6c19ee9afac5b3933cabbb5d (commit de este documento; el código previo inmediato era b063442f5dc1f2c3aee5b93bb8ebfbd8ff02c902).
 Comparación observada con main: 482 commits por delante y 4 por detrás.
 main no se ha modificado ni fusionado.
@@ -16,7 +18,7 @@ Reglas activas:
 - No introducir secretos en APK.
 - No regenerar ni cambiar keystore/Secrets.
 - No modificar Modo3 sin autorización específica.
-- No fusionar main sin revisión del usuario.
+- No fusionar nuevas ramas en main sin revisión expresa del usuario. La consolidación existente de seis historiales ya fue auditada; main es la única rama activa.
 
 2. MODO3 PROTEGIDO
 Archivo: app/src/main/java/com/musicaia/modulos/Modo3MezclaVozUsuario.kt

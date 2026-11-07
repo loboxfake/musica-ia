@@ -1,6 +1,6 @@
 BARDO — VISIÓN, OBJETIVOS Y DIRECTIVAS
-Versión documental: 2026-11-06
-Rama de trabajo: bardo-unified-core
+Versión documental: 2026-11-07
+Rama de trabajo: main (única rama canónica desde la consolidación de seis historiales del 2026-11-07)
 Estado: ESPECIFICACIÓN VIGENTE. Los objetivos no implican que estén implementados ni probados.
 
 1. IDENTIDAD Y PRINCIPIO RECTOR
@@ -123,7 +123,7 @@ dorado del icono original.
 Brillo solo en pestaña activa y tarjeta de generación. Sin desenfoques ni fondos pesados. Logotipo BARDO grabado, texto Local first e icono adaptativo con pluma y notas.
 
 12. REPOSITORIO, FIRMA Y ACTUALIZACIÓN
-- Trabajar solo en bardo-unified-core. No tocar main ni fusionar sin revisión expresa.
+- DIRECTIVA HISTÓRICA DE 2026-11-06, SUSTITUIDA: trabajar solo en bardo-unified-core y no tocar main. Tras la consolidación de seis padres 28332da4 del 2026-11-07, la única rama activa es main; consultar la directiva vigente del apartado 24.
 - No force-push, reset --hard, borrar trabajo remoto ni reescribir historia.
 - No introducir tokens, claves ni keystores en la APK o el repositorio.
 - No regenerar clave ni cambiar Secrets.
