@@ -144,3 +144,20 @@ En cada entrega se informará:
 - qué falta y qué no pudo comprobarse;
 - checklist de prueba en el Xiaomi 11T Pro.
 Una compilación verde no equivale a aplicación terminada. Ninguna capacidad se da por finalizada hasta la prueba real del usuario.
+
+14. GOBIERNO DOCUMENTAL Y CONTINUIDAD (DIRECTIVA PERMANENTE — 2026-11-07)
+
+Los documentos BARDO_01_VISION_OBJETIVOS_DIRECTIVAS.txt y BARDO_02_INVENTARIO_TECNICO_Y_ESTADO.txt son los registros maestros sincronizados del proyecto y prevalecen sobre resúmenes informales del chat cuando describen el estado vigente.
+
+Obligaciones:
+- Ante cada acuerdo, instrucción del usuario, nuevo objetivo, cambio de prioridad, modificación o cancelación de objetivo, actualizar BARDO_01 con la decisión, alcance, motivo si consta y fecha.
+- Ante cada inspección, commit, cambio de código/configuración, ejecución CI, error, corrección, artefacto, hash o prueba de dispositivo, actualizar BARDO_02 con evidencia concreta y estado.
+- Cuando un acuerdo tenga consecuencias técnicas, actualizar ambos documentos en el mismo ciclo de trabajo.
+- Mantener ambos documentos coherentes: visión/objetivos describe lo que se quiere y las reglas; inventario distingue implementado, parcial, pendiente, fallido y probado en dispositivo.
+- No borrar decisiones anteriores relevantes. Añadir una entrada fechada que las modifique o sustituya explícitamente, conservando trazabilidad.
+- No declarar una instrucción como acuerdo aceptado si el usuario no la ha establecido o aprobado.
+- La respuesta de chat no sustituye el registro documental. Antes de cerrar una fase, comprobar que ambos documentos están actualizados en la rama de trabajo.
+- Si no se puede actualizar GitHub, comunicarlo claramente; no afirmar que los documentos se actualizaron.
+- Toda actualización documental se realiza en bardo-unified-core; no modificar main ni fusionar sin autorización expresa.
+
+La petición del usuario del 2026-11-07 establece expresamente esta obligación como directiva permanente.
