@@ -1050,3 +1050,10 @@ Continuidad y límites:
 - El primer commit 4ef913d5645004abc12f5dfd95cee8e4121adf85 introdujo una interpolación accidental al generar el bloque shell y GitHub no pudo cargar bardo-commit-candidate.yml; run 42419003777 terminó FAILURE sin jobs.
 - Se corrige el bloque completo con expresiones regex literales intactas y comprobaciones del path del workflow, evento, rama, estado, conclusión, SHA base y título/candidate_id.
 - Los runs de validación #354 y build #205 del commit de corrección deben comprobarse antes de declarar el cambio verificado. La corrección no se considera probada hasta entonces.
+
+
+60. SEGUNDA CORRECCIÓN DEL WORKFLOW — ELIMINACIÓN DE FRAGMENTO DUPLICADO — 2026-11-07
+
+- La validación #355 detectó que, además del bloque correcto al inicio del job, quedaba un fragmento de shell duplicado insertado después del último paso del workflow. actionlint lo señaló en la línea 190 (YAML inválido); no se ejecutaron tests Kotlin en esa validación.
+- Se elimina el fragmento residual y se conserva una sola secuencia de pasos: verificación de run, checkout, revalidación del diff, tests, commit y despacho de build.
+- La versión resultante queda pendiente de actionlint, Gitleaks, tests, assembleDebug y build integral. Los fallos previos #354/#355 se conservan como historial y no se presentan como verdes.
