@@ -300,3 +300,34 @@ DIRECTIVA DOCUMENTAL PERMANENTE — 2026-11-07:
 - BARDO_02 recoge inspecciones, commits, implementación, CI, fallos, correcciones, artefactos, hashes y pruebas reales.
 - Cada decisión con impacto técnico debe registrarse en ambos documentos en el mismo ciclo. No borrar historial relevante; añadir entradas fechadas que sustituyan explícitamente estados anteriores.
 - Esta obligación se aplica a todo el trabajo futuro en bardo-unified-core. No modificar main ni fusionar sin autorización.
+
+17. REVISIÓN AMPLIADA DE RAMAS, PR, RELEASES Y BUILD — 2026-11-07
+
+Estado de ramas observado en GitHub:
+- bardo-unified-core: rama activa; HEAD documental actual 5e1cfb65565c09a8d1b345944fd4f271fdd93318.
+- main: 7b0b075199d00df5e13fd6da6f3aecb19c7c0511; sin modificaciones en esta fase.
+- Comparación main...bardo-unified-core: 490 commits por delante, 4 por detrás, estado diverged. No hacer merge automático ni reescribir historia.
+- bardo-device-fixes: cd73c07566b1481b926aa4b59722234fab337540; 305 commits por detrás de bardo-unified-core.
+- bardo-worker-hardening: 7fc9b5a3444b846cfe0940245145fc93dce5a3f2; 3 commits exclusivos respecto a bardo-unified-core, pero 332 commits por detrás. Sus cambios revisados incluyen registro de inicio/estado de autoestudio y retry para IOException/RAM insuficiente en BardoDeveloperWorker. No cherry-pick: rama muy divergente; evaluar manualmente y portar solo tras revisar compatibilidad y añadir pruebas.
+- base-verde: 526 commits por detrás; no integrar.
+- ruta-a-compile: 289 commits por detrás; no integrar automáticamente.
+
+Pull requests:
+- PR #1 «BARDO: real audio progress, cancellation, MP3 archive and offline chat fixes»: OPEN, DRAFT, base main, head bardo-device-fixes, mergeable=false, 44 archivos, +5345/-357. No fusionar: rama antigua/divergente y la propia descripción indica que la compilación integral y la reproducción física aún no están confirmadas.
+
+Releases/artefactos:
+- La release más reciente visible es bardo-build-149, prerelease, publicada 2026-11-06; contiene app-debug.apk (938133218 bytes) y full-apk-audit.txt. No es el nuevo binario firmado y auditado de esta fase; no recomendar instalarla como entrega actual.
+- No hay release nueva ni artefacto publicado por el run 42350622162 al último chequeo.
+
+Build integral corregido:
+- Run 42350622162, commit de código/workflow 24cb5b0d6e91b2e86c35f1c168e91b2fa27411ca: en ejecución al último chequeo.
+- Ya superó checkout, generación de mipmaps, snapshot de fuentes, descarga del paquete Stable Audio, JDK 17, instalación CMake/NDK y setup Gradle.
+- Ejecutaba Run unit tests; todavía no se había registrado su resultado final.
+- Pendientes tras tests: encabezados PyTorch, checkout/submódulos ExecuTorch, compilación nativa, firma, auditoría aapt corregida, escáner de credenciales y publicación del artefacto.
+- Run de validación 42350622187: Gitleaks SUCCESS; pruebas y compilación debug todavía en ejecución al último chequeo.
+
+Protecciones verificadas en esta revisión:
+- main conserva SHA 7b0b075199d00df5e13fd6da6f3aecb19c7c0511.
+- Modo3MezclaVozUsuario.kt conserva Git blob SHA-1 8f2745fa841a06af43bf909732fba834474bf7dc.
+- No se han modificado Secrets, keystore ni certificado.
+- No se ha fusionado PR ni rama auxiliar.
