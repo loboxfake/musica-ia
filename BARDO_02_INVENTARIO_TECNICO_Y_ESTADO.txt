@@ -591,3 +591,34 @@ Validación de 3125de488ae1bc6d9053a24e6e11fa9a65bc7311:
 - Build completa #179 / run 42361705142: pruebas unitarias, compilación nativa, firma, auditoría de contenido/integridad y escaneo de credenciales completados correctamente; artefacto BARDO-full-offline-179 publicado (artifact ID 13570273520; SHA-256 del ZIP del artefacto: 6b90eeaa0aaffb53a6a87388b9653896bd02a65edd828abf5acf9c192b2a78dc).
 - Publicación de GitHub Release #179 estaba en curso al registrar esta nota; verificar finalización antes de facilitar enlace de descarga.
 - Aun con CI correcto, sigue pendiente la prueba física de instalación, arranque, memoria/temperatura, inferencia Gemma, WAV real, reproducción y MP3 en Xiaomi 11T Pro.
+
+
+39. REVISIÓN POSTERIOR DE RAMAS, MODO 3 Y BUILD #180 — 2026-11-07
+
+Estado de ramas en HEAD 9d534e512e45ef12da2ae038eb098bf845a03cae:
+- main: HEAD 7b0b075199d00df5e13fd6da6f3aecb19c7c0511; 4 commits exclusivos y 538 por detrás de bardo-unified-core. Los exclusivos son: 5ad4b13b Register full offline APK workflow for manual dispatch; 14de38c5 Publish full offline APK as release to bypass Actions artifact quota; ee0805a6 Fix formatting issue in full-build.yml; 7b0b0751 Enable manual Android APK builds. Son cambios de workflow antiguos, revisados y funcionalmente cubiertos por el workflow integral vigente; no se cherry-pickean.
+- bardo-device-fixes: HEAD cd73c07566b1481b926aa4b59722234fab337540; 0 exclusivos, 353 por detrás. PR #1 sigue open/draft, mergeable=false, base antigua 14de38c578b58d2cf9afb176561716ed3988066a. No fusionar.
+- bardo-worker-hardening: HEAD 7fc9b5a3444b846cfe0940245145fc93dce5a3f2; 3 exclusivos, 380 por detrás. Los commits exclusivos son f54b5693 (gestión de errores/reintentos del Worker), 5b30df04 (workflow de validación de rama) y 7fc9b5a3 (checkout de rama exacta). La mejora del Worker está integrada en la línea unificada; los dos cambios de workflow son redundantes.
+- base-verde: HEAD f68ea19cae9a81070c382edb26e6aac2e6d0868d; 0 exclusivos, 574 por detrás. Rama histórica anterior a Modo 3.
+- ruta-a-compile: HEAD a97866a21e9dc683e972aae44731622067a0ef30; 0 exclusivos, 337 por detrás. Sus cambios ya están en la línea unificada.
+- bardo-unified-core: HEAD 9d534e512e45ef12da2ae038eb098bf845a03cae. Es la única rama de integración autorizada para esta fase.
+- Se compararon las historias de todas las seis ramas; las únicas diferencias exclusivas fuera de la rama unificada son los 4 commits de main y los 3 de bardo-worker-hardening descritos arriba.
+
+Protección e historia de Modo 3:
+- SHA-1 Git blob actual: 8f2745fa841a06af43bf909732fba834474bf7dc.
+- El mismo blob se verifica en main, bardo-unified-core, bardo-device-fixes, bardo-worker-hardening y ruta-a-compile.
+- base-verde no contiene aún el archivo porque es anterior a Modo 3.
+- La historia del archivo contiene exactamente cuatro commits: a27dfaf (implementación de Modo 3), dfd9f8f (import FileOutputStream), 4606551 (corrección persistente) y 620f218 (corrección de compilación #44). No se ha modificado en los commits de esta fase.
+
+Autoestudio y límites de la instantánea:
+- La instantánea embebida de código/documentación contiene 114 archivos y 785.400 bytes sin comprimir (0,749 MiB); el archivo más grande es MainActivity.kt con 191.526 bytes. Está holgadamente dentro de los límites de BardoDeveloperCore: 3.000 archivos, 60 MiB totales y 2 MiB por archivo.
+- Incluye app/src/main, app/src/test, workflows, catalogo, tools, docs, ESPECIFICACION.md, BARDO_01, BARDO_02 y README. Incluye pruebas y especificaciones para que Gemma local pueda analizar también arquitectura y validaciones.
+
+Build #180 / commit 9d534e512e45ef12da2ae038eb098bf845a03cae:
+- Workflow run 42362825195; pruebas unitarias, inicialización recursiva de ExecuTorch, compilación nativa, firma y auditoría de contenido/integridad completadas.
+- APK construido: versionCode 1180, versionName 1.0.1180, package com.musicaia, 937.448.765 bytes, SHA-256 5f0bd8b0889ca7587699eddb77ca472ec367f4c30d3e2f82edda0742911fbd11.
+- Certificado SHA-256 c46232017513c3171ba04d91cf579a72202a834f0bcd1c0a22e0c9de0e030368, idéntico a #177/#179.
+- El escáner final detectó un falso positivo real del propio test BardoDeveloperCoreTest.kt: el test escribía literalmente una cadena github_pat_ ficticia para probar la detección estática. Como ahora los tests se incluyen dentro del snapshot de la APK, el escáner detectó la muestra. No era una credencial real. No se desactiva ni se debilita el escáner.
+- Corrección preparada para el siguiente commit: construir la muestra ficticia concatenando dos literales en tiempo de ejecución; la prueba seguirá verificando que BardoDeveloperCore detecta el token generado, pero el texto contiguo no quedará incrustado en la APK.
+- El run #180 no publicó artefacto ni release porque la comprobación de credenciales falló por esa muestra de test. No descargar ni distribuir el APK #180.
+- La siguiente build añade además un indicador persistente de inferencia Gemma entre recreaciones de Activity, límites CI para la instantánea de autoestudio y auditoría de que los assets .pte/.model estén sin compresión para que AssetManager.openFd pueda abrirlos.

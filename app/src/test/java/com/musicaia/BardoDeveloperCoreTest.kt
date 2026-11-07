@@ -44,8 +44,11 @@ class BardoDeveloperCoreTest {
         try {
             File(base, "build.gradle.kts").writeText("implementation(\"org.example:lib:+\")")
             File(base, "AndroidManifest.xml").writeText("<manifest/>")
+            // Construye el token ficticio en tiempo de ejecución: el escáner de la APK
+            // no debe encontrar una credencial contigua dentro del propio código de test.
+            val fakeToken = "github_pat_" + "123456789012345678901234"
             File(base, "Unsafe.kt").writeText(
-                "fun run() {\n  try { work() } catch (e: Exception) {}\n  Thread.sleep(100)\n  val token = \"github_pat_123456789012345678901234\"\n}"
+                "fun run() {\n  try { work() } catch (e: Exception) {}\n  Thread.sleep(100)\n  val token = \"" + fakeToken + "\"\n}"
             )
             val report = BardoDeveloperCore.analizar(base)
             assertTrue(report.findings.any { it.title == "Excepción posiblemente silenciada" })

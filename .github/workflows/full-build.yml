@@ -61,6 +61,16 @@ jobs:
           unzip -l "$RUNNER_TEMP/bardo-source-snapshot.zip" | grep -q 'BARDO_02_INVENTARIO_TECNICO_Y_ESTADO.txt'
           unzip -l "$RUNNER_TEMP/bardo-source-snapshot.zip" | grep -q 'ESPECIFICACION.md'
           unzip -l "$RUNNER_TEMP/bardo-source-snapshot.zip" | grep -q 'docs/BARDO_EVOLUTION_ARCHITECTURE.md'
+          python3 - "$RUNNER_TEMP/bardo-source-snapshot.zip" <<'PY'
+          import sys, zipfile
+          with zipfile.ZipFile(sys.argv[1]) as archive:
+              entries = [item for item in archive.infolist() if not item.is_dir()]
+              total = sum(item.file_size for item in entries)
+              oversized = [item.filename for item in entries if item.file_size > 2 * 1024 * 1024]
+              if len(entries) > 3000 or total > 60 * 1024 * 1024 or oversized:
+                  raise SystemExit(f"BARDO_SNAPSHOT_EXCEEDS_IMPORT_LIMITS: files={len(entries)} bytes={total} oversized={oversized[:5]}")
+              print(f"BARDO_SOURCE_SNAPSHOT_IMPORTABLE: files={len(entries)} uncompressed_bytes={total}")
+          PY
           cp "$RUNNER_TEMP/bardo-source-snapshot.zip" app/src/main/assets/bardo_source_snapshot.zip
           ls -lh app/src/main/assets/bardo_source_snapshot.zip
 
@@ -231,7 +241,11 @@ jobs:
                   info = z.getinfo(name)
                   if info.file_size <= 0:
                       raise SystemExit(f"EMPTY_APK_ENTRY: {name}")
+                  if name.endswith((".pte", ".model")) and info.compress_type != zipfile.ZIP_STORED:
+                      raise SystemExit(f"MODEL_ASSET_MUST_BE_UNCOMPRESSED_FOR_OPENFD: {name}")
                   report.append(f"ENTRY_OK: {name} ({info.file_size} bytes)")
+                  if name.endswith((".pte", ".model")):
+                      report.append(f"MODEL_ASSET_OPENFD_COMPATIBLE: {name} (ZIP_STORED)")
           pathlib.Path("full-apk-audit.txt").write_text("\n".join(report) + "\n")
           print("\n".join(report))
           PY

@@ -1951,6 +1951,13 @@ private fun crearEstructuraCarpetaBardo() {
      } else null
  }
 
+ private fun marcarInferenciaGemma(activa: Boolean) {
+     getSharedPreferences("bardo_developer", MODE_PRIVATE).edit()
+         .putBoolean("gemma_chat_inference_running", activa)
+         .putLong("gemma_chat_inference_started_at", if (activa) System.currentTimeMillis() else 0L)
+         .apply()
+ }
+
  private fun responderConOrquestador(textoUsuario: String, respuestaGuiada: String) {
      anexarChat("\nTú: $textoUsuario")
      val modelo = LiteRTLMModule.modelFile(this)
@@ -1978,6 +1985,7 @@ private fun crearEstructuraCarpetaBardo() {
          .getString("conocimiento_importado", "").orEmpty().takeLast(4000)
      btnEnviar.isEnabled = false
      gemmaInferenceEnCurso = true
+     marcarInferenciaGemma(true)
      tvEstado.text = "El orquestador está consultando el modelo local..."
      Thread({
          val resultado = runCatching {
@@ -2008,6 +2016,7 @@ private fun crearEstructuraCarpetaBardo() {
           val respuesta = resultado.getOrNull()
           runOnUiThread {
               gemmaInferenceEnCurso = false
+              marcarInferenciaGemma(false)
               btnEnviar.isEnabled = true
               if (isFinishing || isDestroyed) return@runOnUiThread
               actualizarInsigniaNucleo()
@@ -2094,6 +2103,7 @@ private fun crearEstructuraCarpetaBardo() {
          .getString("conocimiento_importado", "").orEmpty().takeLast(3000)
      btnEnviar.isEnabled = false
      gemmaInferenceEnCurso = true
+     marcarInferenciaGemma(true)
      tvEstado.text = "BARDO está preparando una respuesta con el modelo local..."
      Thread({
          val resultado = runCatching {
@@ -2125,6 +2135,7 @@ private fun crearEstructuraCarpetaBardo() {
          }
          runOnUiThread {
              gemmaInferenceEnCurso = false
+             marcarInferenciaGemma(false)
              btnEnviar.isEnabled = true
              if (isFinishing || isDestroyed) return@runOnUiThread
              actualizarInsigniaNucleo()
@@ -2474,11 +2485,14 @@ private fun crearEstructuraCarpetaBardo() {
      Log.w(etiqueta, "Se evitó iniciar una segunda tarea porque ocupado=true")
      return
  }
- if (gemmaInferenceEnCurso) {
-     tvEstado.text = "Gemma está terminando la respuesta actual. Espera antes de iniciar la generación de audio."
+ val autoStudyPrefs = getSharedPreferences("bardo_developer", MODE_PRIVATE)
+ val chatInferenceStarted = autoStudyPrefs.getLong("gemma_chat_inference_started_at", 0L)
+ val chatInferenceActive = autoStudyPrefs.getBoolean("gemma_chat_inference_running", false) &&
+     (chatInferenceStarted <= 0L || System.currentTimeMillis() - chatInferenceStarted < 60L * 60L * 1000L)
+ if (gemmaInferenceEnCurso || chatInferenceActive) {
+     tvEstado.text = "Gemma está terminando una respuesta en curso. Espera antes de iniciar la generación de audio."
      return
  }
- val autoStudyPrefs = getSharedPreferences("bardo_developer", MODE_PRIVATE)
  val autoStudyStatus = autoStudyPrefs.getString("last_auto_study_status", "").orEmpty()
  val autoStudyAttempt = autoStudyPrefs.getLong("last_auto_study_attempt_at", 0L)
  val autoStudyIsActive = autoStudyStatus == "running" &&
