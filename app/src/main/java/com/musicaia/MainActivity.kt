@@ -488,6 +488,7 @@ class MainActivity : AppCompatActivity() {
      selectorImportarBackup.launch(arrayOf("*/*"))
  }
  findViewById<Button>(R.id.btnVerCapacidades).setOnClickListener { mostrarCapacidades() }
+ restaurarCarpetaBardoPersistida()
  actualizarEtiquetaCarpetaBardo()
  findViewById<Button>(R.id.btnImportarConocimiento).setOnClickListener {
      selectorImportarConocimiento.launch(arrayOf("text/plain", "text/markdown", "application/json"))
@@ -633,6 +634,29 @@ class MainActivity : AppCompatActivity() {
      }
      prefs.edit().putString("active_conversation_id", activeConversationId).apply()
      renderizarConversacionActiva()
+ }
+
+ /**
+  * Recupera el árbol SAF y su permiso persistente en cada arranque.
+  * Sin esto, BARDO solo encontraba Gemma durante la sesión en que se eligió la carpeta.
+  */
+ private fun restaurarCarpetaBardoPersistida() {
+     val prefs = getSharedPreferences("bardo_storage", MODE_PRIVATE)
+     val rawUri = prefs.getString("tree_uri", null) ?: return
+     val tree = runCatching { Uri.parse(rawUri) }.getOrNull() ?: return
+     val permission = contentResolver.persistedUriPermissions.any {
+         it.uri == tree && it.isReadPermission && it.isWritePermission
+     }
+     if (!permission) {
+         uriCarpetaBardo = null
+         bardoRootDocumentId = null
+         tvEstado.text = "Android ya no conserva el permiso de Descargas/BARDO. Vuelve a elegir la carpeta para que BARDO pueda localizar tu Gemma y guardar sus informes."
+         return
+     }
+     uriCarpetaBardo = tree
+     bardoRootDocumentId = prefs.getString(
+         "root_document_id", DocumentsContract.getTreeDocumentId(tree)
+     )
  }
 
  private fun actualizarEtiquetaCarpetaBardo() {

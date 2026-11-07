@@ -45,6 +45,12 @@ class BardoDeveloperWorker(
         val prefs = applicationContext.getSharedPreferences("bardo_developer", Context.MODE_PRIVATE)
         val reportFile = File(workspace, "ultima_auditoria.md")
         val memoryFile = File(workspace, "memoria_tecnica.md")
+        val attemptStartedAt = System.currentTimeMillis()
+        prefs.edit()
+            .putLong("last_auto_study_attempt_at", attemptStartedAt)
+            .putString("last_auto_study_status", "running")
+            .putString("last_auto_study_message", "Preparando el autoestudio local.")
+            .apply()
         var modelStarted = false
         var candidateAuditFile: File? = null
         val taskId = inputData.getString("task_id") ?: java.util.UUID.randomUUID().toString()
@@ -220,11 +226,22 @@ $authorizedReferences
         } catch (cancelled: CancellationException) {
             // WorkManager usa la cancelación para detener el trabajo; no convertirla en fallo/reintento.
             throw cancelled
-        } catch (error: Throwable) {
+        } catch (error: Exception) {
             val message = error.javaClass.simpleName + ": " + (error.message ?: "Error sin detalle")
+            val retryable = error is java.io.IOException ||
+                message.contains("RAM libre insuficiente", ignoreCase = true) ||
+                message.contains("Batería baja", ignoreCase = true) ||
+                message.contains("demasiado caliente", ignoreCase = true) ||
+                message.contains("Gemma local no está instalado", ignoreCase = true) ||
+                message.contains("generación de audio está activa", ignoreCase = true)
             runCatching {
                 workspace.mkdirs()
-                BardoActivityStore.record(applicationContext, taskId, "autoestudio", "failed", "error", message, null, reportFile.absolutePath)
+                BardoActivityStore.record(
+                    applicationContext, taskId, "autoestudio",
+                    if (retryable) "retry" else "failed",
+                    if (retryable) "reintento" else "error",
+                    message, null, reportFile.absolutePath
+                )
                 reportFile.writeText(
                     "AUTOESTUDIO NO COMPLETADO\n\n" + message +
                         "\n\nNo se modificó el código instalado.",
@@ -237,21 +254,12 @@ $authorizedReferences
                     )
                 }
                 prefs.edit()
-                    .putLong("last_auto_study_at", System.currentTimeMillis())
-                    .putString("last_auto_study_status", "blocked")
+                    .putLong("last_auto_study_attempt_at", System.currentTimeMillis())
+                    .putString("last_auto_study_status", if (retryable) "retry" else "blocked")
                     .putString("last_auto_study_message", message)
                     .apply()
             }
-            if (message.contains("RAM libre insuficiente") ||
-                message.contains("Batería baja") ||
-                message.contains("demasiado caliente") ||
-                message.contains("Gemma local no está instalado") ||
-                message.contains("generación de audio está activa")
-            ) {
-                Result.retry()
-            } else {
-                Result.failure()
-            }
+            if (retryable) Result.retry() else Result.failure()
         } finally {
             if (modelStarted) EngineLiteRT.cerrarAsync()
         }
