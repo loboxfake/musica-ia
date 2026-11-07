@@ -83,6 +83,7 @@ class BardoCapabilityRegistryTest {
         assertEquals(BardoCapabilityRegistry.Status.NOT_IMPLEMENTED, items.getValue("voice_synthesis").status)
         assertEquals(BardoCapabilityRegistry.Status.NOT_IMPLEMENTED, items.getValue("mix_master").status)
         assertEquals(BardoCapabilityRegistry.Status.NOT_IMPLEMENTED, items.getValue("cover_art").status)
-        assertTrue(items.getValue("self_install").detail.contains("publicada"))
+        assertTrue(items.getValue("self_install").detail.contains("403"))
+        assertTrue(items.getValue("self_install").detail.contains("artefacto"))
     }
 }
