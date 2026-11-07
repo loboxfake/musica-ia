@@ -267,3 +267,36 @@ Ajustes y límites todavía pendientes:
 - El workflow integral publica actualmente un artefacto de Actions con retención de 1 día; no publica parche diferencial ni Release pública en esta rama.
 - No se ha completado una prueba real en el Xiaomi 11T Pro de Gemma, conversación en modo avión, generación instrumental, escucha WAV/MP3, cancelación, ni Modo3.
 - El estado verde de CI no equivale a prueba física. No declarar capacidades terminadas hasta la confirmación del usuario.
+
+16. SEGUIMIENTO Y CORRECCIÓN DE AUDITORÍA — 2026-11-07 (ESTADO POSTERIOR; SUSTITUYE EL ESTADO PREVIO DE LA COMPILACIÓN 42347674482)
+
+Resultado real de la compilación integral 42347674482:
+- Estado final: FAILURE, no por compilación nativa.
+- Build assembleRelease -PwithAudioNative=true: SUCCESS.
+- Firma de APK con Secrets existentes: SUCCESS.
+- apksigner verify: SUCCESS y la comprobación de huella esperada no detuvo el workflow.
+- Auditoría de contenido: FAILURE en el chequeo del launcher.
+- Causa observada en log: LAUNCHER_RESOURCES_INCOMPLETE: main=0, foreground=0, adaptive=0.
+- El auditor inspeccionaba nombres originales ic_launcher*.webp/xml dentro del ZIP final. Android compila y empaqueta recursos en la tabla de recursos; por tanto, esa búsqueda literal en nombres ZIP no es un método válido para comprobar recursos Android compilados.
+- Como la auditoría falló, los pasos de escaneo de credenciales/Secrets y publicación del artefacto quedaron SKIPPED. No existe APK publicada/entregable desde esta ejecución. No instalar.
+- La firma superada no convierte en aprobada una APK cuya auditoría global no ha terminado.
+
+Corrección aplicada:
+- Commit 24cb5b0d6e91b2e86c35f1c168e91b2fa27411ca: .github/workflows/full-build.yml deja de exigir nombres fuente dentro del ZIP y verifica mipmap/ic_launcher y mipmap/ic_launcher_round desde aapt dump resources. Se conserva la comprobación de integridad ZIP, archivos de modelo/licencia/native .so, paquete, minSdk y no-debuggable.
+- La generación de mipmaps sigue validando los cinco tamaños/densidades a partir de las ilustraciones aprobadas de mipmap-mdpi.
+- Esta corrección aún no está validada por una nueva ejecución integral al momento de registrar esta entrada. Esperar nuevo run y revisar logs reales.
+
+Validación más reciente:
+- Run 42347975272 en commit 73c5ae2662ffb5744dcb238c43e337f0d717131d: BARDO integration validation SUCCESS; Gitleaks y pruebas/compilación debug SUCCESS.
+- La compilación integral anterior sigue FAILURE por la causa descrita; no reinterpretar el resultado.
+- Rama bardo-unified-core antes de la corrección: 73c5ae2662ffb5744dcb238c43e337f0d717131d; commit de corrección del workflow: 24cb5b0d6e91b2e86c35f1c168e91b2fa27411ca.
+- main no se ha modificado. No se ha fusionado PR alguno.
+- Modo3MezclaVozUsuario.kt no se ha modificado en esta fase; mantener protección y comprobar su hash tras cualquier futuro cambio.
+- No se han regenerado ni modificado claves, keystore o Secrets.
+
+DIRECTIVA DOCUMENTAL PERMANENTE — 2026-11-07:
+- El usuario ordena mantener siempre sincronizados BARDO_01_VISION_OBJETIVOS_DIRECTIVAS.txt y BARDO_02_INVENTARIO_TECNICO_Y_ESTADO.txt.
+- BARDO_01 recoge acuerdos, instrucciones, prioridades, objetivos nuevos/modificados/cancelados y reglas.
+- BARDO_02 recoge inspecciones, commits, implementación, CI, fallos, correcciones, artefactos, hashes y pruebas reales.
+- Cada decisión con impacto técnico debe registrarse en ambos documentos en el mismo ciclo. No borrar historial relevante; añadir entradas fechadas que sustituyan explícitamente estados anteriores.
+- Esta obligación se aplica a todo el trabajo futuro en bardo-unified-core. No modificar main ni fusionar sin autorización.
