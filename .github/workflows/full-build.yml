@@ -243,11 +243,18 @@ jobs:
           fi
           echo "RELEASE_APK_NON_DEBUGGABLE: PASS" | tee -a full-apk-audit.txt
           BUILD_TOOLS=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
+          VERIFY_OUTPUT="$("$BUILD_TOOLS/apksigner" verify --verbose "$apk")"
+          printf '%s\n' "$VERIFY_OUTPUT"
+          printf '%s\n' "$VERIFY_OUTPUT" | grep -Eiq 'Verified using v2 scheme.*true'
+          printf '%s\n' "$VERIFY_OUTPUT" | grep -Eiq 'Verified using v3 scheme.*true'
           CERT_OUTPUT="$("$BUILD_TOOLS/apksigner" verify --print-certs --verbose "$apk")"
-          CERT_SHA256="$(printf '%s\\n' "$CERT_OUTPUT" | sed -nE 's/.*certificate SHA-256 digest: ([0-9a-fA-F]{64}).*/\\1/p' | head -n 1 | tr '[:upper:]' '[:lower:]')"
+          CERT_SHA256="$(printf '%s\n' "$CERT_OUTPUT" | sed -nE 's/.*certificate SHA-256 digest: ([0-9a-fA-F]{64}).*/\1/p' | head -n 1 | tr '[:upper:]' '[:lower:]')"
           EXPECTED_CERT_SHA256="c46232017513c3171ba04d91cf579a72202a834f0bcd1c0a22e0c9de0e030368"
           test "$CERT_SHA256" = "$EXPECTED_CERT_SHA256"
-          printf 'SOURCE_COMMIT: %s\\nWORKFLOW_RUN: %s\\nCERTIFICATE_SHA256: %s\\nSIGNATURE_SCHEMES: V2=true,V3=true\\n' "$GITHUB_SHA" "$GITHUB_RUN_NUMBER" "$CERT_SHA256" | tee -a full-apk-audit.txt
+          {
+            printf 'SOURCE_COMMIT: %s\nWORKFLOW_RUN: %s\nCERTIFICATE_SHA256: %s\n' "$GITHUB_SHA" "$GITHUB_RUN_NUMBER" "$CERT_SHA256"
+            printf '%s\n' "$VERIFY_OUTPUT" | grep -Ei 'Verified using v[123].*true' | sed 's/^/SIGNATURE_SCHEME: /'
+          } | tee -a full-apk-audit.txt
 
       - name: Audit APK for embedded credentials and signing material
         run: |
