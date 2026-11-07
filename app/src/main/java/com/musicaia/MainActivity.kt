@@ -1875,6 +1875,7 @@ private fun crearEstructuraCarpetaBardo() {
     datosConver[campo] = valor
     if (campo == "tipo") {
         if (BardoIntentRouter.isInstrumentalOnlyType(valor)) {
+            datosConver["vozFuente"] = "ninguna"
             val promptInstrumental = listOf(
                 "Tema: ${datosConver["tema"].orEmpty()}",
                 "Estilo: ${datosConver["estilo"].orEmpty()}",
@@ -1885,6 +1886,9 @@ private fun crearEstructuraCarpetaBardo() {
             editPromptInstrumental.setText(promptInstrumental)
             grupoModo.check(R.id.modoInstrumental)
         } else {
+            if (datosConver["vozFuente"].equals("ninguna", ignoreCase = true)) {
+                datosConver["vozFuente"] = ""
+            }
             grupoModo.check(R.id.modoConversacion)
         }
     }
