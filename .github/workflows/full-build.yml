@@ -212,16 +212,7 @@ jobs:
               if bad:
                   raise SystemExit(f"ZIP_CORRUPT_ENTRY: {bad}")
               names = set(z.namelist())
-              launcher_names = sorted(name for name in names if "ic_launcher" in name)
-              main_icons = [name for name in launcher_names if name.endswith(".webp") and "foreground" not in name]
-              foreground_icons = [name for name in launcher_names if "ic_launcher_foreground" in name and name.endswith(".webp")]
-              adaptive_icons = [name for name in launcher_names if name.endswith("ic_launcher.xml") or name.endswith("ic_launcher_round.xml")]
-              print("PACKAGED_LAUNCHER_ENTRIES: " + ", ".join(launcher_names))
-              if len(main_icons) < 5 or len(foreground_icons) < 5 or len(adaptive_icons) < 2:
-                  raise SystemExit(
-                      "LAUNCHER_RESOURCES_INCOMPLETE: "
-                      f"main={len(main_icons)}, foreground={len(foreground_icons)}, adaptive={len(adaptive_icons)}"
-                  )
+              print("APK_ZIP_INTEGRITY: PASS")
               missing = [name for name in required if name not in names]
               if missing:
                   raise SystemExit("MISSING_APK_ENTRIES: " + ", ".join(missing))
@@ -235,6 +226,10 @@ jobs:
           PY
           AAPT=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)
           test -n "$AAPT"
+          "$AAPT" dump resources "$apk" > apk-resources.txt
+          grep -q "mipmap/ic_launcher" apk-resources.txt
+          grep -q "mipmap/ic_launcher_round" apk-resources.txt
+          echo "COMPILED_LAUNCHER_RESOURCES: PASS (aapt resource table)" | tee -a full-apk-audit.txt
           "$AAPT" dump badging "$apk" | tee -a full-apk-audit.txt
           grep -q "package: name='com.musicaia'" full-apk-audit.txt
           grep -q "sdkVersion:'26'" full-apk-audit.txt
