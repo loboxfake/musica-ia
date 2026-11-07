@@ -34,24 +34,18 @@ jobs:
           echo "Consolidated merge is an ancestor of main."
           echo "Protected Modo 3 blob is unchanged: $actual_modo3"
 
-      - name: Remove old branch names only if their heads are fully consolidated
+      - name: Verify legacy branch names are already retired
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          branches=$(gh api "repos/$GITHUB_REPOSITORY/branches?per_page=100" --jq '.[].name')
           for branch in bardo-unified-core bardo-device-fixes bardo-worker-hardening base-verde ruta-a-compile; do
-            ref="repos/$GITHUB_REPOSITORY/git/ref/heads/$branch"
-            current=$(gh api "$ref" --jq '.object.sha' 2>/dev/null || true)
-            if [ -z "$current" ]; then
-              echo "Branch $branch already absent."
-              continue
-            fi
-            if ! git merge-base --is-ancestor "$current" "$GITHUB_SHA"; then
-              echo "::error::Branch $branch head $current is not contained in main; refusing to delete unintegrated work."
+            if printf '%s\\n' "$branches" | grep -Fxq "$branch"; then
+              echo "::error::Legacy branch $branch still exists. No branch is deleted automatically."
               exit 1
             fi
-            gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$branch"
-            echo "Deleted $branch; all its commits remain reachable from main."
+            echo "Verified absent: $branch"
           done
 
       - name: Verify only canonical main remains
