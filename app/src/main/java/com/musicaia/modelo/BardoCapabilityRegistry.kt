@@ -70,8 +70,28 @@ object BardoCapabilityRegistry {
             Capability("research", "Investigación web autorizada", Status.REQUIRES_USER_ACTION, "Solo tras pulsar investigar; HTTPS y dominios de documentación permitidos.", "Acción explícita del usuario, fuentes citadas y ninguna afirmación de investigación sin conexión."),
             Capability("code_audit", "Auditoría de código", Status.AVAILABLE, "Análisis estático de un snapshot; no demuestra que el proyecto compile.", "Informe reproducible de archivos y hallazgos; diferenciar análisis estático de compilación y pruebas."),
             Capability("patch_sandbox", "Propuestas de parches aislados", Status.AVAILABLE, "Solo crea una copia candidata; no modifica la aplicación instalada.", "Diff aislado, pruebas previas, SHA de protecciones intactos, auditoría y reversión demostrable."),
-            Capability("project_build", "Validación de proyectos en runner aislado", if (facts.githubActionsConfigured) Status.AVAILABLE else Status.REQUIRES_USER_ACTION, if (facts.githubActionsConfigured) "BARDO puede enviar diffs permitidos a un runner efímero de GitHub Actions, ejecutar tests y assembleDebug y consultar el resultado. El teléfono no ejecuta Gradle." else "Requiere conectar un token fine-grained de GitHub limitado a este repositorio (Actions: Read and write; Contents: Read). La compilación se ejecuta en runner remoto, no en Android.", "Enviar un candidato basado en el SHA exacto de main, ejecutar testDebugUnitTest y assembleDebug en runner sin secretos, recuperar conclusión y pasos; rechazar si falla o el commit base está obsoleto."),
-            Capability("github_development", "Integración autónoma aprobada en main", if (facts.githubActionsConfigured) Status.AVAILABLE else Status.REQUIRES_USER_ACTION, if (facts.githubActionsConfigured) "BARDO puede solicitar validación y, tras tu aprobación en la aplicación, integrar un candidato mediante commit fast-forward en main. El token permanece cifrado en Android Keystore; el runner usa su GITHUB_TOKEN temporal." else "Necesita configurar la conexión GitHub en BARDO. No se incrustan credenciales en el APK ni se crean ramas paralelas.", "No integrar sin validación SUCCESS; exigir aprobación explícita; revalidar en el workflow; exigir que main siga en el SHA base; commit fast-forward y disparar full-build.yml para generar la APK firmada.")
+            Capability(
+                "project_build",
+                "Validación de proyectos en runner aislado",
+                if (facts.githubActionsConfigured) Status.AVAILABLE else Status.REQUIRES_USER_ACTION,
+                if (facts.githubActionsConfigured) {
+                    "BARDO puede enviar diffs permitidos a un runner efímero de GitHub Actions, ejecutar tests y assembleDebug y consultar el resultado. El teléfono no ejecuta Gradle."
+                } else {
+                    "Requiere conectar un token fine-grained de GitHub limitado a este repositorio (Actions: Read and write; Contents: Read). La compilación se ejecuta en runner remoto, no en Android."
+                },
+                "Enviar un candidato basado en el SHA exacto de main, ejecutar testDebugUnitTest y assembleDebug en runner sin secretos, recuperar conclusión y pasos; rechazar si falla o el commit base está obsoleto."
+            ),
+            Capability(
+                "github_development",
+                "Integración autónoma aprobada en main",
+                if (facts.githubActionsConfigured) Status.AVAILABLE else Status.REQUIRES_USER_ACTION,
+                if (facts.githubActionsConfigured) {
+                    "BARDO puede solicitar validación y, tras tu aprobación en la aplicación, integrar un candidato mediante commit fast-forward en main. El token permanece cifrado en Android Keystore; el runner usa su GITHUB_TOKEN temporal."
+                } else {
+                    "Necesita configurar la conexión GitHub en BARDO. No se incrustan credenciales en el APK ni se crean ramas paralelas."
+                },
+                "No integrar sin validación SUCCESS; exigir aprobación explícita; revalidar en el workflow; exigir que main siga en el SHA base; commit fast-forward y disparar full-build.yml para generar la APK firmada."
+            ),
             Capability("voice_synthesis", "Generación de voz cantada", Status.NOT_IMPLEMENTED, "Todavía no está integrada; el antiguo módulo de tonos se ha desactivado para evitar simular voz.", "Modelo de voz legítimo, consentimiento, WAV real reproducible y pruebas de calidad; MiVoz sigue pendiente."),
             Capability("mix_master", "Mezcla y masterización profesional", Status.NOT_IMPLEMENTED, "El módulo heredado que fabricaba una onda de prueba se ha desactivado; la mezcla vocal PCM básica disponible no equivale a una estación de mezcla profesional.", "Cadena no destructiva, métricas, A/B, exportación validada y pruebas auditivas."),
             Capability("cover_art", "Generación de portadas con IA", Status.NOT_IMPLEMENTED, "No hay modelo de imagen integrado; la tarjeta tipográfica heredada se ha desactivado para no presentarla como arte generado por IA.", "Modelo local de imagen compatible, licencia verificada y archivo de portada real."),

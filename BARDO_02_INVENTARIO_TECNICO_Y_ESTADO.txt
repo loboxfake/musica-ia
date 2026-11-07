@@ -896,3 +896,13 @@ APK / pruebas:
 - La #195 NO contiene el puente GitHub de esta sección; se mantiene como referencia instalable, no como entrega final de autonomía.
 - SHA protegido de Modo3 confirmado en main antes del puente: 8f2745fa841a06af43bf909732fba834474bf7dc.
 - El puente no se considerará completado hasta que el nuevo commit supere Gitleaks, actionlint, testDebugUnitTest, assembleDebug y build integral firmado; además será necesaria una prueba real tras instalar la APK y configurar el token en el Xiaomi.
+
+
+51. PRIMER RESULTADO CI DEL PUENTE GITHUB Y CORRECCIÓN KOTLIN — 2026-11-07
+
+- Commit inicial del puente: 3959e5d5cb2bc6fac988759a81448077941e409b.
+- Validación #345 / run 42384782129: Gitleaks SUCCESS; actionlint SUCCESS; testDebugUnitTest + assembleDebug FAILURE.
+- Error exacto en BardoCapabilityRegistry.kt: Return type mismatch List<Any>, unresolved Capability y sintaxis inválida en las nuevas entradas project_build/github_development. Causa: el registro inline de argumentos if/else quedó mal analizado por Kotlin.
+- Corrección: se reescriben las dos entradas como llamadas Capability multilinea con cada argumento separado y ambas llamadas terminadas en coma. Nuevo blob de registry: b72f0d0bf59a729e1b04a24fae0b532c84edf8a6.
+- Build integral #196 también estaba ejecutándose; su resultado debe comprobarse, pero no se acepta como entrega si parte del mismo árbol con el registro defectuoso.
+- Modo3 sigue protegido y no se ha tocado.

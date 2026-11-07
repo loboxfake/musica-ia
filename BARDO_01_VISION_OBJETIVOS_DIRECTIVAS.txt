@@ -289,3 +289,10 @@ BARDO dispondrá de un flujo de programación asistida que no depende de ChatGPT
 - La integración en main requiere aprobación humana en la aplicación. La nueva APK firmada se publica solo después de que el workflow integral y sus auditorías terminen SUCCESS.
 
 La implementación del cliente, los workflows y la pantalla de aprobación debe superar Gitleaks, actionlint, tests unitarios, compilación de depuración y build integral firmada antes de considerarse incluida en una APK instalable.
+
+
+27. CORRECCIÓN DE COMPILACIÓN DEL PUENTE GITHUB — 2026-11-07
+
+- El primer commit del puente GitHub (3959e5d5) pasó Gitleaks y actionlint, pero Kotlin detectó un error de sintaxis en BardoCapabilityRegistry al ampliar project_build/github_development.
+- Se reescriben ambas entradas en llamadas multilinea explícitas con los argumentos completos y separados. La compilación integral #196 no se considera válida hasta corregir y volver a ejecutar las pruebas.
+- No se marca la autonomía como entregada hasta superar de nuevo validación y APK integral firmada.
