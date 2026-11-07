@@ -175,7 +175,7 @@ Se precisa el objetivo de entrega integral:
  
 La APK que se entrega al usuario debe llamarse app-release.apk una vez firmada. No conservar el sufijo app-release-unsigned.apk después de sustituir el contenido por la APK firmada, porque el nombre contradice el estado criptográfico real y puede inducir a error. El workflow debe renombrar el binario después de firmarlo y antes de auditarlo, crear el artefacto y publicarlo en Release. Mantener intacto el certificado BARDO y los Secrets existentes.
 
-16. DIRECTIVA DEL USUARIO: ENTREGA INTEGRAL EN UNA SOLA FASE — 2026-11-07
+17. DIRECTIVA DEL USUARIO: ENTREGA INTEGRAL EN UNA SOLA FASE — 2026-11-07
 
 La ejecución de BARDO debe organizarse como una única fase de integración y aceptación, no como entregas funcionales fragmentadas ni como declaraciones de finalización basadas en cada build intermedio.
 
@@ -185,3 +185,10 @@ La ejecución de BARDO debe organizarse como una única fase de integración y a
 - Los builds intermedios son evidencia de progreso, no entregas finales. No abrir una nueva subfase funcional por comodidad si se puede consolidar en el ciclo actual sin comprometer la seguridad o la trazabilidad.
 - Mantener la separación entre capacidades implementadas, compiladas, empaquetadas, ejecutadas en CI y probadas físicamente. Cada estado se declara por separado.
 - Mantener main intacta, no fusionar ramas ni alterar Modo3, keystore o Secrets salvo autorización explícita y específica.
+
+18. DIRECTIVA DE VERACIDAD DE CAPACIDADES — 2026-11-07
+
+- Voz cantada/síntesis vocal, generación de portadas con IA y mezcla/masterización profesional solo se anunciarán como disponibles cuando exista un motor real integrado y se haya validado con archivos reproducibles. Hasta entonces deben figurar como NO IMPLEMENTADAS.
+- No sustituir esas capacidades con tonos, ondas sintéticas, PNG tipográficos, WAV artificiales, respuestas fijas o rutas de archivo vacías.
+- La mezcla de una voz real aportada por el usuario es una capacidad distinta de la síntesis de voz; conservar su ruta existente y las protecciones de Modo3.
+- Si una función no está implementada, el módulo debe rechazar la ejecución con un mensaje claro y la interfaz debe mostrar el estado correspondiente, sin impedir el uso de las capacidades que sí están disponibles.
