@@ -46,4 +46,15 @@ class BardoIntentRouterTest {
         assertEquals(BardoIntentRouter.Intent.GENERAL_CHAT,
             BardoIntentRouter.classify("Crear", false))
     }
+
+    @Test
+    fun instrumentalAndVoiceChoicesMapToHonestExecutionModes() {
+        assertEquals(true, BardoIntentRouter.isInstrumentalOnlyType("instrumental"))
+        assertEquals(true, BardoIntentRouter.isInstrumentalOnlyType("solo instrumental"))
+        assertEquals(false, BardoIntentRouter.isInstrumentalOnlyType("ambas (voz e instrumental)"))
+        assertEquals(true, BardoIntentRouter.requiresUserVoice("voz"))
+        assertEquals(true, BardoIntentRouter.requiresUserVoice("ambas"))
+        assertEquals(false, BardoIntentRouter.requiresUserVoice("instrumental"))
+        assertEquals(false, BardoIntentRouter.requiresUserVoice("instrumental sin voz"))
+    }
 }
