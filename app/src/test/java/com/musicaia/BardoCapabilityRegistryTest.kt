@@ -74,4 +74,15 @@ class BardoCapabilityRegistryTest {
         assertEquals(BardoCapabilityRegistry.Status.REQUIRES_USER_ACTION, items.getValue("research").status)
         assertTrue(items.getValue("self_install").detail.contains("Android"))
     }
+
+    @Test
+    fun placeholderCapabilitiesRemainExplicitlyUnavailable() {
+        val items = BardoCapabilityRegistry.snapshot(
+            BardoCapabilityRegistry.RuntimeFacts(true, true, true)
+        ).associateBy { it.id }
+        assertEquals(BardoCapabilityRegistry.Status.NOT_IMPLEMENTED, items.getValue("voice_synthesis").status)
+        assertEquals(BardoCapabilityRegistry.Status.NOT_IMPLEMENTED, items.getValue("mix_master").status)
+        assertEquals(BardoCapabilityRegistry.Status.NOT_IMPLEMENTED, items.getValue("cover_art").status)
+        assertTrue(items.getValue("self_install").detail.contains("publicada"))
+    }
 }
