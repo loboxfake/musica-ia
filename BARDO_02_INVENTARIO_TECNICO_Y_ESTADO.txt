@@ -382,3 +382,12 @@ Límites y estado de dispositivo:
 - APK de ~937 MB: advertir del tamaño y comprobar espacio disponible antes de instalar. No declarar compatibilidad funcional real por el mero hecho de compilar para arm64-v8a.
 - `main` continúa en 7b0b075199d00df5e13fd6da6f3aecb19c7c0511; comparación actual de ramas: bardo-unified-core 494 commits por delante y 4 por detrás (diverged). PR #1 continúa OPEN/DRAFT/no mergeable. No integrar.
 - Modo3MezclaVozUsuario.kt: blob SHA-1 verificado 8f2745fa841a06af43bf909732fba834474bf7dc; no modificado.
+
+21. SEGUIMIENTO DE LA NUEVA ENTREGA CON RELEASE PERMANENTE — 2026-11-07
+
+- Workflow Build full offline APK #160, run 42353954810, ejecuta el commit 1baac8682f622d2512f83c542571c960e9d80517 que añade la publicación en GitHub Release y retención de 30 días. En el último chequeo continúa IN_PROGRESS en `Run unit tests`; todavía no hay resultado de la compilación nativa, firma, auditoría ni carga de Release.
+- Validación BARDO #277, run 42353954715, ya completó Gitleaks y `Run unit tests and compile debug APK` con SUCCESS; quedaba en limpieza/post-step al último chequeo.
+- Validación #278 fue CANCELLED porque un push documental posterior sustituyó ese commit; #279, correspondiente al inventario actualizado, quedó PENDING. No son fallos de compilación de la aplicación.
+- Branch HEAD documental verificado después de las dos actualizaciones: c84d914d4019f4f1177ce72781d76dda7366c4a3. Commit del cambio de workflow: 1baac8682f622d2512f83c542571c960e9d80517.
+- main continúa en 7b0b075199d00df5e13fd6da6f3aecb19c7c0511; Modo3 mantiene blob SHA-1 8f2745fa841a06af43bf909732fba834474bf7dc.
+- No declarar publicada la nueva Release hasta ver el tag bardo-build-160 y los assets app-release APK + full-apk-audit.txt en GitHub Releases y confirmar el status `BARDO / full offline APK release` SUCCESS.
