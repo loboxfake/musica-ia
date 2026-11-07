@@ -1,32 +1,90 @@
 name: Build full offline APK
 
+# CI trigger refresh: keep the full offline build and audit as the release gate.
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # No cancelar una compilación nativa larga por un push posterior.
+  cancel-in-progress: false
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/full-build.yml
+      - app/src/**
+      - app/build.gradle.kts
+      - build.gradle.kts
+      - settings.gradle.kts
+      - gradle.properties
+      - catalogo/**
+      - tools/**
 
 permissions:
   actions: read
   contents: write
+  statuses: write
 
 jobs:
   full-build:
     runs-on: ubuntu-22.04
     timeout-minutes: 120
     steps:
+      - name: Mark full offline build pending
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.createCommitStatus({ owner: context.repo.owner, repo: context.repo.repo, sha: context.sha, state: "pending", context: "BARDO / full offline APK audit", description: "Full offline model and native APK build queued" });
       - uses: actions/checkout@v4
         with:
-          ref: ruta-a-compile
+          ref: ${{ github.ref }}
+
+      - name: Generate Digital Bardic Quill mipmaps
+        run: |
+          python3 -m pip install --disable-pip-version-check Pillow
+          python3 tools/generate_launcher_mipmaps.py
+
+      - name: Package BARDO source snapshot for its local developer core
+        run: |
+          set -euo pipefail
+          mkdir -p app/src/main/assets
+          git archive --format=zip --output="$RUNNER_TEMP/bardo-source-snapshot.zip" HEAD \
+            app/src/main app/src/test app/build.gradle.kts build.gradle.kts settings.gradle.kts \
+            gradle.properties gradle/wrapper .github/workflows catalogo tools docs \
+            ESPECIFICACION.md BARDO_01_VISION_OBJETIVOS_DIRECTIVAS.txt \
+            BARDO_02_INVENTARIO_TECNICO_Y_ESTADO.txt README.md
+          test -s "$RUNNER_TEMP/bardo-source-snapshot.zip"
+          unzip -l "$RUNNER_TEMP/bardo-source-snapshot.zip" | grep -q 'app/src/test/'
+          unzip -l "$RUNNER_TEMP/bardo-source-snapshot.zip" | grep -q 'BARDO_01_VISION_OBJETIVOS_DIRECTIVAS.txt'
+          unzip -l "$RUNNER_TEMP/bardo-source-snapshot.zip" | grep -q 'BARDO_02_INVENTARIO_TECNICO_Y_ESTADO.txt'
+          unzip -l "$RUNNER_TEMP/bardo-source-snapshot.zip" | grep -q 'ESPECIFICACION.md'
+          unzip -l "$RUNNER_TEMP/bardo-source-snapshot.zip" | grep -q 'docs/BARDO_EVOLUTION_ARCHITECTURE.md'
+          python3 - "$RUNNER_TEMP/bardo-source-snapshot.zip" <<'PY'
+          import sys, zipfile
+          with zipfile.ZipFile(sys.argv[1]) as archive:
+              entries = [item for item in archive.infolist() if not item.is_dir()]
+              total = sum(item.file_size for item in entries)
+              oversized = [item.filename for item in entries if item.file_size > 2 * 1024 * 1024]
+              if len(entries) > 3000 or total > 60 * 1024 * 1024 or oversized:
+                  raise SystemExit(f"BARDO_SNAPSHOT_EXCEEDS_IMPORT_LIMITS: files={len(entries)} bytes={total} oversized={oversized[:5]}")
+              print(f"BARDO_SOURCE_SNAPSHOT_IMPORTABLE: files={len(entries)} uncompressed_bytes={total}")
+          PY
+          cp "$RUNNER_TEMP/bardo-source-snapshot.zip" app/src/main/assets/bardo_source_snapshot.zip
+          ls -lh app/src/main/assets/bardo_source_snapshot.zip
 
       - name: Download pinned local audio model pack
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          run_id=$(gh run list --workflow prepare-audio-model.yml --branch ruta-a-compile --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+          run_id=$(gh run list --workflow prepare-audio-model.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId')
           if [ -z "$run_id" ] || [ "$run_id" = "null" ]; then
-            echo "No successful Stable Audio model export run found."
+            echo "No successful model export on main yet; using the preserved historical export as a transition fallback."
+            run_id=$(gh run list --workflow prepare-audio-model.yml --branch ruta-a-compile --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+          fi
+          if [ -z "$run_id" ] || [ "$run_id" = "null" ]; then
+            echo "No successful Stable Audio model export found on main or in preserved historical runs."
             exit 1
           fi
           echo "Using model export run: $run_id"
@@ -38,6 +96,8 @@ jobs:
           test -s app/src/main/assets/audio_model/autoencoder_model.pte
           test -s app/src/main/assets/audio_model/spiece.model
           test -s app/src/main/assets/audio_model/LICENSE
+          test -s app/src/main/assets/NOTICE.txt
+          grep -qi "Powered by Stability AI" README.md
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -56,6 +116,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: 8.10.2
+          cache-disabled: true
 
       - name: Run unit tests
         run: |
@@ -92,17 +153,62 @@ jobs:
 
       - name: Build full APK with on-device audio model
         run: |
-          gradle assembleDebug -PwithAudioNative=true -PbardoVersionCode="$((1000 + GITHUB_RUN_NUMBER))" -PetSrcPath="$RUNNER_TEMP/executorch" 2>&1 | tee full-build.log
+          gradle assembleRelease -PwithAudioNative=true -PbardoVersionCode="$((1000 + GITHUB_RUN_NUMBER))" -PetSrcPath="$RUNNER_TEMP/executorch" 2>&1 | tee full-build.log
           status=${PIPESTATUS[0]}
           if [ "$status" -ne 0 ]; then
             grep -E "error:|CMake Error|FAILED|What went wrong" full-build.log | tail -100 || true
             exit 1
           fi
 
+      - name: Sign APK with private BARDO upload key
+        env:
+          BARDO_KEYSTORE_BASE64: ${{ secrets.BARDO_KEYSTORE_BASE64 }}
+          BARDO_KEYSTORE_PASSWORD: ${{ secrets.BARDO_KEYSTORE_PASSWORD }}
+          BARDO_KEY_ALIAS: ${{ secrets.BARDO_KEY_ALIAS }}
+          BARDO_KEY_PASSWORD: ${{ secrets.BARDO_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          set +x
+          : "${BARDO_KEYSTORE_BASE64:?Missing BARDO_KEYSTORE_BASE64 repository secret}"
+          : "${BARDO_KEYSTORE_PASSWORD:?Missing BARDO_KEYSTORE_PASSWORD repository secret}"
+          : "${BARDO_KEY_ALIAS:?Missing BARDO_KEY_ALIAS repository secret}"
+          : "${BARDO_KEY_PASSWORD:?Missing BARDO_KEY_PASSWORD repository secret}"
+          apk=$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n 1)
+          test -s "$apk"
+          key="$RUNNER_TEMP/bardo-upload-key.jks"
+          signed="$RUNNER_TEMP/bardo-signed.apk"
+          trap 'rm -f "$key" "$signed"' EXIT
+          printf '%s' "$BARDO_KEYSTORE_BASE64" | base64 --decode > "$key"
+          test -s "$key"
+          build_tools=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
+          "$build_tools/apksigner" sign --ks "$key" --ks-key-alias "$BARDO_KEY_ALIAS" \
+            --ks-pass env:BARDO_KEYSTORE_PASSWORD --key-pass env:BARDO_KEY_PASSWORD \
+            --out "$signed" "$apk"
+          "$build_tools/apksigner" verify --verbose "$signed"
+          cert_output="$("$build_tools/apksigner" verify --print-certs --verbose "$signed")"
+          printf '%s\n' "$cert_output"
+          expected_cert_sha256="c46232017513c3171ba04d91cf579a72202a834f0bcd1c0a22e0c9de0e030368"
+          # apksigner cambia el prefijo entre versiones (Signer #1, V3.0 Signer…).
+          # Comparar el digest normalizado evita falsos negativos por formato de salida.
+          actual_cert_sha256="$(printf '%s\n' "$cert_output" | sed -nE 's/.*certificate SHA-256 digest: ([0-9a-fA-F]{64}).*/\1/p' | head -n 1 | tr '[:upper:]' '[:lower:]')"
+          if [ "$actual_cert_sha256" != "$expected_cert_sha256" ]; then
+            echo "::error::La APK no está firmada con el certificado BARDO autorizado."
+            echo "::error::La huella del certificado no coincide con la autorizada."
+            exit 1
+          fi
+          echo "Certificado BARDO verificado."
+          # Auditar y publicar exactamente el binario ya firmado.
+          cp "$signed" "$apk"
+          # Gradle nombra el resultado app-release-unsigned.apk incluso
+          # cuando sustituimos su contenido por el binario ya firmado.
+          # Renombrarlo evita entregar un APK firmado con etiqueta engañosa.
+          mv "$apk" "$(dirname "$apk")/app-release.apk"
+          trap - EXIT
+
       - name: Audit APK contents and integrity
         run: |
           set -euo pipefail
-          apk=$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n 1)
+          apk=$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n 1)
           test -n "$apk"
           python3 - "$apk" <<'PY'
           import hashlib, pathlib, sys, zipfile
@@ -113,6 +219,9 @@ jobs:
               "assets/audio_model/autoencoder_model.pte",
               "assets/audio_model/spiece.model",
               "assets/audio_model/LICENSE",
+              "assets/NOTICE.txt",
+              "AndroidManifest.xml",
+              "resources.arsc",
               "lib/arm64-v8a/libaudiogen.so",
               "lib/arm64-v8a/libmp3encoder.so",
               "lib/arm64-v8a/libmp3lame.so",
@@ -128,6 +237,7 @@ jobs:
               if bad:
                   raise SystemExit(f"ZIP_CORRUPT_ENTRY: {bad}")
               names = set(z.namelist())
+              print("APK_ZIP_INTEGRITY: PASS")
               missing = [name for name in required if name not in names]
               if missing:
                   raise SystemExit("MISSING_APK_ENTRIES: " + ", ".join(missing))
@@ -135,27 +245,116 @@ jobs:
                   info = z.getinfo(name)
                   if info.file_size <= 0:
                       raise SystemExit(f"EMPTY_APK_ENTRY: {name}")
+                  if name.endswith((".pte", ".model")) and info.compress_type != zipfile.ZIP_STORED:
+                      raise SystemExit(f"MODEL_ASSET_MUST_BE_UNCOMPRESSED_FOR_OPENFD: {name}")
                   report.append(f"ENTRY_OK: {name} ({info.file_size} bytes)")
+                  if name.endswith((".pte", ".model")):
+                      report.append(f"MODEL_ASSET_OPENFD_COMPATIBLE: {name} (ZIP_STORED)")
           pathlib.Path("full-apk-audit.txt").write_text("\n".join(report) + "\n")
           print("\n".join(report))
           PY
           AAPT=$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)
           test -n "$AAPT"
+          "$AAPT" dump resources "$apk" > apk-resources.txt
+          grep -q "mipmap/ic_launcher" apk-resources.txt
+          grep -q "mipmap/ic_launcher_round" apk-resources.txt
+          echo "COMPILED_LAUNCHER_RESOURCES: PASS (aapt resource table)" | tee -a full-apk-audit.txt
           "$AAPT" dump badging "$apk" | tee -a full-apk-audit.txt
           grep -q "package: name='com.musicaia'" full-apk-audit.txt
           grep -q "sdkVersion:'26'" full-apk-audit.txt
+          if grep -q "application-debuggable" full-apk-audit.txt; then
+            echo "::error::La APK de distribución no debe ser debuggable."
+            exit 1
+          fi
+          echo "RELEASE_APK_NON_DEBUGGABLE: PASS" | tee -a full-apk-audit.txt
+          BUILD_TOOLS=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
+          VERIFY_OUTPUT="$("$BUILD_TOOLS/apksigner" verify --verbose "$apk")"
+          printf '%s\n' "$VERIFY_OUTPUT"
+          printf '%s\n' "$VERIFY_OUTPUT" | grep -Eiq 'Verified using v2 scheme.*true'
+          printf '%s\n' "$VERIFY_OUTPUT" | grep -Eiq 'Verified using v3 scheme.*true'
+          CERT_OUTPUT="$("$BUILD_TOOLS/apksigner" verify --print-certs --verbose "$apk")"
+          CERT_SHA256="$(printf '%s\n' "$CERT_OUTPUT" | sed -nE 's/.*certificate SHA-256 digest: ([0-9a-fA-F]{64}).*/\1/p' | head -n 1 | tr '[:upper:]' '[:lower:]')"
+          EXPECTED_CERT_SHA256="c46232017513c3171ba04d91cf579a72202a834f0bcd1c0a22e0c9de0e030368"
+          test "$CERT_SHA256" = "$EXPECTED_CERT_SHA256"
+          {
+            printf 'SOURCE_COMMIT: %s\nWORKFLOW_RUN: %s\nCERTIFICATE_SHA256: %s\n' "$GITHUB_SHA" "$GITHUB_RUN_NUMBER" "$CERT_SHA256"
+            printf '%s\n' "$VERIFY_OUTPUT" | grep -Ei 'Verified using v[123].*true' | sed 's/^/SIGNATURE_SCHEME: /'
+          } | tee -a full-apk-audit.txt
 
-      - name: Publish full offline APK as a GitHub Release
+      - name: Audit APK for embedded credentials and signing material
+        run: |
+          set -euo pipefail
+          python3 tools/audit_apk_secrets.py "$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n 1)"
+
+      - name: Report full offline APK audit status
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const state = "${{ job.status }}" === "success" ? "success" : "failure";
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              state,
+              context: "BARDO / full offline APK audit",
+              description: state === "success" ? "Unit tests, native build, signed release APK and APK audit passed" : "Full offline build or APK audit failed"
+            });
+
+      - name: Publish audited APK as a workflow artifact
+        id: publish
+        uses: actions/upload-artifact@v4
+        with:
+          name: BARDO-full-offline-${{ github.run_number }}
+          path: |
+            app/build/outputs/apk/release/*.apk
+            full-apk-audit.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish signed APK as a GitHub Release
+        id: release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          apk=$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n 1)
-          test -n "$apk"
-          source_sha=$(git rev-parse HEAD)
+          apk=$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n 1)
+          test -s "$apk"
           tag="bardo-build-${GITHUB_RUN_NUMBER}"
-          gh release create "$tag" "$apk#app-debug.apk" "full-apk-audit.txt#full-apk-audit.txt" \
-            --target "$source_sha" \
-            --title "BARDO full offline build #${GITHUB_RUN_NUMBER}" \
-            --notes "APK completa offline. Código fuente: ruta-a-compile @ $source_sha. La auditoría de contenido e integridad se completó antes de publicar."
-# reinicio
+          notes="$RUNNER_TEMP/bardo-release-notes.md"
+          cat > "$notes" <<EOF
+          BARDO — compilación offline integral.
+
+          Incluye una única APK release firmada, el modelo de audio local y las bibliotecas nativas ARM64. La firma, el certificado autorizado, la integridad del paquete, los recursos de launcher, el modo no-debuggable y el escaneo de credenciales se verificaron en GitHub Actions.
+
+          Commit fuente: ${GITHUB_SHA}
+          Ejecución GitHub Actions: #${GITHUB_RUN_NUMBER}
+          SHA-256 de APK, huella de certificado, ABI y detalles técnicos: consultar full-apk-audit.txt.
+
+          Esta publicación no sustituye las pruebas de instalación y funcionamiento en el Xiaomi 11T Pro.
+          EOF
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "$apk" full-apk-audit.txt --clobber
+          else
+            gh release create "$tag" "$apk" full-apk-audit.txt \
+              --title "BARDO · APK offline integral #${GITHUB_RUN_NUMBER}" \
+              --notes-file "$notes" \
+              --prerelease \
+              --target "$GITHUB_SHA"
+          fi
+
+      - name: Report full offline APK release status
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const state = "${{ steps.release.outcome }}" === "success" ? "success" : "failure";
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              state,
+              context: "BARDO / full offline APK release",
+              description: state === "success" ? "Signed audited APK published as GitHub Release and workflow artifact" : "GitHub Release publication failed"
+            });
+

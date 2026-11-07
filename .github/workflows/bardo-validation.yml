@@ -1,0 +1,48 @@
+name: BARDO integration validation
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bardo-validation-${{ github.ref }}
+  # Las validaciones completas no deben cancelarse por un push posterior.
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout complete Git history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Gradle 8.10.2
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: 8.10.2
+          cache-disabled: true
+      - name: Set up Go for Gitleaks
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+      - name: Scan complete Git history with redacted findings
+        env:
+          GITLEAKS_ENABLE_SUMMARY: 'false'
+        run: |
+          set -euo pipefail
+          go install github.com/zricethezav/gitleaks/v8@v8.24.3
+          "$(go env GOPATH)/bin/gitleaks" git . --log-opts="--all" --redact --exit-code 1 --no-banner
+      - name: Run unit tests and compile debug APK
+        run: gradle testDebugUnitTest assembleDebug --no-daemon --stacktrace

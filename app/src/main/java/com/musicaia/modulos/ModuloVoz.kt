@@ -1,39 +1,33 @@
 package com.musicaia.modulos
 
 import android.content.Context
-import android.media.ToneGenerator
-import com.musicaia.modelo.Catalogo
 import com.musicaia.modelo.Dato
 import com.musicaia.modelo.ModuloIA
 import com.musicaia.modelo.TipoModulo
-import java.io.File
 
+/**
+ * Voz cantada todavía no implementada.
+ *
+ * Este módulo falla de forma explícita para impedir que un tono de prueba,
+ * un archivo inexistente o una ruta vacía se presenten como voz generada.
+ * La capacidad permanece NOT_IMPLEMENTED hasta integrar y validar un motor
+ * de síntesis vocal real con consentimiento y WAV reproducible.
+ */
 class ModuloVoz(context: Context) : ModuloIA {
     override val id = "voz"
     override val tipo = TipoModulo.VOZ
-    private val ctx = context.applicationContext
-    private val catalogo = Catalogo()
-    private val modeloId = "musica-voz-v1"
 
-    override fun cargar(): Boolean {
-        val modelo = catalogo.obtenerModelo(modeloId)
-        return modelo != null || catalogo.cargarDesdeUrl("https://raw.githubusercontent.com/loboxfake/musica-ia/main/catalogo/catalogo.json").run { catalogo.obtenerModelo(modeloId) != null }
-    }
+    @Suppress("unused")
+    private val appContext = context.applicationContext
+
+    override fun cargar(): Boolean = false
 
     override fun ejecutar(entrada: Dato): Dato {
-        val ruta = File(ctx.getExternalFilesDir(null), "voz_cantada.wav").absolutePath
-        // Síntesis de voz real: tono modulado con variación de frecuencia para simular voz
-        val tone = ToneGenerator(android.media.AudioManager.STREAM_MUSIC, 100)
-        tone.startTone(ToneGenerator.TONE_SUP_INTERCEPT, 300)
-        Thread.sleep(200)
-        tone.startTone(ToneGenerator.TONE_DTMF_5, 150)
-        Thread.sleep(150)
-        tone.release()
-        return Dato.Audio(
-            rutaWav = ruta,
-            frecuenciaMuestreo = 44100
+        throw UnsupportedOperationException(
+            "La generación de voz cantada todavía no está implementada. " +
+                "No se ha generado ningún audio."
         )
     }
 
-    override fun descargar() {}
+    override fun descargar() = Unit
 }

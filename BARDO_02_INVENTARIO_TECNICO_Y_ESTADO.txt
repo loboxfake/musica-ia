@@ -1,0 +1,682 @@
+BARDO — INVENTARIO TÉCNICO Y ESTADO REAL
+Fecha de inspección: 2026-11-07
+Rama canónica de integración: main
+Estado: inventario técnico; ninguna función se marca como probada en el Xiaomi hasta confirmación del usuario.
+
+1. REPOSITORIO Y CONTROL DE CAMBIOS
+Repositorio: loboxfake/musica-ia
+Rama de trabajo: bardo-unified-core
+HEAD al crear este inventario: f2fe04b06c7d86ff6c19ee9afac5b3933cabbb5d (commit de este documento; el código previo inmediato era b063442f5dc1f2c3aee5b93bb8ebfbd8ff02c902).
+Comparación observada con main: 482 commits por delante y 4 por detrás.
+main no se ha modificado ni fusionado.
+El repositorio aparece como PRIVADO en la última consulta a la API de GitHub. No se cambió su visibilidad desde este trabajo. Las Releases de un repositorio privado no son descargas públicas anónimas.
+
+Reglas activas:
+- No force-push, reset --hard, borrar trabajo remoto ni reescribir historia.
+- No introducir secretos en APK.
+- No regenerar ni cambiar keystore/Secrets.
+- No modificar Modo3 sin autorización específica.
+- No fusionar main sin revisión del usuario.
+
+2. MODO3 PROTEGIDO
+Archivo: app/src/main/java/com/musicaia/modulos/Modo3MezclaVozUsuario.kt
+Git blob SHA-1 observado: 8f2745fa841a06af43bf909732fba834474bf7dc
+Este identificador es el SHA del blob Git (40 caracteres), no debe presentarse como SHA-256 del archivo.
+El archivo no se ha editado durante esta fase. Se mantiene protegido.
+No se ha realizado prueba funcional nueva de Modo3 en el Xiaomi.
+
+3. ESTADO DE GITHUB ACTIONS
+Build full offline #156
+Run ID: 42294598529
+Commit: ee3b15362487192df02ec61b8c188913f697f39d
+Resultado:
+- Descarga del paquete Stable Audio: PASS.
+- Tests unitarios de ese commit: PASS.
+- Compilación assembleRelease con motor nativo: PASS.
+- Firma con el keystore BARDO: PASS.
+- Auditoría de contenido: FAIL.
+- Escáner de credenciales y publicación de artefacto: omitidos por fallo de auditoría.
+Causa exacta: la auditoría exigía nombres/rutas de iconos mipmap que no coincidían con las entradas reales del APK. El fallo no fue de Kotlin ni de CMake.
+
+Huella SHA-256 de certificado mostrada por apksigner en #156:
+c46232017513c3171ba04d91cf579a72202a834f0bcd1c0a22e0c9de0e030368
+Coincide con la huella del keystore local comunicada por el usuario:
+C4:62:32:01:75:13:C3:17:1B:A0:4D:91:CF:57:9A:72:20:2A:83:4F:0B:CD:1C:0A:22:E0:C9:DE:0E:03:03:68
+
+La auditoría falló antes de imprimir un APK_SHA256 definitivo y antes de subir el artefacto. No hay APK #156 descargable desde ese run.
+
+Build full offline #157
+Run ID: 42296447565
+Commit de workflow: bca61ab5c0838d5c1fb524cb7e2a7349805bd780
+Resultado: failure sin pasos de job ni logs disponibles. No permite concluir error de código ni validar la nueva auditoría dinámica de iconos.
+
+Validaciones de integración recientes (#250–#264):
+varias terminaron en failure con job sin pasos/logs_url. No se dispone de diagnóstico técnico del runner. La coincidencia temporal con el repositorio privado hace necesario revisar disponibilidad/minutos/presupuesto de GitHub Actions; no se afirma que sea la causa confirmada.
+
+Última validación de integración que se pudo confirmar como success en el historial anterior: run 42287798041, commit 814cf41cca2c7f9bdfefa7c846f24f925adf78ec. No cubre los cambios de esta fase.
+
+No hay APK integral auditada disponible para instalar.
+
+4. FIRMA Y POSIBLE CONFLICTO CON APK INSTALADA
+Release histórica #149:
+- Tag: bardo-build-149.
+- Asset publicado: app-debug.apk.
+- Su workflow en el commit d703ecac5abe4e77e3c6218f7dccf31307886f3e ejecutó apksigner sign y sustituyó el APK original con mv del archivo firmado.
+- La firma usó los Secrets BARDO_KEYSTORE_BASE64, BARDO_KEYSTORE_PASSWORD, BARDO_KEY_ALIAS y BARDO_KEY_PASSWORD.
+- El workflow #149 no imprimió el certificado SHA-256; por ello no hay comparación criptográfica directa con el certificado de #156.
+
+Conclusión: no hay indicio de que #149 sea necesariamente incompatible; se firmó con los Secrets BARDO. #156 demuestra que los Secrets actuales producen la huella esperada del keystore local. Aun así, la huella del APK instalado en el Xiaomi no se ha leído y no se debe prometer compatibilidad absoluta hasta compararla. No instalar una APK futura si Android advierte conflicto de firma.
+
+5. PIPELINE DE BUILD, RELEASE Y ACTUALIZACIÓN
+Workflow actual full-build.yml:
+- Compila assembleRelease con audio nativo.
+- Firma con el keystore BARDO.
+- Verifica certificado con apksigner.
+- Audita contenido, no-debuggable y credenciales.
+- Sube artefacto de Actions con retention-days: 1 cuando todas las auditorías pasan.
+- El workflow ya no publica una GitHub Release porque hubo un 403 al intentar crearla.
+
+Error de Release observado en run #153 (42286039365):
+HTTP 403: Resource not accessible by integration al ejecutar gh release create.
+El log mostraba GITHUB_TOKEN con Contents: write; por tanto añadir solamente permissions: contents: write no resolvió el 403. No se ha probado un token alternativo ni se ha modificado ningún Secret.
+
+Requisito pendiente:
+- Release pública con APK completa, parche diferencial, SHA-256 de ambos y huella de certificado.
+- Actualizador local que lea Releases sin token, verifique SHA y certificado, exporte copia de datos y abra el instalador Android.
+- Retención de artefactos configurada a 1 día; esto no sustituye una Release pública.
+- El repositorio está privado en la última consulta; las Releases no son públicas anónimas en ese estado.
+
+Workflow manual antiguo revisado como pipeline de build ligero:
+- ejecuta tests y assembleDebug;
+- genera artefacto debug;
+- no produce parche diferencial;
+- no publica una Release completa con hash/certificado.
+No hay actualización ligera integral implementada ni probada.
+
+6. ORQUESTACIÓN Y CAPACIDADES
+Implementado en código de la rama, pendiente de CI y prueba en dispositivo:
+- BardoModuleCatalog: registro declarativo y selección de módulos para plan musical según intención, disponibilidad de Gemma y motor de audio.
+- BardoCapabilityRegistry: estado por capacidad y criterio de aceptación visible.
+- Orquestador: ejecución secuencial, callbacks de progreso, descarga de recursos también cuando falla un módulo.
+- EngineLiteRT.cerrar(): liberación síncrona del modelo.
+- ModuloLetra.descargar(): cierra Gemma.
+- ModuloInstrumental.cargar(): cierra cualquier Gemma residente antes de preparar Stable Audio.
+- BardoResourceBudget: comprobaciones preventivas de RAM, batería y temperatura.
+- BardoDeveloperWorker: aplica presupuesto de recursos al autoestudio.
+- BardoPatchApplier: amplía rutas protegidas, incluidos orquestador, catálogo, descargador, memoria, backups, registro de actividad, permisos/seguridad y escáner de credenciales.
+
+Límite importante:
+- La selección central cubre el plan musical actual. No existe todavía un catálogo dinámico completo para todos los plugins, permisos, modelos y skills.
+- El descriptor Stable Audio todavía no tiene SHA-256 de cada artefacto fijado en el catálogo.
+- La presencia de un motor o fichero no demuestra que funcione en el Xiaomi.
+
+7. GEMMA
+Implementado previamente y conservado:
+- Importación manual desde selector Android.
+- Nombre exacto gemma-4-E2B-it.litertlm.
+- Tamaño esperado y SHA-256 oficial comprobados durante copia.
+- Copia temporal, sincronización y activación atómica; un archivo incorrecto no sustituye al anterior.
+- Carga con LiteRT-LM.
+- Umbral preventivo de 4 GB de RAM libre; ahora se añaden batería y temperatura.
+
+No verificado:
+- Importación de la copia concreta que el usuario tiene en BARDO/MODELOS en esta versión.
+- Carga real en Xiaomi 11T Pro.
+- Conversación real en modo avión.
+- Ausencia de OOM o cierres durante sesiones largas.
+
+8. CHAT Y FLUJO CREATIVO
+Cambios en código pendientes de CI/dispositivo:
+- BardoIntentRouter mantiene una creación activa en modo guiado en lugar de desviar respuestas al chat libre.
+- Tests nuevos para respuestas de campo durante creación activa.
+- El estado vozFuente se normaliza a ninguna/archivo/grabada.
+- El botón Nueva conversación y el flujo Mi letra ya existen en la base.
+- Corregido cálculo de anchura de burbujas y scroll anidado.
+
+No verificado:
+- Secuencia completa de campos en Xiaomi.
+- Persistencia y reinicio de conversación en uso real.
+- Que no se corte ninguna burbuja ni se oculte texto con teclado.
+- Resumen final y cambios de campo antes de crear.
+
+9. AUDIO
+Base previa:
+- Stable Audio Open Small con ExecuTorch.
+- 18 segmentos previstos; prueba rápida de 1 segmento.
+- AudioAssembler ya aplica recorte de silencios, fundido cruzado y comprobaciones cerca de uniones.
+- La unión usa crossfade de 700 ms en ModuloInstrumental.
+
+Cambios recientes aún sin validar:
+- WavSegmentDiagnostics inspecciona RIFF/PCM, frames, duración, sample rate, canales y bits.
+- Informe audio_generation_diagnostics.txt con estado PASS/FAIL por segmento.
+- Conservación de WAV parciales y ruta de diagnóstico si falla generación/ensamblado.
+- BPM numérico se fija explícitamente en el prompt.
+- Se conserva la exigencia de duración final mínima de 180 s para generación completa.
+
+No verificado:
+- Que desaparezcan los 17 silencios de 0,7–1,3 s y los 2 s finales del MP3 anterior.
+- Que el crossfade/recorte no dañe transitorios ni pausas musicales intencionales.
+- Prueba rápida en modo avión.
+- Generación completa y escucha del WAV/MP3 en Xiaomi.
+- Cancelación durante un segmento y conservación de parcial.
+
+10. MP3 E HISTORIAL
+Cambios:
+- El botón ahora se etiqueta «Guardar MP3», separado de «Compartir MP3».
+- Si la carpeta BARDO está configurada, guarda en la raíz BARDO; si no, abre el selector Android.
+- Exportación del historial JSON/TXT ya dispone de destino BARDO/Historial.
+
+No verificado:
+- Guardado real en Descargas/BARDO en el teléfono.
+- Confirmación visible, reproducción del archivo guardado y compartir.
+- Exportación y reapertura de historial en el Xiaomi.
+
+11. MEMORIA, AUTOEVOLUCIÓN E IMPORTACIÓN
+Implementado:
+- BardoKnowledgeStore: documentos locales con procedencia y SHA-256, búsqueda textual y recuperación verificada.
+- BardoConversationStore: conversaciones locales.
+- BardoBackupManager: copia/restauración de conversaciones y conocimiento; excluye modelos pesados.
+- BardoDeveloperWorker: autoestudio local aislado con Gemma, auditoría estática y copia candidata.
+- BardoPatchApplier: aplica diffs a snapshot candidato y rechaza rutas protegidas.
+- Importadores Office/PDF/OCR y tratamiento parcial de ZIP/archivos.
+
+No implementado o incompleto:
+- Embeddings semánticos.
+- Aprendizaje de pesos/LoRA en móvil.
+- Exportación dataset aprobado y entrenamiento externo automatizado.
+- N1 de configuración con métricas, snapshot y rollback completo.
+- N2 de plugins declarativos con aprobación por permiso.
+- N3 con ramas bardo-self/fecha, PR/parche, GitHub Actions, artefacto firmado y actualización diferencial.
+- El autoestudio no compila ni ejecuta tests de la copia candidata; solo hace análisis estático.
+- No hay auto-integración ni auto-commit.
+- El modelo no cambia sus pesos por conversaciones.
+
+Importación multiformato actual es parcial:
+- Office OOXML: extracción pasiva de texto.
+- PDF: extracción de texto y OCR limitado.
+- Imágenes: OCR, no comprensión visual general.
+- Vídeo: OCR de fotogramas muestreados; no escucha ni comprensión audiovisual completa.
+- Audio: metadatos; no transcripción ni análisis musical real.
+- ZIP de exportaciones de otras IA: soporte incompleto.
+No afirmar «analiza cualquier archivo».
+
+12. ESTUDIO MUSICAL PROFESIONAL
+Documento de hoja de ruta: docs/BARDO_ESTUDIO_PROFESIONAL.md.
+Demucs/UVR, separación de stems, edición vocal avanzada, mezcla y masterización están en investigación/diseño, no implementados como equipo profesional terminado.
+MiVoz continúa pendiente.
+La biblioteca de audio todavía no equivale a un reproductor completo con catálogo, listas, favoritos y reproducción continua.
+
+13. LICENCIAS Y ATRIBUCIÓN
+README contiene «Powered by Stability AI».
+app/src/main/assets/NOTICE.txt identifica Stable Audio Open Small, Apache-2.0, Stability AI y el origen upstream.
+El manifiesto de Gemma en catalogo/catalogo.json incluye:
+- licencia Apache-2.0;
+- atribución Google / LiteRT Community;
+- SHA-256 oficial.
+Catalogo ahora exige HTTPS, SHA-256 válido, licencia y atribución; carga manifiestos de forma atómica.
+DescargadorModelos ahora serializa descargas, exige HTTPS y no sobrescribe un archivo final existente que no coincida.
+Estas funciones del catálogo/descargador todavía no están conectadas a un flujo completo de instalación de todos los módulos.
+
+14. ESTADO FINAL DE PRUEBA
+Pruebas del usuario en Xiaomi 11T Pro durante esta fase: NINGUNA NUEVA.
+Pruebas CI del último código: no disponibles por fallos de jobs sin pasos/logs.
+APK integral actual: NO DISPONIBLE.
+APK SHA-256 de entrega: NO DISPONIBLE.
+Certificado esperado: c46232017513c3171ba04d91cf579a72202a834f0bcd1c0a22e0c9de0e030368.
+Release pública nueva: NO DISPONIBLE.
+No instalar una APK nueva hasta recibir número exacto de acción, APK auditada, SHA-256, huella del certificado y comparación de firma con la app instalada.
+
+15. SEGUIMIENTO DE INSPECCIÓN — 2026-11-07
+
+Repositorio y ramas:
+- Repositorio visible como público en GitHub.
+- Rama de trabajo bardo-unified-core: HEAD 0a3b26a9f023b4b731c04e3527de95adfc96c7b2.
+- main permanece en 7b0b075199d00df5e13fd6da6f3aecb19c7c0511; no se ha modificado ni fusionado.
+- Comparación actual: bardo-unified-core está 486 commits por delante y 4 por detrás de main; ramas divergentes. No integrar automáticamente.
+- PR #1 sigue abierto, en borrador, base main y head bardo-device-fixes; GitHub indica mergeable=false. No se ha fusionado.
+- Los dos documentos de especificación e inventario están en la rama de trabajo.
+
+Cambios realizados en esta inspección:
+- Commit 32d3840b6b7f696128c4e5afce1fbe3fa0804b29: aislar las llamadas Log.e del Orquestador para que un fallo del logger Android no sustituya la excepción original ni haga fallar pruebas JVM.
+- Commit 0a3b26a9f023b4b731c04e3527de95adfc96c7b2: ampliar los disparadores de full-build.yml para que los cambios en app/src, configuración Gradle, catálogo y herramientas activen la compilación offline completa en bardo-unified-core.
+- No se ha modificado Modo3MezclaVozUsuario.kt. Git blob SHA-1 confirmado: 8f2745fa841a06af43bf909732fba834474bf7dc.
+- No se han cambiado keystore ni Secrets. No se han leído ni exportado credenciales.
+
+Validación:
+- Run 42347461829, commit 32d3840b6b7f696128c4e5afce1fbe3fa0804b29: SUCCESS.
+- Gitleaks sobre el historial completo: SUCCESS.
+- testDebugUnitTest: SUCCESS.
+- assembleDebug: SUCCESS.
+- Se corrigieron dos pruebas que fallaban por llamadas a android.util.Log.e no simuladas en JVM.
+- Run 42347674509, commit 0a3b26a9f023b4b731c04e3527de95adfc96c7b2: en ejecución al redactar este seguimiento; Gitleaks SUCCESS y pruebas/compilación ligera en curso.
+
+Build integral:
+- Run 42347674482, commit 0a3b26a9f023b4b731c04e3527de95adfc96c7b2: en ejecución.
+- Generación de recursos de launcher: SUCCESS.
+- Snapshot de fuentes empaquetado: SUCCESS.
+- Descarga del paquete Stable Audio: SUCCESS. Procedencia observada: run 41786737921, artefacto stable-audio-open-small-executorch, artefacto ID 13301369681, tamaño 876993696 bytes, digest del ZIP sha256:f27ce09cb44547e4ef3b6bf84fce39c09c70a5377105a3f1c5a2f698d5bde560.
+- Java 17, Android CMake/NDK y Gradle: SUCCESS.
+- Pruebas unitarias dentro del build integral: SUCCESS.
+- Instalación de encabezados PyTorch: SUCCESS.
+- Checkout/submódulos ExecuTorch: en ejecución al redactar este seguimiento.
+- Compilación nativa, firma, auditoría de APK, escáner de credenciales y publicación de artefacto: pendientes.
+- No hay todavía una APK nueva auditada disponible para instalar.
+
+Ajustes y límites todavía pendientes:
+- BardoModuleCatalog sigue declarando modelSha256=null para Stable Audio. El digest anterior identifica el ZIP del artefacto de GitHub, no los SHA-256 individuales de los tres modelos .pte ni del tokenizer. No presentarlos como huellas individuales verificadas.
+- El workflow integral publica actualmente un artefacto de Actions con retención de 1 día; no publica parche diferencial ni Release pública en esta rama.
+- No se ha completado una prueba real en el Xiaomi 11T Pro de Gemma, conversación en modo avión, generación instrumental, escucha WAV/MP3, cancelación, ni Modo3.
+- El estado verde de CI no equivale a prueba física. No declarar capacidades terminadas hasta la confirmación del usuario.
+
+16. SEGUIMIENTO Y CORRECCIÓN DE AUDITORÍA — 2026-11-07 (ESTADO POSTERIOR; SUSTITUYE EL ESTADO PREVIO DE LA COMPILACIÓN 42347674482)
+
+Resultado real de la compilación integral 42347674482:
+- Estado final: FAILURE, no por compilación nativa.
+- Build assembleRelease -PwithAudioNative=true: SUCCESS.
+- Firma de APK con Secrets existentes: SUCCESS.
+- apksigner verify: SUCCESS y la comprobación de huella esperada no detuvo el workflow.
+- Auditoría de contenido: FAILURE en el chequeo del launcher.
+- Causa observada en log: LAUNCHER_RESOURCES_INCOMPLETE: main=0, foreground=0, adaptive=0.
+- El auditor inspeccionaba nombres originales ic_launcher*.webp/xml dentro del ZIP final. Android compila y empaqueta recursos en la tabla de recursos; por tanto, esa búsqueda literal en nombres ZIP no es un método válido para comprobar recursos Android compilados.
+- Como la auditoría falló, los pasos de escaneo de credenciales/Secrets y publicación del artefacto quedaron SKIPPED. No existe APK publicada/entregable desde esta ejecución. No instalar.
+- La firma superada no convierte en aprobada una APK cuya auditoría global no ha terminado.
+
+Corrección aplicada:
+- Commit 24cb5b0d6e91b2e86c35f1c168e91b2fa27411ca: .github/workflows/full-build.yml deja de exigir nombres fuente dentro del ZIP y verifica mipmap/ic_launcher y mipmap/ic_launcher_round desde aapt dump resources. Se conserva la comprobación de integridad ZIP, archivos de modelo/licencia/native .so, paquete, minSdk y no-debuggable.
+- La generación de mipmaps sigue validando los cinco tamaños/densidades a partir de las ilustraciones aprobadas de mipmap-mdpi.
+- Esta corrección aún no está validada por una nueva ejecución integral al momento de registrar esta entrada. Esperar nuevo run y revisar logs reales.
+
+Validación más reciente:
+- Run 42347975272 en commit 73c5ae2662ffb5744dcb238c43e337f0d717131d: BARDO integration validation SUCCESS; Gitleaks y pruebas/compilación debug SUCCESS.
+- La compilación integral anterior sigue FAILURE por la causa descrita; no reinterpretar el resultado.
+- Rama bardo-unified-core antes de la corrección: 73c5ae2662ffb5744dcb238c43e337f0d717131d; commit de corrección del workflow: 24cb5b0d6e91b2e86c35f1c168e91b2fa27411ca.
+- main no se ha modificado. No se ha fusionado PR alguno.
+- Modo3MezclaVozUsuario.kt no se ha modificado en esta fase; mantener protección y comprobar su hash tras cualquier futuro cambio.
+- No se han regenerado ni modificado claves, keystore o Secrets.
+
+DIRECTIVA DOCUMENTAL PERMANENTE — 2026-11-07:
+- El usuario ordena mantener siempre sincronizados BARDO_01_VISION_OBJETIVOS_DIRECTIVAS.txt y BARDO_02_INVENTARIO_TECNICO_Y_ESTADO.txt.
+- BARDO_01 recoge acuerdos, instrucciones, prioridades, objetivos nuevos/modificados/cancelados y reglas.
+- BARDO_02 recoge inspecciones, commits, implementación, CI, fallos, correcciones, artefactos, hashes y pruebas reales.
+- Cada decisión con impacto técnico debe registrarse en ambos documentos en el mismo ciclo. No borrar historial relevante; añadir entradas fechadas que sustituyan explícitamente estados anteriores.
+- Esta obligación se aplica a todo el trabajo futuro en bardo-unified-core. No modificar main ni fusionar sin autorización.
+
+17. REVISIÓN AMPLIADA DE RAMAS, PR, RELEASES Y BUILD — 2026-11-07
+
+Estado de ramas observado en GitHub:
+- bardo-unified-core: rama activa; HEAD previo a esta actualización documental: d33a1b6ce1f5d3de8c33063802601fa6e17c7fa4.
+- main: 7b0b075199d00df5e13fd6da6f3aecb19c7c0511; sin modificaciones en esta fase.
+- Comparación main...bardo-unified-core: 490 commits por delante, 4 por detrás, estado diverged. No hacer merge automático ni reescribir historia.
+- bardo-device-fixes: cd73c07566b1481b926aa4b59722234fab337540; 305 commits por detrás de bardo-unified-core.
+- bardo-worker-hardening: 7fc9b5a3444b846cfe0940245145fc93dce5a3f2; 3 commits exclusivos respecto a bardo-unified-core, pero 332 commits por detrás. Sus cambios revisados incluyen registro de inicio/estado de autoestudio y retry para IOException/RAM insuficiente en BardoDeveloperWorker. No cherry-pick: rama muy divergente; evaluar manualmente y portar solo tras revisar compatibilidad y añadir pruebas.
+- base-verde: 526 commits por detrás; no integrar.
+- ruta-a-compile: 289 commits por detrás; no integrar automáticamente.
+
+Pull requests:
+- PR #1 «BARDO: real audio progress, cancellation, MP3 archive and offline chat fixes»: OPEN, DRAFT, base main, head bardo-device-fixes, mergeable=false, 44 archivos, +5345/-357. No fusionar: rama antigua/divergente y la propia descripción indica que la compilación integral y la reproducción física aún no están confirmadas.
+
+Releases/artefactos:
+- La release más reciente visible es bardo-build-149, prerelease, publicada 2026-11-06; contiene app-debug.apk (938133218 bytes) y full-apk-audit.txt. No es el nuevo binario firmado y auditado de esta fase; no recomendar instalarla como entrega actual.
+- No hay release nueva ni artefacto publicado por el run 42350622162 al último chequeo.
+
+Build integral corregido:
+- Run 42350622162, commit de código/workflow 24cb5b0d6e91b2e86c35f1c168e91b2fa27411ca: en ejecución al último chequeo.
+- Ya superó checkout, generación de mipmaps, snapshot de fuentes, descarga del paquete Stable Audio, JDK 17, instalación CMake/NDK y setup Gradle.
+- Ejecutaba Run unit tests; todavía no se había registrado su resultado final.
+- Pendientes tras tests: encabezados PyTorch, checkout/submódulos ExecuTorch, compilación nativa, firma, auditoría aapt corregida, escáner de credenciales y publicación del artefacto.
+- Run de validación 42350622187: Gitleaks SUCCESS; pruebas y compilación debug todavía en ejecución al último chequeo.
+
+Protecciones verificadas en esta revisión:
+- main conserva SHA 7b0b075199d00df5e13fd6da6f3aecb19c7c0511.
+- Modo3MezclaVozUsuario.kt conserva Git blob SHA-1 8f2745fa841a06af43bf909732fba834474bf7dc.
+- No se han modificado Secrets, keystore ni certificado.
+- No se ha fusionado PR ni rama auxiliar.
+
+
+18. ACTUALIZACIÓN DE CI EN CURSO — 2026-11-07
+
+- Run integral 42350622162: ya completó correctamente Run unit tests (SUCCESS). En el último chequeo, Install pinned PyTorch headers for ExecuTorch CMake estaba IN_PROGRESS. La compilación nativa, firma, auditoría aapt corregida, escáner y publicación siguen pendientes.
+- Run de validación 42350622187: Gitleaks SUCCESS; compilación debug/pruebas no había finalizado en el último chequeo.
+- No cambiar el estado global a verde hasta completar todos los pasos y confirmar el artefacto firmado y auditado.
+
+19. RESULTADO DE VALIDACIÓN Y SUBFASE EXECUTORCH — 2026-11-07
+
+- Run 42350622187, commit 24cb5b0d6e91b2e86c35f1c168e91b2fa27411ca: SUCCESS. Gitleaks sobre el historial completo y Run unit tests and compile debug APK terminaron correctamente.
+- Run integral 42350622162: Run unit tests SUCCESS (07:19:48Z); instalación de PyTorch headers SUCCESS (07:20:07Z).
+- En el último chequeo, Checkout pinned ExecuTorch source seguía IN_PROGRESS. No declarar el build integral terminado; aún no hay resultado nuevo de assembleRelease, firma, auditoría aapt, escaneo de credenciales o publicación.
+- El commit de corrección de auditoría 24cb5b0d6e91b2e86c35f1c168e91b2fa27411ca permanece siendo el SHA que compila el run integral. Los commits documentales posteriores no modifican el código de aplicación ni ese run.
+
+20. RESULTADO VERIFICADO DE BUILD INTEGRAL #159 Y REVISIÓN DE ERRORES — 2026-11-07
+
+Build integral:
+- Workflow run 42350622162 (Build full offline APK #159), commit de código 24cb5b0d6e91b2e86c35f1c168e91b2fa27411ca: COMPLETED / SUCCESS. Duración observada 07:16:59Z–07:29:37Z.
+- `gradle testDebugUnitTest`: BUILD SUCCESSFUL (25 tareas ejecutadas; el log de Gradle no imprime el total de tests en el resumen final).
+- `gradle assembleRelease -PwithAudioNative=true ...`: BUILD SUCCESSFUL en 6m46s (53 tareas ejecutadas).
+- Compilación nativa arm64-v8a de ExecuTorch/XNNPACK y LAME completada. Se incluyen las bibliotecas libaudiogen.so, libmp3encoder.so y libmp3lame.so; la auditoría confirma native-code arm64-v8a.
+- Descarga del paquete de modelos Stable Audio Open Small y presencia en APK de conditioners_model.pte, dit_model.pte, autoencoder_model.pte, spiece.model, LICENSE y NOTICE.txt comprobadas por el script de auditoría.
+- Firma apksigner: V2=true, V3=true; un firmante. Huella del certificado SHA-256: c46232017513c3171ba04d91cf579a72202a834f0bcd1c0a22e0c9de0e030368, coincide con la huella autorizada. No se cambiaron Secrets ni keystore.
+- Auditoría: APK_ZIP_INTEGRITY PASS; APK_SHA256 informado por el log: 322f14625971212518647b8c2efc634fa97120d997a42085812527e39dc4be1d; APK_BYTES 936936765; COMPILED_LAUNCHER_RESOURCES PASS (aapt); RELEASE_APK_NON_DEBUGGABLE PASS; APK credential/signing-material scan PASS.
+- Paquete identificado como com.musicaia, minSdk 26 y ABI arm64-v8a.
+- Commit statuses en 24cb5b0: `BARDO / full offline APK audit` SUCCESS y `BARDO / full offline APK release` SUCCESS. Validación paralela 42350622187 SUCCESS.
+
+Artefacto:
+- `BARDO-full-offline-159`, artifact ID 13565857762, ZIP 695421592 bytes, creado 2026-11-07T07:29:31Z, expiración 2026-11-08T07:28:59Z (retención anterior de 1 día).
+- El conector no permite descargar este ZIP por superar 512 MiB; el artefacto sigue accesible desde GitHub Actions en su URL de descarga. No se ha podido inspeccionar localmente el ZIP ni instalar la APK desde este entorno.
+- La Release de GitHub aún no se había creado en esta ejecución. La última Release visible continuaba siendo bardo-build-149 con APK DEBUG, no usar como sustituta del build #159.
+
+Errores históricos con causa demostrada y resolución:
+- Run integral #158 / 42347674482: auditoría falló en `LAUNCHER_RESOURCES_INCOMPLETE: main=0, foreground=0, adaptive=0`; el auditor buscaba entradas fuente de iconos en el ZIP en lugar de consultar la tabla de recursos compilados. Corregido en commit 24cb5b0 usando `aapt dump resources` y comprobación de mipmap/ic_launcher y mipmap/ic_launcher_round. Run #159 demuestra PASS.
+- Run validación #266 / 42297164638: 55 tests completados, 2 fallidos en OrquestadorTest porque `android.util.Log.e` no está simulado en JVM. El commit posterior `32d3840` se tituló `test: keep Android logging from breaking JVM orchestrator tests`; la validación #267 y las posteriores #270/#275/#276 pasaron. El build #159 también pasa `testDebugUnitTest`.
+- Run de validación #259 y otras ejecuciones fallidas antiguas: sus logs ya devuelven BlobNotFound/404 desde GitHub; no atribuir causas no demostrables. Mantener sus resultados históricos como fallos, no borrarlos ni contarlos como estado actual.
+
+Advertencias no bloqueantes observadas en build #159:
+- CMake/NDK y dependencias nativas de terceros muestran avisos de deprecación/compatibilidad; XNNPACK pthreadpool API deprecada; LAME incluye avisos de fabs sobre enteros y shifts negativos; SentencePiece/llama.cpp warnings de variables/overrides/deprecations.
+- GitHub Actions muestra avisos de deprecación Node.js 20 en actions/checkout@v4, github-script@v7, setup-java@v4, setup-gradle@v3 y upload-artifact@v4. Build finaliza correctamente; programar actualización compatible de acciones, sin cambiar versiones a ciegas.
+
+Mejora de distribución iniciada:
+- Commit 1baac8682f622d2512f83c542571c960e9d80517 modifica `.github/workflows/full-build.yml`: retención de workflow artifact de 1 a 30 días; añade publicación idempotente de APK firmada + full-apk-audit.txt en GitHub Release `bardo-build-${GITHUB_RUN_NUMBER}` como prerelease; el status `BARDO / full offline APK release` dependerá del paso real de creación/carga de Release.
+- Este commit dispara un nuevo build integral. Resultado todavía pendiente al registrar esta entrada; no afirmar que la Release nueva existe hasta comprobar run y asset.
+
+Límites y estado de dispositivo:
+- No se ha descargado ni instalado la APK #159 en el Xiaomi 11T Pro desde este entorno. La prueba de instalación, arranque, RAM/temperatura, conversación, generación de audio, exportación WAV/MP3 y reproducción siguen PENDIENTES del usuario.
+- APK de ~937 MB: advertir del tamaño y comprobar espacio disponible antes de instalar. No declarar compatibilidad funcional real por el mero hecho de compilar para arm64-v8a.
+- `main` continúa en 7b0b075199d00df5e13fd6da6f3aecb19c7c0511; comparación actual de ramas: bardo-unified-core 494 commits por delante y 4 por detrás (diverged). PR #1 continúa OPEN/DRAFT/no mergeable. No integrar.
+- Modo3MezclaVozUsuario.kt: blob SHA-1 verificado 8f2745fa841a06af43bf909732fba834474bf7dc; no modificado.
+
+21. SEGUIMIENTO DE LA NUEVA ENTREGA CON RELEASE PERMANENTE — 2026-11-07
+
+- Workflow Build full offline APK #160, run 42353954810, ejecuta el commit 1baac8682f622d2512f83c542571c960e9d80517 que añade la publicación en GitHub Release y retención de 30 días. En el último chequeo continúa IN_PROGRESS en `Run unit tests`; todavía no hay resultado de la compilación nativa, firma, auditoría ni carga de Release.
+- Validación BARDO #277, run 42353954715, ya completó Gitleaks y `Run unit tests and compile debug APK` con SUCCESS; quedaba en limpieza/post-step al último chequeo.
+- Validación #278 fue CANCELLED porque un push documental posterior sustituyó ese commit; #279, correspondiente al inventario actualizado, quedó PENDING. No son fallos de compilación de la aplicación.
+- Branch HEAD documental verificado después de las dos actualizaciones: c84d914d4019f4f1177ce72781d76dda7366c4a3. Commit del cambio de workflow: 1baac8682f622d2512f83c542571c960e9d80517.
+- main continúa en 7b0b075199d00df5e13fd6da6f3aecb19c7c0511; Modo3 mantiene blob SHA-1 8f2745fa841a06af43bf909732fba834474bf7dc.
+- No declarar publicada la nueva Release hasta ver el tag bardo-build-160 y los assets app-release APK + full-apk-audit.txt en GitHub Releases y confirmar el status `BARDO / full offline APK release` SUCCESS.
+ 
+22. RESULTADO FINAL BUILD INTEGRAL #160 Y CORRECCIÓN DE NOMBRE DEL APK — 2026-11-07
+ 
+Build #160 / run 42353954810 / commit 1baac8682f622d2512f83c542571c960e9d80517: COMPLETED / SUCCESS. Los pasos Run unit tests, compilación ExecuTorch/NDK ARM64, firma BARDO, auditoría APK, escaneo de credenciales, subida de artefacto, publicación GitHub Release y estado final terminaron SUCCESS.
+- Gradle assembleRelease: BUILD SUCCESSFUL en 7m43s. Se ejecutó testDebugUnitTest y terminó correctamente.
+- Firma apksigner: V2=true, V3=true; huella SHA-256 de certificado c46232017513c3171ba04d91cf579a72202a834f0bcd1c0a22e0c9de0e030368, coincidente con certificado BARDO autorizado.
+- APK audit: ZIP PASS; APK_BYTES 936940861; APK_SHA256 469c78345898d898b45d446f597922af06d955984cf92e91854500609ca77931; recursos launcher PASS; paquete com.musicaia; versionCode 1160/versionName 1.0.1160; minSdk 26, targetSdk 34, ABI arm64-v8a; RELEASE_APK_NON_DEBUGGABLE PASS; escaneo de credenciales PASS.
+- Contenido incluido y no vacío: conditioners_model.pte (220250112 bytes), dit_model.pte (343439104 bytes), autoencoder_model.pte (312494592 bytes), spiece.model, licencia y avisos; libaudiogen.so, libmp3encoder.so y libmp3lame.so ARM64.
+- GitHub Release bardo-build-160 publicada como prerelease con app-release-unsigned.apk (936940861 bytes) y full-apk-audit.txt. El nombre del APK es engañoso: el log demuestra que el archivo fue firmado antes de ser copiado con ese nombre. No confundir nombre con estado de firma; SHA y certificado anteriores son los datos verificados.
+- Artefacto BARDO-full-offline-160, ID 13566509896, 695421805 bytes, expiración 2026-12-07T08:19:02Z (30 días).
+- Commit statuses en 1baac868: BARDO / full offline APK audit SUCCESS y BARDO / full offline APK release SUCCESS.
+- Mejora correctiva en curso: commit dcc13d27dd39ef3a6a349b1f80d02a3afc9b8353 renombra la APK firmada a app-release.apk después de copiar el binario firmado y antes de auditar/publicar. Esto dispara build #161. No declarar corregido ni disponible el nombre nuevo hasta comprobar Release y asset de #161.
+ 
+23. LÍMITES QUE SIGUEN ABIERTOS
+- No se ha instalado ni ejecutado la APK #160 en el Xiaomi 11T Pro. Generación real de audio, latencia, memoria, temperatura, reproducción, exportación WAV/MP3 y funcionamiento de interfaz en dispositivo siguen pendientes.
+- El tamaño cercano a 937 MB requiere espacio libre suficiente.
+- Build verde y presencia de pesos/modelo no prueban que el modelo cargue y genere audio en el dispositivo. No declarar generación IA funcional hasta prueba de ejecución real.
+- main sigue sin modificar; PR #1 sigue abierto/draft/no mergeable. No fusionar ni rebasar main sin autorización expresa.
+- Modo3MezclaVozUsuario.kt conserva blob SHA-1 8f2745fa841a06af43bf909732fba834474bf7dc.
+- Build #161 y validación asociada deben registrarse cuando terminen; no modificar ni regenerar Secrets o keystore.
+
+24. REVISIÓN GLOBAL DE GITHUB Y DIRECTIVA DE FASE ÚNICA — 2026-11-07
+
+- Se revisaron 301 ejecuciones de GitHub Actions de `bardo-unified-core` (páginas consultadas 1–5): 147 SUCCESS, 99 FAILURE, 53 CANCELLED y 2 aún sin conclusión en el momento del recuento. Las canceladas no equivalen a errores de compilación: varias corresponden a pushes sucesivos que sustituyeron commits documentales.
+- Fallos recientes con causa visible en registros previos: build integral #158 (run 42347674482) falló en auditoría de recursos launcher porque el auditor miraba rutas fuente en vez de recursos compilados; corregido por inspección con AAPT y validado en #159/#160. Validación #266 (run 42297164638) falló en dos tests JVM por android.util.Log no simulado; corregido y superado en #267 y posteriores, incluido #280.
+- Los fallos #264 (42296956099), #250 (42295831557), #260 (42296801570), #259 (42296588876), #258 (42296574302), #257 (42296560204), #256 (42296518430), #255 (42296492734) y #254 (42296475113) constan como FAILURE en Actions. Los logs ya no están disponibles para esta sesión (GitHub/BlobNotFound); no se atribuye una causa no demostrada. No se borran ni se reetiquetan como verdes.
+- Build integral #160 (run 42353954810): SUCCESS completo, APK firmada y certificado autorizado, artefacto de 30 días y Release `bardo-build-160` publicados. APK SHA-256 `469c78345898d898b45d446f597922af06d955984cf92e91854500609ca77931`, certificado SHA-256 `c46232017513c3171ba04d91cf579a72202a834f0bcd1c0a22e0c9de0e030368`, 936940861 bytes. El nombre `app-release-unsigned.apk` de ese asset era engañoso aunque su contenido estaba firmado y verificado.
+- Corrección del nombre: commit `dcc13d27dd39ef3a6a349b1f80d02a3afc9b8353` modifica el workflow para renombrar el binario firmado a `app-release.apk` antes de auditar/publicar. Build #161 / run 42356276736 está IN_PROGRESS; validación #281 / run 42356276749 también IN_PROGRESS; validación #283 / run 42356297173 estaba PENDING para commit documental posterior. No declarar el nombre corregido publicado hasta verificar los assets de `bardo-build-161` y estado final SUCCESS.
+- Validación #280 / run 42354194652: SUCCESS en commit `f287a3e6a4d0ad9b7afa918be96857dd4ab21204`.
+- La rama `bardo-unified-core` está en `179d5d6a84f0efff8201e847c190d63362ead701`; comparación con main: 501 commits ahead y 4 behind (diverged). PR #1 NO corresponde a esta rama: es `bardo-device-fixes` → `main`, OPEN/DRAFT, 44 archivos, 185 commits, mergeable=false/dirty. No fusionar ni reutilizar como PR de esta fase.
+- `main` continúa en `7b0b075199d00df5e13fd6da6f3aecb19c7c0511`. `Modo3MezclaVozUsuario.kt` mantiene blob SHA-1 `8f2745fa841a06af43bf909732fba834474bf7dc`. No se tocaron secretos ni keystore.
+- Se incorpora la directiva de fase única: consolidar una sola APK integral y cerrar una única aceptación final. Builds intermedios no significan entrega funcional completa. Cierre pendiente de pruebas físicas en Xiaomi 11T Pro, incluidas inferencia local Gemma cuando supere los umbrales de RAM, generación Stable Audio real, WAV/MP3 y escucha. La APK #160 pesa ~937 MB; comprobar almacenamiento libre.
+
+25. CORRECCIÓN DE CAPACIDADES FALSAS / PLACEHOLDERS — 2026-11-07
+
+- Commit `8d4a3e017e12e7bbc491aaa359c5b5db6c1ced97`: `ModuloVoz` deja de emitir tonos de prueba y ahora devuelve estado explícito NOT_IMPLEMENTED / lanza UnsupportedOperationException. Se elimina la simulación de voz cantada.
+- Commit `bbd2a68ee295e642fe26d43f9817ceb5228a2111`: añade prueba para asegurar que la síntesis vocal sigue declarada como no implementada y no se selecciona.
+- Commit `ca2221c5b934755cd67bbca08d10907a2e575112`: `ModuloMezcla` deja de fabricar un WAV de onda artificial y declara que la mezcla/masterización profesional no está implementada.
+- Commit `9773a4d38db8d850e56b8a5a8067f780ddc8c08b`: `ModuloPortada` deja de producir una tarjeta PNG tipográfica y declara que la portada IA no está implementada.
+- Estas correcciones se alinean con la directiva del usuario: no presentar tonos, ondas sintéticas o imágenes fijas como salida de IA. La mezcla de voz del usuario en Modo3 sigue separada y protegida; no se modificó su archivo.
+- Las ejecuciones de validación #282–#288 y builds #162–#164 aparecen CANCELLED por sustitución/cancelación de ejecuciones durante commits sucesivos; no equivalen a fallos de compilación. Build #161 (run 42356276736, commit dcc13d2) seguía IN_PROGRESS en el último chequeo; build #165 (run 42356457742, commit 9773a4d) y validación #289 (run 42356457755) estaban PENDING. #165 es la compilación integral que debe validar las correcciones de placeholders y el nombre app-release.apk.
+- Estado protegido al último chequeo: `main` = `7b0b075199d00df5e13fd6da6f3aecb19c7c0511`; blob Modo3 = `8f2745fa841a06af43bf909732fba834474bf7dc`; rama bardo-unified-core = `9773a4d38db8d850e56b8a5a8067f780ddc8c08b`.
+
+26. SINCRONIZACIÓN FINAL DE DIRECTIVAS DE UNA SOLA FASE Y VERACIDAD — 2026-11-07
+
+- Commit `03b606b66e4cf492cebf515650f7f312a1f0220f`: BARDO_01 renumera la directiva de fase única para evitar encabezados duplicados y añade una regla explícita contra capacidades falsas: voz cantada, portadas IA y mezcla/masterización profesional permanecen NO IMPLEMENTADAS hasta motor real y prueba reproducible; no usar tonos, ondas, tarjetas PNG ni WAV artificiales como sustitutos.
+- La mezcla de voz real aportada por el usuario se mantiene separada de síntesis vocal y no se altera Modo3.
+- La rama debe continuar con una sola fase integrada de aceptación. Estado de CI en seguimiento: build #161 / run 42356276736 seguía compilando APK en el último chequeo; build #165 / run 42356457742 esperaba turno y contiene la corrección de nombre `app-release.apk` más la retirada de placeholders. Validación #289 y #290 corresponden a commits anteriores; esta actualización documental dispara una validación posterior, sin alterar el código de APK.
+- No se ha probado aún la APK en el Xiaomi 11T Pro. El cierre de la fase única continúa bloqueado por instalación y pruebas físicas del usuario, aunque la CI termine en verde.
+
+27. REGISTRO DE CAPACIDADES DESACTIVADAS Y VALIDACIÓN FINAL — 2026-11-07
+
+- Commit `8aa9f77da1ef68ba2ba8820cf28bab5a7aff4374`: el registro visible de capacidades añade `mix_master` y `cover_art` como NOT_IMPLEMENTED con explicación explícita de que los módulos heredados de onda de prueba y tarjeta PNG se desactivaron. `voice_synthesis` también declara que se desactivó el módulo de tonos.
+- Commit `d74daf4ccb51aab2a8170492e29826cf864bc890`: el catálogo de módulos registra `cover_art` como módulo no implementado.
+- Commit `af2c85578968562bd81ad221528d049f5e60f0f4`: prueba `placeholderCapabilitiesRemainExplicitlyUnavailable` asegura que voz, mezcla/masterización y portada siguen NOT_IMPLEMENTED y que la actualización asistida solo informa de la Release publicada, no de instalación automática.
+- Build #161 / run 42356276736 seguía en `Build full APK with on-device audio model`; build #168 / run 42356638808 estaba PENDING para el commit de código `af2c855`. Las builds #162–#167 fueron CANCELLED por sustitución de ejecuciones. La validación #289 seguía en pruebas/compilación debug; validación #295 para el último commit estaba PENDING. No declarar CI final hasta que la ejecución integral más reciente termine auditando y publicando.
+- Rama actual antes de esta entrada: `af2c85578968562bd81ad221528d049f5e60f0f4`. `main` sigue `7b0b075199d00df5e13fd6da6f3aecb19c7c0511`; Modo3 blob sigue `8f2745fa841a06af43bf909732fba834474bf7dc`.
+- Sigue pendiente instalar y probar físicamente en Xiaomi 11T Pro; las capacidades marcadas NOT_IMPLEMENTED no forman parte de la aceptación como funcionales en esta APK.
+
+28. AUDITORÍA DE FIRMA REFORZADA Y CORRECCIÓN PREVIA A LA ENTREGA — 2026-11-07
+
+- Commit `5bce0af249744c47c020a61deb5e1f736e2acffc`: el informe de APK incorpora commit fuente, número de ejecución y huella de certificado; la Release incluye la referencia de commit y run.
+- Revisión estática del nuevo bloque detectó un defecto de escape: `printf '%s\\n'` impedía que sed recibiera líneas separadas y podía dejar vacía la huella extraída; además los esquemas V2/V3 se habían consignado como texto fijo. No se dejó pasar a una entrega final.
+- Commit `465d32e3dd17ca9a83ef7e2f9d9f3b91ced69fb4` corrige los saltos de línea y exige que `apksigner verify --verbose` confirme realmente V2 y V3, además de volver a comparar la huella con el certificado BARDO autorizado.
+- Commit `d53c63595586c99a71b4add27ee852128eb32952` corrige el heredoc de notas de Release para expandir el commit fuente y número de ejecución en lugar de publicar variables literales.
+- Build #170 / run 42356728600 fue CANCELLED al entrar la corrección del heredoc; build #171 / run 42356743045 está PENDING y contiene el bloque corregido completo. Validación #298 / run 42356728412 está IN_PROGRESS; validación #299 / run 42356743090 PENDING para el commit posterior. Build #161 / run 42356276736 sigue IN_PROGRESS desde el commit antiguo `dcc13d2`; no se ha declarado finalizado ni se ha publicado Release #161.
+- La compilación integral más reciente que debe aceptarse es #171; verificar en su informe la presencia de `SOURCE_COMMIT`, `WORKFLOW_RUN`, `CERTIFICATE_SHA256` y líneas `SIGNATURE_SCHEME` V2/V3, y comprobar el asset exacto `app-release.apk`.
+- No se han tocado `main`, Modo3, keystore ni Secrets. El estado de instalación y prueba física Xiaomi 11T Pro sigue pendiente.
+
+29. CORRECCIÓN DEL FLUJO GUIADO PARA INSTRUMENTAL Y VOZ PROPIA — 2026-11-07
+
+- Commit `09d0ca4f305ab5762c7191bf64d2a5544fc38335`: BardoIntentRouter incorpora reglas explícitas para distinguir instrumental sin voz y opciones que requieren voz propia.
+- Commit `bd0f2df18e923843377a52e1a19386d549dd7ad6`: añade pruebas unitarias de mapeo de tipos instrumental/voz.
+- Commit `df74a212568543049e665b8f8aa6c03fd44be8d0`: al completar el campo Tipo, la selección instrumental rellena el prompt instrumental y cambia al modo instrumental; voz/ambas exige archivo o grabación propia WAV PCM16. Si no existe motor de síntesis vocal, la aplicación lo comunica y bloquea la creación en vez de omitir silenciosamente la voz.
+- Esta corrección evita dos falsos positivos: elegir «instrumental» no intenta generar letra con Gemma; elegir «voz» o «ambas» no finge disponer de canto IA. La mezcla de voz propia continúa siendo una ruta separada.
+- Build #173 / run 42356763210 fue CANCELLED por el siguiente commit de corrección; build #174 / run 42356777607 y validación #303 / run 42356777517 están PENDING para el commit de código `df74a212`. Deben completar antes de aceptar este cambio.
+- `main` permanece `7b0b075199d00df5e13fd6da6f3aecb19c7c0511`; Modo3 blob permanece `8f2745fa841a06af43bf909732fba834474bf7dc` (verificar SHA exacto del blob en GitHub antes de cualquier cambio).
+
+30. CORRECCIÓN DE CAMBIO DE TIPO DURANTE EL FLUJO GUIADO — 2026-11-07
+
+- Commit `c89d8ef40bdd6738d899317a77f2c332dbb56c86`: al cambiar a «instrumental», BARDO marca la fuente de voz como ninguna; si después el usuario cambia a voz/ambas, limpia ese valor para volver a preguntar por la fuente real. Evita que una elección instrumental anterior se herede silenciosamente como una respuesta definitiva de voz.
+- Build #175 / run 42356816535 fue lanzado para el commit `c89d8ef`; la ejecución de validación #304 fue CANCELLED por la actualización documental siguiente. La validación #306 para el commit de corrección del SHA Modo3 quedó PENDING. No declarar el flujo guiado validado hasta una ejecución de pruebas posterior en verde.
+- SHA protegido verificado en este turno: Modo3 blob `8f2745fa841a06af43bf909732fba834474bf7dc`; `main` permanece `7b0b075199d00df5e13fd6da6f3aecb19c7c0511`.
+
+31. DISTINCIÓN ENTRE MODO3 PROTEGIDO Y MEZCLA PCM ACTIVA — 2026-11-07
+
+- Se inspeccionó `Modo3MezclaVozUsuario.kt` sin modificarlo. Su implementación heredada copia el instrumental al archivo de salida y no mezcla las muestras de voz; se conserva intacta por directiva expresa de protección y no se debe declarar funcional como mezclador real.
+- La ruta que actualmente usa la interfaz para voz propia es distinta: `MainActivity.mezclarVozUsuario()` llama a `MezclaVoz.mezclar()` fuera del hilo principal. `MezclaVoz.kt` lee WAV PCM16, convierte canales a mono, remuestrea la voz al sample rate del instrumental, suma las muestras con ganancias y escribe un WAV nuevo.
+- `MezclaVozTest.mixesRecordedVoiceWithInstrumentalAndWritesRealPcmWav` verifica el WAV de salida y sus muestras PCM. Esto demuestra una prueba JVM del algoritmo de mezcla, no una prueba auditiva en el Xiaomi.
+- Mantener la protección Modo3: blob SHA-1 verificado `8f2745fa841a06af43bf909732fba834474bf7dc`. No modificar ni eliminar ese archivo sin autorización específica. Para la aceptación de la aplicación, probar la ruta activa `MezclaVoz` con una grabación real del usuario.
+
+32. RESULTADO DE BUILD #161 Y BLOQUEO DE PERMISOS PARA GITHUB RELEASE — 2026-11-07
+
+- Build #161 / run `42356276736`, commit `dcc13d27dd39ef3a6a349b1f80d02a3afc9b8353`: pruebas unitarias, compilación nativa, firma, auditoría APK y escaneo de credenciales PASARON. El binario quedó como `app-release.apk`, no `app-release-unsigned.apk`.
+- Verificación de firma en el log: V2=true, V3=true; certificado SHA-256 `c46232017513c3171ba04d91cf579a72202a834f0bcd1c0a22e0c9de0e030368` (coincide con BARDO autorizado). APK 936940861 bytes; SHA-256 `8d009c5f7d3230ef28bec498ae0b450581da1cfbf5405aa7e9adf32ae0ec8e7e`; ZIP integrity, recursos launcher, no-debuggable y escaneo de credenciales PASS.
+- Artefacto `BARDO-full-offline-161`, ID `13567932137`, disponible durante 30 días hasta `2026-12-07T08:47:51Z`; contiene `app-release.apk` y `full-apk-audit.txt`. URL de ejecución: https://github.com/loboxfake/musica-ia/actions/runs/42356276736
+- El paso `Publish signed APK as a GitHub Release` falló con HTTP 403 `Resource not accessible by integration` al llamar a `/releases`. Por tanto NO existe `bardo-build-161` ni se debe afirmar que la Release se publicó. La auditoría `BARDO / full offline APK audit` figura SUCCESS; el estado `BARDO / full offline APK release` figura FAILURE. El fallo no es de compilación, firma ni del APK: es permiso del token de GitHub Actions/integración para crear Releases.
+- El workflow ya declara `permissions: contents: write`, pero el token de Actions sigue rechazado por GitHub. No se cambiarán Secrets, no se inventará ni sustituirá un token. Para habilitar Releases hará falta que el propietario revise la política de permisos de Actions / instalación de GitHub App o autorice un mecanismo de publicación separado sin exponer credenciales.
+- Build #175 / run `42356816535` está IN_PROGRESS para el commit `c89d8ef`; es el build que incluye el flujo guiado de instrumental y voz propia. Debe completar compilación y auditoría. Aunque su artefacto se suba, la creación de Release puede volver a fallar por el mismo bloqueo 403 hasta que cambien permisos.
+
+33. CLASIFICACIÓN DE LOS FALLOS HISTÓRICOS DE BUILDS INTEGRALES — 2026-11-07
+
+- #151 / run `42275609391`: falló la comprobación textual del certificado porque el script esperaba `Signer #1 certificate SHA-256 digest`, mientras apksigner imprimía `V3.0 Signer: certificate SHA-256 digest`. La huella real era la autorizada; se corrigió el parser para extraer la huella sin depender de ese prefijo.
+- #153 / run `42286039365`: compilación y firma avanzaron hasta publicación de Release; falló con HTTP 403 `Resource not accessible by integration`. Mismo bloqueo de permisos que #161.
+- #154, #155 y #156 / runs `42287738793`, `42287797894` y `42294598529`: falló el auditor porque buscaba entradas de launcher en rutas ZIP concretas que no coincidían con la representación real de recursos compilados.
+- #157 / run `42296447565`: el job aparece FAILURE sin paso fallido identificable y los logs ya no están disponibles (BlobNotFound); causa NO DETERMINADA, no inventar diagnóstico.
+- #158 / run `42347674482`: mismo defecto del auditor de launcher, con `main=0, foreground=0, adaptive=0`. Corregido en #159 con `aapt dump resources`; #159 y #160 demuestran PASS de recursos launcher.
+- #161 / run `42356276736`: compilación, pruebas, firma V2/V3, certificado, integridad, recursos, no-debuggable y escaneo de secretos PASS; falla exclusivamente al publicar Release con HTTP 403. El artefacto #161 sí se subió.
+- Por tanto, los defectos de parser de firma y auditoría de launcher tienen corrección comprobada en ejecuciones posteriores. El único bloqueo de build integral que se repite actualmente es la autorización del token de Actions para crear Releases; no está resuelto por cambios de código y requiere permisos externos.
+
+34. REVISIÓN ESTÁTICA DE LA CADENA DE AUDIO Y VALIDACIÓN UNITARIA — 2026-11-07
+
+- `ModuloInstrumental` invoca realmente `AudioGenNative.generateNative` (JNI/ExecuTorch) con los cuatro archivos locales de Stable Audio Open Small: conditioners_model.pte, dit_model.pte, autoencoder_model.pte y spiece.model. No hay generador tonal de sustitución en esta ruta.
+- La creación completa usa 18 secciones de hasta 11 s; `AudioAssembler` une PCM16 con crossfade de 700 ms, fundido final y validación de transiciones. Exige WAV final de al menos 180 s. La opción quickTest genera un solo segmento y no equivale a una canción completa.
+- `WavSegmentDiagnostics` valida cabeceras y duración sin cargar el PCM entero. `Mp3Exporter` usa LAME nativo y la ruta activa de voz propia usa `MezclaVoz` con remuestreo/mezcla PCM; existe `MezclaVozTest` que verifica muestras WAV reales. No confundir esta mezcla básica con masterización profesional.
+- Validación #307 / run `42356864915`, commit `8e713e67`: `gradle testDebugUnitTest assembleDebug` terminó BUILD SUCCESSFUL en 2m14s (44 tareas). Incluye tests de mapeo instrumental/voz propia y mezcla PCM. Advertencias no bloqueantes: `createTempDir` deprecado en tests y dos bibliotecas nativas que Android no pudo strippear y empaquetó tal cual.
+- Build integral #175 / run `42356816535`, commit `c89d8ef`, ya superó tests unitarios, instalación NDK/CMake y preparación de headers; en el último chequeo ejecutaba `Build full APK with on-device audio model`. Aún no hay resultado de firma, auditoría ni artefacto para ese commit.
+- La compilación y los tests JVM no demuestran que Stable Audio o Gemma infieran correctamente en Snapdragon 888 ni que el resultado sea audible/calidad aceptable. Sigue obligatoria la prueba física de la APK en Xiaomi 11T Pro.
+
+35. CORRECCIÓN DE ESTADO VISIBLE DE ACTUALIZACIÓN — 2026-11-07
+
+- Commit `cff6d3e949d12d299332add06bc926a0c2d16c84`: la capacidad `self_install` deja de afirmar que la última APK está publicada en Releases. Ahora informa que la build auditada se conserva como artefacto de Actions, que la nueva Release está bloqueada por HTTP 403 y que solo existe una Release previa.
+- Commit `1355a2372d8145711532e7e3664ffdf585d34abc`: test actualizado para exigir que la limitación 403 y la disponibilidad del artefacto aparezcan en el estado visible.
+- Build #176 / run `42357453948` fue CANCELLED por el push de su test; build #177 / run `42357458000` está PENDING para el commit de test final. Validación #314 / run `42357457979` está PENDING. Build #175 / run `42356816535` sigue IN_PROGRESS en compilación nativa; se mantiene como build anterior, pero #177 será la ejecución integral del código y del estado visible más recientes.
+
+36. RECUENTO ACTUALIZADO DE TODAS LAS EJECUCIONES CONSULTADAS — 2026-11-07
+
+- Se volvieron a consultar las primeras cinco páginas de GitHub Actions para `bardo-unified-core`: 347 ejecuciones encontradas. Estado agregado: 153 SUCCESS, 100 FAILURE, 91 CANCELLED, 2 IN_PROGRESS y 1 PENDING en el momento del recuento.
+- De los 100 fallos: 8 corresponden a `Build full offline APK` y 92 a `BARDO integration validation`. Las cancelaciones no son fallos: incluyen sustituciones de builds/validaciones durante pushes posteriores.
+- Se recuperaron logs de #250 / run `42295831557`, #264 / `42296956099` y #266 / `42297164638`: las tres ejecuciones fallaron en los mismos dos tests `OrquestadorTest` porque `android.util.Log.e` no está simulado en JVM. Corregido después y comprobado en validaciones verdes #267/#270/#276 y #307.
+- #307 / run `42356864915`: `testDebugUnitTest assembleDebug` BUILD SUCCESSFUL, 44 tareas, 2m14s. #309 / run `42357116411` y #311 / run `42357268720`: SUCCESS.
+- Los logs de fallos #259, #260, #255–#258 y otros antiguos ya devuelven BlobNotFound; se conserva su estado FAILURE sin inventar causa. El inventario previo documenta las causas demostrables de los fallos de firma, auditoría launcher y permisos Release.
+- Estado de los trabajos de entrega: #161 auditó y subió artefacto pero falló al crear Release por HTTP 403; #175 / run `42356816535` seguía en `Build full APK with on-device audio model`; #177 / run `42357458000` estaba PENDING para el último cambio de transparencia de `self_install`; validación #315 / run `42357485126` terminó SUCCESS para la última documentación; #316 / run `42357742665` quedó QUEUED tras este recuento.
+- No declarar la fase cerrada por el recuento agregado: se necesita build integral más reciente en verde de auditoría, artefacto verificable, resolución de permisos para Release o aceptación explícita del artefacto de Actions, y pruebas físicas en Xiaomi 11T Pro.
+
+
+37. DIRECTIVA GEMMA/ESPACIO DE TRABAJO Y ESTADO DE RELEASE — 2026-11-07
+
+Rama/protecciones:
+- Rama vigente para la especificación BARDO: bardo-unified-core. HEAD observado antes de esta implementación: 6bf244933e9972c10e4f6cceebbdec8a2a96bd41.
+- main permanece en 7b0b075199d00df5e13fd6da6f3aecb19c7c0511; no se ha modificado ni fusionado.
+- Modo3MezclaVozUsuario.kt conserva Git blob SHA-1 8f2745fa841a06af43bf909732fba834474bf7dc; sigue protegido.
+- No usar ruta-a-compile como rama de integración ni mezclar ramas divergentes automáticamente.
+
+Build integral #177:
+- Workflow run 42357458000, Build full offline APK #177, commit 1355a2372d8145711532e7e3664ffdf585d34abc, rama bardo-unified-core: COMPLETED / SUCCESS según GitHub Actions.
+- Release prerelease observada: https://github.com/loboxfake/musica-ia/releases/tag/bardo-build-177
+- Asset app-release.apk: 936940861 bytes. GitHub API declara digest sha256:078e170332b2cf409e5c4c1da2df91b63fd7d3c2a1b186fc735d02255325067c.
+- Asset full-apk-audit.txt: 5874 bytes. Digest comunicado por GitHub: fb979027fdf88b51f31df7dedb0a9523c49aa6606a8a6ae90b65d696bfb1c225.
+- La release anuncia firma, integridad, recursos launcher, APK no-debuggable, escaneo de credenciales y bibliotecas/modelos de audio offline. En esta inspección no se pudo recuperar el contenido del informe de auditoría ni descargar/verificar localmente el binario; el digest anterior es el dato de asset comunicado por API.
+- El HEAD 6bf244933e9972c10e4f6cceebbdec8a2a96bd41 incluye tres commits documentales posteriores al commit de build; el compare indicó solo BARDO_02 (+16 líneas), sin cambios de app. Por eso el código de app de #177 coincidía con el existente antes de esta nueva implementación.
+- Validación BARDO integration #317 / run 42357777730 para 6bf244933e9972c10e4f6cceebbdec8a2a96bd41: SUCCESS. No equivale a ejecución ni escucha en el dispositivo.
+- Instalación/arranque en Xiaomi 11T Pro, RAM/temperatura, inferencia Gemma, generación real Stable Audio, WAV/MP3 y reproducción continúan pendientes de prueba física.
+
+Inspección antes de integrar los cambios actuales:
+- LiteRTLMModule usa Gemma privado gemma-4-E2B-it.litertlm; tamaño esperado 2,588,147,712 bytes; SHA-256 oficial 181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c1. El importador existente valida nombre/tamaño/SHA-256 y mantiene el archivo origen externo.
+- MainActivity ya disponía de acceso SAF persistente a Descargas/BARDO y creaba las carpetas Modelos, Instaladores, Canciones, Instrumentales, Proyectos, Voces, Historial y Copias de seguridad; todavía no detectaba automáticamente el Gemma ya colocado en Modelos.
+- BardoDeveloperWorker ejecuta análisis local aislado con Gemma, presupuesto de recursos, auditoría estática y generación de propuestas; no modifica la aplicación instalada.
+- Los informes, propuestas y memoria del autoestudio se guardaban antes solo en almacenamiento privado de la app. El autoestudio periódico requería que Gemma estuviera importado a la ubicación privada.
+- El acceso a BARDO Developer estaba oculto en el XML de MainActivity; el autoestudio disponía de programación periódica, pero no de un botón de ejecución inmediata.
+
+Directivas del usuario añadidas a BARDO_01:
+- Reutilizar Gemma ya existente en Descargas/BARDO/Modelos, no volver a descargarlo y preservar el original.
+- Descargas/BARDO es el área de trabajo autorizada para leer, crear, organizar, guardar y eliminar elementos dentro de sus límites.
+- Autoestudio como prioridad clave y transversal. Diferenciar aprendizaje por memoria/análisis de entrenamiento real de pesos.
+
+
+38. AUDITORÍA INTEGRAL DE RAMAS Y COMMITS — 2026-11-07
+
+Rama de integración vigente:
+- bardo-unified-core: 3125de488ae1bc6d9053a24e6e11fa9a65bc7311 antes del siguiente commit de integración.
+- main permanece intacta en 7b0b075199d00df5e13fd6da6f3aecb19c7c0511.
+- Modo3MezclaVozUsuario.kt SHA-1 Git blob protegido verificado: 8f2745fa841a06af43bf909732fba834474bf7dc. No se ha modificado.
+- Se han enumerado las seis ramas y comparado sus historias respecto a bardo-unified-core. No se han fusionado ramas a ciegas.
+
+Ramas y divergencia respecto a bardo-unified-core:
+- bardo-device-fixes: HEAD cd73c07566b1481b926aa4b59722234fab337540.
+- bardo-unified-core: HEAD 3125de488ae1bc6d9053a24e6e11fa9a65bc7311.
+- bardo-worker-hardening: HEAD 7fc9b5a3444b846cfe0940245145fc93dce5a3f2.
+- base-verde: HEAD f68ea19cae9a81070c382edb26e6aac2e6d0868d.
+- main: HEAD 7b0b075199d00df5e13fd6da6f3aecb19c7c0511.
+- ruta-a-compile: HEAD a97866a21e9dc683e972aae44731622067a0ef30.
+- main: 4 commits exclusivos respecto a bardo-unified-core y 537 commits por detrás. Los cuatro cambios exclusivos revisados son antiguos cambios de workflows/manual dispatch/release; las funciones equivalentes ya existen en los workflows actuales de bardo-unified-core. No se importan versiones antiguas ni se modifica main.
+- bardo-device-fixes: 0 commits exclusivos respecto a bardo-unified-core; 352 commits por detrás. Su contenido está en la historia integrada. PR #1 permanece abierto como draft hacia main, con mergeable=false; no debe fusionarse a main.
+- base-verde: 0 commits exclusivos respecto a bardo-unified-core; 573 commits por detrás. Rama histórica, sin trabajo exclusivo pendiente.
+- ruta-a-compile: 0 commits exclusivos respecto a bardo-unified-core; 336 commits por detrás. Sus cambios relevantes ya están en la historia de integración.
+- bardo-worker-hardening: 3 commits exclusivos respecto a bardo-unified-core y 379 commits por detrás. Se revisaron sus tres commits: los dos cambios de workflow (branch trigger/checkout exacto) son redundantes con el workflow actual, que ya compila el HEAD de bardo-unified-core; la mejora de gestión de errores/reintentos del Worker se integró en el commit 3125de488ae1bc6d9053a24e6e11fa9a65bc7311.
+- El resultado anterior es una comparación de historias/commits exclusivos, no una afirmación de que cada uno de los 537 commits históricos se haya vuelto a compilar individualmente. La línea de integración completa se valida como conjunto en CI.
+
+Correcciones de fiabilidad incluidas en 3125de488ae1bc6d9053a24e6e11fa9a65bc7311:
+- Restauración del permiso SAF persistente de Descargas/BARDO al reiniciar la app.
+- El autoestudio registra el instante del intento y no sobrescribe la marca de último éxito cuando falla.
+- Reintentos acotados a fallos transitorios; no capturar Throwable fatal indiscriminadamente.
+- El Worker diferencia reintentos y bloqueos, conserva el último éxito y registra el último intento. La actualización explícita del estado de cancelación se incorpora en el commit de correcciones siguiente.
+
+Validación de 3125de488ae1bc6d9053a24e6e11fa9a65bc7311:
+- Validación ligera #319 / run 42361705214: SUCCESS.
+- Build completa #179 / run 42361705142: pruebas unitarias, compilación nativa, firma, auditoría de contenido/integridad y escaneo de credenciales completados correctamente; artefacto BARDO-full-offline-179 publicado (artifact ID 13570273520; SHA-256 del ZIP del artefacto: 6b90eeaa0aaffb53a6a87388b9653896bd02a65edd828abf5acf9c192b2a78dc).
+- Publicación de GitHub Release #179 estaba en curso al registrar esta nota; verificar finalización antes de facilitar enlace de descarga.
+- Aun con CI correcto, sigue pendiente la prueba física de instalación, arranque, memoria/temperatura, inferencia Gemma, WAV real, reproducción y MP3 en Xiaomi 11T Pro.
+
+
+39. REVISIÓN POSTERIOR DE RAMAS, MODO 3 Y BUILD #180 — 2026-11-07
+
+Estado de ramas en HEAD 9d534e512e45ef12da2ae038eb098bf845a03cae:
+- main: HEAD 7b0b075199d00df5e13fd6da6f3aecb19c7c0511; 4 commits exclusivos y 538 por detrás de bardo-unified-core. Los exclusivos son: 5ad4b13b Register full offline APK workflow for manual dispatch; 14de38c5 Publish full offline APK as release to bypass Actions artifact quota; ee0805a6 Fix formatting issue in full-build.yml; 7b0b0751 Enable manual Android APK builds. Son cambios de workflow antiguos, revisados y funcionalmente cubiertos por el workflow integral vigente; no se cherry-pickean.
+- bardo-device-fixes: HEAD cd73c07566b1481b926aa4b59722234fab337540; 0 exclusivos, 353 por detrás. PR #1 sigue open/draft, mergeable=false, base antigua 14de38c578b58d2cf9afb176561716ed3988066a. No fusionar.
+- bardo-worker-hardening: HEAD 7fc9b5a3444b846cfe0940245145fc93dce5a3f2; 3 exclusivos, 380 por detrás. Los commits exclusivos son f54b5693 (gestión de errores/reintentos del Worker), 5b30df04 (workflow de validación de rama) y 7fc9b5a3 (checkout de rama exacta). La mejora del Worker está integrada en la línea unificada; los dos cambios de workflow son redundantes.
+- base-verde: HEAD f68ea19cae9a81070c382edb26e6aac2e6d0868d; 0 exclusivos, 574 por detrás. Rama histórica anterior a Modo 3.
+- ruta-a-compile: HEAD a97866a21e9dc683e972aae44731622067a0ef30; 0 exclusivos, 337 por detrás. Sus cambios ya están en la línea unificada.
+- bardo-unified-core: HEAD 9d534e512e45ef12da2ae038eb098bf845a03cae. Es la única rama de integración autorizada para esta fase.
+- Se compararon las historias de todas las seis ramas; las únicas diferencias exclusivas fuera de la rama unificada son los 4 commits de main y los 3 de bardo-worker-hardening descritos arriba.
+
+Protección e historia de Modo 3:
+- SHA-1 Git blob actual: 8f2745fa841a06af43bf909732fba834474bf7dc.
+- El mismo blob se verifica en main, bardo-unified-core, bardo-device-fixes, bardo-worker-hardening y ruta-a-compile.
+- base-verde no contiene aún el archivo porque es anterior a Modo 3.
+- La historia del archivo contiene exactamente cuatro commits: a27dfaf (implementación de Modo 3), dfd9f8f (import FileOutputStream), 4606551 (corrección persistente) y 620f218 (corrección de compilación #44). No se ha modificado en los commits de esta fase.
+
+Autoestudio y límites de la instantánea:
+- La instantánea embebida de código/documentación contiene 114 archivos y 785.400 bytes sin comprimir (0,749 MiB); el archivo más grande es MainActivity.kt con 191.526 bytes. Está holgadamente dentro de los límites de BardoDeveloperCore: 3.000 archivos, 60 MiB totales y 2 MiB por archivo.
+- Incluye app/src/main, app/src/test, workflows, catalogo, tools, docs, ESPECIFICACION.md, BARDO_01, BARDO_02 y README. Incluye pruebas y especificaciones para que Gemma local pueda analizar también arquitectura y validaciones.
+
+Build #180 / commit 9d534e512e45ef12da2ae038eb098bf845a03cae:
+- Workflow run 42362825195; pruebas unitarias, inicialización recursiva de ExecuTorch, compilación nativa, firma y auditoría de contenido/integridad completadas.
+- APK construido: versionCode 1180, versionName 1.0.1180, package com.musicaia, 937.448.765 bytes, SHA-256 5f0bd8b0889ca7587699eddb77ca472ec367f4c30d3e2f82edda0742911fbd11.
+- Certificado SHA-256 c46232017513c3171ba04d91cf579a72202a834f0bcd1c0a22e0c9de0e030368, idéntico a #177/#179.
+- El escáner final detectó un falso positivo real del propio test BardoDeveloperCoreTest.kt: el test escribía literalmente una cadena github_pat_ ficticia para probar la detección estática. Como ahora los tests se incluyen dentro del snapshot de la APK, el escáner detectó la muestra. No era una credencial real. No se desactiva ni se debilita el escáner.
+- Corrección preparada para el siguiente commit: construir la muestra ficticia concatenando dos literales en tiempo de ejecución; la prueba seguirá verificando que BardoDeveloperCore detecta el token generado, pero el texto contiguo no quedará incrustado en la APK.
+- El run #180 no publicó artefacto ni release porque la comprobación de credenciales falló por esa muestra de test. No descargar ni distribuir el APK #180.
+- La siguiente build añade además un indicador persistente de inferencia Gemma entre recreaciones de Activity, límites CI para la instantánea de autoestudio y auditoría de que los assets .pte/.model estén sin compresión para que AssetManager.openFd pueda abrirlos.
+
+
+40. BUILD INTEGRAL #181 SUPERADA Y PROTECCIÓN DE PROCESOS — 2026-11-07
+
+Build #181:
+- Commit: c490aaa6b73d343730a1352d550110e1267bce98.
+- Workflow full build run 42363821577: COMPLETED / SUCCESS.
+- Validación #321 / run 42363821578: COMPLETED / SUCCESS.
+- GitHub Release: https://github.com/loboxfake/musica-ia/releases/tag/bardo-build-181
+- APK: app-release.apk, package com.musicaia, versionCode 1181, versionName 1.0.1181, minSdk 26, targetSdk 34.
+- Tamaño: 937.452.861 bytes.
+- SHA-256 APK: b941dd70c38cc0511dd06bf6246dd56f0c8f6910d16f003a6d88e760e297c376.
+- SHA-256 informe full-apk-audit.txt: 796a224358fd06bdf225af71bc1abd805407cfc0cd0b409817a02dde76fb096c.
+- Certificado de firma: c46232017513c3171ba04d91cf579a72202a834f0bcd1c0a22e0c9de0e030368; coincide con las releases anteriores #177 y #179, por lo que mantiene la continuidad de firma.
+- Auditoría APK: ZIP íntegro, package com.musicaia, minSdk 26, targetSdk 34, recursos del modelo y bibliotecas nativas presentes, escaneo de credenciales superado.
+- Compatibilidad AssetManager.openFd: conditioners_model.pte, dit_model.pte, autoencoder_model.pte y spiece.model verificados ZIP_STORED (sin compresión).
+- Instantánea de autoestudio: 114 archivos, 785.400 bytes sin comprimir, bajo todos los límites del importador.
+- El falso positivo de #180 se resolvió construyendo el token de test en tiempo de ejecución; el test de detección sigue activo y el escáner no se debilitó.
+- Artifact Actions: BARDO-full-offline-181, ID 13570973206, ZIP SHA-256 20c926965fe6121fa970a60080fd8940cd761e85d0093b061cba1a5935f54e94.
+
+Protección adicional de estado entre procesos preparada para el siguiente commit:
+- La marca de inferencia de chat y la marca de autoestudio guardarán el PID del proceso Android que las inició.
+- MainActivity solo considerará activo un trabajo si el PID corresponde al proceso actual; los estados heredados sin PID se consideran activos durante un margen corto de transición.
+- BardoDeveloperWorker limpia el PID en finally. Si Android mata el proceso abruptamente, el PID antiguo permite distinguir el estado persistido de una tarea realmente activa, evitando bloquear generación de audio durante una hora por una marca obsoleta.
+- Este cambio no altera el modelo ni los resultados; evita falsos bloqueos después de reinicios o cierres del proceso.
+
+
+41. CONSOLIDACIÓN FINAL DE TODAS LAS RAMAS EN MAIN — 2026-11-07
+
+Rama canónica:
+- Se establece main como única rama activa de integración y entrega (es la rama predeterminada de GitHub).
+- La consolidación parte de bardo-unified-core en 81d3d89ffdb5ce4e6c517e6d69608ade7c2aaa56, de main en 7b0b075199d00df5e13fd6da6f3aecb19c7c0511, de bardo-worker-hardening en 7fc9b5a3444b846cfe0940245145fc93dce5a3f2, de bardo-device-fixes en cd73c07566b1481b926aa4b59722234fab337540, de base-verde en f68ea19cae9a81070c382edb26e6aac2e6d0868d y de ruta-a-compile en a97866a21e9dc683e972aae44731622067a0ef30.
+- Los seis tips se incorporan como padres de un único commit de consolidación; no se reescribe ni descarta ninguna historia. Todas las referencias antiguas se adelantan al mismo commit final para evitar código divergente.
+- La integración de contenido exclusivo de bardo-worker-hardening conserva la lógica moderna de autoestudio, SAF, memoria y exportación; la gestión de reintentos registra el último intento sin falsificar el último éxito.
+- Los cuatro commits exclusivos de main se incluyen como ancestros del merge; sus ajustes manuales de CI quedan cubiertos por los workflows integrales actualizados.
+
+Alineación de automatización:
+- full-build.yml escucha main, compila el ref exacto que desencadena la ejecución y conserva cancel-in-progress=false para proteger builds nativas largas.
+- prepare-audio-model.yml y native-compile.yml escuchan main.
+- bardo-validation.yml escucha main y analiza el historial completo con Gitleaks.
+- full-build primero busca el paquete Stable Audio exportado desde main; mientras esa preparación no haya terminado, conserva como fallback la última exportación histórica de ruta-a-compile. No depende de código fuente de aquella rama.
+- android.yml continúa disponible solo mediante workflow_dispatch como build auxiliar/debug; la publicación instalable sigue reservada a full-build.yml con auditoría completa.
+
+Revisión de últimos commits y fallos:
+- Commit 9d534e512e45ef12da2ae038eb098bf845a03cae / build #180: unit tests, CMake/ExecuTorch, firma y auditoría de contenido pasaron, pero el escáner estricto detectó una cadena ficticia github_pat_ literal incluida en BardoDeveloperCoreTest.kt. No era un secreto real. No se debilitó el escáner; se dividió el literal en dos y el test sigue generando el mismo caso en runtime.
+- Commit c490aaa6b73d343730a1352d550110e1267bce98 / build #181: SUCCESS; se añadieron límites de tamaño a la instantánea de autoestudio (máximo 3.000 archivos, 60 MiB totales y 2 MiB por archivo) y comprobación de ZIP_STORED para todos los assets .pte/.model, requisito de AssetManager.openFd.
+- Commit 81d3d89ffdb5ce4e6c517e6d69608ade7c2aaa56 / build #182: SUCCESS; se añadió seguimiento del PID del proceso de inferencia de Gemma y del Worker para no interpretar marcas de ejecución antiguas después de una muerte/reinicio del proceso.
+- Build #182 / run 42364911477 y validación #322 / run 42364911552: COMPLETED / SUCCESS.
+- Release #182: https://github.com/loboxfake/musica-ia/releases/tag/bardo-build-182
+- APK: app-release.apk, 937.452.861 bytes, SHA-256 de asset reportado por GitHub: 645d960084eb79efd11116359faf74677589584289b5b660a0fbe735ead92d5d.
+- Informe full-apk-audit.txt, 6198 bytes, digest SHA-256 de asset: cab7355f1805ef74bdf95cc2a8742728dd4fc9e34d021cf5fecf3ff93d41f592.
+- #182 conserva firma, versionado monotónico, contenido nativo/modelo, assets ZIP_STORED, launcher y escaneo estricto. La prueba real de instalación, inferencia y audio en Xiaomi 11T Pro continúa pendiente.
+
+Protecciones:
+- Modo3MezclaVozUsuario.kt permanece exactamente en blob SHA-1 8f2745fa841a06af43bf909732fba834474bf7dc.
+- No se borra el archivo protegido, ni se ha modificado en estos commits.
+- Gemma del usuario en Descargas/BARDO/Modelos no se descarga de nuevo; el permiso SAF se restaura al reiniciar y el original permanece intacto.
+- El autoestudio guarda intentos, resultados, memoria técnica y propuestas aisladas; no afirma entrenamiento de pesos ni aplica cambios al APK instalado automáticamente.

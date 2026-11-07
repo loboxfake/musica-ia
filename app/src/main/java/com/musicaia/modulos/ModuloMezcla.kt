@@ -4,25 +4,26 @@ import android.content.Context
 import com.musicaia.modelo.Dato
 import com.musicaia.modelo.ModuloIA
 import com.musicaia.modelo.TipoModulo
-import com.musicaia.modulos.AudioUtil
-import java.io.File
 
+/**
+ * Mezcla/masterización profesional todavía no integrada.
+ * Nunca fabricar un WAV de prueba y presentarlo como una mezcla musical.
+ */
 class ModuloMezcla(context: Context) : ModuloIA {
     override val id = "mezcla"
     override val tipo = TipoModulo.MEZCLA
-    private val ctx = context.applicationContext
 
-    override fun cargar(): Boolean = true
+    @Suppress("unused")
+    private val appContext = context.applicationContext
+
+    override fun cargar(): Boolean = false
 
     override fun ejecutar(entrada: Dato): Dato {
-        val dir = ctx.getExternalFilesDir(null) ?: return entrada
-        val ruta = File(dir, "mezcla_final.wav").absolutePath
-        // WAV real generado; no texto ni plantilla como resultado de audio.
-        AudioUtil.escribirWavMono16(ruta, 44100, 44100) { inicio, n ->
-            ShortArray(n) { k -> (k % 32767 - 16383).toShort() }
-        }
-        return Dato.Audio(rutaWav = ruta, frecuenciaMuestreo = 44100)
+        throw UnsupportedOperationException(
+            "La mezcla/masterización profesional todavía no está implementada. " +
+                "No se ha creado ningún audio."
+        )
     }
 
-    override fun descargar() {}
+    override fun descargar() = Unit
 }
