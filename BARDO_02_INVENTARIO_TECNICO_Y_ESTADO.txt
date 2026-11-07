@@ -958,3 +958,21 @@ Estado real de autonomía:
 - Requiere configuración/uso: Gemma local en espacio BARDO con SHA verificado y memoria suficiente; permiso SAF al árbol Descargas/BARDO; PAT fine-grained repository-scoped con Actions Read/Write y Contents Read.
 - No implementado: auto-commit sin aprobación, self_install/auto-instalación, build Android local en el teléfono, autoedición del núcleo protegido, síntesis vocal/MiVoz, masterización profesional y portadas IA.
 - No declarar autonomía completa hasta probar en Xiaomi el autoestudio real, carga sostenida de Gemma, candidato, envío y consulta CI, aprobación, commit en main, build y APK instalada.
+
+54. RESULTADO VERIFICADO DE AUTONOMÍA Y BUILD INTEGRAL #199 — 2026-11-07
+
+Evidencia desde GitHub:
+- HEAD main: 92479272c66d018facc8b3d69edc4c7c948d9e45.
+- Branch search: solo main; default_branch=main.
+- Modo3MezclaVozUsuario.kt blob SHA-1: 8f2745fa841a06af43bf909732fba834474bf7dc (sin cambio).
+- Validación #348 / run 42404788643: SUCCESS. Job validate ID 128500040919; Gitleaks completo, actionlint y testDebugUnitTest + assembleDebug completados correctamente.
+- Build full offline #199 / run 42404788607: SUCCESS. Job full-build ID 128500040889; todos los pasos SUCCESS: snapshot fuente, Stable Audio, JDK/NDK, tests, PyTorch, ExecuTorch, APK nativa, firma, auditorías, artefacto y GitHub Release.
+- Release https://github.com/loboxfake/musica-ia/releases/tag/bardo-build-199; prerelease=true; target_commitish=92479272c66d018facc8b3d69edc4c7c948d9e45. Assets app-release.apk (937510205 bytes) y full-apk-audit.txt (6198 bytes).
+- APK: package com.musicaia; versionName 1.0.1199; versionCode 1199; compileSdk 34; minSdk 26; arm64-v8a; 937510205 bytes. SHA-256 9cbf209aa7576b3b11c2490ef5b088584afe97c52971ca4e6521e52584cb1f30.
+- Certificado SHA-256 c46232017513c3171ba04d91cf579a72202a834f0bcd1c0a22e0c9de0e030368; v2/v3; non-debuggable PASS; APK ZIP integrity PASS; credential/signing-material scan PASS.
+- Artefacto BARDO-full-offline-199 ID 13586554379; 695612819 bytes; SHA-256 ZIP b857b3eaffaa4f57299cca460034eae1d07f041ff2358ed142613f0906b935e2; expiración 2026-12-07.
+- Commit de código #199 incorporó: registro del candidato generado por el Worker cuando pasa la política GitHub; preservación de source_snapshot_path y separación entre fuente/copia candidata; recarga de candidatos WorkManager en onResume; protección extra de BardoDeveloperActivity/BardoGitHubDevelopmentActivity/BardoGitHubAutomation; localización de runs por candidate_id incluso con base obsoleta. Estas modificaciones y sus pruebas Kotlin pasaron CI #348 y APK #199.
+- Autonomía implementada/validada en CI: autoestudio local condicionado a Gemma importado y verificado; diff aislado; handoff del candidato; validación runner; workflow de integración tras aprobación explícita; despacho de build integral.
+- Sigue pendiente prueba física: importar/reutilizar Gemma desde Descargas/BARDO/Modelos con SAF, configurar PAT fine-grained, producir candidato real, ejecutar validación, aprobar integración, verificar commit main y build desde BARDO y probar audio/temperatura/RAM en Xiaomi 11T Pro. No se afirma que el usuario haya realizado estos pasos ni que el APK haya sido instalado.
+- Build #200 se disparará por esta sincronización de inventario y visión y debe contener estos registros, con la misma línea de código y rama main.
+
