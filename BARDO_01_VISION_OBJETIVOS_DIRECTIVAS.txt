@@ -384,3 +384,18 @@ Ciclo funcional previsto y límites:
 - El log confirma literalmente “Active Git branches: main” y “Verified: main is the only active branch. No legacy refs are deleted.”
 - Esto acredita CI, firma y publicación, no instalación ni prueba física. Sigue pendiente validar en Xiaomi 11T Pro el uso real, Gemma local, SAF, PAT y el ciclo de candidato/aprobación. self_install continúa NOT_IMPLEMENTED.
 - La siguiente compilación por sincronización documental (#202) continúa esta misma fase de autonomía; no abre rama ni fase paralela.
+
+
+33. RESULTADO DE BUILD INTEGRAL #202 — 2026-11-07
+
+- HEAD fuente: cffee736169fe047913c8707714ca225a3b1ed0d (main).
+- Build full offline #202 / run 42414657673: SUCCESS; job 128530007855; todos los pasos SUCCESS, incluyendo snapshot BARDO, modelo Stable Audio local, tests, PyTorch, ExecuTorch, APK Release, firma, auditorías, publicación y comprobación de rama única.
+- Validación #351 / run 42414657814: SUCCESS; Gitleaks de historial completo, actionlint, testDebugUnitTest y assembleDebug.
+- Release: https://github.com/loboxfake/musica-ia/releases/tag/bardo-build-202; prerelease=true; target_commitish cffee736169fe047913c8707714ca225a3b1ed0d.
+- APK: com.musicaia, versionName 1.0.1202, versionCode 1202, compileSdk 34, minSdk 26, ABI arm64-v8a; tamaño 937514301 bytes; SHA-256 2ca8b7546728f2a36363fe3c502cad1852ffde20bfd01e403c5a3f23380fde94.
+- Certificado SHA-256 c46232017513c3171ba04d91cf579a72202a834f0bcd1c0a22e0c9de0e030368; firmas v2 y v3 verificadas; APK ZIP integrity PASS; launcher resources PASS; RELEASE_APK_NON_DEBUGGABLE PASS; credential/signing-material scan PASS.
+- El APK contiene conditioner 220250112 bytes, DiT 343439104 bytes, autoencoder 312494592 bytes, spiece.model 791656 bytes, licencia/notice y bibliotecas arm64-v8a libaudiogen.so, libmp3encoder.so y libmp3lame.so. Los modelos .pte y spiece.model están almacenados ZIP_STORED para compatibilidad open-file-descriptor.
+- Modo3MezclaVozUsuario.kt mantiene exactamente el blob SHA-1 protegido 8f2745fa841a06af43bf909732fba834474bf7dc.
+- El workflow confirmó: “Active Git branches: main” y “Verified: main is the only active branch. No legacy refs are deleted.”
+- Esta evidencia acredita build, firma y auditoría, no instalación ni funcionamiento físico. Sigue pendiente prueba en Xiaomi 11T Pro; Gemma no va empaquetado y debe importarse/verificarse aparte. self_install NOT_IMPLEMENTED.
+- #202 es una APK release instalable para prueba de usuario; no llamarla aceptación final del dispositivo hasta completar la validación física.
