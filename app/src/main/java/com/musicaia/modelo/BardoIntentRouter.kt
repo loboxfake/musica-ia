@@ -13,6 +13,20 @@ object BardoIntentRouter {
         CHANGE_CREATION
     }
 
+    /** "Instrumental" means no generated lyric/vocal module is selected. */
+    fun isInstrumentalOnlyType(value: String): Boolean {
+        val text = normalize(value)
+        return text.contains("instrumental") && !text.contains("ambas") &&
+            (!text.contains("voz") || text.contains("sin voz") || text.contains("sin canto"))
+    }
+
+    /** Voice/duet choices require an actual user recording until vocal synthesis exists. */
+    fun requiresUserVoice(value: String): Boolean {
+        val text = normalize(value)
+        return text.contains("ambas") || (text.contains("voz") &&
+            !text.contains("sin voz") && !text.contains("sin canto"))
+    }
+
     fun classify(message: String, creationInProgress: Boolean): Intent {
         val text = normalize(message)
         if (text.isBlank()) return Intent.GENERAL_CHAT
