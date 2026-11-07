@@ -1022,3 +1022,24 @@ Evidencia desde GitHub:
 - GitHub confirmó una única rama activa: main; no se borraron refs heredadas.
 - Límite: CI y release verificados, no instalación ni ejecución en Xiaomi 11T Pro. Gemma conversacional no está incluida; importar/verificar mediante SAF. self_install NOT_IMPLEMENTED.
 - APK #202 entregada como release instalable para prueba física; aceptación final queda pendiente de instalación, arranque, generación WAV y pruebas térmicas/RAM en el Xiaomi.
+
+
+58. CONTINUIDAD DE AUTONOMÍA — VERIFICACIÓN ESTRICTA DEL RUN DE VALIDACIÓN — 2026-11-07
+
+Estado al iniciar este ciclo:
+- Build integral #203 / run 42416331866: SUCCESS.
+- Build integral #204 / run 42416337059: SUCCESS.
+- Validación BARDO #353 / run 42416336822: SUCCESS.
+- HEAD main de partida: cb1f1692bf8560d693b328533191943a02976506. Única rama canónica: main.
+- Modo3 protegido permanece en blob SHA-1 8f2745fa841a06af43bf909732fba834474bf7dc; no se modifica.
+
+Cambio de seguridad preparado en .github/workflows/bardo-commit-candidate.yml:
+- Antes de integrar un candidato, el workflow verificará que el run aportado pertenece exactamente a .github/workflows/bardo-candidate-validation.yml, se disparó mediante workflow_dispatch, corresponde a la rama main, está completed con conclusion success, conserva el SHA base exacto y tiene el run-name con el candidate_id esperado.
+- También valida formato de candidate_id y base SHA antes de consultar GitHub.
+- Motivo: un título y un estado SUCCESS aislados no bastan para demostrar que el run referenciado es la validación correcta del candidato aprobado.
+- Este cambio queda PENDIENTE de actionlint, validación de integración, tests y build integral en el commit resultante. No atribuirle aún estado probado.
+
+Continuidad y límites:
+- La integración sigue requiriendo aprobación explícita en la app; el runner vuelve a aplicar el diff y ejecutar tests antes del commit fast-forward.
+- No se modifica Modo3, el núcleo de BARDO, la firma, los Secrets ni la rama canónica.
+- No hay prueba física en Xiaomi 11T Pro. La autonomía extremo a extremo, Gemma/SAF/PAT y self_install siguen pendientes de validación real.

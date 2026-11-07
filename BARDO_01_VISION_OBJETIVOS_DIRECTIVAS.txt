@@ -399,3 +399,14 @@ Ciclo funcional previsto y límites:
 - El workflow confirmó: “Active Git branches: main” y “Verified: main is the only active branch. No legacy refs are deleted.”
 - Esta evidencia acredita build, firma y auditoría, no instalación ni funcionamiento físico. Sigue pendiente prueba en Xiaomi 11T Pro; Gemma no va empaquetado y debe importarse/verificarse aparte. self_install NOT_IMPLEMENTED.
 - #202 es una APK release instalable para prueba de usuario; no llamarla aceptación final del dispositivo hasta completar la validación física.
+
+
+20. CONTINUIDAD DE AUTONOMÍA Y APROBACIÓN CRIPTO-TÉCNICA — 2026-11-07
+
+La instrucción vigente del usuario es desarrollar la autonomía de BARDO de forma integrada, dentro de una sola fase funcional y exclusivamente en main. Los builds intermedios son controles de calidad, no entregas funcionales finales.
+
+- Prioridad: cerrar el ciclo verificable autoestudio local → diff aislado → validación CI → aprobación humana → integración fast-forward en main → APK firmada → instalación confirmada por Android.
+- No confundir autonomía con auto-modificación ilimitada: el núcleo, Modo3, firma, credenciales, workflows y actualización permanecen protegidos; Android exige confirmación humana para instalar.
+- La aprobación de un candidato debe estar vinculada no solo a un ID y un resultado SUCCESS, sino también al workflow de validación exacto, evento workflow_dispatch, rama main y SHA base exacto.
+- No declarar aceptación integral sin prueba real en Xiaomi 11T Pro y WAV generado/reproducido.
+- Mantener los dos documentos maestros sincronizados en cada ciclo y no crear ramas paralelas.
