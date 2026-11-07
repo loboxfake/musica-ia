@@ -41,6 +41,7 @@ import com.musicaia.modelo.BardoResourceBudget
 import com.musicaia.memoria.BardoConversationStore
 import com.musicaia.memoria.BardoKnowledgeStore
 import com.musicaia.memoria.BardoActivityStore
+import com.musicaia.storage.BardoSharedStorage
 import java.io.File
 import java.io.FileOutputStream
 import java.text.Normalizer
@@ -176,6 +177,7 @@ class MainActivity : AppCompatActivity() {
  private lateinit var estadoModelo: TextView
  private lateinit var progresoModelo: ProgressBar
  private var descargaEnCurso = false
+ @Volatile private var deteccionGemmaExternaEnCurso = false
  @Volatile private var modeloChatVerificado = false
  private var configuracionInterfazPendiente = ""
  private var accentColorUI = "#4ED1F1"
@@ -252,7 +254,8 @@ class MainActivity : AppCompatActivity() {
                  .putString("root_document_id", bardoRootDocumentId).apply()
              crearEstructuraCarpetaBardo()
              actualizarEtiquetaCarpetaBardo()
-             tvEstado.text = "Carpeta BARDO configurada. Las canciones y copias podrán guardarse allí."
+             tvEstado.text = "Carpeta BARDO configurada. BARDO podrá usar su espacio autorizado. Buscando Gemma en Modelos…"
+              detectarGemmaEnCarpetaBardo()
          }.onFailure {
              uriCarpetaBardo = null
              tvEstado.text = "No se pudo conservar el permiso de la carpeta: ${it.message}"
@@ -489,7 +492,11 @@ class MainActivity : AppCompatActivity() {
  findViewById<Button>(R.id.btnImportarConocimiento).setOnClickListener {
      selectorImportarConocimiento.launch(arrayOf("text/plain", "text/markdown", "application/json"))
  }
- findViewById<Button>(R.id.btnAbrirDeveloper).setOnClickListener { startActivity(Intent(this, BardoDeveloperActivity::class.java)) }
+ findViewById<Button>(R.id.btnAbrirDeveloper).apply {
+      visibility = View.VISIBLE
+      text = "BARDO Developer · Autoestudio prioritario"
+      setOnClickListener { startActivity(Intent(this@MainActivity, BardoDeveloperActivity::class.java)) }
+  }
   findViewById<Button>(R.id.btnBorrarConocimiento).setOnClickListener {
      knowledgeStore.clearAll()
      getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE).edit().remove("conocimiento_importado").apply()
@@ -545,6 +552,8 @@ class MainActivity : AppCompatActivity() {
  ContextCompat.registerReceiver(this, receptorTareas, IntentFilter(BardoTaskService.ACTION_UPDATE), ContextCompat.RECEIVER_NOT_EXPORTED)
  receptorTareasRegistrado = true
  restaurarTareaPersistida()
+ actualizarEstadoModelo()
+ if (uriCarpetaBardo != null) handler.post { detectarGemmaEnCarpetaBardo() }
  }
 
 
@@ -667,7 +676,7 @@ class MainActivity : AppCompatActivity() {
 
 private fun crearEstructuraCarpetaBardo() {
      val root = raizCarpetaBardo()
-     listOf("Modelos", "Instaladores", "Canciones", "Instrumentales", "Proyectos", "Voces", "Historial", "Copias de seguridad")
+     listOf("Modelos", "Instaladores", "Canciones", "Instrumentales", "Proyectos", "Voces", "Historial", "Copias de seguridad", "Autoestudio")
          .forEach { buscarOCrearSubcarpetaBardo(root, it) }
  }
 
@@ -2169,11 +2178,37 @@ private fun crearEstructuraCarpetaBardo() {
  private fun actualizarEstadoModelo() {
      val file = LiteRTLMModule.modelFile(this)
      val disponible = file.isFile && file.length() == LiteRTLMModule.EXPECTED_SIZE_BYTES
-     estadoModelo.text = if (disponible) {
-         "Modelo presente en el almacenamiento privado de BARDO. Se comprobará SHA-256 antes de cargarlo."
-     } else {
-         "Gemma local todavía no está importado. Descarga el archivo oficial y selecciónalo desde BARDO/MODELOS."
+     estadoModelo.text = when {
+         disponible -> "Gemma está en la copia local de BARDO (tamaño esperado). El SHA-256 se verifica antes de cada uso."
+         uriCarpetaBardo != null -> "Buscando el Gemma que ya guardaste en Descargas/BARDO/Modelos. No se descargará otra copia."
+         else -> "Gemma aún no está importado. Configura una vez Descargas/BARDO con «Elegir carpeta BARDO» para que BARDO lo detecte, o selecciónalo manualmente."
      }
+ }
+
+ /** Localiza el modelo existente mediante el permiso SAF persistente; nunca borra el original. */
+ private fun detectarGemmaEnCarpetaBardo() {
+     if (!::estadoModelo.isInitialized || deteccionGemmaExternaEnCurso || descargaEnCurso) return
+     val local = LiteRTLMModule.modelFile(applicationContext)
+     if (local.isFile && local.length() == LiteRTLMModule.EXPECTED_SIZE_BYTES) {
+         actualizarEstadoModelo()
+         return
+     }
+     if (uriCarpetaBardo == null) return
+     deteccionGemmaExternaEnCurso = true
+     estadoModelo.text = "Buscando " + LiteRTLMModule.MODEL_FILENAME + " en Descargas/BARDO/Modelos…"
+     Thread({
+         val encontrado = BardoSharedStorage.findFile(applicationContext, "Modelos", LiteRTLMModule.MODEL_FILENAME)
+         runOnUiThread {
+             deteccionGemmaExternaEnCurso = false
+             if (isFinishing || isDestroyed || descargaEnCurso) return@runOnUiThread
+             if (encontrado != null) {
+                 estadoModelo.text = "Gemma existente localizado. Importando una copia verificada al almacenamiento privado; el original permanecerá en Descargas/BARDO/Modelos."
+                 importarModeloSeleccionado(encontrado)
+             } else {
+                 estadoModelo.text = "No se encontró " + LiteRTLMModule.MODEL_FILENAME + " en BARDO/Modelos. No se ha descargado ni eliminado ningún archivo; puedes seleccionarlo manualmente."
+             }
+         }
+     }, "BARDO-Gemma-Discovery").start()
  }
 
  private fun seleccionarModeloLocal() {

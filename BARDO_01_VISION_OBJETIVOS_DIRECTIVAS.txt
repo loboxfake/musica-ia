@@ -193,3 +193,15 @@ La ejecución de BARDO debe organizarse como una única fase de integración y a
 - No sustituir esas capacidades con tonos, ondas sintéticas, PNG tipográficos, WAV artificiales, respuestas fijas o rutas de archivo vacías.
 - La mezcla de una voz real aportada por el usuario es una capacidad distinta de la síntesis de voz; conservar su ruta existente y las protecciones de Modo3.
 - Si una función no está implementada, el módulo debe rechazar la ejecución con un mensaje claro y la interfaz debe mostrar el estado correspondiente, sin impedir el uso de las capacidades que sí están disponibles.
+
+
+19. DIRECTIVA DEL USUARIO: GEMMA EXISTENTE, ESPACIO BARDO EN DESCARGAS Y AUTOESTUDIO PRIORITARIO — 2026-11-07
+
+- El usuario confirma que ya descargó Gemma y lo guardó manualmente en Descargas/BARDO/Modelos. BARDO debe localizar y reutilizar ese archivo: no iniciar otra descarga, no duplicar una descarga de red y no sustituir ni borrar el original.
+- El árbol Descargas/BARDO y sus subcarpetas son el espacio de trabajo asignado a BARDO. El usuario autoriza crear, leer, utilizar, organizar, guardar y eliminar archivos/carpetas dentro de ese árbol, según necesidades operativas.
+- Esta autorización se limita estrictamente a Descargas/BARDO. No habilita acceso general al resto de Descargas ni a otras ubicaciones del almacenamiento.
+- La limpieza automática debe limitarse a temporales y artefactos identificados inequívocamente como generados por BARDO. No eliminar Gemma, modelos, originales de audio, conversaciones, copias de seguridad ni archivos cuyo origen o importancia no esté clara.
+- Android requiere que el usuario conceda acceso SAF persistente al árbol de carpetas. Tras obtenerlo, BARDO podrá detectar Gemma dentro de Modelos y copiarlo de forma verificada a su ubicación privada de inferencia; el original permanecerá intacto. Sin permiso SAF no se puede afirmar acceso: debe solicitar la carpeta o permitir selección manual.
+- El autoestudio es una prioridad transversal y clave. Debe analizar el código y resultados reales, mantener memoria técnica, aprender de errores y validaciones observables, producir propuestas y conservar informes en Descargas/BARDO/Autoestudio cuando exista permiso.
+- Autoestudio no significa modificar automáticamente el código instalado ni entrenar los pesos de Gemma. Las propuestas de código se mantienen aisladas hasta validación y aprobación; no afirmar fine-tuning/entrenamiento de pesos sin proceso real y comparación reproducible de los pesos antes/después.
+- Se mantiene la fase única integral de aceptación: no dividir la entrega final en subfases declaradas completas y no confundir CI verde con prueba física en Xiaomi 11T Pro.

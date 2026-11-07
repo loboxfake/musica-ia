@@ -525,3 +525,34 @@ Build #160 / run 42353954810 / commit 1baac8682f622d2512f83c542571c960e9d80517: 
 - Los logs de fallos #259, #260, #255–#258 y otros antiguos ya devuelven BlobNotFound; se conserva su estado FAILURE sin inventar causa. El inventario previo documenta las causas demostrables de los fallos de firma, auditoría launcher y permisos Release.
 - Estado de los trabajos de entrega: #161 auditó y subió artefacto pero falló al crear Release por HTTP 403; #175 / run `42356816535` seguía en `Build full APK with on-device audio model`; #177 / run `42357458000` estaba PENDING para el último cambio de transparencia de `self_install`; validación #315 / run `42357485126` terminó SUCCESS para la última documentación; #316 / run `42357742665` quedó QUEUED tras este recuento.
 - No declarar la fase cerrada por el recuento agregado: se necesita build integral más reciente en verde de auditoría, artefacto verificable, resolución de permisos para Release o aceptación explícita del artefacto de Actions, y pruebas físicas en Xiaomi 11T Pro.
+
+
+37. DIRECTIVA GEMMA/ESPACIO DE TRABAJO Y ESTADO DE RELEASE — 2026-11-07
+
+Rama/protecciones:
+- Rama vigente para la especificación BARDO: bardo-unified-core. HEAD observado antes de esta implementación: 6bf244933e9972c10e4f6cceebbdec8a2a96bd41.
+- main permanece en 7b0b075199d00df5e13fd6da6f3aecb19c7c0511; no se ha modificado ni fusionado.
+- Modo3MezclaVozUsuario.kt conserva Git blob SHA-1 8f2745fa841a06af43bf909732fba834474bf7dc; sigue protegido.
+- No usar ruta-a-compile como rama de integración ni mezclar ramas divergentes automáticamente.
+
+Build integral #177:
+- Workflow run 42357458000, Build full offline APK #177, commit 1355a2372d8145711532e7e3664ffdf585d34abc, rama bardo-unified-core: COMPLETED / SUCCESS según GitHub Actions.
+- Release prerelease observada: https://github.com/loboxfake/musica-ia/releases/tag/bardo-build-177
+- Asset app-release.apk: 936940861 bytes. GitHub API declara digest sha256:078e170332b2cf409e5c4c1da2df91b63fd7d3c2a1b186fc735d02255325067c.
+- Asset full-apk-audit.txt: 5874 bytes. Digest comunicado por GitHub: fb979027fdf88b51f31df7dedb0a9523c49aa6606a8a6ae90b65d696bfb1c225.
+- La release anuncia firma, integridad, recursos launcher, APK no-debuggable, escaneo de credenciales y bibliotecas/modelos de audio offline. En esta inspección no se pudo recuperar el contenido del informe de auditoría ni descargar/verificar localmente el binario; el digest anterior es el dato de asset comunicado por API.
+- El HEAD 6bf244933e9972c10e4f6cceebbdec8a2a96bd41 incluye tres commits documentales posteriores al commit de build; el compare indicó solo BARDO_02 (+16 líneas), sin cambios de app. Por eso el código de app de #177 coincidía con el existente antes de esta nueva implementación.
+- Validación BARDO integration #317 / run 42357777730 para 6bf244933e9972c10e4f6cceebbdec8a2a96bd41: SUCCESS. No equivale a ejecución ni escucha en el dispositivo.
+- Instalación/arranque en Xiaomi 11T Pro, RAM/temperatura, inferencia Gemma, generación real Stable Audio, WAV/MP3 y reproducción continúan pendientes de prueba física.
+
+Inspección antes de integrar los cambios actuales:
+- LiteRTLMModule usa Gemma privado gemma-4-E2B-it.litertlm; tamaño esperado 2,588,147,712 bytes; SHA-256 oficial 181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c1. El importador existente valida nombre/tamaño/SHA-256 y mantiene el archivo origen externo.
+- MainActivity ya disponía de acceso SAF persistente a Descargas/BARDO y creaba las carpetas Modelos, Instaladores, Canciones, Instrumentales, Proyectos, Voces, Historial y Copias de seguridad; todavía no detectaba automáticamente el Gemma ya colocado en Modelos.
+- BardoDeveloperWorker ejecuta análisis local aislado con Gemma, presupuesto de recursos, auditoría estática y generación de propuestas; no modifica la aplicación instalada.
+- Los informes, propuestas y memoria del autoestudio se guardaban antes solo en almacenamiento privado de la app. El autoestudio periódico requería que Gemma estuviera importado a la ubicación privada.
+- El acceso a BARDO Developer estaba oculto en el XML de MainActivity; el autoestudio disponía de programación periódica, pero no de un botón de ejecución inmediata.
+
+Directivas del usuario añadidas a BARDO_01:
+- Reutilizar Gemma ya existente en Descargas/BARDO/Modelos, no volver a descargarlo y preservar el original.
+- Descargas/BARDO es el área de trabajo autorizada para leer, crear, organizar, guardar y eliminar elementos dentro de sus límites.
+- Autoestudio como prioridad clave y transversal. Diferenciar aprendizaje por memoria/análisis de entrenamiento real de pesos.

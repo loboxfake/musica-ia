@@ -18,6 +18,7 @@ import com.musicaia.modelo.BardoCapabilityRegistry
 import com.musicaia.modelo.BardoResourceBudget
 import com.musicaia.modulos.litert.EngineLiteRT
 import com.musicaia.modulos.litert.LiteRTLMModule
+import com.musicaia.storage.BardoSharedStorage
 import java.io.File
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -45,6 +46,7 @@ class BardoDeveloperWorker(
         val reportFile = File(workspace, "ultima_auditoria.md")
         val memoryFile = File(workspace, "memoria_tecnica.md")
         var modelStarted = false
+        var candidateAuditFile: File? = null
         val taskId = inputData.getString("task_id") ?: java.util.UUID.randomUUID().toString()
         try {
             workspace.mkdirs()
@@ -152,8 +154,8 @@ $authorizedReferences
                 val patch = response.substring(patchStart).substringBefore("\n```").trim()
                 val applied = BardoPatchApplier.aplicar(snapshot, patch, workspace)
                 val candidateAudit = BardoDeveloperCore.analizar(applied.directory).render()
-                File(workspace, "candidato-" + timestamp + "-auditoria.md")
-                    .writeText(candidateAudit, Charsets.UTF_8)
+                candidateAuditFile = File(workspace, "candidato-" + timestamp + "-auditoria.md")
+                candidateAuditFile!!.writeText(candidateAudit, Charsets.UTF_8)
                 prefs.edit().putString("candidate_path", applied.directory.absolutePath).apply()
                 BardoActivityStore.record(applicationContext, taskId, "autoestudio", "candidate", "candidato_aislado", "Se creó una propuesta aislada; requiere compilación y aprobación.", 85, applied.directory.absolutePath)
                 summary += "\n\nCANDIDATO AISLADO CREADO\nArchivos: " +
@@ -176,12 +178,43 @@ $authorizedReferences
             }
 
             summary += "\n\n## Respuesta del modelo\n\n" + response
+
+            // Conserva las copias privadas y exporta duplicados identificados como salidas de BARDO.
+            val exportFiles = mutableListOf<Pair<File, String>>()
+            exportFiles += proposalFile to proposalFile.name
+            exportFiles += memoryFile to ("memoria-tecnica-" + timestamp + ".md")
+            candidateAuditFile?.let { exportFiles += it to it.name }
+            val exported = mutableListOf<String>()
+            val exportErrors = mutableListOf<String>()
+            exportFiles.forEach { (source, name) ->
+                runCatching {
+                    BardoSharedStorage.copyFile(applicationContext, "Autoestudio", source, name, "text/markdown")
+                }.onSuccess { exported += it }
+                    .onFailure { exportErrors += (name + ": " + (it.message ?: it.javaClass.simpleName)) }
+            }
+            summary += if (exported.isNotEmpty()) {
+                "\n\nEXPORTADO A DESCARGAS/BARDO/Autoestudio:\n" + exported.joinToString("\n")
+            } else {
+                "\n\nNo se pudo exportar a Descargas/BARDO/Autoestudio. Las copias privadas se conservan."
+            }
+            if (exportErrors.isNotEmpty()) summary += "\nErrores de exportación: " + exportErrors.joinToString("; ")
             reportFile.writeText(summary, Charsets.UTF_8)
-            BardoActivityStore.record(applicationContext, taskId, "autoestudio", "completed", "informe_guardado", "Autoestudio local completado. La propuesta no se integró en el código instalado.", 100, reportFile.absolutePath)
+            val reportExport = runCatching {
+                BardoSharedStorage.copyFile(
+                    applicationContext, "Autoestudio", reportFile,
+                    "informe-autoestudio-" + timestamp + ".md", "text/markdown"
+                )
+            }
+            val statusMessage = if (reportExport.isSuccess) {
+                "Autoestudio completado; informe y resultados exportados a Descargas/BARDO/Autoestudio."
+            } else {
+                "Autoestudio completado en almacenamiento privado; exportación compartida no disponible."
+            }
+            BardoActivityStore.record(applicationContext, taskId, "autoestudio", "completed", "informe_guardado", statusMessage, 100, reportFile.absolutePath)
             prefs.edit()
                 .putLong("last_auto_study_at", timestamp)
                 .putString("last_auto_study_status", "completed")
-                .putString("last_auto_study_message", "Autoestudio completado; consulta ultima_auditoria.md.")
+                .putString("last_auto_study_message", statusMessage)
                 .apply()
             Result.success()
         } catch (cancelled: CancellationException) {
@@ -197,6 +230,12 @@ $authorizedReferences
                         "\n\nNo se modificó el código instalado.",
                     Charsets.UTF_8
                 )
+                runCatching {
+                    BardoSharedStorage.copyFile(
+                        applicationContext, "Autoestudio", reportFile,
+                        "incidencia-autoestudio-" + System.currentTimeMillis() + ".md", "text/markdown"
+                    )
+                }
                 prefs.edit()
                     .putLong("last_auto_study_at", System.currentTimeMillis())
                     .putString("last_auto_study_status", "blocked")

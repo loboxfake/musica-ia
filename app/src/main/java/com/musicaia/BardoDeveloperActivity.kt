@@ -16,6 +16,7 @@ import androidx.core.content.ContextCompat
 import androidx.appcompat.app.AppCompatActivity
 import com.musicaia.memoria.BardoKnowledgeStore
 import com.musicaia.modelo.BardoCapabilityRegistry
+import com.musicaia.modelo.BardoResourceBudget
 import com.musicaia.desarrollo.BardoDeveloperCore
 import com.musicaia.desarrollo.BardoPatchApplier
 import com.musicaia.modulos.litert.EngineLiteRT
@@ -27,6 +28,8 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.musicaia.desarrollo.BardoDeveloperWorker
@@ -47,9 +50,19 @@ class BardoDeveloperActivity : AppCompatActivity() {
     private val reportFile by lazy { File(workspace, "ultima_auditoria.md") }
     private val memoryFile by lazy { File(workspace, "memoria_tecnica.md") }
 
+    private var autoestudioInmediatoPendiente = false
     private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) programarAutoestudio()
-        else output.text = "No se activó: BARDO necesita permiso de notificaciones para mostrar cuándo trabaja en segundo plano."
+        if (granted) {
+            if (autoestudioInmediatoPendiente) {
+                autoestudioInmediatoPendiente = false
+                encolarAutoestudioInmediato()
+            } else {
+                programarAutoestudio()
+            }
+        } else {
+            autoestudioInmediatoPendiente = false
+            output.text = "No se activó: BARDO necesita permiso de notificaciones para mostrar cuándo trabaja en segundo plano."
+        }
     }
     private val importProject = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) importarProyecto(uri)
@@ -89,7 +102,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(18, 18, 18, 12); setBackgroundColor(fondo) }
         root.addView(TextView(this).apply { text = "BARDO · DEVELOPER CORE"; textSize = 21f; setTextColor(cyan); setPadding(0, 4, 0, 10) })
         root.addView(TextView(this).apply {
-            text = "Investigación · Memoria técnica · Auditoría · Propuestas de corrección"
+            text = "AUTOESTUDIO PRIORITARIO · Gemma local · Memoria técnica · Auditoría · Propuestas aisladas"
             textSize = 13f; setTextColor(blanco); setPadding(0, 0, 0, 12)
         })
         root.addView(TextView(this).apply {
@@ -101,6 +114,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
         btnAnalyze = addButton(root, "Analizar código y generar auditoría", enabled = snapshot != null) { analizarProyecto() }
         btnAsk = addButton(root, "Consultar a BARDO con Gemma local", enabled = false) { consultarModelo() }
         btnApply = addButton(root, "Aplicar propuesta a una copia aislada", enabled = false) { aplicarPropuesta() }
+        addButton(root, "Iniciar autoestudio ahora (Gemma local)") { ejecutarAutoestudioAhora() }
         addButton(root, "Activar autoestudio en segundo plano (cada 6 h, al cargar)") { activarAutoestudio() }
         addButton(root, "Pausar autoestudio automático") { pausarAutoestudio() }
         urlInput = EditText(this).apply {
@@ -142,6 +156,37 @@ class BardoDeveloperActivity : AppCompatActivity() {
         programarAutoestudio()
     }
 
+    private fun ejecutarAutoestudioAhora() {
+        val model = LiteRTLMModule.modelFile(this)
+        if (!model.isFile || model.length() != LiteRTLMModule.EXPECTED_SIZE_BYTES) {
+            output.text = "Gemma no está disponible en la copia local de BARDO. Configura Descargas/BARDO para importar el archivo existente antes del autoestudio. No se descargará otra copia."
+            return
+        }
+        val reason = BardoResourceBudget.blockingReason(
+            this, BardoCapabilityRegistry.MIN_GEMMA_FREE_MEMORY_BYTES
+        )
+        if (reason != null) {
+            output.text = "Autoestudio aplazado por seguridad: " + reason
+            return
+        }
+        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            autoestudioInmediatoPendiente = true
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+            return
+        }
+        encolarAutoestudioInmediato()
+    }
+
+    private fun encolarAutoestudioInmediato() {
+        val constraints = Constraints.Builder().setRequiresCharging(true)
+            .setRequiresBatteryNotLow(true).setRequiresStorageNotLow(true).build()
+        val request = OneTimeWorkRequestBuilder<BardoDeveloperWorker>().setConstraints(constraints).build()
+        WorkManager.getInstance(applicationContext).enqueueUniqueWork(
+            "bardo_autostudio_inmediato", ExistingWorkPolicy.KEEP, request
+        )
+        output.text = "AUTOESTUDIO SOLICITADO. Android lo ejecutará cuando el teléfono esté cargando, tenga batería y espacio suficientes y Gemma supere las comprobaciones de RAM/temperatura. Los informes se guardarán en BARDO/Autoestudio si la carpeta compartida está configurada; si no, quedarán en el espacio privado."
+    }
+
     private fun programarAutoestudio() {
         val constraints = Constraints.Builder().setRequiresCharging(true)
             .setRequiresBatteryNotLow(true).setRequiresStorageNotLow(true).build()
@@ -151,7 +196,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
             BardoDeveloperWorker.UNIQUE_WORK, ExistingPeriodicWorkPolicy.KEEP, request
         )
         getSharedPreferences("bardo_developer", MODE_PRIVATE).edit().putBoolean("auto_study_enabled", true).apply()
-        output.text = "AUTOESTUDIO PROGRAMADO\n\nBARDO estudiará el código local cada 6 horas cuando el teléfono esté cargando, tenga batería suficiente y espacio disponible. Android/Xiaomi puede retrasar el trabajo. Verás una notificación mientras el modelo esté trabajando. La app puede estar cerrada; no fuerces su detención. Las propuestas se guardan para revisión; no modifican la APK instalada ni se consideran arregladas hasta compilar y probar."
+        output.text = "AUTOESTUDIO PROGRAMADO\n\nBARDO estudiará el código local cada 6 horas cuando el teléfono esté cargando, tenga batería suficiente y espacio disponible. Android/Xiaomi puede retrasar el trabajo. Verás una notificación mientras el modelo esté trabajando. La app puede estar cerrada; no fuerces su detención. Los informes, propuestas y memoria técnica se archivarán también en Descargas/BARDO/Autoestudio cuando exista permiso SAF; la copia privada se conserva. Los candidatos son aislados y no modifican la APK instalada ni se consideran arreglados hasta compilar y probar."
     }
 
     private fun pausarAutoestudio() {
