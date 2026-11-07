@@ -556,3 +556,38 @@ Directivas del usuario añadidas a BARDO_01:
 - Reutilizar Gemma ya existente en Descargas/BARDO/Modelos, no volver a descargarlo y preservar el original.
 - Descargas/BARDO es el área de trabajo autorizada para leer, crear, organizar, guardar y eliminar elementos dentro de sus límites.
 - Autoestudio como prioridad clave y transversal. Diferenciar aprendizaje por memoria/análisis de entrenamiento real de pesos.
+
+
+38. AUDITORÍA INTEGRAL DE RAMAS Y COMMITS — 2026-11-07
+
+Rama de integración vigente:
+- bardo-unified-core: 3125de488ae1bc6d9053a24e6e11fa9a65bc7311 antes del siguiente commit de integración.
+- main permanece intacta en 7b0b075199d00df5e13fd6da6f3aecb19c7c0511.
+- Modo3MezclaVozUsuario.kt SHA-1 Git blob protegido verificado: 8f2745fa841a06af43bf909732fba834474bf7dc. No se ha modificado.
+- Se han enumerado las seis ramas y comparado sus historias respecto a bardo-unified-core. No se han fusionado ramas a ciegas.
+
+Ramas y divergencia respecto a bardo-unified-core:
+- bardo-device-fixes: HEAD cd73c07566b1481b926aa4b59722234fab337540.
+- bardo-unified-core: HEAD 3125de488ae1bc6d9053a24e6e11fa9a65bc7311.
+- bardo-worker-hardening: HEAD 7fc9b5a3444b846cfe0940245145fc93dce5a3f2.
+- base-verde: HEAD f68ea19cae9a81070c382edb26e6aac2e6d0868d.
+- main: HEAD 7b0b075199d00df5e13fd6da6f3aecb19c7c0511.
+- ruta-a-compile: HEAD a97866a21e9dc683e972aae44731622067a0ef30.
+- main: 4 commits exclusivos respecto a bardo-unified-core y 537 commits por detrás. Los cuatro cambios exclusivos revisados son antiguos cambios de workflows/manual dispatch/release; las funciones equivalentes ya existen en los workflows actuales de bardo-unified-core. No se importan versiones antiguas ni se modifica main.
+- bardo-device-fixes: 0 commits exclusivos respecto a bardo-unified-core; 352 commits por detrás. Su contenido está en la historia integrada. PR #1 permanece abierto como draft hacia main, con mergeable=false; no debe fusionarse a main.
+- base-verde: 0 commits exclusivos respecto a bardo-unified-core; 573 commits por detrás. Rama histórica, sin trabajo exclusivo pendiente.
+- ruta-a-compile: 0 commits exclusivos respecto a bardo-unified-core; 336 commits por detrás. Sus cambios relevantes ya están en la historia de integración.
+- bardo-worker-hardening: 3 commits exclusivos respecto a bardo-unified-core y 379 commits por detrás. Se revisaron sus tres commits: los dos cambios de workflow (branch trigger/checkout exacto) son redundantes con el workflow actual, que ya compila el HEAD de bardo-unified-core; la mejora de gestión de errores/reintentos del Worker se integró en el commit 3125de488ae1bc6d9053a24e6e11fa9a65bc7311.
+- El resultado anterior es una comparación de historias/commits exclusivos, no una afirmación de que cada uno de los 537 commits históricos se haya vuelto a compilar individualmente. La línea de integración completa se valida como conjunto en CI.
+
+Correcciones de fiabilidad incluidas en 3125de488ae1bc6d9053a24e6e11fa9a65bc7311:
+- Restauración del permiso SAF persistente de Descargas/BARDO al reiniciar la app.
+- El autoestudio registra el instante del intento y no sobrescribe la marca de último éxito cuando falla.
+- Reintentos acotados a fallos transitorios; no capturar Throwable fatal indiscriminadamente.
+- El Worker diferencia reintentos y bloqueos, conserva el último éxito y registra el último intento. La actualización explícita del estado de cancelación se incorpora en el commit de correcciones siguiente.
+
+Validación de 3125de488ae1bc6d9053a24e6e11fa9a65bc7311:
+- Validación ligera #319 / run 42361705214: SUCCESS.
+- Build completa #179 / run 42361705142: pruebas unitarias, compilación nativa, firma, auditoría de contenido/integridad y escaneo de credenciales completados correctamente; artefacto BARDO-full-offline-179 publicado (artifact ID 13570273520; SHA-256 del ZIP del artefacto: 6b90eeaa0aaffb53a6a87388b9653896bd02a65edd828abf5acf9c192b2a78dc).
+- Publicación de GitHub Release #179 estaba en curso al registrar esta nota; verificar finalización antes de facilitar enlace de descarga.
+- Aun con CI correcto, sigue pendiente la prueba física de instalación, arranque, memoria/temperatura, inferencia Gemma, WAV real, reproducción y MP3 en Xiaomi 11T Pro.

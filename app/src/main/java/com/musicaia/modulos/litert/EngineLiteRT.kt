@@ -97,8 +97,15 @@ object EngineLiteRT {
         executor.submit<Unit> { cerrarInterno() }.get()
     }
 
-    fun cerrarAsync() {
-        executor.execute { cerrarInterno() }
+    /**
+     * Libera el modelo en ESTE proceso y notifica cuando el executor ha terminado.
+     * Necesario porque el servicio de audio se ejecuta en el proceso Android :audio.
+     */
+    fun cerrarAsync(onClosed: (() -> Unit)? = null) {
+        executor.execute {
+            cerrarInterno()
+            runCatching { onClosed?.invoke() }
+        }
     }
 
     private fun cerrarInterno() {

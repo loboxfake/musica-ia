@@ -224,7 +224,19 @@ $authorizedReferences
                 .apply()
             Result.success()
         } catch (cancelled: CancellationException) {
-            // WorkManager usa la cancelación para detener el trabajo; no convertirla en fallo/reintento.
+            // Cierra el estado visible antes de propagar la cancelación a WorkManager.
+            prefs.edit()
+                .putLong("last_auto_study_attempt_at", System.currentTimeMillis())
+                .putString("last_auto_study_status", "cancelled")
+                .putString("last_auto_study_message", "El autoestudio fue cancelado; la aplicación instalada no se modificó.")
+                .apply()
+            runCatching {
+                BardoActivityStore.record(
+                    applicationContext, taskId, "autoestudio", "cancelled",
+                    "cancelacion", "Autoestudio cancelado. No se modificó la aplicación instalada.", null,
+                    reportFile.absolutePath
+                )
+            }
             throw cancelled
         } catch (error: Exception) {
             val message = error.javaClass.simpleName + ": " + (error.message ?: "Error sin detalle")

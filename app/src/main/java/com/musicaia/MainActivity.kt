@@ -179,6 +179,7 @@ class MainActivity : AppCompatActivity() {
  private var descargaEnCurso = false
  @Volatile private var deteccionGemmaExternaEnCurso = false
  @Volatile private var modeloChatVerificado = false
+ @Volatile private var gemmaInferenceEnCurso = false
  private var configuracionInterfazPendiente = ""
  private var accentColorUI = "#4ED1F1"
  private var navActivoId = R.id.navOrquestador
@@ -191,7 +192,7 @@ class MainActivity : AppCompatActivity() {
  private val datosConver = mutableMapOf<String, String>()
  private val camposRequeridos = listOf("tema", "estilo", "ambiente", "ritmo", "idioma", "tipo")
  private val camposOpcionales = listOf("vozFuente")
- private val notaIA = "BARDO recoge tus preferencias. La generación de letras requiere Gemma local descargado y verificado; sin él, el chat funciona en modo guiado."
+ private val notaIA = "BARDO recoge tus preferencias. La generación de letras requiere Gemma local importado y verificado; puedes reutilizar el archivo que ya guardaste en Descargas/BARDO/Modelos."
 
  private val reloj = object : Runnable {
  override fun run() {
@@ -1869,7 +1870,7 @@ private fun crearEstructuraCarpetaBardo() {
         guardarPreferenciasCreativas()
         actualizarUI()
         findViewById<TextView>(R.id.navCrear).performClick()
-        anexarChat("\nTú: $texto\nBARDO: Datos completos. Inicio la creación ahora. Si falta Gemma local, te indicaré que debes descargarlo antes de generar la letra.")
+        anexarChat("\nTú: $texto\nBARDO: Datos completos. Inicio la creación ahora. Si Gemma aún no está importado, te indicaré cómo reutilizar el archivo de Descargas/BARDO/Modelos.")
         crearCancion()
         return
     }
@@ -1954,7 +1955,7 @@ private fun crearEstructuraCarpetaBardo() {
      anexarChat("\nTú: $textoUsuario")
      val modelo = LiteRTLMModule.modelFile(this)
      if (!modelo.isFile || modelo.length() != LiteRTLMModule.EXPECTED_SIZE_BYTES) {
-         anexarChat("\nBARDO: MODO GUIADO, SIN IA GENERATIVA. Gemma aún no está descargado y no estoy generando respuestas con un modelo. Puedo ayudarte mediante preguntas y opciones guiadas. Para activar la conversación generativa local, ve a Laboratorio y pulsa «Gestionar modelo Gemma 4 E2B».")
+         anexarChat("\nBARDO: MODO GUIADO, SIN IA GENERATIVA. Gemma aún no está importado en el almacenamiento privado y no estoy generando respuestas con un modelo. Puedo ayudarte mediante preguntas y opciones guiadas. Configura Descargas/BARDO para reutilizar el Gemma que ya guardaste o selecciónalo manualmente.")
          anexarChat("\nBARDO: $respuestaGuiada")
          return
      }
@@ -1976,6 +1977,7 @@ private fun crearEstructuraCarpetaBardo() {
      val conocimientoAntiguo = getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE)
          .getString("conocimiento_importado", "").orEmpty().takeLast(4000)
      btnEnviar.isEnabled = false
+     gemmaInferenceEnCurso = true
      tvEstado.text = "El orquestador está consultando el modelo local..."
      Thread({
          val resultado = runCatching {
@@ -2005,6 +2007,7 @@ private fun crearEstructuraCarpetaBardo() {
           resultado.exceptionOrNull()?.let { Log.e(etiqueta, "Falló la respuesta del modelo local; se conserva el flujo guiado.", it) }
           val respuesta = resultado.getOrNull()
           runOnUiThread {
+              gemmaInferenceEnCurso = false
               btnEnviar.isEnabled = true
               if (isFinishing || isDestroyed) return@runOnUiThread
               actualizarInsigniaNucleo()
@@ -2090,6 +2093,7 @@ private fun crearEstructuraCarpetaBardo() {
      val conocimientoAntiguo = getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE)
          .getString("conocimiento_importado", "").orEmpty().takeLast(3000)
      btnEnviar.isEnabled = false
+     gemmaInferenceEnCurso = true
      tvEstado.text = "BARDO está preparando una respuesta con el modelo local..."
      Thread({
          val resultado = runCatching {
@@ -2120,6 +2124,7 @@ private fun crearEstructuraCarpetaBardo() {
              Log.e(etiqueta, "Falló el chat general local", it)
          }
          runOnUiThread {
+             gemmaInferenceEnCurso = false
              btnEnviar.isEnabled = true
              if (isFinishing || isDestroyed) return@runOnUiThread
              actualizarInsigniaNucleo()
@@ -2221,10 +2226,19 @@ private fun crearEstructuraCarpetaBardo() {
      deteccionGemmaExternaEnCurso = true
      estadoModelo.text = "Buscando " + LiteRTLMModule.MODEL_FILENAME + " en Descargas/BARDO/Modelos…"
      Thread({
-         val encontrado = BardoSharedStorage.findFile(applicationContext, "Modelos", LiteRTLMModule.MODEL_FILENAME)
+         val resultado = runCatching {
+             BardoSharedStorage.findFile(applicationContext, "Modelos", LiteRTLMModule.MODEL_FILENAME)
+         }
          runOnUiThread {
              deteccionGemmaExternaEnCurso = false
              if (isFinishing || isDestroyed || descargaEnCurso) return@runOnUiThread
+             val error = resultado.exceptionOrNull()
+             if (error != null) {
+                 estadoModelo.text = "No se pudo consultar Descargas/BARDO/Modelos: ${error.message ?: error.javaClass.simpleName}. Comprueba el permiso de carpeta y vuelve a seleccionarla si es necesario."
+                 Log.e(etiqueta, "Falló la búsqueda de Gemma en la carpeta BARDO", error)
+                 return@runOnUiThread
+             }
+             val encontrado = resultado.getOrNull()
              if (encontrado != null) {
                  estadoModelo.text = "Gemma existente localizado. Importando una copia verificada al almacenamiento privado; el original permanecerá en Descargas/BARDO/Modelos."
                  importarModeloSeleccionado(encontrado)
@@ -2460,6 +2474,19 @@ private fun crearEstructuraCarpetaBardo() {
      Log.w(etiqueta, "Se evitó iniciar una segunda tarea porque ocupado=true")
      return
  }
+ if (gemmaInferenceEnCurso) {
+     tvEstado.text = "Gemma está terminando la respuesta actual. Espera antes de iniciar la generación de audio."
+     return
+ }
+ val autoStudyPrefs = getSharedPreferences("bardo_developer", MODE_PRIVATE)
+ val autoStudyStatus = autoStudyPrefs.getString("last_auto_study_status", "").orEmpty()
+ val autoStudyAttempt = autoStudyPrefs.getLong("last_auto_study_attempt_at", 0L)
+ val autoStudyIsActive = autoStudyStatus == "running" &&
+     (autoStudyAttempt <= 0L || System.currentTimeMillis() - autoStudyAttempt < 60L * 60L * 1000L)
+ if (autoStudyIsActive) {
+     tvEstado.text = "BARDO está realizando autoestudio local con Gemma. Espera a que termine para iniciar Stable Audio y evitar competir por la RAM."
+     return
+ }
  val letraManual = if (grupoModo.checkedRadioButtonId == R.id.modoLetra) editLetra.text.toString().trim() else ""
  val modelo = LiteRTLMModule.modelFile(this)
  if (!AudioGenNative.available) {
@@ -2468,7 +2495,7 @@ private fun crearEstructuraCarpetaBardo() {
  }
  if (!modoSoloInstrumental && letraManual.isBlank() &&
      (!modelo.isFile || modelo.length() != LiteRTLMModule.EXPECTED_SIZE_BYTES)) {
-     tvEstado.text = "Primero descarga el modelo local Gemma 4 E2B (2,6 GB)."
+     tvEstado.text = "Importa el Gemma que ya guardaste en Descargas/BARDO/Modelos o selecciónalo manualmente. No necesitas descargar otra copia."
      return
  }
  if (!modoSoloInstrumental && letraManual.isBlank()) {
@@ -2556,14 +2583,50 @@ private fun crearEstructuraCarpetaBardo() {
  }
 
  try {
-     getSharedPreferences(BardoTaskService.PREFS, MODE_PRIVATE).edit()
+     val taskPrefs = getSharedPreferences(BardoTaskService.PREFS, MODE_PRIVATE)
+     val pruebaRapida = findViewById<android.widget.CheckBox>(R.id.checkPruebaRapida).isChecked
+     val promptServicio = if (modoSoloInstrumental) promptInstrumental else entradaTexto
+     taskPrefs.edit()
          .putString(BardoTaskService.KEY_STATE, "running")
-         .putString(BardoTaskService.KEY_MESSAGE, "BARDO está iniciando el proceso aislado de audio.")
+         .putString(BardoTaskService.KEY_MESSAGE, "BARDO está liberando Gemma en el proceso principal antes de cargar Stable Audio en :audio.")
          .putLong("started_at", System.currentTimeMillis())
          .apply()
-     val pruebaRapida = findViewById<android.widget.CheckBox>(R.id.checkPruebaRapida).isChecked
-     BardoTaskService.iniciar(this, if (modoSoloInstrumental) promptInstrumental else entradaTexto, letraManual, modoSoloInstrumental, pruebaRapida)
-     tvEstado.text = "BARDO está trabajando. Puedes salir de la pantalla; la tarea continuará con su notificación."
+     tvEstado.text = "Liberando Gemma y reservando memoria para Stable Audio…"
+     tvProgresoDetalle.text = "Cerrando el modelo de conversación en el proceso principal. Después arrancará el servicio aislado de audio."
+     btnCancelarTarea.isEnabled = false
+     // BardoTaskService vive en :audio: cerrar EngineLiteRT dentro del servicio
+     // no libera el modelo residente en el proceso principal de MainActivity.
+     EngineLiteRT.cerrarAsync {
+         handler.post {
+             val errorInicio = runCatching {
+                 BardoTaskService.iniciar(
+                     applicationContext, promptServicio, letraManual, modoSoloInstrumental, pruebaRapida
+                 )
+             }.exceptionOrNull()
+             if (errorInicio != null) {
+                 taskPrefs.edit()
+                     .putString(BardoTaskService.KEY_STATE, "failed")
+                     .putString(BardoTaskService.KEY_MESSAGE, errorInicio.message ?: "No se pudo iniciar el servicio de BARDO.")
+                     .apply()
+                 ocupado = false
+                 grupoModo.isEnabled = true
+                 btnCrear.isEnabled = true
+                 btnCancelarTarea.visibility = View.GONE
+                 btnCancelarTarea.isEnabled = false
+                 detenerReloj()
+                 if (!isFinishing && !isDestroyed) {
+                     progreso.visibility = View.GONE
+                     tvProgresoDetalle.visibility = View.GONE
+                     tvTiempo.visibility = View.GONE
+                     tvEstado.text = "No se pudo iniciar la generación de audio: ${errorInicio.message}"
+                     mostrarError(errorInicio)
+                 }
+             } else if (!isFinishing && !isDestroyed) {
+                 btnCancelarTarea.isEnabled = true
+                 tvEstado.text = "BARDO está trabajando. Puedes salir de la pantalla; la tarea continuará con su notificación."
+             }
+         }
+     }
  } catch (error: Exception) {
      getSharedPreferences(BardoTaskService.PREFS, MODE_PRIVATE).edit()
          .putString(BardoTaskService.KEY_STATE, "failed")
@@ -2573,6 +2636,7 @@ private fun crearEstructuraCarpetaBardo() {
      grupoModo.isEnabled = true
      btnCrear.isEnabled = true
      btnCancelarTarea.visibility = View.GONE
+     btnCancelarTarea.isEnabled = false
      detenerReloj()
      mostrarError(error)
  }
@@ -3321,7 +3385,7 @@ private fun crearEstructuraCarpetaBardo() {
      reproducir()
  }
 
- private fun mostrarError(e: Exception) {
+ private fun mostrarError(e: Throwable) {
  detenerReloj()
  tvEstado.text = "Error"
  tvResultado.text = "Error: ${e.javaClass.simpleName}: ${e.message}\n" +

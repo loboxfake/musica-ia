@@ -38,6 +38,7 @@ android {
         }
         androidResources {
             noCompress += "pte"
+            noCompress += "model"
         }
     }
 

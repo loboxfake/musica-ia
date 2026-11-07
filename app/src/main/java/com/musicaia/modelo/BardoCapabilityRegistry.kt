@@ -30,7 +30,7 @@ object BardoCapabilityRegistry {
     }
 
     private fun gemmaDetail(facts: RuntimeFacts): String = when (gemmaStatus(facts)) {
-        Status.NEEDS_MODEL -> "Necesita descargar Gemma local (aprox. 2,6 GB)."
+        Status.NEEDS_MODEL -> "Necesita importar Gemma local desde Descargas/BARDO/Modelos (aprox. 2,6 GB). Si ya guardaste allí el archivo, no necesitas descargar otra copia."
         Status.NEEDS_MEMORY -> "Gemma está presente, pero Android informa menos de 4 GB de RAM disponible. Cierra otras aplicaciones y vuelve a intentarlo. La comprobación es preventiva, no una garantía de compatibilidad."
         Status.NEEDS_RESOURCES -> facts.resourceBlockReason.orEmpty()
         else -> "Gemma está presente y hay memoria disponible suficiente según el umbral preventivo. Se verifica su SHA-256 y compatibilidad al cargar."
@@ -45,7 +45,7 @@ object BardoCapabilityRegistry {
                 "lyrics", "Generación de letras",
                 localModelStatus,
                 when (localModelStatus) {
-                    Status.NEEDS_MODEL -> "Necesita Gemma local."
+                    Status.NEEDS_MODEL -> "Necesita importar Gemma local desde Descargas/BARDO/Modelos; no hace falta volver a descargarlo si ya está allí."
                     Status.NEEDS_MEMORY -> "Necesita más memoria RAM libre para cargar Gemma de forma prudente."
                     Status.NEEDS_RESOURCES -> facts.resourceBlockReason.orEmpty()
                     else -> "Generación local condicionada a que Gemma supere la verificación y pueda ejecutarse."

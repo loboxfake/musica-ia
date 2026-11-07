@@ -57,13 +57,9 @@ object BardoSharedStorage {
 
     /** Localiza el Gemma original sin copiarlo, renombrarlo ni eliminarlo. */
     fun findFile(context: Context, folderName: String, fileName: String): Uri? {
-        return try {
-            val loc = location(context) ?: return null
-            val folder = findChild(context, loc, loc.root, folderName, true) ?: return null
-            findChild(context, loc, folder, fileName, false)
-        } catch (_: Exception) {
-            null
-        }
+        val loc = location(context) ?: return null
+        val folder = findChild(context, loc, loc.root, folderName, true) ?: return null
+        return findChild(context, loc, folder, fileName, false)
     }
 
     /** Exporta únicamente archivos producidos por BARDO; nunca elimina el archivo fuente. */

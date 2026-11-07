@@ -32,8 +32,9 @@ class ModuloInstrumental(
     )
 
     override fun cargar(): Boolean {
-        // Libera cualquier Gemma que pudiera seguir residente tras una conversación.
-        // Stable Audio y Gemma no deben competir por la RAM del Xiaomi.
+        // BardoTaskService se ejecuta en el proceso aislado :audio. MainActivity
+        // libera Gemma en el proceso principal antes de arrancar el servicio;
+        // esta llamada es defensiva para pruebas o ejecuciones en el mismo proceso.
         EngineLiteRT.cerrar()
         if (!AudioGenNative.available) throw IllegalStateException("El motor nativo ExecuTorch no está disponible en esta APK.")
         val minimumAvailableBytes = 1536L * 1024L * 1024L
@@ -46,7 +47,9 @@ class ModuloInstrumental(
         if (!modelDir.exists() && !modelDir.mkdirs()) throw IllegalStateException("No se pudo crear el directorio privado del modelo Stable Audio.")
 
         val requiredSpace = modelFiles.sumOf { name ->
-            runCatching { ctx.assets.openFd("audio_model/$name").length }.getOrDefault(0L)
+            val expectedLength = ctx.assets.openFd("audio_model/$name").use { it.length }
+            val destination = File(modelDir, name)
+            if (destination.isFile && destination.length() == expectedLength) 0L else expectedLength
         } + 256L * 1024 * 1024
         if (requiredSpace > 256L * 1024 * 1024 && modelDir.freeSpace < requiredSpace) throw IllegalStateException("Espacio insuficiente para preparar Stable Audio: libres ${modelDir.freeSpace / (1024L * 1024L)} MiB; necesarios ${requiredSpace / (1024L * 1024L)} MiB.")
 
@@ -55,20 +58,29 @@ class ModuloInstrumental(
                 val assetName = "audio_model/$name"
                 val destination = File(modelDir, name)
                 val temporary = File(modelDir, "$name.part")
-                if (destination.isFile && destination.length() > 0L) continue
+                val expectedLength = ctx.assets.openFd(assetName).use { it.length }
+                if (destination.isFile && destination.length() == expectedLength) continue
 
-                ctx.assets.open(assetName).buffered().use { input ->
+                val copiedBytes = ctx.assets.open(assetName).buffered().use { input ->
                     FileOutputStream(temporary).buffered().use { output ->
-                        input.copyTo(output)
+                        val copied = input.copyTo(output)
                         output.flush()
+                        copied
                     }
                 }
-                if (!temporary.isFile || temporary.length() == 0L) throw IllegalStateException("La copia temporal del archivo $name quedó vacía.")
+                if (!temporary.isFile || copiedBytes != expectedLength || temporary.length() != expectedLength) {
+                    throw IllegalStateException("La copia temporal del archivo $name no coincide con el tamaño del asset ($copiedBytes/$expectedLength bytes).")
+                }
                 if (destination.exists() && !destination.delete()) throw IllegalStateException("No se pudo sustituir el archivo incompleto $name.")
                 if (!temporary.renameTo(destination)) throw IllegalStateException("No se pudo activar el archivo preparado $name.")
             }
-            if (!modelFiles.all { File(modelDir, it).isFile && File(modelDir, it).length() > 0L }) {
-                throw IllegalStateException("Falta al menos uno de los cuatro archivos requeridos de Stable Audio.")
+            val assetsValidos = modelFiles.all { name ->
+                val expectedLength = ctx.assets.openFd("audio_model/$name").use { it.length }
+                val file = File(modelDir, name)
+                file.isFile && file.length() == expectedLength
+            }
+            if (!assetsValidos) {
+                throw IllegalStateException("Falta o está incompleto al menos uno de los cuatro archivos requeridos de Stable Audio.")
             }
             true
         } catch (error: Exception) {
