@@ -345,3 +345,40 @@ Protecciones verificadas en esta revisión:
 - Run integral 42350622162: Run unit tests SUCCESS (07:19:48Z); instalación de PyTorch headers SUCCESS (07:20:07Z).
 - En el último chequeo, Checkout pinned ExecuTorch source seguía IN_PROGRESS. No declarar el build integral terminado; aún no hay resultado nuevo de assembleRelease, firma, auditoría aapt, escaneo de credenciales o publicación.
 - El commit de corrección de auditoría 24cb5b0d6e91b2e86c35f1c168e91b2fa27411ca permanece siendo el SHA que compila el run integral. Los commits documentales posteriores no modifican el código de aplicación ni ese run.
+
+20. RESULTADO VERIFICADO DE BUILD INTEGRAL #159 Y REVISIÓN DE ERRORES — 2026-11-07
+
+Build integral:
+- Workflow run 42350622162 (Build full offline APK #159), commit de código 24cb5b0d6e91b2e86c35f1c168e91b2fa27411ca: COMPLETED / SUCCESS. Duración observada 07:16:59Z–07:29:37Z.
+- `gradle testDebugUnitTest`: BUILD SUCCESSFUL (25 tareas ejecutadas; el log de Gradle no imprime el total de tests en el resumen final).
+- `gradle assembleRelease -PwithAudioNative=true ...`: BUILD SUCCESSFUL en 6m46s (53 tareas ejecutadas).
+- Compilación nativa arm64-v8a de ExecuTorch/XNNPACK y LAME completada. Se incluyen las bibliotecas libaudiogen.so, libmp3encoder.so y libmp3lame.so; la auditoría confirma native-code arm64-v8a.
+- Descarga del paquete de modelos Stable Audio Open Small y presencia en APK de conditioners_model.pte, dit_model.pte, autoencoder_model.pte, spiece.model, LICENSE y NOTICE.txt comprobadas por el script de auditoría.
+- Firma apksigner: V2=true, V3=true; un firmante. Huella del certificado SHA-256: c46232017513c3171ba04d91cf579a72202a834f0bcd1c0a22e0c9de0e030368, coincide con la huella autorizada. No se cambiaron Secrets ni keystore.
+- Auditoría: APK_ZIP_INTEGRITY PASS; APK_SHA256 informado por el log: 322f14625971212518647b8c2efc634fa97120d997a42085812527e39dc4be1d; APK_BYTES 936936765; COMPILED_LAUNCHER_RESOURCES PASS (aapt); RELEASE_APK_NON_DEBUGGABLE PASS; APK credential/signing-material scan PASS.
+- Paquete identificado como com.musicaia, minSdk 26 y ABI arm64-v8a.
+- Commit statuses en 24cb5b0: `BARDO / full offline APK audit` SUCCESS y `BARDO / full offline APK release` SUCCESS. Validación paralela 42350622187 SUCCESS.
+
+Artefacto:
+- `BARDO-full-offline-159`, artifact ID 13565857762, ZIP 695421592 bytes, creado 2026-11-07T07:29:31Z, expiración 2026-11-08T07:28:59Z (retención anterior de 1 día).
+- El conector no permite descargar este ZIP por superar 512 MiB; el artefacto sigue accesible desde GitHub Actions en su URL de descarga. No se ha podido inspeccionar localmente el ZIP ni instalar la APK desde este entorno.
+- La Release de GitHub aún no se había creado en esta ejecución. La última Release visible continuaba siendo bardo-build-149 con APK DEBUG, no usar como sustituta del build #159.
+
+Errores históricos con causa demostrada y resolución:
+- Run integral #158 / 42347674482: auditoría falló en `LAUNCHER_RESOURCES_INCOMPLETE: main=0, foreground=0, adaptive=0`; el auditor buscaba entradas fuente de iconos en el ZIP en lugar de consultar la tabla de recursos compilados. Corregido en commit 24cb5b0 usando `aapt dump resources` y comprobación de mipmap/ic_launcher y mipmap/ic_launcher_round. Run #159 demuestra PASS.
+- Run validación #266 / 42297164638: 55 tests completados, 2 fallidos en OrquestadorTest porque `android.util.Log.e` no está simulado en JVM. El commit posterior `32d3840` se tituló `test: keep Android logging from breaking JVM orchestrator tests`; la validación #267 y las posteriores #270/#275/#276 pasaron. El build #159 también pasa `testDebugUnitTest`.
+- Run de validación #259 y otras ejecuciones fallidas antiguas: sus logs ya devuelven BlobNotFound/404 desde GitHub; no atribuir causas no demostrables. Mantener sus resultados históricos como fallos, no borrarlos ni contarlos como estado actual.
+
+Advertencias no bloqueantes observadas en build #159:
+- CMake/NDK y dependencias nativas de terceros muestran avisos de deprecación/compatibilidad; XNNPACK pthreadpool API deprecada; LAME incluye avisos de fabs sobre enteros y shifts negativos; SentencePiece/llama.cpp warnings de variables/overrides/deprecations.
+- GitHub Actions muestra avisos de deprecación Node.js 20 en actions/checkout@v4, github-script@v7, setup-java@v4, setup-gradle@v3 y upload-artifact@v4. Build finaliza correctamente; programar actualización compatible de acciones, sin cambiar versiones a ciegas.
+
+Mejora de distribución iniciada:
+- Commit 1baac8682f622d2512f83c542571c960e9d80517 modifica `.github/workflows/full-build.yml`: retención de workflow artifact de 1 a 30 días; añade publicación idempotente de APK firmada + full-apk-audit.txt en GitHub Release `bardo-build-${GITHUB_RUN_NUMBER}` como prerelease; el status `BARDO / full offline APK release` dependerá del paso real de creación/carga de Release.
+- Este commit dispara un nuevo build integral. Resultado todavía pendiente al registrar esta entrada; no afirmar que la Release nueva existe hasta comprobar run y asset.
+
+Límites y estado de dispositivo:
+- No se ha descargado ni instalado la APK #159 en el Xiaomi 11T Pro desde este entorno. La prueba de instalación, arranque, RAM/temperatura, conversación, generación de audio, exportación WAV/MP3 y reproducción siguen PENDIENTES del usuario.
+- APK de ~937 MB: advertir del tamaño y comprobar espacio disponible antes de instalar. No declarar compatibilidad funcional real por el mero hecho de compilar para arm64-v8a.
+- `main` continúa en 7b0b075199d00df5e13fd6da6f3aecb19c7c0511; comparación actual de ramas: bardo-unified-core 494 commits por delante y 4 por detrás (diverged). PR #1 continúa OPEN/DRAFT/no mergeable. No integrar.
+- Modo3MezclaVozUsuario.kt: blob SHA-1 verificado 8f2745fa841a06af43bf909732fba834474bf7dc; no modificado.
