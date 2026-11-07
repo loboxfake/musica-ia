@@ -1043,3 +1043,10 @@ Continuidad y límites:
 - La integración sigue requiriendo aprobación explícita en la app; el runner vuelve a aplicar el diff y ejecutar tests antes del commit fast-forward.
 - No se modifica Modo3, el núcleo de BARDO, la firma, los Secrets ni la rama canónica.
 - No hay prueba física en Xiaomi 11T Pro. La autonomía extremo a extremo, Gemma/SAF/PAT y self_install siguen pendientes de validación real.
+
+
+59. CORRECCIÓN DE SINTAXIS DEL WORKFLOW DE INTEGRACIÓN — 2026-11-07
+
+- El primer commit 4ef913d5645004abc12f5dfd95cee8e4121adf85 introdujo una interpolación accidental al generar el bloque shell y GitHub no pudo cargar bardo-commit-candidate.yml; run 42419003777 terminó FAILURE sin jobs.
+- Se corrige el bloque completo con expresiones regex literales intactas y comprobaciones del path del workflow, evento, rama, estado, conclusión, SHA base y título/candidate_id.
+- Los runs de validación #354 y build #205 del commit de corrección deben comprobarse antes de declarar el cambio verificado. La corrección no se considera probada hasta entonces.

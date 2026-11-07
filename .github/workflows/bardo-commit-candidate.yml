@@ -47,8 +47,23 @@ jobs:
             echo "::error::Invalid validation run ID."
             exit 1
           fi
-          if ! printf '%s' "$CANDIDATE_ID" | grep -Eq '^[0-9a-f]{32}
-
+          if ! printf '%s' "$CANDIDATE_ID" | grep -Eq '^[0-9a-f]{32}$'; then
+            echo "::error::Invalid candidate ID."
+            exit 1
+          fi
+          if ! printf '%s' "$BASE_SHA" | grep -Eq '^[0-9a-fA-F]{40}$'; then
+            echo "::error::Invalid base SHA."
+            exit 1
+          fi
+          validation="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$VALIDATION_RUN_ID")"
+          # Bind approval to the exact workflow, event, branch, candidate and source commit.
+          test "$(jq -r '.path' <<< "$validation")" = ".github/workflows/bardo-candidate-validation.yml"
+          test "$(jq -r '.event' <<< "$validation")" = "workflow_dispatch"
+          test "$(jq -r '.head_branch' <<< "$validation")" = "main"
+          test "$(jq -r '.status' <<< "$validation")" = "completed"
+          test "$(jq -r '.conclusion' <<< "$validation")" = "success"
+          test "$(jq -r '.head_sha' <<< "$validation")" = "$BASE_SHA"
+          test "$(jq -r '.display_title' <<< "$validation")" = "BARDO candidate validation · $CANDIDATE_ID"
       - name: Checkout main without exposing credentials to candidate code
         uses: actions/checkout@v4
         with:
