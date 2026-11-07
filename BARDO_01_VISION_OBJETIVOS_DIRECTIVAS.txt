@@ -370,3 +370,17 @@ Ciclo funcional previsto y límites:
 - La comprobación final del workflow confirma que main es la única rama activa; no se borraron refs heredadas.
 - Este resultado certifica CI, firma y publicación, no instalación ni funcionamiento físico. Sigue pendiente la prueba en Xiaomi 11T Pro y el ciclo autónomo completo con Gemma + SAF + PAT configurados. self_install continúa NOT_IMPLEMENTED.
 - Esta sincronización documental pertenece a la misma fase integral; no abre una fase paralela.
+
+
+32. RESULTADO DE BUILD INTEGRAL #201 — 2026-11-07
+
+- Commit fuente: d1766ed6900a0089cf6f131129f676986c66f0ad, rama main.
+- Build full offline #201, run 42412360209: completed/success; job full-build 128523037451 y todos los pasos SUCCESS, incluidos tests, PyTorch, ExecuTorch, APK release, firma, auditorías, publicación y verificación de rama única.
+- Validación #350, run 42412360258: completed/success; Gitleaks, actionlint, tests y assembleDebug SUCCESS.
+- Release prerelease: https://github.com/loboxfake/musica-ia/releases/tag/bardo-build-201; target commit exacto d1766ed6900a0089cf6f131129f676986c66f0ad. Assets app-release.apk (937510205 bytes) y full-apk-audit.txt (6198 bytes).
+- APK package com.musicaia, versionName 1.0.1201, versionCode 1201, compileSdk 34, minSdk 26, ABI arm64-v8a. APK SHA-256 bc92db8adc8ba4682678fcfdaad15a73acbb246db40bd3b6cc999af03fea8594.
+- Certificado SHA-256 c46232017513c3171ba04d91cf579a72202a834f0bcd1c0a22e0c9de0e030368; ZIP integrity PASS; non-debuggable PASS; credenciales/material de firma PASS.
+- Artefacto BARDO-full-offline-201 ID 13590980287, tamaño 695614949 bytes.
+- El log confirma literalmente “Active Git branches: main” y “Verified: main is the only active branch. No legacy refs are deleted.”
+- Esto acredita CI, firma y publicación, no instalación ni prueba física. Sigue pendiente validar en Xiaomi 11T Pro el uso real, Gemma local, SAF, PAT y el ciclo de candidato/aprobación. self_install continúa NOT_IMPLEMENTED.
+- La siguiente compilación por sincronización documental (#202) continúa esta misma fase de autonomía; no abre rama ni fase paralela.

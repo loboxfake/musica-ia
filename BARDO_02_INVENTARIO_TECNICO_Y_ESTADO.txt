@@ -992,3 +992,18 @@ Evidencia desde GitHub:
 - La build empaqueta el modelo de audio local y librerías ARM64. Gemma conversacional no forma parte de esta APK; requiere importación y verificación por el usuario.
 - Límite: no hay prueba de instalación ni ejecución física en Xiaomi 11T Pro. No marcar autonomía extremo a extremo como aceptada hasta verificar Gemma local, permiso SAF, PAT fine-grained, creación/validación/aprobación de candidato, integración fast-forward en main, build y uso real de audio en el dispositivo.
 - self_install sigue NOT_IMPLEMENTED; no afirmar auto-instalación ni autonomía sin intervención humana.
+
+
+56. BUILD INTEGRAL #201 — RESULTADO AUDITADO — 2026-11-07
+
+- Fuente/HEAD: d1766ed6900a0089cf6f131129f676986c66f0ad (main).
+- Build #201 / run 42412360209: SUCCESS; job 128523037451; todos los pasos SUCCESS hasta Complete job.
+- Validación #350 / run 42412360258: SUCCESS; Gitleaks completo, actionlint, testDebugUnitTest y assembleDebug.
+- Release https://github.com/loboxfake/musica-ia/releases/tag/bardo-build-201; prerelease true; target_commitish d1766ed6900a0089cf6f131129f676986c66f0ad; assets APK 937510205 bytes y audit 6198 bytes.
+- APK com.musicaia 1.0.1201 (versionCode 1201), compileSdk 34, minSdk 26, ABI arm64-v8a; SHA-256 bc92db8adc8ba4682678fcfdaad15a73acbb246db40bd3b6cc999af03fea8594.
+- Certificate SHA-256 c46232017513c3171ba04d91cf579a72202a834f0bcd1c0a22e0c9de0e030368. APK ZIP integrity PASS; RELEASE_APK_NON_DEBUGGABLE PASS; APK credential/signing-material scan PASS.
+- Artifact BARDO-full-offline-201 ID 13590980287; 695614949 bytes.
+- El workflow verificó una sola rama: main. No se borraron refs heredadas.
+- La APK contiene el modelo de audio local; Gemma conversacional no está empaquetado y debe importarse/verificarse aparte.
+- Estado: CI y release verificados; sin evidencia de instalación o ejecución en Xiaomi. Autonomía end-to-end aún pendiente de Gemma, SAF, PAT, candidato real, validación, aprobación e integración en main. self_install NOT_IMPLEMENTED.
+- El siguiente ciclo #202 corresponde solo a documentar este resultado en los dos documentos maestros, manteniendo la misma fase y rama única.
