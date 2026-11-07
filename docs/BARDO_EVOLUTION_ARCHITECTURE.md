@@ -1,8 +1,8 @@
 # BARDO — Arquitectura del asistente personal evolutivo
 
 Estado: especificación inicial de implementación  
-Rama de trabajo: `bardo-unified-core`  
-Base: `a97866a` (ruta-a-compile)
+Rama de trabajo actual: `main` (única rama activa)  
+Base histórica de diseño: `a97866a` (`ruta-a-compile`), incorporada como uno de los seis padres del commit de consolidación `28332da4`.
 
 ## Objetivo del producto
 
@@ -88,7 +88,7 @@ Las skills son recetas declarativas y limitadas; el código ejecutable externo n
 ### 6. EvolutionEngine / UpdateManager
 Flujo:
 - Analizar diferencias y dependencias.
-- Generar rama/paquete de cambios separado.
+- Generar una copia/paquete candidato aislado en el workspace local; no crear ramas Git paralelas, porque `main` es la única rama activa.
 - Ejecutar análisis estático, pruebas unitarias e instrumentadas y auditoría de archivos protegidos.
 - Construir APK firmada con la misma identidad de firma para actualización Android, o paquete modular de recursos/datos cuando sea suficiente.
 - Generar manifiesto con versión origen/destino, hashes, archivos, permisos y notas.

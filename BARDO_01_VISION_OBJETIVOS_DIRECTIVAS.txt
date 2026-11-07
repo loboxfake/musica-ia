@@ -52,7 +52,7 @@ N2 — Módulos/plugins declarativos:
 cada módulo declara permisos, recursos, modelo, licencia y alcance. La aprobación del usuario es obligatoria por permiso. No se instalan capacidades no autorizadas.
 
 N3 — Código:
-BARDO genera un diff exacto en una rama aislada bardo-self/fecha. GitHub Actions debe compilar, probar, auditar credenciales, verificar archivos protegidos, firmar con la clave autorizada y publicar APK completa, parche diferencial, SHA-256 y huella del certificado. BARDO descarga y verifica; exporta copia de datos; muestra el instalador Android. El usuario pulsa Instalar. No hay instalación silenciosa.
+BARDO genera un diff exacto y una copia candidata aislada dentro del workspace local. No crea ramas Git paralelas: main es la única rama activa. El candidato se somete a validación reproducible en el runner autorizado de CI; solo tras revisión/aprobación se integra mediante commit fast-forward en main. GitHub Actions debe compilar, probar, auditar credenciales, verificar archivos protegidos, firmar con la clave autorizada y publicar APK completa, parche diferencial, SHA-256 y huella del certificado. BARDO descarga y verifica; exporta copia de datos; muestra el instalador Android. El usuario pulsa Instalar. No hay instalación silenciosa.
 
 El modelo no puede modificar directamente el núcleo, workflows, firma, Secrets, escáner de credenciales, permisos, sistema de actualización/reversión ni archivos protegidos. Cada ciclo compara sus hashes antes y después. Un diff que toque un archivo protegido se rechaza antes de aplicarse.
 

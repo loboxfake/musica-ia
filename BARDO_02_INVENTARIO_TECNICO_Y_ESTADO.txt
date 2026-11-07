@@ -834,3 +834,12 @@ CI después de corregir el separador Kotlin del CapabilityRegistry:
 - Validación #340 / run 42379309465 para HEAD documental a08f53c6: Gitleaks SUCCESS; testDebugUnitTest/assembleDebug IN_PROGRESS al redactar esta entrada.
 - Build #192 / run 42379429052 para HEAD documental f0947a4c: PENDING al redactar esta entrada. Consultar el último run sobre el HEAD final porque ejecuciones pendientes anteriores pueden ser sustituidas por una nueva ejecución del mismo grupo de concurrencia.
 - No se ha probado físicamente la APK en Xiaomi 11T Pro.
+
+
+48. ELIMINACIÓN DE DEPENDENCIAS OPERATIVAS DE RAMAS RETIRADAS — 2026-11-07
+
+- La búsqueda de referencias en el código/docs encontró dos textos operativos obsoletos y un fallback de workflow: docs/UPDATE_SYSTEM.md decía que full-build corría sobre ruta-a-compile/bardo-device-fixes; docs/BARDO_EVOLUTION_ARCHITECTURE.md declaraba bardo-unified-core como rama; full-build.yml podía tomar el modelo de un run histórico de ruta-a-compile si no encontraba un run exitoso en main.
+- La preparación de modelos ya tiene ejecución satisfactoria en main: workflow Prepare Stable Audio Open Small, run 42370539779, #3, commit 28332da4b4706758600bd25f63bc2e67c840b377, resultado SUCCESS. Build integral #190 ya descargó el paquete de modelo correctamente antes de entrar a compilación nativa.
+- Corrección propuesta/aplicada en el siguiente commit: full-build.yml solo acepta una exportación exitosa de prepare-audio-model.yml en main; si falta, falla de forma explícita en lugar de utilizar una rama retirada. docs/UPDATE_SYSTEM y docs/BARDO_EVOLUTION_ARCHITECTURE se alinean a main.
+- La arquitectura de autoevolución se alinea con la orden de rama única: BARDO prepara copias candidatas aisladas sin crear ramas Git paralelas; la integración aprobada es un commit fast-forward en main.
+- No se modifica Modo3, keystore ni Secrets. No se recrea ninguna rama histórica.

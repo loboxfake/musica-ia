@@ -85,11 +85,7 @@ jobs:
         run: |
           run_id=$(gh run list --workflow prepare-audio-model.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId')
           if [ -z "$run_id" ] || [ "$run_id" = "null" ]; then
-            echo "No successful model export on main yet; using the preserved historical export as a transition fallback."
-            run_id=$(gh run list --workflow prepare-audio-model.yml --branch ruta-a-compile --status success --limit 1 --json databaseId --jq '.[0].databaseId')
-          fi
-          if [ -z "$run_id" ] || [ "$run_id" = "null" ]; then
-            echo "No successful Stable Audio model export found on main or in preserved historical runs."
+            echo "No successful Stable Audio model export exists on canonical main; refusing to use artifacts from retired branches."
             exit 1
           fi
           echo "Using model export run: $run_id"
