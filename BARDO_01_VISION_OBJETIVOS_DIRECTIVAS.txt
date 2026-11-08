@@ -804,3 +804,14 @@ EVOLUCIÓN
 - Se comprueba la correspondencia de los ocho módulos del catálogo con BardoCapabilityRegistry.
 - Se añade la capacidad stem_separation con estado NOT_IMPLEMENTED y criterios de aceptación explícitos; el inventario ya no muestra «SIN REGISTRO» para ese módulo.
 - La separación de stems sigue pendiente; no se declara disponible ni se instala un modelo sin autorización.
+
+
+33. REVISIÓN FINAL DEL INVENTARIO TRAS BUILD #347 — 2026-11-08
+
+- Se comprobó el contenido de la release #347, versión 1.0.1347, paquete com.musicaia, ARM64.
+- APK: 977004292 bytes; SHA-256 7103f6bf55a438f3cbc9807edf83de043c9da28c4abe16298aa19a5c814c526b.
+- Certificado SHA-256 autorizado: c46232017513c3171ba04d91cf579a72202a834f0bcd1c0a22e0c9de0e030368; firma APK v2 y v3 verificadas; auditoría de credenciales/material de firma PASS.
+- Release: https://github.com/loboxfake/musica-ia/releases/tag/bardo-build-347.
+- Validación #499 y build integral #347 SUCCESS sobre 74f44506e60fbd5791d77fa8c48a429bd8417ff7.
+- Revisión adicional del inventario: corregir la clase WAV de UtilWav a AudioUtil, que es el nombre real del helper en el código.
+- No implica prueba funcional de Gemma, Stable Audio, OCR, ASR, Bonsai ni reproducción audible en Xiaomi; requieren prueba física.

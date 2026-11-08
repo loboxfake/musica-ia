@@ -122,7 +122,7 @@ object BardoSelfInventory {
         HelperSpec("wav_tools", "Herramientas WAV y mezcla multipista", listOf(
             "com.musicaia.modulos.BardoWavMastering",
             "com.musicaia.modulos.BardoWavMultitrackMixer",
-            "com.musicaia.modulos.UtilWav"
+            "com.musicaia.modulos.AudioUtil"
         )),
         HelperSpec("voice_mix", "Mezcla de voz del usuario · Modo3", listOf(
             "com.musicaia.modulos.Modo3MezclaVozUsuario",
