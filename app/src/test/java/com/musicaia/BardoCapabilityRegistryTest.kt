@@ -74,6 +74,7 @@ class BardoCapabilityRegistryTest {
         assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("chat_attachments").status)
         assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("user_authorized_learning").status)
         assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("wav_mastering_basic").status)
+        assertEquals(BardoCapabilityRegistry.Status.NEEDS_MODEL, items.getValue("speech_transcription_es").status)
         assertEquals(BardoCapabilityRegistry.Status.REQUIRES_USER_ACTION, items.getValue("research").status)
         assertEquals(BardoCapabilityRegistry.Status.REQUIRES_USER_ACTION, items.getValue("project_build").status)
         assertEquals(BardoCapabilityRegistry.Status.REQUIRES_USER_ACTION, items.getValue("github_development").status)
@@ -83,13 +84,30 @@ class BardoCapabilityRegistryTest {
     }
 
     @Test
+    fun exposesOfflineSpeechTranscriptionOnlyWhenSpanishModelIsInstalled() {
+        val missing = BardoCapabilityRegistry.snapshot(
+            BardoCapabilityRegistry.RuntimeFacts(true, true, true)
+        ).associateBy { it.id }
+        assertEquals(BardoCapabilityRegistry.Status.NEEDS_MODEL, missing.getValue("speech_transcription_es").status)
+        val installed = BardoCapabilityRegistry.snapshot(
+            BardoCapabilityRegistry.RuntimeFacts(
+                gemmaFilePresent = true, audioEnginePresent = true, mp3EncoderPresent = true,
+                speechModelPresent = true
+            )
+        ).associateBy { it.id }
+        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, installed.getValue("speech_transcription_es").status)
+        assertTrue(installed.getValue("speech_transcription_es").detail.contains("sin conexión"))
+    }
+
+    @Test
     fun enablesRemoteCandidateBuildAndApprovedMainIntegrationOnlyWhenGitHubIsConfigured() {
         val items = BardoCapabilityRegistry.snapshot(
             BardoCapabilityRegistry.RuntimeFacts(
                 gemmaFilePresent = true,
                 audioEnginePresent = true,
                 mp3EncoderPresent = true,
-                githubActionsConfigured = true
+                githubActionsConfigured = true,
+                speechModelPresent = true
             )
         ).associateBy { it.id }
         assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("project_build").status)

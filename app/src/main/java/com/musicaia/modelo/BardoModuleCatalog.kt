@@ -99,7 +99,8 @@ object BardoModuleCatalog {
             audioEnginePresent = AudioGenNative.available,
             mp3EncoderPresent = Mp3Exporter.available,
             availableMemoryBytes = memoryInfo.availMem,
-            resourceBlockReason = resourceBlock
+            resourceBlockReason = resourceBlock,
+            speechModelPresent = com.musicaia.modulos.BardoOfflineAsr.isModelInstalled(app)
         )
         val capabilities = BardoCapabilityRegistry.snapshot(facts).associateBy { it.id }
         val selected = selectMusicModuleIds(

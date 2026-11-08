@@ -20,7 +20,8 @@ object BardoCapabilityRegistry {
         val mp3EncoderPresent: Boolean,
         val availableMemoryBytes: Long = Long.MAX_VALUE,
         val resourceBlockReason: String? = null,
-        val githubActionsConfigured: Boolean = false
+        val githubActionsConfigured: Boolean = false,
+        val speechModelPresent: Boolean = false
     )
 
     private fun gemmaStatus(facts: RuntimeFacts): Status = when {
@@ -65,6 +66,7 @@ object BardoCapabilityRegistry {
                 if (facts.mp3EncoderPresent) "Codificador local disponible." else "Codificador nativo no incluido en esta compilación.",
                 "Guardar MP3 reproducible en Descargas/BARDO y compartirlo con una acción independiente."
             ),
+            Capability("speech_transcription_es", "Transcripción de audio offline en español", if (facts.speechModelPresent) Status.AVAILABLE else Status.NEEDS_MODEL, if (facts.speechModelPresent) "Modelo Vosk español instalado y validado por estructura. La decodificación usa códecs locales de Android; no se envía audio a la nube." else "Necesita descargar una vez el modelo español Vosk (39.817.833 bytes); SHA-256 fijado y comprobado antes de instalar. Después funciona sin conexión.", "Transcribir audio real decodificable por Android, en segundo plano, sin modificar el original; no inventar texto cuando no se detecta voz."),
             Capability("wav_mastering_basic", "Procesado básico de WAV", Status.AVAILABLE, "Herramienta offline para WAV PCM 16-bit: filtro subsónico, compresión suave, limitación de pico y verificación del WAV exportado. Es procesamiento básico de un archivo mono, no masterización profesional ni mezcla multipista.", "Procesar un WAV real, conservar intacto el original, guardar un segundo WAV reproducible y verificar cabecera, frecuencia, número de muestras y pico de salida."),
             Capability("history", "Historial con fechas y exportación", Status.AVAILABLE, "Conversaciones locales, recuperación, exportación JSON/TXT e importación validada.", "Exportar el historial a BARDO/Historial y comprobar que se abre y se puede recuperar."),
             Capability("knowledge", "Biblioteca de conocimiento", Status.AVAILABLE, "Importación local, SHA-256 verificado al recuperar y búsqueda textual; no modifica los pesos del modelo.", "Mostrar origen, pedir aprobación de guardado y recuperar contenido pertinente sin seguir instrucciones incrustadas."),

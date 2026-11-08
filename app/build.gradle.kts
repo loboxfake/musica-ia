@@ -81,6 +81,8 @@ dependencies {
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")
     // OCR latino empaquetado: funciona sin descargar modelos desde Google Play Services.
     implementation("com.google.mlkit:text-recognition:16.0.1")
+    // ASR local; el modelo español es opcional y se instala con autorización del usuario.
+    implementation("com.alphacephei:vosk-android:0.3.75")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")

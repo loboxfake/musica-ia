@@ -434,3 +434,6 @@ La instrucción vigente del usuario es desarrollar la autonomía de BARDO de for
 - Se añade procesado básico offline de WAV PCM 16-bit (filtro subsónico, compresión suave, limitación de pico y verificación de salida), limitado a 25 MB por archivo. No se denomina masterización profesional.
 - Voz cantada IA y portadas con IA continúan sin motor/modelo local verificado. Mezcla multipista y masterización profesional siguen pendientes. No se simulan.
 - Modo3 sigue protegido; no se ha editado.
+
+13.1 ESTADO DE AUDIO Y AUTOESTUDIO — 2026-11-08
+La importación de adjuntos de audio dispone de una nueva ruta de reconocimiento offline en español mediante Vosk. El usuario autoriza de forma separada la descarga inicial del modelo y el guardado de la transcripción como conocimiento. El procesamiento respeta el presupuesto de recursos, no modifica el original y no cambia los pesos de Gemma. La capacidad solo se considera disponible cuando el modelo local está instalado y validado.

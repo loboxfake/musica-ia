@@ -1087,3 +1087,15 @@ Continuidad y límites:
 - El aprendizaje de archivos no entrena los pesos del modelo ni cambia el núcleo. Todo parche permanece en copia candidata y la integración exige CI SUCCESS más aprobación expresa. La instalación requiere confirmación Android.
 - Validación/compilación #357/#208 SUCCESS correspondían al commit b20a19a anterior a estos cambios. Este nuevo conjunto todavía necesita su propia ejecución CI.
 - Modo3MezclaVozUsuario.kt permanece sin cambios, SHA-1 8f2745fa841a06af43bf909732fba834474bf7dc.
+
+47. SEGUIMIENTO DE INTEGRACIÓN — 2026-11-08
+
+- Commit de base: 02294f1af8b80178f30fdf29deb41b2daaffde61.
+- Validación de integración #362 (run 42454837828): SUCCESS.
+- Build offline integral #213 (run 42454837711): SUCCESS. Los 21 pasos finalizaron correctamente: tests unitarios, compilación nativa ExecuTorch, APK release, firma, auditoría de contenido/integridad, escaneo de credenciales, artefacto y Release.
+- Release auditada: bardo-build-213. APK app-release.apk, SHA-256 publicado: 272107733da5365fa77057301efa69b7884db957a990700bcbb3f30ab7a27e94. El build CI no demuestra funcionamiento en Xiaomi.
+- Nueva capacidad propuesta: Vosk Android 0.3.75 y reconocimiento offline en español. El modelo vosk-model-small-es-0.42 (39.817.833 bytes) es opcional, solo se descarga tras confirmación y se valida con SHA-256 09b239888f633ef2f0b4e09736e3d9936acfd810bc65d53fad45261762c6511f antes de instalar.
+- MediaExtractor/MediaCodec del dispositivo decodifican el primer flujo de audio; el PCM se convierte a mono por bloques. Límites: 100 MB por archivo y 30 minutos. El original se conserva; la transcripción es solo en español.
+- La transcripción resultante requiere autorización independiente antes de guardarse como referencia. No modifica los pesos de Gemma ni el núcleo BARDO.
+- La capability speech_transcription_es depende de que el modelo esté instalado. Implementación y pruebas CI quedan pendientes hasta el resultado del nuevo workflow.
+- Los formatos dañados o no decodificables por el Android instalado pueden fallar. Música sin voz y habla no inteligible pueden producir una transcripción vacía. No se afirma comprensión musical/sonora completa, ASR multilingüe ni voz cantada generativa.
