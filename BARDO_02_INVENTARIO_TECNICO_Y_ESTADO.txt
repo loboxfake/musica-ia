@@ -1230,3 +1230,11 @@ No declarar la fase cerrada solo por CI verde; la prueba física en Xiaomi 11T P
 - Revisión del run 42471726751 en SHA 929c5958: unit tests, APK release, firma v2/v3 y auditoría estructural PASARON. El único fallo fue un falso positivo del escáner de credenciales en `assets/mlkit_label_default_model/mobile_ica_8bit_with_metadata_tflite`. Se debe exceptuar solo esa ruta de modelo de terceros y añadir test que pruebe que un token GitHub real en cualquier otro archivo sigue provocando fallo.
 - El workflow de validación de integración pasó en el SHA 929c5958; el workflow de APK completa quedó FAILED por ese falso positivo. No hay release/artefacto final publicado para ese SHA.
 - Pendiente: reparar auditoría con allowlist exacta y test; corregir el prompt bilingüe local que debe incorporar la instrucción de idioma en el prompt efectivo; revisar OCR/imagen, conversación, mixer, ASR, cobertura tests y conservar Modo3.
+
+
+58. OCR MULTIESCRITURA PARA IMÁGENES, PDF ESCANEADOS Y VÍDEO — 2026-11-08
+- BardoOcrImporter comparte los reconocedores ML Kit bundled para scripts latino, chino, devanagari, japonés y coreano en imágenes, PDF escaneados (hasta 10 páginas) y fotogramas de vídeo (hasta 8); crea un conjunto por archivo y lo cierra al finalizar.
+- Los formatos documentales con texto digital (PDF, Office, EPUB, HTML, etc.) extraen Unicode sin traducir ni limitarse a esos cinco scripts. El OCR no cubre todos los alfabetos y no debe inventar texto.
+- La conversación general local indica a Gemma que detecte y responda en el idioma del mensaje más reciente cuando lo pueda interpretar; depende del modelo local instalado y de recursos suficientes. La creación musical sigue restringida a español/inglés.
+- Portadas disponibles: PNG procedural offline 1024×1024, cinco estilos. Generación IA local real sigue NOT_IMPLEMENTED por falta de modelo móvil validado.
+- Estado técnico: commit de código OCR 7cbbbd33 pendiente de CI; no declarar validado hasta que el run de ese SHA termine.

@@ -509,3 +509,9 @@ El ASR local soporta español e inglés estadounidense mediante modelos Vosk ind
 - Portadas: el generador procedural offline produce PNG originales con diseños reproducibles; no es un modelo generativo de imágenes IA. La generación IA local sigue pendiente hasta disponer de modelo compatible con el Xiaomi 11T Pro, licencia, RAM/temperatura y pruebas verificables. No añadir un servicio cloud obligatorio.
 - Auditoría de CI: en el SHA 929c5958 el APK se compiló, firmó y pasó los tests; falló únicamente el detector de credenciales por un falso positivo en el recurso binario integrado assets/mlkit_label_default_model/mobile_ica_8bit_with_metadata_tflite. Debe ajustarse el detector con excepción exacta y prueba negativa que siga detectando tokens reales.
 - No solicitar pruebas físicas hasta que la fase de integración y auditoría completa esté verde sobre el mismo SHA. La instalación, OCR real y escucha WAV en Xiaomi siguen pendientes.
+
+
+14.4 OCR MULTIESCRITURA TAMBIÉN EN PDF Y VÍDEO — 2026-11-08
+- Se reutiliza el conjunto de reconocedores OCR bundled (latino, chino, devanagari, japonés y coreano) en imágenes, PDF escaneados y fotogramas de vídeo; los clientes se reutilizan durante cada archivo y se cierran al terminar.
+- La extracción de texto digital de documentos es independiente del idioma y conserva Unicode; el OCR solo cubre los scripts enumerados. No afirmar «cualquier idioma» para OCR ni transcripción de audio.
+- La conversación general local pide al modelo responder en el idioma del último mensaje cuando lo pueda manejar. Esto depende de que Gemma esté instalado, verificado y tenga RAM; sin modelo no se simula respuesta generativa.
