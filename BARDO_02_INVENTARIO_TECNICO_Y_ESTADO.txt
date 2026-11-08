@@ -1409,3 +1409,27 @@ AUTONOMÍA Y ACEPTACIÓN:
 - La APK #303 es una entrega CI firmada y auditada; no demuestra por sí sola que Gemma se haya importado/cargado en el Xiaomi ni que la generación musical, OCR, reproducción, imágenes o autoestudio hayan pasado pruebas físicas.
 - Pendiente aceptación física en Xiaomi 11T Pro: instalar APK #303, abrir y recorrer los seis espacios, autorizar Descargas/BARDO, localizar/importar/verificar Gemma, comprobar RAM/temperatura, probar conversación local, OCR es/en con imágenes reales, generación offline de audio, exportar y escuchar WAV, biblioteca/mezcla, imágenes Bonsai si el dispositivo cumple presupuesto de recursos y ciclo de autoestudio.
 - No declarar cierre funcional hasta registrar resultados reales del dispositivo. Los maestros se actualizan juntos tras cada ciclo de cambios y CI.
+
+
+70. REANUDACIÓN Y BASELINE VERIFICADO; DIRECTIVA DE AVATAR BARDO — 2026-11-08
+
+BASELINE CONSULTADO ANTES DE INICIAR EL NUEVO CICLO
+- Repositorio: loboxfake/musica-ia; rama por defecto y canónica: main.
+- HEAD consultado: 5cd2200bc90b3d9ea77cd36768a4fd78e7c1444d ("Update BARDO masters with build 303 and confirmed workspace structure"). Su padre es abfd3135fafbd3cd4eb3046e2de67347621199a7.
+- La consulta de GitHub Actions confirmó BARDO integration validation #456 y Build full offline APK #304 completados con SUCCESS sobre el mismo SHA 5cd2200bc90b3d9ea77cd36768a4fd78e7c1444d.
+- Build #304 publicó Release prerelease bardo-build-304 con app-release.apk (976,959,236 bytes; SHA-256 80725849d4d7a5f4770d60f0de3b5a6d11e1b8cffe379c87a63d6a332e5cebcc) y full-apk-audit.txt (SHA-256 4bba7c381b62fe9c1b5f46c73223fbe92b7c14c6590fdf8da95d4d206e23e9f4). Artefacto de respaldo BARDO-full-offline-304, ID 13623315697, no expirado al consultar.
+- #304 acredita CI, firma, auditoría y publicación, no la instalación ni la prueba física en Xiaomi 11T Pro.
+- Estructura de almacenamiento compartido confirmada: Descargas/BARDO/{Canciones,Copias de seguridad,Historial,Instaladores,Instrumentales,Modelos,Proyectos,Voces}; Historial conserva los dos TXT y el JSON indicados por el usuario; Modelos contiene gemma-4-E2B-it.litertlm. No duplicar ni borrar el modelo ni los historiales.
+- Estado previo documentado: Modo3MezclaVozUsuario.kt protegido con SHA-1 8f2745fa841a06af43bf909732fba834474bf7dc. Debe comprobarse antes/después de cualquier ciclo que toque el repositorio.
+
+NUEVA DIRECTIVA DEL USUARIO
+- Depurar, optimizar y mejorar la interfaz de forma continua y alineada con todos los requisitos, módulos, conversaciones y evolución prevista de BARDO.
+- Diseñar e integrar un avatar de BARDO en el chat principal como primer ámbito. Debe basarse en el icono real de la app y sus colores, inspeccionando el recurso launcher antes de implementar.
+- El avatar reaccionará a eventos funcionales reales: entrada/escritura, lectura de mensajes, lectura/importación de archivos, análisis/estudio, respuesta, procesamiento, espera, éxito y error. Estados visuales no deben fingir actividad ni consciencia.
+- Primera implementación limitada al chat principal; eficiente en CPU/batería, accesible, desacoplada del orquestador, con fallback estático y animación pausada fuera de pantalla/segundo plano.
+- En futuras fases BARDO podrá proponer mejoras de su avatar, interfaz, código, skills y habilidades mediante el circuito seguro de autoevolución: propuesta explicada, diff aislado, pruebas, preview, impacto y reversión; aprobación requerida para integrar y sin modificar protecciones/secretos/firma/archivos protegidos.
+
+ESTADO DE ESTE REGISTRO
+- Esta actualización es previa al trabajo de implementación del avatar; no afirma que el avatar esté creado ni que el código haya cambiado.
+- Se reafirma el gobierno documental: actualizar ambos maestros antes de iniciar cada ciclo y al terminarlo; conservar trazabilidad y distinguir diseño, código, CI y prueba física.
+- No se modifica Modo3. La siguiente actividad es inspeccionar el icono launcher, el layout/chat, el tema y los puntos de eventos reales de lectura/procesamiento antes de preparar el diff.
