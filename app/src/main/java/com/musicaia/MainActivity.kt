@@ -45,6 +45,8 @@ import com.musicaia.memoria.BardoConversationStore
 import com.musicaia.memoria.BardoKnowledgeStore
 import com.musicaia.memoria.BardoActivityStore
 import com.musicaia.storage.BardoSharedStorage
+import com.musicaia.ui.BardoAvatarState
+import com.musicaia.ui.BardoAvatarView
 import java.io.File
 import java.io.FileOutputStream
 import java.text.Normalizer
@@ -157,6 +159,10 @@ class MainActivity : AppCompatActivity() {
  private lateinit var chatLog: TextView
  private lateinit var chatMessages: LinearLayout
  private lateinit var chatScroll: ScrollView
+ private lateinit var avatarChat: BardoAvatarView
+ private lateinit var tvAvatarActivity: TextView
+ private var avatarResetRunnable: Runnable? = null
+ private var chatProgrammaticScroll = false
  private var chatHeightListener: android.view.ViewTreeObserver.OnGlobalLayoutListener? = null
  private lateinit var chatEntrada: EditText
  private lateinit var conversationStore: BardoConversationStore
@@ -573,8 +579,23 @@ class MainActivity : AppCompatActivity() {
  chatLog = findViewById(R.id.chatLog)
  chatMessages = findViewById(R.id.chatMessages)
  chatScroll = findViewById(R.id.chatScroll)
+ avatarChat = findViewById(R.id.avatarChat)
+ tvAvatarActivity = findViewById(R.id.tvAvatarActivity)
+ actualizarAvatar(BardoAvatarState.IDLE)
+ chatScroll.setOnScrollChangeListener { _, _, scrollY, _, oldScrollY ->
+     if (!chatProgrammaticScroll && kotlin.math.abs(scrollY - oldScrollY) > dp(2)) {
+         actualizarAvatar(BardoAvatarState.READING, 1100L)
+     }
+ }
  configurarChatAdaptativo()
  chatEntrada = findViewById(R.id.chatEntrada)
+ chatEntrada.addTextChangedListener { contenido ->
+     if (!contenido.isNullOrBlank()) {
+         actualizarAvatar(BardoAvatarState.LISTENING)
+     } else if (!gemmaInferenceEnCurso && !ocupado) {
+         actualizarAvatar(BardoAvatarState.IDLE)
+     }
+ }
  conversationStore = BardoConversationStore(this)
  knowledgeStore = BardoKnowledgeStore(this)
  val storagePrefs = getSharedPreferences("bardo_storage", MODE_PRIVATE)
@@ -1145,6 +1166,28 @@ private fun crearEstructuraCarpetaBardo() {
 
  private fun dp(valor: Int): Int = (valor * resources.displayMetrics.density).toInt()
 
+
+ private fun actualizarAvatar(estado: BardoAvatarState, volverAReposoMs: Long = 0L) {
+     if (Looper.myLooper() != Looper.getMainLooper()) {
+         handler.post { actualizarAvatar(estado, volverAReposoMs) }
+         return
+     }
+     if (!::avatarChat.isInitialized || !::tvAvatarActivity.isInitialized) return
+     avatarResetRunnable?.let { handler.removeCallbacks(it) }
+     avatarChat.setState(estado)
+     tvAvatarActivity.text = estado.label
+     if (volverAReposoMs > 0L) {
+         val reset = Runnable {
+             if (!isFinishing && !isDestroyed && !gemmaInferenceEnCurso && !ocupado) {
+                 avatarChat.setState(BardoAvatarState.IDLE)
+                 tvAvatarActivity.text = BardoAvatarState.IDLE.label
+             }
+         }
+         avatarResetRunnable = reset
+         handler.postDelayed(reset, volverAReposoMs)
+     }
+ }
+
  private fun configurarChatAdaptativo() {
      val raiz = chatScroll.rootView
      val listener = android.view.ViewTreeObserver.OnGlobalLayoutListener {
@@ -1186,7 +1229,11 @@ private fun crearEstructuraCarpetaBardo() {
              agregarBurbujaChat(autor, mensaje.content, hora, mensaje.role)
          }
      }
-     chatScroll.post { chatScroll.fullScroll(View.FOCUS_DOWN) }
+     chatProgrammaticScroll = true
+     chatScroll.post {
+         chatScroll.fullScroll(View.FOCUS_DOWN)
+         chatScroll.postDelayed({ chatProgrammaticScroll = false }, 180L)
+     }
  }
 
  private fun agregarBurbujaChat(autor: String, contenido: String, hora: String, rol: String) {
@@ -1311,6 +1358,13 @@ private fun crearEstructuraCarpetaBardo() {
  }
 
  private fun anexarChat(mensaje: String) {
+     val respuestaBardo = Regex("(?m)^\\s*BARDO(?:\\s*\\([^\\n)]*\\))?:").containsMatchIn(mensaje)
+     if (respuestaBardo) {
+         val esError = Regex("(?i)(no he podido|no se pudo|fall[oó]|error|bloquead[oa]|no est[aá] disponible)").containsMatchIn(mensaje)
+         actualizarAvatar(if (esError) BardoAvatarState.ERROR else BardoAvatarState.RESPONDING, 2200L)
+     } else if (mensaje.contains("[ANÁLISIS") || mensaje.contains("[TEXTO OCR") || mensaje.contains("[ANALYSIS")) {
+         actualizarAvatar(BardoAvatarState.STUDYING)
+     }
      val hora = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
          .format(Instant.now())
      val marcado = Regex("(?m)(?=^(?:Tú|BARDO(?:\\s*\\([^\\n)]*\\))?|Orquestador):)")
@@ -2903,6 +2957,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
          }
      }
     chatEntrada.text.clear()
+    actualizarAvatar(BardoAvatarState.THINKING)
 
     if (Regex("(?i)\\b(autoestudio|estudiar el c[oó]digo|revisar el proyecto|auditar el c[oó]digo)\\b").containsMatchIn(texto)) {
         iniciarAutoestudioDesdeChat(texto)
@@ -3177,6 +3232,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
 
 
  private fun iniciarAutoestudioDesdeChat(textoUsuario: String) {
+     actualizarAvatar(BardoAvatarState.STUDYING)
      val taskId = java.util.UUID.randomUUID().toString()
      anexarChat("\nTú: $textoUsuario")
      val modelo = LiteRTLMModule.modelFile(this)
@@ -3221,6 +3277,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
  }
 
  private fun responderChatLibre(textoUsuario: String, activityTaskId: String? = null) {
+     actualizarAvatar(if (activityTaskId == null) BardoAvatarState.THINKING else BardoAvatarState.STUDYING)
      val idActividad = activityTaskId ?: java.util.UUID.randomUUID().toString()
      BardoActivityStore.record(this, idActividad, if (activityTaskId == null) "conversacion" else "analisis_documental", "running", "preparacion_contexto", textoUsuario.take(500), 0)
      anexarChat("\nTú: $textoUsuario")
@@ -3622,6 +3679,8 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
  }
 
  override fun onDestroy() {
+     avatarResetRunnable?.let { handler.removeCallbacks(it) }
+
      chatHeightListener?.let { listener ->
          runCatching { chatScroll.rootView.viewTreeObserver.removeOnGlobalLayoutListener(listener) }
      }
@@ -3852,6 +3911,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
      btnCancelarTarea.visibility = if (ocupado) View.VISIBLE else View.GONE
      btnCancelarTarea.isEnabled = ocupado
      if (estado == "completed") {
+         actualizarAvatar(BardoAvatarState.SUCCESS, 2600L)
          creacionMusicalEnCurso = false
          guardarEstadoCreacionMusical()
          btnCancelarTarea.visibility = View.GONE
@@ -3880,6 +3940,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
              tvEstado.text = "BARDO terminó, pero no encontró un WAV válido."
          }
      } else if (estado == "failed" || estado == "cancelled" || estado == "interrupted") {
+         actualizarAvatar(BardoAvatarState.ERROR, 3200L)
          btnCancelarTarea.visibility = View.GONE
          detenerReloj()
          val mensaje = intent.getStringExtra(BardoTaskService.EXTRA_MESSAGE).orEmpty()
@@ -3895,6 +3956,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
              tvResultado.text = mensaje
          }
      } else if (estado == "running") {
+         actualizarAvatar(BardoAvatarState.GENERATING)
          val mensaje = intent.getStringExtra(BardoTaskService.EXTRA_MESSAGE) ?: "BARDO continúa trabajando en segundo plano."
          tvEstado.text = mensaje
          val paso = Regex("INSTRUMENTAL (\\d+)/(\\d+)").find(mensaje)

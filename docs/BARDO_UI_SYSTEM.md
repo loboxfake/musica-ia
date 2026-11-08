@@ -55,3 +55,12 @@ Evolution separates the visual hierarchy into local models, memory/knowledge and
 The visual refinement uses quieter ink-navy surfaces, thin cool borders, a more restrained cyan/violet primary gradient, clearer input contrast and a stronger active navigation state. It avoids bright blue card outlines and decorative gold borders. Touch targets remain at least 48dp where applicable; the six configurable navigation items and all existing view IDs/listeners are preserved.
 
 The user's confirmed model location is Downloads/BARDO/Modelos. The UI offers linking/importing that existing model and does not initiate another download. SAF permission remains required by Android; the original model file is preserved.
+
+
+## BARDO avatar — first chat integration
+
+The main chat uses the actual launcher foreground artwork as BARDO's avatar, preserving the feather, musical notes, gold detail, cyan and violet identity. A lightweight activity ring and status dot distinguish observable states: idle, listening/typing, reading chat, studying/importing a file, thinking, responding, generating, waiting, completed and attention/error.
+
+The avatar is deliberately a status representation, not a claim of consciousness or human emotion. Its state is driven by chat input, scroll activity, local response flow, attachment analysis and the audio task service. A low-amplitude pulse runs only while an active state is visible; it stops when the view is hidden, detached or the window is not visible. The main chat remains usable if animation is unavailable.
+
+Future BARDO self-evolution may propose avatar, interface, code, skill and capability improvements through isolated diffs, previews, objective tests and rollback. Integration still follows the existing approval and protected-file rules.
