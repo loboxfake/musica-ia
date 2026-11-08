@@ -335,6 +335,9 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
                     if (commit != null) {
                         integrated = true
                         state.edit().putBoolean(key("integrated"), true).apply()
+                        if (build?.conclusion == "failure") {
+                            saveCiDiagnostics(build, "BUILD INTEGRAL", buildSummary)
+                        }
                         output.append(
                             "\n\nCOMMIT INTEGRADO EN MAIN\n${commit.first}\n${commit.second}" +
                                 if (build != null) "\n\nBUILD INTEGRAL: ${build.status.uppercase()} · ${build.conclusion ?: "pendiente"}\n${build.url}\n\nDETALLE DE CI:\n${buildSummary.ifBlank { "GitHub todavía no ha publicado los pasos del build." }}" else
@@ -349,6 +352,7 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
     }
 
     private fun showRun(label: String, run: BardoGitHubRun, jobSummary: String = "") {
+        if (run.conclusion == "failure") saveCiDiagnostics(run, label, jobSummary)
         output.text = buildString {
             appendLine(label)
             appendLine("ID: ${run.id}")
@@ -371,6 +375,27 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
         }
         android.text.util.Linkify.addLinks(output, android.text.util.Linkify.WEB_URLS)
         renderButtons()
+    }
+
+    private fun saveCiDiagnostics(run: BardoGitHubRun, stage: String, summary: String) {
+        val report = buildString {
+            appendLine("GitHub Actions failure")
+            appendLine("Stage: $stage")
+            appendLine("Run ID: ${run.id}")
+            appendLine("Run URL: ${run.url}")
+            appendLine("Source commit: ${run.headSha}")
+            appendLine("Conclusion: ${run.conclusion}")
+            appendLine()
+            appendLine("Failed steps and job status:")
+            appendLine(summary.ifBlank { "GitHub did not return step details; inspect the run URL." })
+            appendLine()
+            appendLine("This report describes CI metadata, not the full runner log.")
+        }.take(12000)
+        getSharedPreferences("bardo_developer", MODE_PRIVATE).edit()
+            .putString("latest_ci_diagnostics", report)
+            .putString("latest_ci_run_url", run.url)
+            .putLong("latest_ci_run_id", run.id)
+            .apply()
     }
 
     private fun renderButtons() {
