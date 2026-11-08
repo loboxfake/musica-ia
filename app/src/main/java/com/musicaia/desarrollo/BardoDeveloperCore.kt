@@ -31,7 +31,11 @@ object BardoDeveloperCore {
         }
     }
 
-    fun importarZip(input: InputStream, base: File): ImportResult {
+    fun importarZip(
+        input: InputStream,
+        base: File,
+        stripSingleRootDirectory: Boolean = false
+    ): ImportResult {
         val root = File(base, "snapshot-${System.currentTimeMillis()}")
         check(root.mkdirs()) { "No se pudo crear el espacio de trabajo privado." }
         try {
@@ -39,17 +43,38 @@ object BardoDeveloperCore {
             var skipped = 0
             var total = 0L
             var entries = 0
+            var archiveRootPrefix: String? = null
             val seenPaths = mutableSetOf<String>()
             ZipInputStream(BufferedInputStream(input)).use { zip ->
                 while (true) {
                     val entry = zip.nextEntry ?: break
                     entries++
                     require(entries <= MAX_ENTRADAS) { "El ZIP contiene demasiadas entradas." }
+
+                    var normalized = entry.name.replace(92.toChar(), '/')
+                    if (stripSingleRootDirectory) {
+                        val trimmed = normalized.trimEnd('/')
+                        val rootName = trimmed.substringBefore('/')
+                        if (archiveRootPrefix == null) archiveRootPrefix = rootName
+                        require(rootName == archiveRootPrefix && rootName.isNotBlank() &&
+                            rootName != "." && rootName != ".." && !rootName.contains(':')) {
+                            "El archivo descargado de GitHub no tiene una única carpeta raíz segura."
+                        }
+                        val relative = trimmed.removePrefix("$rootName/")
+                        if (relative == trimmed) {
+                            require(entry.isDirectory && trimmed == rootName) {
+                                "El archivo de GitHub contiene entradas fuera de su carpeta raíz."
+                            }
+                            zip.closeEntry()
+                            continue
+                        }
+                        normalized = relative
+                    }
+
                     if (entry.isDirectory) {
                         zip.closeEntry()
                         continue
                     }
-                    val normalized = entry.name.replace(92.toChar(), '/')
                     val parts = normalized.split('/')
                     val ext = normalized.substringAfterLast('.', "").lowercase()
                     val safe = normalized.isNotBlank() && !normalized.startsWith("/") &&
@@ -79,6 +104,9 @@ object BardoDeveloperCore {
                     count++
                     zip.closeEntry()
                 }
+            }
+            if (stripSingleRootDirectory) require(archiveRootPrefix != null) {
+                "El ZIP descargado de GitHub está vacío."
             }
             require(count > 0) { "El ZIP no contiene archivos de código reconocidos." }
             return ImportResult(root, count, total, skipped)
