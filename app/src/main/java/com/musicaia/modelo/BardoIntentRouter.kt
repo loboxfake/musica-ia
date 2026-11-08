@@ -190,6 +190,30 @@ object BardoIntentRouter {
         return value
     }
 
+    /** Detecta español o inglés para adaptar el diálogo guiado; los mensajes ambiguos no cambian el idioma. */
+    fun detectConversationLanguage(message: String): String? {
+        val tokens = normalize(message).split(' ').filter { it.isNotBlank() }.toSet()
+        val englishMarkers = setOf(
+            "the", "and", "with", "about", "song", "track", "write", "create", "make",
+            "compose", "style", "genre", "mood", "rhythm", "tempo", "language", "type",
+            "please", "want", "need", "english", "yes"
+        )
+        val spanishMarkers = setOf(
+            "la", "el", "una", "un", "y", "con", "sobre", "cancion", "tema", "quiero",
+            "crear", "hazme", "estilo", "genero", "ambiente", "ritmo", "idioma", "tipo",
+            "espanol", "ingles", "si", "necesito"
+        )
+        val englishScore = tokens.count { it in englishMarkers }
+        val spanishScore = tokens.count { it in spanishMarkers }
+        return when {
+            englishScore >= 2 && englishScore > spanishScore -> "en"
+            spanishScore >= 2 && spanishScore > englishScore -> "es"
+            tokens.contains("english") -> "en"
+            tokens.contains("espanol") || tokens.contains("castellano") -> "es"
+            else -> null
+        }
+    }
+
     fun canonicalSongLanguage(value: String): String? = when (normalize(value)) {
         "es", "spanish", "espanol", "castellano" -> "Español"
         "en", "en us", "en gb", "english", "ingles" -> "English"

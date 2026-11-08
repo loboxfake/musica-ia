@@ -107,6 +107,18 @@ class ConversacionGuiadaTest {
     }
 
     @Test
+    fun detectsSpanishAndEnglishConversationLanguageButLeavesAmbiguousMessagesAlone() {
+        assertEquals("en", BardoIntentRouter.detectConversationLanguage(
+            "Write a song about hope with a fast tempo"
+        ))
+        assertEquals("es", BardoIntentRouter.detectConversationLanguage(
+            "Quiero una canción sobre esperanza con ritmo rápido"
+        ))
+        assertNull(BardoIntentRouter.detectConversationLanguage("rock"))
+        assertEquals("en", BardoIntentRouter.detectConversationLanguage("English"))
+    }
+
+    @Test
     fun songsAreLimitedToSpanishAndEnglish() {
         assertEquals("Español", BardoIntentRouter.canonicalSongLanguage("castellano"))
         assertEquals("English", BardoIntentRouter.canonicalSongLanguage("English"))

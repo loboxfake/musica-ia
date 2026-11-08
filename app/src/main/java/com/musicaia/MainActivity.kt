@@ -199,9 +199,32 @@ class MainActivity : AppCompatActivity() {
  private var rutaInstrumental: String? = null
 
  private val datosConver = mutableMapOf<String, String>()
+ private var idiomaConversacionUi = "es"
  private val camposRequeridos = listOf("tema", "estilo", "ambiente", "ritmo", "idioma", "tipo")
  private val camposOpcionales = listOf("vozFuente")
- private val notaIA = "BARDO recoge tus preferencias. La generación de letras requiere Gemma local importado y verificado; puedes reutilizar el archivo que ya guardaste en Descargas/BARDO/Modelos."
+ private val notaIA: String
+     get() = if (idiomaConversacionUi == "en") {
+         "Generating new lyrics requires a verified local Gemma model. You can reuse the model already stored in Downloads/BARDO/Modelos."
+     } else {
+         "La generación de letras requiere Gemma local importado y verificado; puedes reutilizar el modelo guardado en Descargas/BARDO/Modelos."
+     }
+ private fun promptInstrumentalDesdePreferencias(): String {
+     val english = idiomaConversacionUi == "en" || datosConver["idioma"] == "English"
+     val labels = if (english) listOf("Theme", "Style", "Mood", "Tempo", "Language")
+         else listOf("Tema", "Estilo", "Ambiente", "Ritmo", "Idioma")
+     val values = listOf("tema", "estilo", "ambiente", "ritmo", "idioma").map { datosConver[it].orEmpty() }
+     return labels.zip(values).filter { it.second.isNotBlank() }
+         .joinToString(". ") { (label, value) -> "$label: $value" }
+ }
+
+ private fun resumenCreacionGuiada(): String {
+     val english = idiomaConversacionUi == "en"
+     val labels = if (english) mapOf("tema" to "Theme", "estilo" to "Style", "ambiente" to "Mood", "ritmo" to "Tempo", "idioma" to "Language", "tipo" to "Type", "vozFuente" to "Voice source")
+         else mapOf("tema" to "Tema", "estilo" to "Estilo", "ambiente" to "Ambiente", "ritmo" to "Ritmo", "idioma" to "Idioma", "tipo" to "Tipo", "vozFuente" to "Fuente de voz")
+     val rows = (camposRequeridos + camposOpcionales).joinToString("\n") { "- ${labels[it] ?: it}: ${datosConver[it].orEmpty()}" }
+     return if (english) "Song summary:\n$rows\n$notaIA\nType 'create' or name the field you want to change."
+         else "Resumen de la canción:\n$rows\n$notaIA\nEscribe 'crear' o cambia un campo indicando su nombre."
+ }
 
  private val reloj = object : Runnable {
  override fun run() {
@@ -2614,6 +2637,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
  private fun enviarConversacion() {
     val texto = chatEntrada.text.toString().trim()
     if (texto.isEmpty()) return
+     BardoIntentRouter.detectConversationLanguage(texto)?.let { idiomaConversacionUi = it }
     chatEntrada.text.clear()
 
     if (Regex("(?i)\\b(autoestudio|estudiar el c[oó]digo|revisar el proyecto|auditar el c[oó]digo)\\b").containsMatchIn(texto)) {
@@ -2661,14 +2685,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
         val tipoDetectado = camposExtraidos.getValue("tipo")
         if (BardoIntentRouter.isInstrumentalOnlyType(tipoDetectado)) {
             datosConver["vozFuente"] = "ninguna"
-            val promptInstrumental = listOf(
-                "Tema: " + datosConver["tema"].orEmpty(),
-                "Estilo: " + datosConver["estilo"].orEmpty(),
-                "Ambiente: " + datosConver["ambiente"].orEmpty(),
-                "Ritmo: " + datosConver["ritmo"].orEmpty(),
-                "Idioma: " + datosConver["idioma"].orEmpty()
-            ).filterNot { it.substringAfter(": ").isBlank() }.joinToString(". ")
-            editPromptInstrumental.setText(promptInstrumental)
+             editPromptInstrumental.setText(promptInstrumentalDesdePreferencias())
             grupoModo.check(R.id.modoInstrumental)
         } else {
             grupoModo.check(R.id.modoConversacion)
@@ -2679,7 +2696,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
             datosConver[it].isNullOrBlank() || (it == "idioma" && !BardoIntentRouter.isSupportedSongLanguage(datosConver[it].orEmpty()))
         } + listOfNotNull(if ((datosConver["tipo"].orEmpty().contains("voz", true) || datosConver["tipo"].orEmpty().contains("ambas", true)) && datosConver["vozFuente"].isNullOrBlank()) "vozFuente" else null)
         if (faltan.isNotEmpty()) {
-            responderConOrquestador(texto, "Antes necesito: ${faltan.joinToString(", ")}. ${preguntaParaCampo(faltan.first())}")
+            responderConOrquestador(texto, if (idiomaConversacionUi == "en") "Before creating the song I still need: ${faltan.joinToString(", ")}. ${preguntaParaCampo(faltan.first())}" else "Antes necesito: ${faltan.joinToString(", ")}. ${preguntaParaCampo(faltan.first())}")
             return
         }
         camposOpcionales.filter { datosConver[it].isNullOrBlank() }.forEach { datosConver[it] = if (it == "vozFuente") "ninguna" else "no especificado" }
@@ -2710,14 +2727,13 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                 val recogidos = camposExtraidos.entries.joinToString(", ") { it.key + ": " + it.value }
                 "He guardado los datos que has indicado (" + recogidos + "). " + preguntaParaCampo(siguiente)
             } else {
-                val resumen = (camposRequeridos + camposOpcionales).joinToString("\n") { "- $it: " + datosConver[it] }
-                "Resumen de la canción:\n" + resumen + "\n" + notaIA + "\nEscribe 'crear' o cambia un campo indicando su nombre."
+                 resumenCreacionGuiada()
             }
             responderConOrquestador(texto, mensaje)
             if (siguiente == null) findViewById<TextView>(R.id.navCrear).performClick()
             return
         }
-        responderConOrquestador(texto, "Los datos creativos ya están completos. El chat está en modo guiado; escribe 'crear' para iniciar o indica el campo que quieres cambiar.")
+        responderConOrquestador(texto, if (idiomaConversacionUi == "en") "All creative details are complete. Type 'create' to start or name the field you want to change." else "Los datos creativos ya están completos. Escribe 'crear' para iniciar o indica el campo que quieres cambiar.")
         return
     }
 
@@ -2749,14 +2765,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
     if (campo == "tipo") {
         if (BardoIntentRouter.isInstrumentalOnlyType(valor)) {
             datosConver["vozFuente"] = "ninguna"
-            val promptInstrumental = listOf(
-                "Tema: ${datosConver["tema"].orEmpty()}",
-                "Estilo: ${datosConver["estilo"].orEmpty()}",
-                "Ambiente: ${datosConver["ambiente"].orEmpty()}",
-                "Ritmo: ${datosConver["ritmo"].orEmpty()}",
-                "Idioma: ${datosConver["idioma"].orEmpty()}"
-            ).filterNot { it.substringAfter(": ").isBlank() }.joinToString(". ")
-            editPromptInstrumental.setText(promptInstrumental)
+             editPromptInstrumental.setText(promptInstrumentalDesdePreferencias())
             grupoModo.check(R.id.modoInstrumental)
         } else {
             if (datosConver["vozFuente"].equals("ninguna", ignoreCase = true)) {
@@ -2774,8 +2783,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
     } else {
         actualizarUI()
         tvEstado.text = "Datos completos. Pulsa Crear."
-        val resumen = (camposRequeridos + camposOpcionales).joinToString("\n") { "- $it: ${datosConver[it]}" }
-        "Resumen de la canción:\n$resumen\n$notaIA\nEscribe 'crear' o cambia un campo indicando su nombre."
+                 resumenCreacionGuiada()
     }
     responderConOrquestador(texto, mensaje)
     if (siguiente == null) findViewById<TextView>(R.id.navCrear).performClick()
@@ -3001,16 +3009,28 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
      return siguiente
  }
 
- private fun preguntaParaCampo(campo: String): String = when (campo) {
-    "tema" -> "¿De qué quieres que trate la canción?"
-    "estilo" -> "¿Qué estilo musical prefieres (pop, rock, rap, balada, electrónica...)?"
-    "ambiente" -> "¿Qué ambiente o emoción buscas?"
-    "ritmo" -> "¿Qué ritmo prefieres: lento, medio o rápido?"
-    "idioma" -> "Por ahora BARDO solo crea canciones/letras nuevas en español o inglés. ¿Cuál de esos dos idiomas eliges?"
-    "tipo" -> "¿Quieres voz, instrumental o ambas?"
-    "vozFuente" -> "¿Usarás una voz grabada, un archivo de voz o ninguna?"
-    else -> "¿Qué dato quieres añadir?"
-}
+ private fun preguntaParaCampo(campo: String): String {
+     if (idiomaConversacionUi == "en") return when (campo) {
+         "tema" -> "What should the song be about?"
+         "estilo" -> "Which musical style would you like (pop, rock, rap, ballad, electronic...)? "
+         "ambiente" -> "What mood or emotion should it convey?"
+         "ritmo" -> "What tempo would you prefer: slow, medium or fast?"
+         "idioma" -> "For now, BARDO creates new songs and lyrics in Spanish or English only. Which one do you choose?"
+         "tipo" -> "Would you like vocals, an instrumental, or both?"
+         "vozFuente" -> "Will you use a voice recording, a voice file, or no voice?"
+         else -> "What detail would you like to add?"
+     }
+     return when (campo) {
+         "tema" -> "¿De qué quieres que trate la canción?"
+         "estilo" -> "¿Qué estilo musical prefieres (pop, rock, rap, balada, electrónica...)?"
+         "ambiente" -> "¿Qué ambiente o emoción buscas?"
+         "ritmo" -> "¿Qué ritmo prefieres: lento, medio o rápido?"
+         "idioma" -> "Por ahora BARDO solo crea canciones/letras nuevas en español o inglés. ¿Cuál de esos dos idiomas eliges?"
+         "tipo" -> "¿Quieres voz, instrumental o ambas?"
+         "vozFuente" -> "¿Usarás una voz grabada, un archivo de voz o ninguna?"
+         else -> "¿Qué dato quieres añadir?"
+     }
+ }
 
  private fun actualizarUI() {
      val datosListos = if (modoSoloInstrumental) {
@@ -3434,15 +3454,16 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
  val vozFuente = datosConver["vozFuente"] ?: ""
  val instrucciones = editIndicaciones.text.toString().trim()
  val entradaTexto = buildString {
-     append("Tema: $tema.")
-     append(" Estilo: $estilo.")
-     if (ambiente.isNotEmpty()) append(" Ambiente: $ambiente.")
-     if (ritmo.isNotEmpty()) append(" Ritmo: $ritmo.")
-     if (idioma.isNotEmpty()) append(" Idioma: $idioma.")
-     if (tipo.isNotEmpty()) append(" Tipo: $tipo.")
-     if (vozFuente.isNotEmpty()) append(" Voz: $vozFuente.")
-     if (instrucciones.isNotEmpty()) append(" Indicaciones: $instrucciones.")
- }
+      val englishPrompt = idioma.equals("English", ignoreCase = true)
+      append(if (englishPrompt) "Theme: $tema." else "Tema: $tema.")
+      append(if (englishPrompt) " Style: $estilo." else " Estilo: $estilo.")
+      if (ambiente.isNotEmpty()) append(if (englishPrompt) " Mood: $ambiente." else " Ambiente: $ambiente.")
+      if (ritmo.isNotEmpty()) append(if (englishPrompt) " Tempo: $ritmo." else " Ritmo: $ritmo.")
+      if (idioma.isNotEmpty()) append(if (englishPrompt) " Language: $idioma." else " Idioma: $idioma.")
+      if (tipo.isNotEmpty()) append(if (englishPrompt) " Type: $tipo." else " Tipo: $tipo.")
+      if (vozFuente.isNotEmpty()) append(if (englishPrompt) " Voice source: $vozFuente." else " Voz: $vozFuente.")
+      if (instrucciones.isNotEmpty()) append(if (englishPrompt) " Additional directions: $instrucciones." else " Indicaciones: $instrucciones.")
+  }
  val promptInstrumental = editPromptInstrumental.text.toString().trim()
  val entrada = if (modoSoloInstrumental) {
      Dato.Texto(promptInstrumental)
