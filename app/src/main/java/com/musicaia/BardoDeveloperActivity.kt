@@ -15,6 +15,9 @@ import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AlertDialog
+import com.musicaia.desarrollo.BardoGitHubActionsClient
+import com.musicaia.desarrollo.BardoGitHubCredentialStore
 import com.musicaia.memoria.BardoKnowledgeStore
 import com.musicaia.modelo.BardoCapabilityRegistry
 import com.musicaia.modelo.BardoResourceBudget
@@ -116,6 +119,8 @@ class BardoDeveloperActivity : AppCompatActivity() {
             text = "SEGURIDAD: el código importado se analiza como texto. BARDO no lo ejecuta, no modifica el APK instalado y no publica cambios automáticamente."
             textSize = 12f; setTextColor(android.graphics.Color.rgb(235, 190, 125)); setPadding(0, 0, 0, 12)
         })
+        addButton(root, "Configurar acceso GitHub limitado") { configurarAccesoGithub() }
+        addButton(root, "Actualizar fuentes desde main (GitHub)") { actualizarFuentesDesdeMain() }
         addButton(root, "Autoanalizar el propio código de BARDO") { importarCodigoPropio() }
         addButton(root, "Importar código del proyecto (.zip)") { importProject.launch(arrayOf("application/zip", "application/octet-stream", "application/x-zip-compressed")) }
         btnAnalyze = addButton(root, "Analizar código y generar auditoría", enabled = snapshot != null) { analizarProyecto() }
@@ -554,7 +559,11 @@ class BardoDeveloperActivity : AppCompatActivity() {
     private fun setBusy(busy: Boolean, message: String = "") {
         isBusy = busy
         btnAnalyze.isEnabled = !busy && snapshot != null
-        btnAsk.isEnabled = !busy && lastReport.isNotBlank() && LiteRTLMModule.modelFile(this).isFile
+        val hasCiDiagnostics = getSharedPreferences("bardo_developer", MODE_PRIVATE)
+            .getString("latest_ci_diagnostics", "").orEmpty().isNotBlank()
+        val hasReferences = workspace.listFiles()?.any { it.isFile && it.name.startsWith("referencia-") } == true
+        btnAsk.isEnabled = !busy && LiteRTLMModule.modelFile(this).isFile &&
+            (lastReport.isNotBlank() || hasReferences || hasCiDiagnostics)
         btnApply.isEnabled = !busy && lastProposal.contains("--- a/") && lastProposal.contains("+++ b/")
         btnExport.isEnabled = !busy
         if (message.isNotBlank()) output.text = message
