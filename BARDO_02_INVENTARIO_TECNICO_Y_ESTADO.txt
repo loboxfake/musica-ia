@@ -1192,3 +1192,16 @@ Trabajo requerido para cerrar:
 10. Repetir validación y build completo para el SHA final, con logs de éxito verificables. La aceptación física y la escucha de WAV siguen pendientes.
 
 No declarar la fase cerrada solo por CI verde; la prueba física en Xiaomi 11T Pro corresponde al usuario cuando se entregue un APK auditado y listo para probar.
+
+
+54. FASE DE RECUPERACIÓN Y ALCANCE MULTILINGÜE/VISUAL — 2026-11-08
+- Base auditada: main a0d75b18f05a9f65bbca69b78fda9a0986567e02. Los dos workflows de esta base fallan. Validación: Kotlin no resuelve ImageLabelerOptions en BardoImageVision.kt y hay una llamada inválida al constructor de LinearGradient en BardoCoverArtGenerator.kt. Build integral: la descarga de Gradle 8.10.2 recibió HTTP 504 antes de ejecutar unit tests.
+- Antes de ampliar código se actualiza este inventario y BARDO_01_VISION_OBJETIVOS_DIRECTIVAS.txt para fijar el alcance multilingüe, OCR, reconocimiento visual, portadas y límites honestos.
+- Requisito de idioma: chat/documentos Unicode en cualquier idioma que el lector/modelo soporte; creación de canciones/letras restringida a español e inglés; ASR local restringido a español e inglés estadounidense.
+- OCR de imagen: hasta cinco scripts con dependencias ML Kit bundled (latino, chino, devanagari, japonés, coreano), siempre condicionado a que Gradle resuelva las coordenadas y APIs correctas. No decir “cualquier idioma” como sinónimo de todos los alfabetos.
+- Reconocimiento visual: integrar y conectar clasificación visual local por etiquetas y confianza, sin atribuir comprensión de escenas o personas.
+- Portadas: el generador procedural de PNG es un recurso gráfico offline. No representa generación de imágenes por IA. El modelo de imagen IA permanece pendiente y no debe anunciarse como disponible hasta que haya modelo y prueba verificados.
+- Auditar BardoImageVision.kt, BardoOcrImporter.kt, BardoCoverArtGenerator.kt, MainActivity.kt, dependencias, XML, pruebas y registry. Corregir los errores de compilación concretos y cualquier error adicional real encontrado por CI.
+- Modo3 protegido: SHA-1 esperado 8f2745fa841a06af43bf909732fba834474bf7dc. No editarlo.
+- Mantener main como única rama; commits normales fast-forward únicamente; no force push/reset; secretos de firma no se alteran.
+- Criterio de cierre técnico de esta fase: testDebugUnitTest, assembleDebug, build offline completa, auditoría de APK/firma y workflows SUCCESS sobre el mismo SHA final. Aun así, instalación/ejecución en Xiaomi 11T Pro, calidad OCR multiescritura, uso térmico/RAM y escucha real de WAV quedan pendientes hasta prueba física.
