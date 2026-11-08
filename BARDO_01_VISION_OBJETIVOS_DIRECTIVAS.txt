@@ -725,3 +725,13 @@ El usuario reitera que el asistente debe actualizar ambos maestros antes de inic
 - La versión del avatar incluida en #312 usa el icono oficial completo como imagen; sin aro ni punto añadidos. Se conserva el estado funcional reactivo y el texto de actividad accesible separado.
 - CI verde acredita compilación, tests, auditoría y publicación; no sustituye la instalación y validación física en el Xiaomi 11T Pro.
 - Pendiente: instalación y pruebas en dispositivo real; ver inventario técnico entrada 74.
+
+
+28. CRITERIO DE ENTREGA Y ESTADO DE LA APK INTEGRAL #313 — 2026-11-08
+
+- La validación de integración #465 y el build integral #313 finalizaron SUCCESS sobre el mismo commit documental 81006757c5e1d60e512ceb8db7f2d9e2f646dee3.
+- La Release prerelease bardo-build-313 publica app-release.apk y full-apk-audit.txt. El binario es una APK release firmada, no-debuggable y auditada por el workflow.
+- La aceptación CI no sustituye la instalación, ejecución ni escucha real en el Xiaomi 11T Pro. Las capacidades pesadas y la experiencia de usuario siguen pendientes de aceptación física.
+- La APK integral incluye los assets locales del modelo de audio Stable Audio y las bibliotecas nativas ARM64; Gemma conversacional sigue siendo un modelo separado que el usuario ya tiene en Descargas/BARDO/Modelos y debe importarse/verificarse desde el dispositivo sin duplicar ni borrar el original.
+- La actualización de estos maestros registra evidencia de CI y distribución, no cambia el alcance de capacidades pendientes ni autoriza a declarar terminada la fase de aceptación.
+

@@ -1540,3 +1540,44 @@ CLASIFICACIÓN DE ESTADO
 - Pendiente de desarrollo/mejora adicional: robustecer autonomía end-to-end después de las pruebas físicas; evolución segura de skills/habilidades y propuestas propias; mejoras iterativas de conversación/memoria y UX según fallos medidos; voz cantada generativa (MiVoz), edición vocal avanzada, stems, mezcla/mastering profesional y proyectos musicales avanzados. No declarar estos objetivos futuros como terminados.
 
 Este inventario es una lista de verificación; marcar cada punto solo con evidencia real y actualizar ambos maestros en cada ciclo.
+
+
+75. BUILD INTEGRAL #313 PUBLICADO Y AUDITADO — 2026-11-08
+
+BASELINE Y RESULTADOS
+- Rama canónica: main. Commit fuente y HEAD comprobado para la ejecución: 81006757c5e1d60e512ceb8db7f2d9e2f646dee3.
+- Validación BARDO #465, run ID 42501546353: completed / SUCCESS sobre el mismo SHA. Pasaron Gitleaks sobre historial, Actionlint, tests unitarios y compilación debug.
+- Build full offline APK #313, run ID 42501546364: completed / SUCCESS sobre el mismo SHA.
+- Pasos confirmados SUCCESS: generación de mipmaps launcher; snapshot fuente; descarga de modelo de audio fijado; tests unitarios; entorno JDK/NDK/CMake y headers PyTorch; checkout ExecuTorch fijado; compilación release con motor de audio; firma con clave BARDO; auditoría de contenido/integridad; escáner de credenciales y material de firma; publicación de artefacto y Release; comprobación de main como única rama activa.
+- Release prerelease: https://github.com/loboxfake/musica-ia/releases/tag/bardo-build-313
+- APK asset: app-release.apk; 976,971,524 bytes; SHA-256 e6bbe296ee60431704e5af0d3824d518876dbdac7324e108052a6e8248421643.
+- Auditoría asset: full-apk-audit.txt (publicado en la Release). El SHA-256 del propio informe no se extrajo en esta consulta; no inventar su valor.
+- Certificado BARDO SHA-256: c46232017513c3171ba04d91cf579a72202a834f0bcd1c0a22e0c9de0e030368; coincide con el certificado autorizado. Firma v2 y v3 verificadas.
+- Package: com.musicaia; versionCode 1313; versionName 1.0.1313; minSdk 26; targetSdk 34; compileSdk 35. APK no-debuggable.
+- ZIP integrity PASS; recursos launcher compilados PASS; incluye Stable Audio conditioners_model.pte (220,250,112 bytes), dit_model.pte (343,439,104 bytes), autoencoder_model.pte (312,494,592 bytes), spiece.model (791,656 bytes), LICENSE y NOTICE. Los tres .pte y spiece.model están ZIP_STORED para compatibilidad OpenFD. Incluye libaudiogen.so ARM64 y bibliotecas MP3 ARM64.
+- Artefacto Actions BARDO-full-offline-313, ID 13626521060, tamaño 715,406,338 bytes, no expirado al consultar.
+- Los estados de commit BARDO / full offline APK audit y BARDO / full offline APK release son SUCCESS.
+- main continúa siendo la única rama activa; el workflow confirmó que no se eliminaron refs históricas.
+
+PROTECCIONES
+- Modo3MezclaVozUsuario.kt consultado tras build: SHA/blob 8f2745fa841a06af43bf909732fba834474bf7dc, sin cambios respecto al hash protegido.
+- No se modificaron claves, Secrets ni firma.
+- La publicación #313 es prerelease y no certifica compatibilidad física con el Xiaomi 11T Pro.
+
+SIGUIENTE ACEPTACIÓN FÍSICA OBLIGATORIA
+1. Instalar #313 desde la Release y comprobar instalación/actualización sobre la versión previa, arranque y navegación; conservar datos y no desinstalar previamente.
+2. Recorrer las seis áreas, avatar, teclado, scroll, permisos, accesibilidad y estabilidad.
+3. Vincular Descargas/BARDO por SAF. Localizar gemma-4-E2B-it.litertlm ya existente, verificar tamaño y SHA-256 fijado 181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c1, importar copia privada y comprobar carga real; no descargar duplicado ni borrar original.
+4. Probar conversación multi-turno con Gemma en modo avión, sin respuestas simuladas; medir RAM, temperatura y cierres.
+5. Probar OCR en español e inglés con imágenes/documentos reales y comprobar limitación actual: ambos idiomas usan reconocedor latino común; no afirmar selector de modelo por idioma si no existe.
+6. Generar instrumental offline, exportar WAV/MP3, reproducir y escuchar; verificar duración, integridad, cancelación y errores.
+7. Probar biblioteca, mezcla multipista y procesado básico WAV con archivos reales y escucha A/B.
+8. Probar portadas procedurales; Bonsai IA solo tras instalar su modelo opcional y confirmar recursos.
+9. Probar ciclo de autonomía end-to-end con token GitHub mínimo y aprobación humana; comprobar límites sobre archivos protegidos, firma, Secrets y Modo3.
+10. Comprobar copias, restauración e historial, conservando los archivos originales del usuario.
+
+CLASIFICACIÓN
+- CI, compilación integral, firma, auditoría y publicación: VERIFICADO.
+- Instalación, estabilidad, Gemma conversacional, OCR real, generación/escucha de audio, rendimiento térmico/RAM, biblioteca y autonomía end-to-end en el Xiaomi: PENDIENTE.
+- Voz cantada generativa, separación de stems y mastering profesional: NO IMPLEMENTADOS; no confundirlos con grabación/mezcla de voz o procesado básico existente.
+
