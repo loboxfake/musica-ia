@@ -499,3 +499,13 @@ El ASR local soporta español e inglés estadounidense mediante modelos Vosk ind
 - El idioma de conversación guiada (es/en) queda guardado por identificador de conversación y se restaura al recuperar una conversación del historial.
 - Las órdenes change/switch theme/style/genre/mood/rhythm/language/type se reconocen como cambios de un campo sin borrar las demás preferencias.
 - El estado de ausencia del modelo local se comunica en el idioma activo del diálogo; nunca se presenta el flujo guiado como generación generativa.
+
+
+14.3 ALCANCE MULTILINGÜE, VISIÓN Y PORTADAS — 2026-11-08
+- Objetivo de producto: conversación y comprensión de adjuntos en el mayor número práctico de idiomas, sin prometer cobertura universal. El diálogo debe detectar/seleccionar idioma de respuesta; conservar el idioma por conversación y permitir cambiarlo.
+- Límite temporal de creación musical: las letras/canciones nuevas se generan en español o inglés. No confundir este límite con los idiomas admitidos para leer documentos, imágenes o conversar.
+- OCR y reconocimiento visual deben distinguir texto reconocido, etiquetas generales y descripción multimodal: son capacidades distintas. Solo declarar los scripts realmente empaquetados y probados; si el OCR no reconoce un idioma, ofrecer el original y no inventar texto.
+- La clasificación visual local permite etiquetas generales, no identificación de personas ni comprensión semántica completa de una imagen.
+- Portadas: el generador procedural offline produce PNG originales con diseños reproducibles; no es un modelo generativo de imágenes IA. La generación IA local sigue pendiente hasta disponer de modelo compatible con el Xiaomi 11T Pro, licencia, RAM/temperatura y pruebas verificables. No añadir un servicio cloud obligatorio.
+- Auditoría de CI: en el SHA 929c5958 el APK se compiló, firmó y pasó los tests; falló únicamente el detector de credenciales por un falso positivo en el recurso binario integrado assets/mlkit_label_default_model/mobile_ica_8bit_with_metadata_tflite. Debe ajustarse el detector con excepción exacta y prueba negativa que siga detectando tokens reales.
+- No solicitar pruebas físicas hasta que la fase de integración y auditoría completa esté verde sobre el mismo SHA. La instalación, OCR real y escucha WAV en Xiaomi siguen pendientes.

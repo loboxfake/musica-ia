@@ -1221,3 +1221,12 @@ No declarar la fase cerrada solo por CI verde; la prueba física en Xiaomi 11T P
 - El parser de edición reconoce change/switch theme/style/genre/mood/rhythm/language/type y conserva el resto de preferencias.
 - El estado del modelo ausente se comunica en el idioma activo; no se simula IA generativa.
 - Pendiente de CI sobre el SHA posterior: unit tests, compileDebug, build integral y auditoría.
+
+
+57. ALCANCE MULTILINGÜE Y AUDITORÍA APK — 2026-11-08
+- Se documenta el alcance separado: interfaz/chat/adjuntos pueden admitir más idiomas según modelo/OCR instalado; generación de nuevas canciones/letras queda limitada temporalmente a español e inglés.
+- OCR bundled actual: scripts latino, chino, devanagari, japonés y coreano. No equivale a soporte universal; el motor no debe adivinar texto ilegible. Image Labeling es clasificación de categorías offline, no captioning multimodal.
+- `BardoCoverArtGenerator` crea PNG procedurales offline. Generación de imagen por IA no está implementada todavía; requiere modelo móvil local, licencia y mediciones reales de memoria/temperatura/calidad.
+- Revisión del run 42471726751 en SHA 929c5958: unit tests, APK release, firma v2/v3 y auditoría estructural PASARON. El único fallo fue un falso positivo del escáner de credenciales en `assets/mlkit_label_default_model/mobile_ica_8bit_with_metadata_tflite`. Se debe exceptuar solo esa ruta de modelo de terceros y añadir test que pruebe que un token GitHub real en cualquier otro archivo sigue provocando fallo.
+- El workflow de validación de integración pasó en el SHA 929c5958; el workflow de APK completa quedó FAILED por ese falso positivo. No hay release/artefacto final publicado para ese SHA.
+- Pendiente: reparar auditoría con allowlist exacta y test; corregir el prompt bilingüe local que debe incorporar la instrucción de idioma en el prompt efectivo; revisar OCR/imagen, conversación, mixer, ASR, cobertura tests y conservar Modo3.
