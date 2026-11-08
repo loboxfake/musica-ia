@@ -188,10 +188,11 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
                         if (found == null) Thread.sleep(1500L)
                     }
                 }
-                found
+                val summary = found?.let { client.jobsSummary(it.id) }.orEmpty()
+                found to summary
             }
             runOnUiThread {
-                result.onSuccess { run ->
+                result.onSuccess { (run, summary) ->
                     validationDispatched = true
                     state.edit().putBoolean(key("validation_dispatched"), true).apply()
                     if (run == null) {
@@ -199,7 +200,7 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
                     } else {
                         validationRunId = run.id
                         state.edit().putLong(key("validation_run_id"), run.id).apply()
-                        showRun("VALIDACIÓN DEL CANDIDATO", run)
+                        showRun("VALIDACIÓN DEL CANDIDATO", run, summary)
                     }
                 }.onFailure { output.text = "No se pudo enviar el candidato: ${it.message}" }
                 setBusy(false)
@@ -230,15 +231,17 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
                     commitRunId = integration.id
                     state.edit().putLong(key("commit_run_id"), integration.id).apply()
                 }
-                validation to integration
+                val validationSummary = validation?.let { client.jobsSummary(it.id) }.orEmpty()
+                val integrationSummary = integration?.let { client.jobsSummary(it.id) }.orEmpty()
+                Triple(validation, integration, validationSummary to integrationSummary)
             }
             runOnUiThread {
-                result.onSuccess { (validation, integration) ->
+                result.onSuccess { (validation, integration, summaries) ->
                     if (integration != null) {
-                        showRun("INTEGRACIÓN APROBADA", integration)
+                        showRun("INTEGRACIÓN APROBADA", integration, summaries.second)
                         if (integration.succeeded) checkIntegratedCommit(token)
                     } else if (validation != null) {
-                        showRun("VALIDACIÓN DEL CANDIDATO", validation)
+                        showRun("VALIDACIÓN DEL CANDIDATO", validation, summaries.first)
                         if (validation.succeeded) {
                             validationSucceeded = true
                             state.edit().putBoolean(key("validation_succeeded"), true).apply()
@@ -292,10 +295,11 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
                         if (found == null) Thread.sleep(1500L)
                     }
                 }
-                found
+                val summary = found?.let { client.jobsSummary(it.id) }.orEmpty()
+                found to summary
             }
             runOnUiThread {
-                result.onSuccess { run ->
+                result.onSuccess { (run, summary) ->
                     commitDispatched = true
                     state.edit().putBoolean(key("commit_dispatched"), true).apply()
                     if (run == null) {
@@ -303,7 +307,7 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
                     } else {
                         commitRunId = run.id
                         state.edit().putLong(key("commit_run_id"), run.id).apply()
-                        showRun("INTEGRACIÓN APROBADA", run)
+                        showRun("INTEGRACIÓN APROBADA", run, summary)
                     }
                 }.onFailure { output.text = "No se pudo iniciar la integración: ${it.message}" }
                 setBusy(false)
@@ -322,16 +326,18 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
                         if (commit == null) Thread.sleep(1500L)
                     }
                 }
-                commit to commit?.let { client.fullBuildForCommit(it.first) }
+                val build = commit?.let { client.fullBuildForCommit(it.first) }
+                val buildSummary = build?.let { client.jobsSummary(it.id) }.orEmpty()
+                Triple(commit, build, buildSummary)
             }
             runOnUiThread {
-                result.onSuccess { (commit, build) ->
+                result.onSuccess { (commit, build, buildSummary) ->
                     if (commit != null) {
                         integrated = true
                         state.edit().putBoolean(key("integrated"), true).apply()
                         output.append(
                             "\n\nCOMMIT INTEGRADO EN MAIN\n${commit.first}\n${commit.second}" +
-                                if (build != null) "\n\nBUILD INTEGRAL: ${build.status.uppercase()}\n${build.url}" else
+                                if (build != null) "\n\nBUILD INTEGRAL: ${build.status.uppercase()} · ${build.conclusion ?: "pendiente"}\n${build.url}\n\nDETALLE DE CI:\n${buildSummary.ifBlank { "GitHub todavía no ha publicado los pasos del build." }}" else
                                     "\n\nEl commit está en main. La ejecución integral todavía puede tardar en aparecer."
                         )
                         android.text.util.Linkify.addLinks(output, android.text.util.Linkify.WEB_URLS)
@@ -342,7 +348,7 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
         }
     }
 
-    private fun showRun(label: String, run: BardoGitHubRun) {
+    private fun showRun(label: String, run: BardoGitHubRun, jobSummary: String = "") {
         output.text = buildString {
             appendLine(label)
             appendLine("ID: ${run.id}")
@@ -350,7 +356,12 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
             appendLine("Conclusión: ${run.conclusion ?: "pendiente"}")
             appendLine("Commit: ${run.headSha}")
             appendLine(run.url)
-            if (run.conclusion == "failure") appendLine("\nLa ejecución falló. No se integró ningún cambio.")
+            if (jobSummary.isNotBlank()) {
+                appendLine()
+                appendLine("DETALLE DE CI:")
+                appendLine(jobSummary)
+            }
+            if (run.conclusion == "failure") appendLine("\nLa ejecución falló. No se integró ningún cambio. Revisa el paso indicado y prepara un nuevo candidato después de corregirlo.")
             if (run.succeeded && label.contains("VALIDACIÓN")) {
                 appendLine("\nVALIDACIÓN SUPERADA. La propuesta sigue sin integrarse. Debes aprobar el segundo workflow.")
             }
