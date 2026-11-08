@@ -231,19 +231,55 @@ class MainActivity : AppCompatActivity() {
  private val selectorGuardarMezclaPistas =
      registerForActivityResult(ActivityResultContracts.CreateDocument("audio/wav")) { uri ->
          val origen = mezclaPistasPendiente
-         mezclaPistasPendiente = null
-         if (uri == null || origen == null) origen?.parentFile?.deleteRecursively()
-         else Thread({
-             val error = runCatching {
-                 val output = contentResolver.openOutputStream(uri) ?: error("No se pudo abrir el destino.")
-                 output.use { target -> origen.inputStream().buffered().use { it.copyTo(target) } }
-             }.exceptionOrNull()
-             origen.parentFile?.deleteRecursively()
-             runOnUiThread {
-                 if (!isFinishing && !isDestroyed) tvEstado.text =
-                     if (error == null) "Mezcla WAV estéreo guardada." else "No se pudo guardar la mezcla: " + error.message
-             }
-         }, "BARDO-Save-Multitrack-WAV").start()
+         if (origen == null) {
+             tvEstado.text = "No hay una mezcla pendiente de guardar."
+         } else if (uri == null) {
+             tvEstado.text = "Guardado cancelado; la mezcla temporal se conserva para reintentar."
+             AlertDialog.Builder(this)
+                 .setTitle("Mezcla pendiente")
+                 .setMessage("La mezcla no se ha borrado. ¿Quieres volver a elegir dónde guardarla?")
+                 .setNegativeButton("Conservar por ahora", null)
+                 .setPositiveButton("Reintentar") { _, _ ->
+                     selectorGuardarMezclaPistas.launch("BARDO-mezcla-estereo.wav")
+                 }
+                 .show()
+         } else {
+             Thread({
+                 val result = runCatching {
+                     val target = contentResolver.openOutputStream(uri)
+                         ?: throw IllegalStateException("No se pudo abrir el destino.")
+                     val written = target.use { output ->
+                         origen.inputStream().buffered().use { input ->
+                             val count = input.copyTo(output)
+                             output.flush()
+                             count
+                         }
+                     }
+                     require(written == origen.length()) {
+                         "La copia terminó con un tamaño distinto al WAV temporal."
+                     }
+                 }
+                 runOnUiThread {
+                     if (isFinishing || isDestroyed) return@runOnUiThread
+                     result.onSuccess {
+                         mezclaPistasPendiente = null
+                         origen.parentFile?.deleteRecursively()
+                         tvEstado.text = "Mezcla WAV estéreo guardada y tamaño verificado."
+                     }.onFailure { error ->
+                         mezclaPistasPendiente = origen
+                         tvEstado.text = "No se pudo guardar la mezcla: " + error.message
+                         AlertDialog.Builder(this)
+                             .setTitle("Error al guardar la mezcla")
+                             .setMessage((error.message ?: "Error desconocido.") + "\n\nEl WAV temporal sigue intacto.")
+                             .setNegativeButton("Conservar por ahora", null)
+                             .setPositiveButton("Reintentar") { _, _ ->
+                                 selectorGuardarMezclaPistas.launch("BARDO-mezcla-estereo.wav")
+                             }
+                             .show()
+                     }
+                 }
+             }, "BARDO-Save-Multitrack-WAV").start()
+         }
      }
 
  private val selectorGuardarMasterizado =
