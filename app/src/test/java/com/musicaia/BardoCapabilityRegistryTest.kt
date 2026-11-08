@@ -72,7 +72,7 @@ class BardoCapabilityRegistryTest {
             BardoCapabilityRegistry.RuntimeFacts(true, true, true)
         ).associateBy { it.id }
         assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("history").status)
-        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("device_inventory").status)
+        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("self_inventory").status)
         assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("knowledge").status)
         assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("chat_attachments").status)
         assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("user_authorized_learning").status)
