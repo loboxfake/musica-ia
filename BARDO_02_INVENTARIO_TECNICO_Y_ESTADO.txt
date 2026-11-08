@@ -1458,3 +1458,26 @@ ACEPTACIÓN PENDIENTE
 - Esperar #460/#308 y corregir cualquier fallo real que aparezca.
 - Tras APK firmada y auditada, instalar en Xiaomi 11T Pro y probar cambios de estado al escribir, leer mensajes, importar/estudiar archivos, responder, generar audio, completar y fallar; comprobar que no hay crashes, consumo excesivo, animación en segundo plano ni actualizaciones de vistas fuera del hilo principal.
 - La integración visual y el código están realizados, pero no se declara validado en CI ni probado en dispositivo hasta tener los resultados correspondientes.
+
+
+72. PREFERENCIA DEL USUARIO: EL ICONO OFICIAL COMPLETO ES EL AVATAR — 2026-11-08
+
+BASELINE PREVIO A ESTA CORRECCIÓN
+- main HEAD: 8eae4f0ba81b6d76555c0c4732c53e0a452f959a.
+- BARDO integration validation #461: SUCCESS sobre ese SHA.
+- Build full offline APK #309: SUCCESS sobre el mismo SHA.
+- Release bardo-build-309: app-release.apk, 976,967,428 bytes, SHA-256 2716c000a0b2e682a04405051ad591b7fe0a9e5bbf76f6757cce16c429b0d2c5; full-apk-audit.txt SHA-256 047af7e504bc6e7f4a382b3302264ae8eda3478cd793fefd1d4deca184d42afb.
+- #309 contiene la primera versión del avatar con borde/anillo y punto; el usuario ha indicado que no le gusta esa reinterpretación y prefiere el icono íntegro original.
+- Modo3 blob SHA consultado: 8f2745fa841a06af43bf909732fba834474bf7dc.
+
+CAMBIO DE DISEÑO SOLICITADO
+- El avatar pasa a ser exactamente el icono completo oficial ic_launcher de BARDO (pluma, notas, marco, colores y rótulo originales).
+- Eliminar del componente el anillo exterior añadido, punto de actividad y fondos/bordes que modifiquen la composición. No crear otro personaje ni redibujar el símbolo.
+- Reacciones: el icono íntegro puede efectuar una pulsación o respiración de escala muy sutil durante la actividad; en reposo debe quedar estático. Evitar rotaciones fuertes o efectos que alteren visualmente el logotipo.
+- Conservar el texto de actividad en una vista separada, con etiquetas accesibles. Mantener estados conectados con eventos reales; desactivar animación al ocultar/desacoplar la vista o al pasar a segundo plano y respetar reducción de movimiento.
+- El cambio es una corrección de preferencia visual del usuario, no una eliminación de la funcionalidad reactiva del avatar.
+
+ESTADO
+- Esta entrada se registra antes del cambio de código. Todavía no se ha implementado ni validado esta simplificación del icono.
+- La APK #309 es el último build integral publicado previo a la corrección visual, no se debe presentar como si contuviera el icono-avatar íntegro sin adorno.
+- Modo3 debe conservar su SHA protegido antes/después. Actualizar ambos maestros al finalizar el cambio y anotar nuevos resultados CI/Release por SHA exacto.

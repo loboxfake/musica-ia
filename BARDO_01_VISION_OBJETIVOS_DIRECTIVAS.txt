@@ -687,3 +687,19 @@ GOBIERNO DE REPOSITORIO Y DOCUMENTOS
 - El estado «Completado» solo se muestra cuando existe un WAV fuente válido (>44 bytes); si el servicio declara fin pero no hay WAV válido, mostrar atención/error. No confundir finalización del worker con un resultado de audio aceptable.
 - La primera integración no cambia la lógica de conversación, los motores de audio ni la navegación. La prueba CI y la prueba física Xiaomi siguen siendo criterios independientes.
 - BARDO podrá proponer en el futuro skins, gestos, estados, animaciones y mejoras del avatar mediante su flujo seguro de autoevolución. Cada propuesta incluirá justificación, vista previa, recursos, accesibilidad, coste de CPU/batería, pruebas y reversión; la integración de código mantiene aprobación y protecciones vigentes.
+
+
+25. PREFERENCIA VISUAL DEFINITIVA DEL USUARIO: EL ICONO ORIGINAL ES EL AVATAR — 2026-11-08
+
+El usuario indica expresamente que prefiere que el propio icono de la aplicación BARDO sea el avatar, por encima de la versión propuesta con anillo y punto añadidos.
+
+Directiva visual:
+- El avatar será exactamente el icono completo oficial de BARDO (recurso launcher ic_launcher), no un personaje nuevo ni una reinterpretación de la pluma.
+- No añadir anillos externos, puntos de estado, marcos, partículas ni elementos decorativos que alteren el icono. No cambiar el artwork, los colores, el nombre BARDO ni su composición.
+- Las reacciones se expresarán mediante movimientos muy discretos del icono original (por ejemplo, una breve pulsación/respiración de escala durante actividad), manteniendo el arte íntegro. En reposo, el icono queda estático.
+- El estado funcional podrá mostrarse mediante texto accesible separado del icono: reposo, recibiendo texto, leyendo, estudiando, pensando, respondiendo, creando, completado o atención. No se incrustarán etiquetas en la imagen.
+- Las animaciones deben ser de bajo consumo, limitarse al chat visible y detenerse cuando la vista/ventana no esté visible o la app pase a segundo plano. Si el sistema reduce movimiento, se prioriza el icono estático.
+- Mantener el comportamiento funcional del avatar basado en eventos reales; no representar actividad ficticia ni atribuir consciencia o emociones humanas.
+- Esta preferencia posterior sustituye únicamente el tratamiento visual descrito en las entradas 23 y 24 donde se mencionan anillo y punto; se conserva el historial y se mantienen los estados funcionales/accesibilidad.
+
+El usuario reitera que el asistente debe actualizar ambos maestros antes de iniciar cada ciclo y tras terminarlo. BARDO podrá, en el futuro, proponer variantes y mejoras visuales del avatar mediante su autoevolución segura, pero el icono oficial seguirá siendo la identidad de referencia y los cambios requerirán vista previa, pruebas y autorización de integración.
