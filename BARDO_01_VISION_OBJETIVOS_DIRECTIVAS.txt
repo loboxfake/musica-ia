@@ -559,3 +559,9 @@ El ASR local soporta español e inglés estadounidense mediante modelos Vosk ind
 - La ruta OCR prioriza el reconocedor latino para documentos españoles/ingleses y solo procesa los reconocedores adicionales si el latino no devuelve texto; se conserva la extracción multiescritura como fallback.
 - La pestaña «Imágenes» queda incluida en tabsDisponibles y en el mapa navIds, por lo que participa en orden, visibilidad y preferencias persistentes. Su sección visual separa portada vinculada a canción/disco, imagen libre pedida a BARDO y diseño procedural offline.
 - La incompatibilidad del detector Lint de AndroidX Lifecycle se aborda fijando Android Lint 8.8.2 en gradle.properties, sin desactivar el análisis ni las auditorías. La validación integral debe confirmarlo antes de declarar la reparación cerrada.
+
+
+17. MIGRACIÓN DE NAVEGACIÓN VISUAL — 2026-11-08
+
+- Las configuraciones antiguas de la interfaz deben mostrar la pestaña «Imágenes» al actualizar, aunque su lista guardada de pestañas visibles no la conociera.
+- Las nuevas configuraciones versionadas conservan la decisión explícita del usuario de mostrar u ocultar Imágenes, su orden y su etiqueta. La pestaña también participa en el esquema de color de navegación.
