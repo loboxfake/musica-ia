@@ -96,7 +96,7 @@ class BardoCapabilityRegistryTest {
             )
         ).associateBy { it.id }
         assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, installed.getValue("speech_transcription_es").status)
-        assertTrue(installed.getValue("speech_transcription_es").detail.contains("sin conexión"))
+        assertTrue(installed.getValue("speech_transcription_es").detail.contains("no se envía audio a la nube"))
     }
 
     @Test
