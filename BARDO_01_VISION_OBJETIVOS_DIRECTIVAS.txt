@@ -565,3 +565,15 @@ El ASR local soporta español e inglés estadounidense mediante modelos Vosk ind
 
 - Las configuraciones antiguas de la interfaz deben mostrar la pestaña «Imágenes» al actualizar, aunque su lista guardada de pestañas visibles no la conociera.
 - Las nuevas configuraciones versionadas conservan la decisión explícita del usuario de mostrar u ocultar Imágenes, su orden y su etiqueta. La pestaña también participa en el esquema de color de navegación.
+
+
+18. DESARROLLO AUTÓNOMO CON FUENTE ACTUAL Y EVIDENCIA CI — 2026-11-08
+
+- BARDO Developer debe poder actualizar desde la rama única main el ZIP de fuentes correspondiente al SHA actual, sin depender del snapshot estático que estaba empaquetado en una APK anterior.
+- El acceso se autoriza mediante Fine-grained PAT limitado al repositorio; se cifra con Android Keystore. La descarga usa HTTPS, verifica el host permitido de redirección y no reenvía la credencial al servidor de archivos.
+- Cada snapshot debe conservar el SHA exacto de origen. Los candidatos se validan contra esa base; los candidatos obsoletos se rechazan.
+- El informe de validación contiene SHA-256 del diff exacto y la integración vuelve a verificar que se aplique exactamente el mismo parche que superó los tests. No basta con coincidir en el identificador del candidato.
+- BARDO debe leer el resumen de pasos/jobs de Actions, guardar los fallos CI localmente y poder pasarlos a Gemma para proponer una corrección basada en evidencia. Ningún fallo se considera corregido hasta que otra ejecución válida lo demuestre.
+- Ciclo autorizado: sincronizar main → auditar → razonar con Gemma local → diff en copia aislada → validar en runner efímero → aprobación explícita → fast-forward en main → build integral firmada y auditada → mostrar actualización Android. Sin auto-merge ni instalación silenciosa.
+- Límites que deben comunicarse: necesita Gemma real verificado y recursos suficientes, token autorizado, conectividad a GitHub para CI y aprobación humana de integración/instalación. BARDO puede prescindir de ChatGPT como herramienta de codificación, pero no puede ignorar permisos, seguridad, costes o decisiones del propietario.
+- Prohibición permanente: no tocar Modo3MezclaVozUsuario.kt ni material de firma/secretos; no force-push, reset --hard, borrar historia ni crear ramas paralelas.
