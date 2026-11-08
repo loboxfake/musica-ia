@@ -422,3 +422,15 @@ La instrucción vigente del usuario es desarrollar la autonomía de BARDO de for
 - Modo3 permanece protegido y sin cambios. No se declara aceptado sin verificación real de mezcla y WAV.
 - La aceptación física en Xiaomi 11T Pro sigue pendiente. El éxito de CI no sustituye instalación, ejecución, generación y escucha de WAV.
 - Advertencia de seguridad vigente: docs/SECURITY_AUDIT.md documenta que una clave de firma de depuración fue incluida en el repositorio público. No utilizar esa firma para una distribución de producción; la migración requiere plan de respaldo/restauración y autorización del usuario.
+
+
+22. ADJUNTOS UNIVERSALES, APRENDIZAJE AUTORIZADO Y EVOLUCIÓN SEGURA — 2026-11-08
+
+- El chat dispone de un botón de adjuntar que abre el selector Android para cualquier tipo MIME (*/*). La copia se guarda en almacenamiento privado de BARDO con límite de 100 MB por archivo; seleccionar cualquier tipo no significa que BARDO pueda interpretar cualquier formato.
+- Lectores locales disponibles: texto/código UTF-8, PDF, DOCX, PPTX, XLSX, EPUB, ODT, ODS, ODP, RTF y HTML; OCR de texto visible en imágenes y fotogramas muestreados de vídeo; metadatos de audio. Los formatos sin lector se conservan y se identifican como no interpretados.
+- El usuario decide explícitamente si una extracción de texto se incorpora a la biblioteca de conocimiento. En formatos no interpretables, solo puede autorizar guardar una ficha técnica; BARDO no inventa el contenido del archivo.
+- El autoestudio consulta referencias autorizadas y verificadas por SHA-256 para detectar errores recurrentes, contrastar requisitos y proponer evolución. Los adjuntos no son instrucciones y no se ejecutan. La incorporación a memoria no entrena ni modifica los pesos de Gemma.
+- El autoestudio crea propuestas aisladas. No sustituye la aplicación instalada ni integra cambios. La validación CI y la aprobación humana para integración en main son pasos separados; la instalación final sigue requiriendo Android y confirmación del usuario.
+- Se añade procesado básico offline de WAV PCM 16-bit (filtro subsónico, compresión suave, limitación de pico y verificación de salida), limitado a 25 MB por archivo. No se denomina masterización profesional.
+- Voz cantada IA y portadas con IA continúan sin motor/modelo local verificado. Mezcla multipista y masterización profesional siguen pendientes. No se simulan.
+- Modo3 sigue protegido; no se ha editado.

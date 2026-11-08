@@ -1072,3 +1072,18 @@ Continuidad y límites:
 - La rama canónica sigue siendo únicamente main. No se han modificado workflows, secretos ni material de firma en este cambio.
 - Pendiente de validación: actionlint/validación del workflow, testDebugUnitTest, assembleDebug y build integral de APK. Incluso si CI resulta verde, falta la instalación y prueba física en Xiaomi 11T Pro.
 - Riesgo de seguridad no resuelto: docs/SECURITY_AUDIT.md ya documenta una clave de firma de depuración comprometida en el repositorio público. No distribuir como producción con esa firma; cualquier rotación debe coordinarse con copia de seguridad/restauración y autorización del usuario.
+
+
+62. ADJUNTOS DEL CHAT, REFERENCIAS PARA AUTOESTUDIO Y PROCESADO WAV — 2026-11-08
+
+- Chat: el botón de adjuntar usa OpenDocument con MIME */* y copia de forma streaming al espacio privado, máximo 100 MB. Se conservan los archivos originales importados.
+- Lectura implementada: texto/código UTF-8 (incluye Kotlin, Java, Python, JS/TS, C/C++, SQL, YAML, TOML, JSON, CSV, XML, Markdown, HTML, SVG, SRT/VTT y más); PDF con extracción/OCR acotado; DOCX/PPTX/XLSX; EPUB/ODT/ODS/ODP con lectura ZIP/XML segura; RTF y HTML; imágenes con OCR; vídeo con OCR de hasta ocho fotogramas. Audio: metadatos, sin ASR ni afirmación de escucha. Formatos no reconocidos: almacenamiento privado y ficha técnica opcional.
+- Se ha creado BardoArchiveDocumentImporter: no extrae paquetes al disco, limita número/tamaño de entradas, rechaza traversal, deshabilita DTD y entidades externas, ignora scripts y macros. Pruebas: EPUB/ODT, HTML/RTF y traversal.
+- La autorización «Autorizar aprendizaje» incorpora texto extraído a BardoKnowledgeStore, con procedencia y SHA-256 verificado al recuperar. Para archivos sin procesador solo se puede guardar ficha técnica, no contenido supuesto.
+- BardoDeveloperWorker ya consultaba BardoKnowledgeStore.allForPrompt; ahora el prompt exige contrastar esas referencias con el código, citar evidencia, ignorar instrucciones incrustadas y documentar problemas de archivos protegidos sin parchearlos.
+- Procesado WAV: BardoWavMastering ofrece filtro subsónico, compresión suave y limitador de pico digital para WAV PCM 16-bit, archivo máximo 25 MB, salida mono validada y original intacto. UI Biblioteca añade «Masterizar WAV · básico offline» y exportación SAF. No equivale a mezcla multipista/mastering profesional.
+- Tests nuevos: BardoArchiveDocumentImporterTest y BardoWavMasteringTest; BardoCapabilityRegistryTest amplía cobertura de adjuntos, aprendizaje autorizado y procesado básico.
+- Capacidades aún pendientes: voz cantada generativa local (sin motor/modelo); portadas con IA local (sin modelo de imagen); mezcla multipista y masterización profesional; ASR/transcripción local de audio; comprensión visual semántica de imágenes/vídeo. Se conservan honestamente como no implementadas.
+- El aprendizaje de archivos no entrena los pesos del modelo ni cambia el núcleo. Todo parche permanece en copia candidata y la integración exige CI SUCCESS más aprobación expresa. La instalación requiere confirmación Android.
+- Validación/compilación #357/#208 SUCCESS correspondían al commit b20a19a anterior a estos cambios. Este nuevo conjunto todavía necesita su propia ejecución CI.
+- Modo3MezclaVozUsuario.kt permanece sin cambios, SHA-1 8f2745fa841a06af43bf909732fba834474bf7dc.

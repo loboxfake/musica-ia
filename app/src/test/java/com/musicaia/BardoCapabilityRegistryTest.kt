@@ -71,6 +71,9 @@ class BardoCapabilityRegistryTest {
         ).associateBy { it.id }
         assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("history").status)
         assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("knowledge").status)
+        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("chat_attachments").status)
+        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("user_authorized_learning").status)
+        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("wav_mastering_basic").status)
         assertEquals(BardoCapabilityRegistry.Status.REQUIRES_USER_ACTION, items.getValue("research").status)
         assertEquals(BardoCapabilityRegistry.Status.REQUIRES_USER_ACTION, items.getValue("project_build").status)
         assertEquals(BardoCapabilityRegistry.Status.REQUIRES_USER_ACTION, items.getValue("github_development").status)

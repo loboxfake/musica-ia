@@ -51,7 +51,7 @@
                         <LinearLayout android:id="@+id/chatMessages" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingTop="8dp" android:paddingBottom="8dp"/>
                     </ScrollView>
                     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:orientation="horizontal" android:gravity="center_vertical" android:padding="4dp" android:background="@drawable/bg_input">
-                        <Button android:id="@+id/btnAdjuntarChat" android:layout_width="46dp" android:layout_height="48dp" android:text="＋" android:textAllCaps="false"/>
+                        <Button android:id="@+id/btnAdjuntarChat" android:layout_width="46dp" android:layout_height="48dp" android:text="📎" android:textAllCaps="false" android:contentDescription="Adjuntar un archivo de cualquier formato"/>
                         <EditText android:id="@+id/chatEntrada" android:layout_width="0dp" android:layout_height="54dp" android:layout_weight="1" android:minHeight="54dp" android:paddingStart="12dp" android:paddingEnd="8dp" android:hint="Escribe a BARDO..." android:textColor="#F5F8FF" android:textColorHint="#8396B4" android:background="@android:color/transparent" android:inputType="textCapSentences|textMultiLine" android:maxLines="4"/>
                         <Button android:id="@+id/btnEnviar" android:layout_width="54dp" android:layout_height="50dp" android:layout_marginStart="4dp" android:text="➤" android:textSize="21sp" android:textAllCaps="false" android:textColor="#02081B" android:textStyle="bold" android:background="@drawable/bg_primary_button" android:contentDescription="Enviar mensaje"/>
                     </LinearLayout>
@@ -146,6 +146,9 @@
                     <Button android:id="@+id/btnBibliotecaImportar" android:layout_width="match_parent"
                         android:layout_height="46dp" android:layout_marginTop="7dp"
                         android:text="Importar MP3 o WAV a la biblioteca" android:textAllCaps="false"/>
+                    <Button android:id="@+id/btnMasterizarWav" android:layout_width="match_parent"
+                        android:layout_height="46dp" android:layout_marginTop="7dp"
+                        android:text="Masterizar WAV · básico offline" android:textAllCaps="false"/>
                 <LinearLayout android:id="@+id/playerControls" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingTop="8dp" android:visibility="gone">
                     <SeekBar android:id="@+id/seekPlayback" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="1000" android:contentDescription="Posición de reproducción"/>
                     <TextView android:id="@+id/tvPlaybackTime" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="00:00 / 00:00" android:textColor="#A9B8D2" android:textSize="12sp"/>
