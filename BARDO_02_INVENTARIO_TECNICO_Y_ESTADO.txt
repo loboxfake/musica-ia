@@ -1099,3 +1099,11 @@ Continuidad y límites:
 - La transcripción resultante requiere autorización independiente antes de guardarse como referencia. No modifica los pesos de Gemma ni el núcleo BARDO.
 - La capability speech_transcription_es depende de que el modelo esté instalado. Implementación y pruebas CI quedan pendientes hasta el resultado del nuevo workflow.
 - Los formatos dañados o no decodificables por el Android instalado pueden fallar. Música sin voz y habla no inteligible pueden producir una transcripción vacía. No se afirma comprensión musical/sonora completa, ASR multilingüe ni voz cantada generativa.
+
+48. ASR EN AUDIO DE VÍDEOS — 2026-11-08
+
+- La ruta de adjuntos de vídeo detecta si el contenedor ofrece una pista MIME audio decodificable mediante MediaExtractor.
+- Si existe, BARDO ofrece una acción explícita «Transcribir audio» separada del OCR de fotogramas. La descarga inicial del modelo Vosk sigue necesitando autorización y SHA-256.
+- Se transcribe únicamente la pista de audio con el flujo ASR español ya descrito. El vídeo original permanece intacto. No hay comprensión semántica de escenas, música, emoción o elementos visuales; OCR y ASR son análisis separados.
+- Si el contenedor no ofrece una pista decodificable, BARDO lo comunica y conserva el vídeo sin inventar transcripción.
+- Este cambio requiere pasar los workflows de validación y build integral para considerarse integrado.

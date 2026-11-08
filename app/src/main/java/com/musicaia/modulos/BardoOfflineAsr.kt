@@ -163,6 +163,23 @@ object BardoOfflineAsr {
         }
     }
 
+    /** Indicates whether a media container exposes at least one audio track. */
+    fun hasAudioTrack(mediaFile: File): Boolean {
+        if (!mediaFile.isFile || mediaFile.length() !in 1..MAX_MEDIA_BYTES) return false
+        val extractor = MediaExtractor()
+        return try {
+            extractor.setDataSource(mediaFile.absolutePath)
+            (0 until extractor.trackCount).any { index ->
+                extractor.getTrackFormat(index).getString(MediaFormat.KEY_MIME)
+                    ?.startsWith("audio/") == true
+            }
+        } catch (_: Exception) {
+            false
+        } finally {
+            runCatching { extractor.release() }
+        }
+    }
+
     /** Decodifica el primer flujo de audio usando códecs Android y transmite PCM a Vosk. */
     fun transcribeMediaFile(modelDirectory: File, mediaFile: File, onProgress: (Int) -> Unit = {}): String {
         require(hasModelLayout(modelDirectory)) { "El modelo Vosk español no está instalado o está incompleto." }

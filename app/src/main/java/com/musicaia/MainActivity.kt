@@ -1662,6 +1662,24 @@ private fun crearEstructuraCarpetaBardo() {
  }
 
 
+  private fun confirmarTranscripcionAdjuntoAudio(
+      nombre: String, mime: String, archivo: File, taskId: String, metadata: String
+  ) {
+      val instalado = BardoOfflineAsr.isModelInstalled(applicationContext)
+      AlertDialog.Builder(this)
+          .setTitle("Transcripción local en español")
+          .setMessage(if (instalado) {
+              metadata + "\n\nEl modelo español está instalado. ¿Quieres transcribir el audio ahora, sin conexión?"
+          } else {
+              metadata + "\n\nPara transcribirlo necesito descargar una sola vez el modelo español Vosk (39.817.833 bytes). Se verificará su SHA-256 antes de instalarlo; después funcionará sin Internet. ¿Autorizas la descarga y el análisis?"
+          })
+          .setNegativeButton("Solo conservar", null)
+          .setPositiveButton(if (instalado) "Transcribir" else "Descargar y transcribir") { _, _ ->
+              iniciarTranscripcionAdjuntoAudio(nombre, mime, archivo, taskId, metadata)
+          }
+          .show()
+  }
+
  private fun iniciarTranscripcionAdjuntoAudio(
      nombre: String, mime: String, archivo: File, taskId: String, metadata: String
  ) {
@@ -1793,12 +1811,25 @@ private fun crearEstructuraCarpetaBardo() {
              runOnUiThread {
                  if (isFinishing || isDestroyed) return@runOnUiThread
                  val textoVideo = extraccion.getOrNull().orEmpty()
+                 val contieneAudio = BardoOfflineAsr.hasAudioTrack(destino)
                  if (textoVideo.isBlank()) {
                      val error = extraccion.exceptionOrNull()?.message ?: "No se encontró texto en los fotogramas muestreados."
-                     BardoActivityStore.record(this, taskIdAdjunto, "analisis_video", "needs_processor", "ocr_sin_texto", error, null, destino.absolutePath)
-                     anexarChat("\nBARDO: He conservado el vídeo, pero no he detectado texto en los fotogramas muestreados. Esta versión no dispone de comprensión visual general ni transcripción de audio del vídeo.")
-                     tvEstado.text = "Vídeo conservado; OCR sin texto detectable."
-                     ofrecerGuardarMetadatosAdjunto(nombre, mime, destino, "Vídeo conservado; OCR en hasta ocho fotogramas sin texto legible. No se transcribió audio ni se interpretó la escena.")
+                     BardoActivityStore.record(this, taskIdAdjunto, "analisis_video",
+                         if (contieneAudio) "needs_asr" else "needs_processor",
+                         if (contieneAudio) "ocr_sin_texto_pista_audio_disponible" else "ocr_sin_texto",
+                         error, null, destino.absolutePath)
+                     anexarChat("\nBARDO: He conservado el vídeo. No he detectado texto OCR legible en los fotogramas. " +
+                         if (contieneAudio) "Sí he detectado una pista de audio y puedo intentar transcribir el habla en español con Vosk local. No interpreto semánticamente la escena."
+                         else "Tampoco he detectado una pista de audio decodificable. No dispongo de comprensión visual semántica general.")
+                     tvEstado.text = if (contieneAudio) "Vídeo conservado; OCR vacío y pista de audio disponible para ASR."
+                         else "Vídeo conservado; sin texto OCR ni pista de audio."
+                     if (contieneAudio) {
+                         confirmarTranscripcionAdjuntoAudio(nombre, mime, destino, taskIdAdjunto,
+                             "Vídeo · pista de audio detectada · " + destino.length() + " bytes")
+                     } else {
+                         ofrecerGuardarMetadatosAdjunto(nombre, mime, destino,
+                             "Vídeo conservado; OCR en hasta ocho fotogramas sin texto legible y sin pista de audio decodificable.")
+                     }
                      return@runOnUiThread
                  }
                  val contenido = textoVideo.take(24000)
@@ -1806,16 +1837,25 @@ private fun crearEstructuraCarpetaBardo() {
                  anexarChat("\nTú: He adjuntado el vídeo «$nombre».")
                  anexarChat("\n[TEXTO OCR DE FOTOGRAMAS]\n$contenido\n[FIN DEL TEXTO OCR]")
                  responderChatLibre("Analiza el texto visible detectado en algunos fotogramas del vídeo «$nombre». Resume solo la información que aparece en el OCR. No afirmes haber escuchado el audio ni visto semánticamente el vídeo completo.\n\n$contenido", taskIdAdjunto)
-                 AlertDialog.Builder(this)
-                     .setTitle("Texto de vídeo extraído")
-                     .setMessage("Se ha extraído texto de fotogramas muestreados. ¿Autorizas guardar esta transcripción OCR como referencia para futuras respuestas y autoestudio?")
+                 val dialogoVideo = AlertDialog.Builder(this)
+                     .setTitle("Análisis parcial de vídeo")
+                     .setMessage("He extraído texto de fotogramas muestreados. " +
+                         if (contieneAudio) "También he detectado una pista de audio que puedes transcribir localmente por separado."
+                         else "No he detectado una pista de audio decodificable.")
                      .setNegativeButton("Solo analizar", null)
                      .setPositiveButton("Autorizar aprendizaje") { _, _ ->
                          runCatching {
                              knowledgeStore.importText("OCR de vídeo", nombre, textoVideo.take(500000))
                              actualizarEstadoConocimiento()
-                         }.onFailure { anexarChat("\nBARDO: No pude guardar el OCR: ${it.message}") }
-                     }.show()
+                         }.onFailure { anexarChat("\nBARDO: No pude guardar el OCR: " + it.message) }
+                     }
+                 if (contieneAudio) {
+                     dialogoVideo.setNeutralButton("Transcribir audio") { _, _ ->
+                         confirmarTranscripcionAdjuntoAudio(nombre, mime, destino, taskIdAdjunto,
+                             "Vídeo · pista de audio detectada · " + destino.length() + " bytes")
+                     }
+                 }
+                 dialogoVideo.show()
              }
          }, "BARDO-Video-OCR").start()
          return
@@ -1837,18 +1877,7 @@ private fun crearEstructuraCarpetaBardo() {
                  anexarChat("\nTú: He adjuntado el audio «$nombre».")
                  anexarChat("\nBARDO: $metadata. Puedo intentar decodificarlo con los códecs locales de Android y transcribirlo en español sin conexión. La primera vez necesitaré descargar un modelo de aproximadamente 40 MB; no lo descargaré sin tu autorización.")
                  tvEstado.text = "Audio importado; transcripción offline disponible con el modelo español."
-                 AlertDialog.Builder(this)
-                     .setTitle("Transcripción local en español")
-                     .setMessage(if (BardoOfflineAsr.isModelInstalled(applicationContext)) {
-                         "$metadata\n\nEl modelo español está instalado. ¿Quieres transcribir este audio ahora, sin conexión?"
-                     } else {
-                         "$metadata\n\nPara transcribirlo necesito descargar una sola vez el modelo español Vosk (39.817.833 bytes). Se verificará su SHA-256 antes de instalarlo; después funcionará sin Internet. ¿Autorizas la descarga y el análisis?"
-                     })
-                     .setNegativeButton("Solo conservar", null)
-                     .setPositiveButton(if (BardoOfflineAsr.isModelInstalled(applicationContext)) "Transcribir" else "Descargar y transcribir") { _, _ ->
-                         iniciarTranscripcionAdjuntoAudio(nombre, mime, destino, taskIdAdjunto, metadata)
-                     }
-                     .show()
+                 confirmarTranscripcionAdjuntoAudio(nombre, mime, destino, taskIdAdjunto, metadata)
              }
          }, "BARDO-Audio-Metadata").start()
          return

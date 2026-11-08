@@ -3,7 +3,9 @@ package com.musicaia.modulos
 import android.media.AudioFormat
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.io.File
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
@@ -34,6 +36,11 @@ class BardoOfflineAsrTest {
         assertThrows(IllegalArgumentException::class.java) {
             BardoOfflineAsr.convertToMonoPcm16(input, 2, AudioFormat.ENCODING_PCM_16BIT)
         }
+    }
+
+    @Test
+    fun reportsNoAudioTrackForAMissingMediaFileWithoutThrowing() {
+        assertFalse(BardoOfflineAsr.hasAudioTrack(File("/definitely/not/a/media/file.mp4")))
     }
 
     @Test
