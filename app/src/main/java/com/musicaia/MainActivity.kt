@@ -2108,6 +2108,21 @@ private fun crearEstructuraCarpetaBardo() {
  private fun prepararMezclaPistasWav(uris: List<Uri>) {
      if (uris.size !in 2..8) { tvEstado.text = "Selecciona entre 2 y 8 pistas WAV."; return }
      if (mezclaPistasEnCurso) return
+     if (gemmaInferenceEnCurso || deteccionGemmaExternaEnCurso) {
+         tvEstado.text = "Gemma está ocupado. Espera a que termine antes de iniciar una mezcla multipista."
+         return
+     }
+     val estadoMusica = getSharedPreferences(BardoTaskService.PREFS, MODE_PRIVATE)
+         .getString(BardoTaskService.KEY_STATE, "").orEmpty()
+     if (estadoMusica == "running") {
+         tvEstado.text = "Hay una generación de audio activa. La mezcla multipista esperará para no competir por recursos."
+         return
+     }
+     val bloqueoRecursos = BardoResourceBudget.blockingReason(this, 1024L * 1024L * 1024L)
+     if (bloqueoRecursos != null) {
+         tvEstado.text = bloqueoRecursos
+         return
+     }
      mezclaPistasEnCurso = true
      tvEstado.text = "Importando pistas WAV..."
      Thread({
