@@ -714,3 +714,14 @@ El usuario reitera que el asistente debe actualizar ambos maestros antes de inic
 - Las burbujas de respuesta de BARDO reutilizan el icono completo y no el recorte foreground con un fondo añadido.
 - Se mantiene la misma máquina de estados/eventos funcionales. La preferencia visual del usuario se considera prevalente sobre las propuestas previas de aro/punto registradas en 23 y 24; esas entradas se conservan únicamente como historial.
 - La primera corrección ya está en el código en el commit registrado en BARDO_02. CI debe confirmar la compilación; no declarar prueba en Xiaomi hasta que el usuario instale y revise la APK.
+
+
+27. ESTADO CONFIRMADO DE AVATAR OFICIAL Y BUILD INTEGRAL #312 — 2026-11-08
+
+- main SHA de código validado: 095fbb582111e3135be6402ecb251c30b794b9ab.
+- Validación #464: SUCCESS sobre ese SHA.
+- Build full offline APK #312: SUCCESS sobre el mismo SHA.
+- Release: bardo-build-312; APK firmada y auditada. SHA-256 APK: e863dcb6b17296b9246e7fbb7a54bb93b3f7a9ea297df86e4efcc40bac4a784f.
+- La versión del avatar incluida en #312 usa el icono oficial completo como imagen; sin aro ni punto añadidos. Se conserva el estado funcional reactivo y el texto de actividad accesible separado.
+- CI verde acredita compilación, tests, auditoría y publicación; no sustituye la instalación y validación física en el Xiaomi 11T Pro.
+- Pendiente: instalación y pruebas en dispositivo real; ver inventario técnico entrada 74.

@@ -1507,3 +1507,36 @@ VALIDACIÓN Y PROTECCIONES
 - La aceptación física del avatar en el Xiaomi 11T Pro está pendiente.
 
 Siguiente criterio: obtener la validación y build integral sobre un SHA que incluya esta versión del icono; si se actualizan los maestros después, confirmar también los workflows del SHA documental final. No presentar la APK #309 como la versión simplificada.
+
+
+74. VALIDACIÓN FINAL DEL AVATAR CON ICONO OFICIAL — BUILD #312 PUBLICADO — 2026-11-08
+
+ESTADO GITHUB CONFIRMADO
+- HEAD de código consultado: 095fbb582111e3135be6402ecb251c30b794b9ab.
+- BARDO integration validation #464 (run ID 42498873300): completed / SUCCESS sobre el mismo SHA.
+- Build full offline APK #312 (run ID 42498873283): completed / SUCCESS sobre el mismo SHA.
+- Release bardo-build-312: https://github.com/loboxfake/musica-ia/releases/tag/bardo-build-312
+- app-release.apk: 976,971,524 bytes; SHA-256 e863dcb6b17296b9246e7fbb7a54bb93b3f7a9ea297df86e4efcc40bac4a784f.
+- full-apk-audit.txt: SHA-256 c5e387ca8c9192a9d1a8d00cff3b71d23bba9852a0a368f50d87fd5837129d66.
+- Se confirma que el SHA validado, compilado y publicado es idéntico. La APK #312 incorpora la implementación de avatar con el icono completo oficial sin anillo ni punto añadidos.
+- Modo3MezclaVozUsuario.kt mantiene el blob SHA protegido 8f2745fa841a06af43bf909732fba834474bf7dc.
+
+PENDIENTE REAL, NO CUBIERTO POR CI
+1. Instalar #312 en Xiaomi 11T Pro y comprobar arranque, navegación, estabilidad, escala/animación del avatar, estados y accesibilidad; verificar que la animación se pausa fuera de pantalla.
+2. Recorrer las seis áreas (Asistente, Estudio, Archivo, Imágenes, Evolución, Sistema) y revisar visualización en el teléfono, teclado, scroll, contraste y preferencias.
+3. Vincular Descargas/BARDO por SAF y verificar importación/copia privada y SHA-256 de gemma-4-E2B-it.litertlm; medir RAM, temperatura y estabilidad. El archivo del usuario ya existe: no descargar duplicado ni borrar el original.
+4. Conversación offline real con Gemma: probar respuestas multi-turno, detección de intención, continuidad contextual, límites, errores y ausencia de red; no confundir parser guiado con razonamiento generativo.
+5. OCR con fotos/documentos reales en español e inglés, autodetección, selección manual, lectura, precisión, orientación, PDF y archivos Office; las pruebas unitarias no acreditan OCR físico.
+6. Generación musical offline en el dispositivo: generación real, exportación WAV, reproducción y escucha, duración/calidad, cancelación, errores, uso de memoria y temperatura.
+7. Biblioteca: importar MP3/WAV, reproducción, listas, mezcla multipista WAV y mastering básico con escucha y exportación de resultado.
+8. Imágenes: validar portada procedural offline; validar Bonsai Image 4B solo si modelo/runtime/RAM lo permiten, sin presentar la portada procedural como IA generativa.
+9. Voz: confirmar exactamente capacidades actuales; mezcla de voz grabada/importada con instrumental no equivale a voz cantada generada/clonada. MiVoz sigue siendo futura.
+10. Autonomía: configurar token GitHub de alcance mínimo, probar Gemma local, flujo de auditoría/diff aislado/CI/hash/aprobación/fast-forward, recuperación de fallos y actualización de conocimiento. Probar que BARDO no puede tocar secretos, firma, protecciones ni Modo3.
+11. Copias, historial y recuperación: verificar que Canciones, Copias de seguridad, Historial, Instaladores, Instrumentales, Modelos, Proyectos y Voces se conservan; validar restauración sin duplicar ni borrar los tres ficheros de historial existentes.
+
+CLASIFICACIÓN DE ESTADO
+- Implementado en código y compilado/publicado: avatar oficial, seis espacios, importadores/OCR bilingüe en código, almacenamiento/memoria/conocimiento, modelos y registro de capacidades, pipeline de audio, biblioteca, generador de portadas, Bonsai opcional y estructura de autonomía.
+- Pendiente de aceptación física: todo lo enumerado arriba que requiere ejecutar la APK en el Xiaomi y utilizar archivos/modelos reales.
+- Pendiente de desarrollo/mejora adicional: robustecer autonomía end-to-end después de las pruebas físicas; evolución segura de skills/habilidades y propuestas propias; mejoras iterativas de conversación/memoria y UX según fallos medidos; voz cantada generativa (MiVoz), edición vocal avanzada, stems, mezcla/mastering profesional y proyectos musicales avanzados. No declarar estos objetivos futuros como terminados.
+
+Este inventario es una lista de verificación; marcar cada punto solo con evidencia real y actualizar ambos maestros en cada ciclo.
