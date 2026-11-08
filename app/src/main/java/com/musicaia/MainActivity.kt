@@ -1028,7 +1028,7 @@ private fun crearEstructuraCarpetaBardo() {
              .append("\n\n")
      }
 
-     texto.append("MÓDULOS Y HABILIDADES INTERNAS DE BARDO (").append(modulos.size).append(")\n")
+     texto.append("MÓDULOS Y HABILIDADES INTERNAS DE BARDO (").append(modulos.size.toString()).append(")\n")
      modulos.forEach { modulo ->
          texto.append("• ").append(modulo.name)
              .append(" · ").append(if (modulo.implemented) "registrado en código" else "no implementado")
@@ -1045,7 +1045,7 @@ private fun crearEstructuraCarpetaBardo() {
              .append(" · ").append(modulo.attribution).append("\n\n")
      }
 
-     texto.append("APPS CON FUNCIONES DE ASISTENTE DETECTADAS (").append(device.assistantApps.size).append(")\n")
+     texto.append("APPS CON FUNCIONES DE ASISTENTE DETECTADAS (").append(device.assistantApps.size.toString()).append(")\n")
      if (device.assistantApps.isEmpty()) {
          texto.append("No se han encontrado apps visibles que declaren ACTION_ASSIST, VoiceInteractionService, reconocimiento de voz o TTS.\n")
      } else {
@@ -1061,7 +1061,7 @@ private fun crearEstructuraCarpetaBardo() {
      }
 
      texto.append("\nPOSIBLES APLICACIONES DE IA (detección heurística por nombre, no certificación) (")
-         .append(device.probableAiApps.size).append(")\n")
+         .append(device.probableAiApps.size.toString()).append(")\n")
      if (device.probableAiApps.isEmpty()) {
          texto.append("No se han encontrado nombres coincidentes entre las apps lanzables visibles.\n")
      } else {
@@ -1071,17 +1071,17 @@ private fun crearEstructuraCarpetaBardo() {
          }
      }
 
-     texto.append("\nINVENTARIO DE APLICACIONES LANZABLES VISIBLES (").append(device.apps.size).append(")\n")
+     texto.append("\nINVENTARIO DE APLICACIONES LANZABLES VISIBLES (").append(device.apps.size.toString()).append(")\n")
      device.apps.forEach { app ->
          texto.append("• ").append(app.label).append(" · ").append(app.packageName)
              .append(" · ").append(app.versionName ?: "versión no declarada")
-             .append(" · code ").append(app.versionCode)
+             .append(" · code ").append(app.versionCode.toString())
              .append(if (app.systemApp) " · sistema" else " · usuario")
              .append("\n")
      }
      texto.append("\nLÍMITES DE DETECCIÓN\n")
          .append("Android no permite que una app enumere indiscriminadamente todos los paquetes ni inspeccione datos privados. BARDO consulta apps lanzables visibles y apps que declaran ACTION_ASSIST o VoiceInteractionService; esto identifica compatibilidad, no cuál es el asistente predeterminado. Las posibles apps IA se señalan solo por el nombre. Android no dispone de un catálogo universal que permita leer las skills, plugins, modelos privados o extensiones internas de otras aplicaciones. En BARDO se muestran sus capacidades registradas y el catálogo interno de módulos/habilidades; las entradas con modelo opcional dependen de que el modelo se encuentre realmente instalado y supere sus verificaciones.\n\n")
-     texto.append("RAM libre detectada: ").append(memoriaLibre / (1024L * 1024L * 1024L))
+     texto.append("RAM libre detectada: ").append((memoriaLibre / (1024L * 1024L * 1024L)).toString())
          .append(" GB. Umbral preventivo Gemma: 4 GB. Verde significa componente detectado, no prueba física; solo se considera probado después de instalar y ejecutar la APK en el Xiaomi.")
      AlertDialog.Builder(this)
          .setTitle("Capacidades de BARDO")
