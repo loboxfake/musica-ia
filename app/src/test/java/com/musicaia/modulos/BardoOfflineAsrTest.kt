@@ -44,6 +44,20 @@ class BardoOfflineAsrTest {
     }
 
     @Test
+    fun exposesIndependentSpanishAndEnglishModelProfiles() {
+        val spanish = BardoOfflineAsr.Language.SPANISH
+        val english = BardoOfflineAsr.Language.ENGLISH
+        assertEquals(39_817_833L, spanish.archiveSizeBytes)
+        assertEquals("09b239888f633ef2f0b4e09736e3d9936acfd810bc65d53fad45261762c6511f", spanish.archiveSha256)
+        assertEquals(41_205_931L, english.archiveSizeBytes)
+        assertEquals("30f26242c4eb449f948e42cb302dd7a686cb29a3423a8367f99ff41780942498", english.archiveSha256)
+        assertEquals("https", java.net.URL(spanish.archiveUrl).protocol)
+        assertEquals("https", java.net.URL(english.archiveUrl).protocol)
+        assertFalse(spanish.archiveSha256 == english.archiveSha256)
+        assertFalse(spanish.directoryName == english.directoryName)
+    }
+
+    @Test
     fun hasPinnedSpanishModelIntegrityMetadata() {
         assertEquals(39_817_833L, BardoOfflineAsr.MODEL_ARCHIVE_SIZE_BYTES)
         assertEquals("09b239888f633ef2f0b4e09736e3d9936acfd810bc65d53fad45261762c6511f",

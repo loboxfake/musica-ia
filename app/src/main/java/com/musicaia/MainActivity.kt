@@ -895,7 +895,8 @@ private fun crearEstructuraCarpetaBardo() {
              availableMemoryBytes = memoriaLibre,
              resourceBlockReason = BardoResourceBudget.blockingReason(this, BardoCapabilityRegistry.MIN_GEMMA_FREE_MEMORY_BYTES),
              githubActionsConfigured = BardoGitHubCredentialStore.hasToken(this),
-             speechModelPresent = BardoOfflineAsr.isModelInstalled(this)
+             speechModelPresent = BardoOfflineAsr.isModelInstalled(this, BardoOfflineAsr.Language.SPANISH),
+              speechEnglishModelPresent = BardoOfflineAsr.isModelInstalled(this, BardoOfflineAsr.Language.ENGLISH)
          )
      )
      val texto = android.text.SpannableStringBuilder()

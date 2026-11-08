@@ -17,3 +17,8 @@ Spanish recognition model
 The optional vosk-model-small-es-0.42 model is distributed under the Apache License, Version 2.0 by Alpha Cephei and upstream contributors.
 The archive is downloaded only after user authorization and verified against its pinned SHA-256 before installation.
 Model information: https://alphacephei.com/vosk/models
+
+Vosk English speech recognition model
+The optional vosk-model-small-en-us-0.15 model is distributed under the Apache License, Version 2.0 by Alpha Cephei and upstream contributors.
+The archive is downloaded only after user authorization and verified against its pinned SHA-256 before installation.
+Model information: https://alphacephei.com/vosk/models
