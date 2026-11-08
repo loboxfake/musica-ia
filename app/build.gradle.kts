@@ -79,8 +79,14 @@ dependencies {
     implementation("com.google.ai.edge.litertlm:litertlm-android:0.16.1")
     // Extracción local de texto PDF; no requiere red en tiempo de ejecución.
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")
-    // OCR latino empaquetado: funciona sin descargar modelos desde Google Play Services.
+    // OCR offline empaquetado para los scripts latino, chino, devanagari, japonés y coreano.
     implementation("com.google.mlkit:text-recognition:16.0.1")
+    implementation("com.google.mlkit:text-recognition-chinese:16.0.1")
+    implementation("com.google.mlkit:text-recognition-devanagari:16.0.1")
+    implementation("com.google.mlkit:text-recognition-japanese:16.0.1")
+    implementation("com.google.mlkit:text-recognition-korean:16.0.1")
+    // Clasificación visual general offline con modelo integrado.
+    implementation("com.google.mlkit:image-labeling:17.0.9")
     // ASR local; el modelo español es opcional y se instala con autorización del usuario.
     implementation("com.alphacephei:vosk-android:0.3.75")
 

@@ -9,6 +9,10 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.TextRecognizer
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
+import com.google.mlkit.vision.text.devanagari.DevanagariTextRecognizerOptions
+import com.google.mlkit.vision.text.japanese.JapaneseTextRecognizerOptions
+import com.google.mlkit.vision.text.korean.KoreanTextRecognizerOptions
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.rendering.PDFRenderer
 import java.io.File
@@ -37,7 +41,7 @@ object BardoOcrImporter {
             inPreferredConfig = Bitmap.Config.ARGB_8888
         }) ?: throw IllegalArgumentException("Android no pudo decodificar la imagen.")
         return try {
-            recognize(bitmap)
+            recognizeMultiscript(bitmap)
         } finally {
             bitmap.recycle()
         }
@@ -103,6 +107,32 @@ object BardoOcrImporter {
             }.trim()
         } finally {
             recognizer.close()
+        }
+    }
+
+    private fun recognizeMultiscript(bitmap: Bitmap): String {
+        val image = InputImage.fromBitmap(bitmap, 0)
+        val recognizers = buildList<Pair<String, TextRecognizer>> {
+            add("latino" to TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS))
+            add("chino" to TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build()))
+            add("devanagari" to TextRecognition.getClient(DevanagariTextRecognizerOptions.Builder().build()))
+            add("japones" to TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build()))
+            add("coreano" to TextRecognition.getClient(KoreanTextRecognizerOptions.Builder().build()))
+        }
+        try {
+            val outputs = mutableListOf<String>()
+            recognizers.forEach { (script, recognizer) ->
+                val text = runCatching {
+                    Tasks.await(recognizer.process(image), 8, TimeUnit.SECONDS).text.trim()
+                }.getOrDefault("")
+                if (text.isNotBlank()) outputs.add("[$script]\n$text")
+            }
+            return outputs.distinctBy {
+                it.substringAfter('\n').lowercase(java.util.Locale.ROOT)
+                    .replace(Regex("\\s+"), " ").trim()
+            }.joinToString("\n\n").take(240000)
+        } finally {
+            recognizers.forEach { runCatching { it.second.close() } }
         }
     }
 
