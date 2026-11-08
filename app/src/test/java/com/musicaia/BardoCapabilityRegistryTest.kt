@@ -107,7 +107,7 @@ class BardoCapabilityRegistryTest {
         assertTrue(inventory.detail.contains("1"))
         assertTrue(inventory.detail.contains("3"))
         assertTrue(inventory.detail.contains("7"))
-        assertTrue(inventory.detail.contains("asistentes de Android"))
+        assertTrue(inventory.detail.contains("componentes de asistente declarados"))
         assertTrue(inventory.detail.contains("módulos internos"))
     }
 
