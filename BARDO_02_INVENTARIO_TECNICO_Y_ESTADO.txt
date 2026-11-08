@@ -1125,3 +1125,10 @@ Continuidad y límites:
 - Nueva salida temporal verificada (RIFF, tamaño, formato, canales, frecuencia y frames); originales conservados.
 - Informe técnico básico: pico digital, RMS antes/después de normalizar, factor de cresta y offset DC. No presenta estos valores como LUFS ni true peak.
 - No incluye automatización, EQ, compresión avanzada, stems, DAW ni mastering profesional. Pendiente de CI y escucha real en Xiaomi.
+
+51. EXTRACCIÓN NATURAL DE CAMPOS CREATIVOS — 2026-11-08
+
+- El parser guiado reconoce combinaciones claras en lenguaje natural: género introducido por «canción de/estilo», tema tras «sobre» o «que trate de», ambiente con «que sea»/«con un tono» y tempo explícito o BPM.
+- La extracción no infiere ambiente ni género por palabras sueltas fuera de una construcción clara; cada campo ya reconocido se guarda para evitar volver a preguntarlo.
+- La interpretación sigue siendo determinista y guiada, no una afirmación de razonamiento generativo cuando Gemma no está cargado.
+- Los tests cubren la separación género/tema, idioma, ambiente, ritmo, instrumental y BPM.

@@ -90,6 +90,15 @@ class ConversacionGuiadaTest {
     }
 
     @Test
+    fun recognizesExplicitBpmNotation() {
+        val parsed = BardoIntentRouter.extractProvidedFields(
+            "Una canción para correr a 120 BPM, estilo synthwave"
+        )
+        assertEquals("120 BPM", parsed["ritmo"])
+        assertEquals("synthwave", parsed["estilo"])
+    }
+
+    @Test
     fun doesNotInferCreativeFieldsFromUnlabelledAmbiguousWords() {
         assertEquals(
             emptyMap<String, String>(),
