@@ -96,7 +96,10 @@ class BardoCapabilityRegistryTest {
                 audioEnginePresent = true,
                 mp3EncoderPresent = true,
                 launchableAppCount = 42,
-                assistantAppCount = 1,
+                assistantAppCount = 4,
+                activeVoiceAssistantCount = 1,
+                speechRecognitionAppCount = 2,
+                ttsEngineCount = 1,
                 probableAiAppCount = 3,
                 registeredModuleCount = 7
             )
@@ -104,10 +107,13 @@ class BardoCapabilityRegistryTest {
 
         assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, inventory.status)
         assertTrue(inventory.detail.contains("42"))
-        assertTrue(inventory.detail.contains("1"))
+        assertTrue(inventory.detail.contains("4"))
+        assertTrue(inventory.detail.contains("asistentes de voz activos: 1"))
+        assertTrue(inventory.detail.contains("motores de reconocimiento: 2"))
+        assertTrue(inventory.detail.contains("motores TTS: 1"))
         assertTrue(inventory.detail.contains("3"))
         assertTrue(inventory.detail.contains("7"))
-        assertTrue(inventory.detail.contains("componentes de asistente declarados"))
+        assertTrue(inventory.detail.contains("componentes de asistente/voz detectados"))
         assertTrue(inventory.detail.contains("módulos internos"))
     }
 
