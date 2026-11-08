@@ -1581,3 +1581,42 @@ CLASIFICACIÓN
 - Instalación, estabilidad, Gemma conversacional, OCR real, generación/escucha de audio, rendimiento térmico/RAM, biblioteca y autonomía end-to-end en el Xiaomi: PENDIENTE.
 - Voz cantada generativa, separación de stems y mastering profesional: NO IMPLEMENTADOS; no confundirlos con grabación/mezcla de voz o procesado básico existente.
 
+
+
+76. INVENTARIO DE APLICACIONES, ASISTENTES, MOTORES DE VOZ Y HABILIDADES BARDO — 2026-11-08
+
+CAMBIOS IMPLEMENTADOS EN MAIN
+- HEAD de código al registrar esta entrada: b774ed1858b570cccbb67684bc29f9bbb4debcfb.
+- Se añadió BardoDeviceInventory.kt como inventario local de solo lectura: fabricante/modelo, versión Android/API, ABI, RAM total/disponible, low-memory, almacenamiento interno total/disponible y listado de apps lanzables visibles.
+- Las aplicaciones lanzables incluyen etiqueta, packageName, versionName, versionCode y si Android las marca como apps de sistema.
+- Se añadieron consultas específicas en AndroidManifest.xml para MAIN/LAUNCHER, ACTION_ASSIST, VoiceInteractionService, RecognitionService y TTS_SERVICE. No se añadió QUERY_ALL_PACKAGES.
+- El inventario de asistentes/servicios distingue: actividades ACTION_ASSIST; VoiceInteractionService y su estado activo cuando VoiceInteractionService.isActiveService lo confirma; motores RecognitionService; motores TTS. Se muestran packageName y versión. Un motor ASR/TTS no se considera IA generativa.
+- Se añadieron candidatos de apps de IA por nombre/paquete (ChatGPT/OpenAI, Gemini, Copilot, Claude, Perplexity, Grok, DeepSeek, Qwen, Mistral, NotebookLM, Poe, Bixby, Alexa, Meta AI, etc.). Es un filtro heurístico sobre apps visibles, no certificación.
+- MainActivity.mostrarCapacidades() presenta el registro de capacidades, catálogo de módulos internos BardoModuleCatalog, estado runtime de cada capacidad, apps y servicios externos detectados y limitaciones de Android. Los módulos se describen con procedencia/licencia y requisito de modelo cuando existe; no se confunde registro en código con disponibilidad funcional.
+- RuntimeFacts incorpora contadores de apps lanzables, asistentes/servicios, servicio de voz activo, reconocimiento, TTS, candidatos IA y módulos internos. Se añadió test específico de esos contadores a BardoCapabilityRegistryTest.kt.
+- La lista externa no puede descubrir las skills/plugins/modelos privados de otras aplicaciones; PackageManager solo expone componentes declarados y visibles. Se respeta la privacidad del resto de apps.
+
+ERRORES DE CI Y CORRECCIONES
+- Los primeros workflows del ciclo detectaron secuencias de salto de línea literales en MainActivity.kt, que rompían los imports y argumentos Kotlin. Se corrigió el texto y la representación de saltos de línea.
+- Full build #337, run ID 42512582216, sobre SHA 959600bdd1e568565e4c6ee217643aa307c2f7a5, falló en compileDebugKotlin: SpannableStringBuilder.append() no admite directamente Int/Long. Se cambiaron contadores, versionCode y RAM a conversiones explícitas .toString() en commit 18eb4b033fe4d4460f56bb40ee570b6cd20c7130.
+- Validación #490, run ID 42512927019, terminó SUCCESS sobre SHA 18eb4b033fe4d4460f56bb40ee570b6cd20c7130: Gitleaks sobre historial, lint de workflows, tests unitarios y compilación debug.
+- Build integral #338, run ID 42512926915, sobre ese SHA, pasó tests unitarios y preparación NDK/CMake, PyTorch headers y checkout ExecuTorch; al registrar esta entrada seguía en «Build full APK with on-device audio model». No se declara firmado/publicado.
+- Validación #492, run ID 42513041061, terminó SUCCESS sobre el HEAD más reciente b774ed1858b570cccbb67684bc29f9bbb4debcfb: escaneo de historial, lint, tests unitarios y compilación debug.
+- Build integral #340, run ID 42513040977, asociado al SHA b774ed1858b570cccbb67684bc29f9bbb4debcfb, estaba pending/esperando runner al registrar esta entrada. No se ha confirmado nueva APK, auditoría, firma ni Release desde este ciclo.
+- El commit b774ed1 añade también versiones para asistentes/motores que no tienen launcher visible y ajusta la explicación de detección de asistente activo.
+
+PROTECCIONES Y ACEPTACIÓN
+- Modo3MezclaVozUsuario.kt conserva el blob SHA protegido 8f2745fa841a06af43bf909732fba834474bf7dc.
+- No se modificaron secretos, clave/certificado de firma, workflows de seguridad ni aprobación humana.
+- La comparación de cambios funcionales frente al baseline 105e84bc52314ededa9d1e6b13600aa826a653ea muestra únicamente cinco rutas: AndroidManifest.xml, MainActivity.kt, BardoDeviceInventory.kt (nuevo), BardoCapabilityRegistry.kt y BardoCapabilityRegistryTest.kt.
+- Estado: inventario y UI implementados en código; CI #492 SUCCESS; build integral final #340 pendiente; no hay nueva Release verificable todavía.
+
+PENDIENTE DE PRUEBA FÍSICA EN XIAOMI 11T PRO
+1. Abrir «Capacidades de BARDO», comparar el número y nombres de apps con el lanzador, revisar paquetes, versiones y distinción sistema/usuario.
+2. Verificar reconocimiento de asistente activo, ACTION_ASSIST, VoiceInteractionService, motores ASR y TTS expuestos por MIUI/Android; registrar exactamente qué devuelve el teléfono.
+3. Comparar candidatos IA heurísticos con apps instaladas; corregir coincidencias sin ampliar permisos indiscriminadamente.
+4. Confirmar que modelos opcionales (Gemma, Bonsai, Vosk) aparecen como disponibles solo si están importados, verificados y cargables; distinguir modelo detectado de ejecución real.
+5. Comprobar el scroll/lectura del inventario completo, especialmente si hay muchas apps.
+6. Continuar con build #340, firma, auditoría, artefacto y Release. No pedir instalar hasta que haya APK completa y publicada con SHA y certificado verificados.
+7. Tras instalar la futura APK, comprobar RAM, temperatura, estabilidad, SAF y funciones offline reales. CI no sustituye estas pruebas.
+

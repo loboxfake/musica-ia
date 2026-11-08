@@ -735,3 +735,25 @@ El usuario reitera que el asistente debe actualizar ambos maestros antes de inic
 - La APK integral incluye los assets locales del modelo de audio Stable Audio y las bibliotecas nativas ARM64; Gemma conversacional sigue siendo un modelo separado que el usuario ya tiene en Descargas/BARDO/Modelos y debe importarse/verificarse desde el dispositivo sin duplicar ni borrar el original.
 - La actualización de estos maestros registra evidencia de CI y distribución, no cambia el alcance de capacidades pendientes ni autoriza a declarar terminada la fase de aceptación.
 
+
+
+29. INVENTARIO TRANSPARENTE DE CAPACIDADES, ASISTENTES Y SERVICIOS INSTALADOS — 2026-11-08
+
+OBJETIVO FUNCIONAL
+- La pantalla «Capacidades de BARDO» debe mostrar qué puede hacer BARDO, qué módulos/habilidades figuran en su catálogo, qué modelos opcionales están realmente presentes y qué aplicaciones/servicios externos Android permite detectar.
+- Separar siempre cuatro estados: registrado en código, instalado/detectado en el dispositivo, bloqueado por modelo/recursos/permisos y probado funcionalmente. La existencia de una entrada de catálogo no certifica que la función se ejecute.
+- Inventariar aplicaciones lanzables visibles con etiqueta, packageName, versionName, versionCode y marca de app de sistema/usuario.
+- Detectar asistentes y servicios Android mediante interfaces públicas: ACTION_ASSIST, VoiceInteractionService (incluyendo consulta del servicio activo cuando Android lo exponga), RecognitionService y TTS. Mostrar paquete y versión cuando sea posible.
+- Listar candidatos a aplicaciones IA externas mediante coincidencias de nombre/paquete, claramente marcadas como detección heurística y no como verificación de IA o de sus funciones.
+- Mostrar el catálogo interno de módulos y capacidades de BARDO junto a su disponibilidad runtime, requisitos de modelo, recursos y estado de implementación.
+- Mantener el inventario en modo solo lectura. No abrir otras apps, no ejecutar código de terceros, no alterar paquetes, ni leer datos privados.
+
+LÍMITES Y PRIVACIDAD
+- Android restringe la visibilidad de paquetes. Usar consultas declarativas específicas en <queries>; no solicitar QUERY_ALL_PACKAGES para conseguir una lista indiscriminada.
+- BARDO puede detectar las actividades y servicios públicos declarados y expuestos por PackageManager, pero no leer las skills, plugins, extensiones, memoria, modelos privados ni catálogo interno de capacidades de otra app. No existe una API general de Android que certifique esas funciones privadas.
+- RecognitionService y TTS son motores de reconocimiento/síntesis de voz; no deben presentarse por sí mismos como asistentes generativos. ACTION_ASSIST y VoiceInteractionService identifican compatibilidad declarada; solo señalar un asistente de voz activo si la API pública de Android lo confirma.
+- La detección de apps IA por texto en el nombre es orientativa y puede omitir apps o producir falsos positivos. Nunca asegurar que una app es IA solo por la coincidencia.
+
+GOBIERNO
+- Este inventario no amplía permisos ni modifica protecciones. Modo3MezclaVozUsuario.kt, firma, secretos, workflow de seguridad y aprobación humana permanecen protegidos.
+- Las pruebas CI acreditan compilación y tests; los resultados de inventario real, permisos, asistentes instalados y rendimiento requieren verificación en el Xiaomi 11T Pro.
