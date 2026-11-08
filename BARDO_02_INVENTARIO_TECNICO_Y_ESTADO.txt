@@ -1268,3 +1268,17 @@ No declarar la fase cerrada solo por CI verde; la prueba física en Xiaomi 11T P
 - Corrección adicional detectada por CI: el valor canónico «ambas (voz e instrumental)» supera 24 caracteres; el límite de longitud del campo tipo se amplió a 40 para no descartar una normalización válida.
 
 - La previsualización distingue correctamente la salida Bonsai IA (512×512) de la portada procedural (1024×1024), evitando etiquetar una imagen generada por IA como diseño sin IA.
+
+
+62. ESTADO CI, OCR BILINGÜE Y NAVEGACIÓN VISUAL — 2026-11-08
+
+Inspección sobre main, HEAD 635e8ad74a9645c1c52cb1c27b66b57a5895dc93:
+- BARDO integration validation #430 / run 42479779488: SUCCESS. Pasaron Gitleaks del historial, actionlint, testDebugUnitTest y compileDebug.
+- Build full offline APK #280 / run 42479779538: FAILURE en :app:lintVitalAnalyzeRelease. Los tests unitarios, compilación nativa ExecuTorch y tareas Kotlin/recursos previas terminaron correctamente; la tarea de Release Lint se detuvo por IncompatibleClassChangeError en androidx.lifecycle.lint.NonNullableMutableLiveDataDetector: «Found class org.jetbrains.kotlin.analysis.api.resolution.KaCallableMemberCall, but interface was expected». No se firmó APK, no se ejecutó auditoría final y no se publicó Release para este SHA.
+- Diagnóstico: incompatibilidad del detector Lint con la API de análisis Kotlin usada en el proyecto (Kotlin Gradle Plugin 2.2.21 y AGP 8.7.0); no es un error de OCR ni una prueba de fallo de la lógica de BARDO. La corrección debe actualizar la versión de Lint de forma compatible y volver a ejecutar el build integral; no desactivar la auditoría general ni ocultar errores.
+- El último código contiene BardoOcrImporter con reconocedor latino bundled más reconocedores chino, devanagari, japonés y coreano. El reconocedor latino cubre texto en español e inglés; ambos comparten escritura latina. La implementación actual ejecuta los cinco reconocedores por imagen/PDF/vídeo y debe revisarse para evitar trabajo y latencia innecesarios, manteniendo fallback multiescritura y cierre de recursos.
+- La UI ya tiene navImagenes y seccionImagenes, pero tabsDisponibles omite la clave «images»; por ello la pestaña no queda integrada completamente en la personalización de visibilidad y orden. Añadirla al catálogo de navegación y revisar la correspondencia de IDs y persistencia de preferencias.
+- Requisito fijado: OCR mínimo español e inglés, offline y sin prometer detección de idioma (la escritura latina compartida no permite deducir por sí sola si el texto es español o inglés). Mantener scripts adicionales como capacidad aparte, condicionada a sus modelos.
+- La pestaña Imágenes debe quedar separada de Crear y Biblioteca y admitir portada vinculada a canción/disco e imagen libre solicitada a BARDO. El código ya tiene la sección visual y entrada independiente; revisar flujo, etiquetas y navegación configurable.
+- Último commit de HEAD: 635e8ad74a9645c1c52cb1c27b66b57a5895dc93. Modo3MezclaVozUsuario.kt sigue protegido con blob SHA-1 8f2745fa841a06af43bf909732fba834474bf7dc; no modificar.
+- No existe APK integral instalable para el HEAD inspeccionado. La prueba física en Xiaomi 11T Pro y la escucha de WAV continúan pendientes.
