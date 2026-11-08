@@ -1205,3 +1205,11 @@ No declarar la fase cerrada solo por CI verde; la prueba física en Xiaomi 11T P
 - Modo3 protegido: SHA-1 esperado 8f2745fa841a06af43bf909732fba834474bf7dc. No editarlo.
 - Mantener main como única rama; commits normales fast-forward únicamente; no force push/reset; secretos de firma no se alteran.
 - Criterio de cierre técnico de esta fase: testDebugUnitTest, assembleDebug, build offline completa, auditoría de APK/firma y workflows SUCCESS sobre el mismo SHA final. Aun así, instalación/ejecución en Xiaomi 11T Pro, calidad OCR multiescritura, uso térmico/RAM y escucha real de WAV quedan pendientes hasta prueba física.
+
+
+55. REPARACIÓN DE DISTRIBUCIÓN GRADLE Y DIÁLOGO BILINGÜE — 2026-11-08
+- Los workflows sobre bd5bf0b fallaron antes de ejecutar Gradle: downloads.gradle.org redirigía a github.com, que respondía HTTP 504. La URL pasa al espejo Huawei para Gradle 8.10.2; se conserva el SHA-256 oficial fijado 31c55713e40233a8303827ceb42ca48a47267a0ad4bab9177123121e71524c26.
+- El diálogo musical conserva español/inglés por conversación, localiza preguntas y cambios de campos y admite aliases ingleses. El idioma de diálogo es independiente del idioma de la canción.
+- La generación de letras recibe una instrucción de salida inglesa o española según el campo Idioma; no afirma generación cuando Gemma no está instalado y verificado.
+- Los títulos de portada se conservan completos hasta 96 caracteres, se dibujan en hasta tres líneas y se rechaza el exceso de longitud en vez de truncarlo.
+- CI posterior a esta actualización queda pendiente. Criterio de cierre: tests, compileDebug, build offline firmada/auditada y ambos workflows SUCCESS sobre el mismo SHA. Instalación/uso en Xiaomi 11T Pro y escucha WAV siguen pendientes.

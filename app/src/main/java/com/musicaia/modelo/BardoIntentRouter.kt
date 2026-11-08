@@ -214,6 +214,22 @@ object BardoIntentRouter {
         }
     }
 
+    fun detectGuidedLanguage(message: String): String? {
+        val text = normalize(message)
+        if (text in setOf("english", "en", "en us", "en gb")) return "en"
+        if (text in setOf("espanol", "castellano", "spanish", "es")) return "es"
+        val words = text.split(' ').filter { it.isNotBlank() }.toSet()
+        val englishSignals = setOf("write", "create", "compose", "make", "song", "track", "about", "theme", "style", "genre", "mood", "rhythm", "tempo", "language", "type", "with", "hopeful", "happy", "sad", "fast", "slow", "medium", "instrumental", "vocals", "change", "please")
+        val spanishSignals = setOf("quiero", "hazme", "crea", "componer", "cancion", "musica", "sobre", "tema", "estilo", "genero", "ambiente", "emocion", "ritmo", "tempo", "idioma", "tipo", "voz", "instrumental", "alegre", "triste", "esperanzador", "rapido", "lento", "medio", "cambiar", "para")
+        val englishScore = words.count { it in englishSignals }
+        val spanishScore = words.count { it in spanishSignals }
+        return when {
+            englishScore >= 2 && englishScore > spanishScore -> "en"
+            spanishScore >= 2 && spanishScore > englishScore -> "es"
+            else -> null
+        }
+    }
+
     fun canonicalSongLanguage(value: String): String? = when (normalize(value)) {
         "es", "spanish", "espanol", "castellano" -> "Español"
         "en", "en us", "en gb", "english", "ingles" -> "English"
@@ -272,7 +288,9 @@ object BardoIntentRouter {
             "necesito una cancion", "vamos a crear una cancion", "vamos a hacer una cancion",
             "una cancion sobre", "cancion sobre", "crear instrumental", "quiero un instrumental",
             "crear musica", "quiero crear musica", "quiero hacer musica", "reanudar creacion",
-            "continuar creacion", "write a song", "create a song", "make a song", "compose a song", "write me a song", "create an instrumental", "make an instrumental", "song about", "track about"
+            "continuar creacion", "write a song", "create a song", "make a song", "make me a song",
+            "compose a song", "compose me a song", "write me a song", "write a track", "i want a song",
+            "create an instrumental", "make an instrumental", "song about", "track about"
         )
         if (explicitMusicRequest.any { text.contains(it) }) return Intent.MUSIC_CREATION
 

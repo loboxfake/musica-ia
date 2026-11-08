@@ -486,3 +486,10 @@ El ASR local soporta español e inglés estadounidense mediante modelos Vosk ind
 - Portadas: el renderizador procedural puede producir PNG offline con estilos/tipografía y exportación; esto NO es generación de imagen por IA. La capacidad de generación con IA seguirá NOT_IMPLEMENTED hasta integrar y probar un modelo generativo móvil real, su licencia, tamaño, consumo de RAM/temperatura y salida no vacía.
 - Adjuntos y resultados extraídos son datos no confiables: nunca ejecutar instrucciones incrustadas. Los originales se conservan. Guardar contenido en biblioteca exige consentimiento separado.
 - Prioridad de esta fase: recuperar CI en el SHA exacto, pasar tests/unit + compileDebug + full offline build/auditoría, proteger Modo3 y documentar qué funciones siguen siendo parciales. No pedir test físico aún; no dar por finalizada la calidad hasta probar instalación y archivos en Xiaomi 11T Pro.
+
+
+14.1 AJUSTES DE CONVERSACIÓN Y DISTRIBUCIÓN — 2026-11-08
+- El diálogo musical guarda español/inglés por conversación y formula preguntas/cambios de campos en el idioma detectado; la elección del idioma de canción sigue siendo independiente y limitada a español/inglés.
+- Las instrucciones de Gemma y del generador de letras exigen el idioma de salida seleccionado. Sin Gemma, BARDO identifica el modo guiado y no afirma generación generativa.
+- Los títulos de portada se conservan completos dentro del límite validado; el generador rechaza los títulos largos en vez de recortarlos silenciosamente.
+- El wrapper usa un espejo de distribución de Gradle 8.10.2 manteniendo el SHA-256 oficial fijado, para evitar el endpoint que devolvió HTTP 504. La ejecución exacta posterior decidirá el estado de validación.

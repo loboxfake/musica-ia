@@ -22,28 +22,29 @@ object BardoCoverArtGenerator {
     fun stableSeed(title: String, artist: String, concept: String, style: String): Int =
         listOf(title.trim(), artist.trim(), concept.trim(), style.trim()).joinToString("|").hashCode()
 
-    fun wrapTitle(title: String, maxCharacters: Int = 18): List<String> {
-        val words = title.trim().take(140).split(Regex("\\s+")).filter { it.isNotBlank() }
-        if (words.isEmpty()) return listOf("SIN TÍTULO")
+    fun wrapTitle(title: String, maxCharacters: Int = 32): List<String> {
+        val normalized = title.trim()
+        if (normalized.isEmpty()) return listOf("SIN TÍTULO")
+        require(normalized.length <= 96) { "El título de portada admite hasta 96 caracteres para evitar recortes." }
         val lines = mutableListOf<String>()
-        var current = ""
-        for (word in words) {
-            val candidate = if (current.isEmpty()) word else "$current $word"
-            if (candidate.length <= maxCharacters || current.isEmpty()) current = candidate
-            else {
-                lines.add(current)
-                current = word
+        var remaining = normalized
+        while (remaining.isNotEmpty() && lines.size < 3) {
+            var end = minOf(maxCharacters.coerceAtLeast(1), remaining.length)
+            if (end < remaining.length) {
+                val space = remaining.lastIndexOf(' ', end)
+                if (space > end / 2) end = space
             }
-            if (lines.size == 2) break
+            lines.add(remaining.substring(0, end).trim())
+            remaining = remaining.substring(end).trimStart()
         }
-        if (current.isNotEmpty() && lines.size < 3) lines.add(current)
-        return lines.take(3).map { it.take(28) }
+        require(remaining.isEmpty()) { "El título no cabe en tres líneas; acórtalo un poco." }
+        return lines
     }
 
     fun generate(output: File, title: String, artist: String, concept: String, style: String): File {
         require(title.isNotBlank()) { "Escribe el título de la canción o disco." }
-        require(title.length <= 140 && artist.length <= 100 && concept.length <= 500) {
-            "El título, artista o concepto supera el límite permitido."
+        require(title.length <= 96 && artist.length <= 100 && concept.length <= 500) {
+            "El título admite hasta 96 caracteres; el artista 100 y el concepto 500."
         }
         val selectedStyle = style.takeIf { it in STYLES } ?: STYLES.first()
         val random = Random(stableSeed(title, artist, concept, selectedStyle))
@@ -200,18 +201,19 @@ object BardoCoverArtGenerator {
         val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = 0xffffffff.toInt()
             textSize = when {
-                title.length > 42 -> 54f
-                title.length > 24 -> 68f
+                title.length > 72 -> 48f
+                title.length > 44 -> 56f
+                title.length > 24 -> 66f
                 else -> 84f
             }
             typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD)
             setShadowLayer(8f, 0f, 3f, 0xaa000000.toInt())
         }
-        var y = 760f
-        wrapTitle(title).take(2).forEach { line ->
-            while (titlePaint.measureText(line) > 870f && titlePaint.textSize > 42f) titlePaint.textSize -= 3f
+        var y = 700f
+        wrapTitle(title, 32).forEach { line ->
+            while (titlePaint.measureText(line) > 870f && titlePaint.textSize > 30f) titlePaint.textSize -= 2f
             canvas.drawText(line, 72f, y, titlePaint)
-            y += titlePaint.textSize * 1.08f
+            y += titlePaint.textSize * 1.16f
         }
         val artistPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = 0xffe9edf5.toInt()

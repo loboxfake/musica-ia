@@ -151,6 +151,15 @@ class ConversacionGuiadaTest {
     }
 
     @Test
+    fun detectsEnglishAndSpanishGuidedDialogueWithoutGuessingFromOneAmbiguousWord() {
+        assertEquals("en", BardoIntentRouter.detectGuidedLanguage("Write a song about hope"))
+        assertEquals("es", BardoIntentRouter.detectGuidedLanguage("Quiero una canción sobre esperanza"))
+        assertEquals("en", BardoIntentRouter.detectGuidedLanguage("English"))
+        assertEquals("es", BardoIntentRouter.detectGuidedLanguage("Español"))
+        assertNull(BardoIntentRouter.detectGuidedLanguage("I heard music yesterday"))
+    }
+
+    @Test
     fun completedFieldsCanBeChangedWithoutRestartingTheFlow() {
         val original = mapOf("tema" to "historia antigua", "estilo" to "pop")
         val updated = original + ("tema" to "superar obstáculos")

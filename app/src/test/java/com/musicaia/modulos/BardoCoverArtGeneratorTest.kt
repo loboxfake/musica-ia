@@ -21,10 +21,18 @@ class BardoCoverArtGeneratorTest {
     }
 
     @Test
-    fun longTitleIsWrappedIntoBoundedLines() {
-        val lines = BardoCoverArtGenerator.wrapTitle("Overcoming every obstacle and finding the light", 16)
+    fun longTitleIsPreservedAcrossAtMostThreeLines() {
+        val title = "Overcoming every obstacle and finding the light"
+        val lines = BardoCoverArtGenerator.wrapTitle(title, 16)
         assertTrue(lines.isNotEmpty())
         assertTrue(lines.size <= 3)
+        assertEquals(title, lines.joinToString(" "))
         assertTrue(lines.all { it.length <= 28 })
+    }
+
+    @Test
+    fun titleLongerThanThreeLineLimitIsRejectedInsteadOfTruncated() {
+        val error = runCatching { BardoCoverArtGenerator.wrapTitle("A".repeat(97)) }.exceptionOrNull()
+        assertTrue(error is IllegalArgumentException)
     }
 }
