@@ -33,6 +33,8 @@ object BardoDeviceInventory {
     data class AssistantEntry(
         val label: String,
         val packageName: String,
+        val versionName: String?,
+        val versionCode: Long,
         val activeVoiceInteractionService: Boolean,
         val handlesAssistAction: Boolean,
         val providesVoiceInteractionService: Boolean,
@@ -125,13 +127,17 @@ object BardoDeviceInventory {
         val packages = handlers + voiceServices + speechServices + ttsServices
         val labels = launchableApps.associate { it.packageName to it.label }
         return packages.map { packageName ->
-            val label = labels[packageName] ?: runCatching {
+            val metadata = launchableApps.firstOrNull { it.packageName == packageName }
+                ?: appEntry(pm, packageName)
+            val label = labels[packageName] ?: metadata?.label ?: runCatching {
                 val appInfo = getApplicationInfo(pm, packageName)
                 pm.getApplicationLabel(appInfo).toString()
             }.getOrDefault(packageName)
             AssistantEntry(
                 label = label.ifBlank { packageName },
                 packageName = packageName,
+                versionName = metadata?.versionName,
+                versionCode = metadata?.versionCode ?: 0L,
                 activeVoiceInteractionService = packageName in activeVoiceServices,
                 handlesAssistAction = packageName in handlers,
                 providesVoiceInteractionService = packageName in voiceServices,
