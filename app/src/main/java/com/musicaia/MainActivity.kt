@@ -2228,8 +2228,8 @@ private fun crearEstructuraCarpetaBardo() {
                 val recogidos = camposExtraidos.entries.joinToString(", ") { it.key + ": " + it.value }
                 "He guardado los datos que has indicado (" + recogidos + "). " + preguntaParaCampo(siguiente)
             } else {
-                val resumen = (camposRequeridos + camposOpcionales).joinToString("\\n") { "- $it: " + datosConver[it] }
-                "Resumen de la canción:\\n" + resumen + "\\n" + notaIA + "\\nEscribe 'crear' o cambia un campo indicando su nombre."
+                val resumen = (camposRequeridos + camposOpcionales).joinToString("\n") { "- $it: " + datosConver[it] }
+                "Resumen de la canción:\n" + resumen + "\n" + notaIA + "\nEscribe 'crear' o cambia un campo indicando su nombre."
             }
             responderConOrquestador(texto, mensaje)
             if (siguiente == null) findViewById<TextView>(R.id.navCrear).performClick()
