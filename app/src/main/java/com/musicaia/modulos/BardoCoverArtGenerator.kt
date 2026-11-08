@@ -188,7 +188,7 @@ object BardoCoverArtGenerator {
     private fun drawTypography(canvas: Canvas, title: String, artist: String, concept: String) {
         val shade = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             shader = LinearGradient(0f, 560f, 0f, SIZE.toFloat(),
-                intArrayOf(0x00000000, 0xdd000000.toInt()), Shader.TileMode.CLAMP)
+                intArrayOf(0x00000000, 0xdd000000.toInt()), null, Shader.TileMode.CLAMP)
         }
         canvas.drawRect(0f, 520f, SIZE.toFloat(), SIZE.toFloat(), shade)
         val label = Paint(Paint.ANTI_ALIAS_FLAG).apply {

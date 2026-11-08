@@ -5,7 +5,7 @@ import android.graphics.BitmapFactory
 import com.google.android.gms.tasks.Tasks
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.label.ImageLabeling
-import com.google.mlkit.vision.label.ImageLabelerOptions
+import com.google.mlkit.vision.label.defaults.ImageLabelerOptions
 import java.io.File
 import java.util.Locale
 import java.util.concurrent.TimeUnit
