@@ -1140,3 +1140,16 @@ Continuidad y límites:
 - Cada modelo se descarga por separado tras autorización y se verifica por tamaño y SHA-256. Directorios y ficheros temporales independientes evitan que un paquete reemplace al otro.
 - La salida y el historial indican el idioma elegido; guardar el texto como referencia requiere consentimiento separado.
 - La capacidad de cada idioma solo aparece disponible cuando su modelo local está instalado y validado. La transcripción real en ambos idiomas y en el Xiaomi sigue pendiente de pruebas físicas.
+
+
+53. CHAT MULTILINGÜE, OCR MULTIESCRITURA, VISIÓN Y PORTADAS — 2026-11-08
+- El chat general se instruye para responder en el idioma del mensaje más reciente; su calidad depende del modelo Gemma local y no se garantiza dominio de todas las lenguas.
+- La creación guiada de canciones/letras nuevas solo permite español e inglés. Los demás idiomas no permiten confirmar la creación.
+- Los adjuntos textuales/documentales conservan Unicode; el idioma no se limita a español/inglés cuando el formato puede extraer el texto.
+- ASR local sigue limitado a español e inglés estadounidense mediante modelos Vosk independientes.
+- OCR bundled offline cubre cinco scripts: latino, chino, devanagari, japonés y coreano. En imágenes se prueban los reconocedores disponibles; OCR de vídeo/PDF mantiene ruta latina para limitar CPU. No se afirma cobertura mundial.
+- Reconocimiento visual local por ML Kit Image Labeling: etiquetas generales y puntuaciones de confianza; no es interpretación completa de escena ni identificación de personas.
+- Portadas: BardoCoverArtGenerator compone PNG 1024×1024 a partir de título/artista/concepto y cinco estilos (Cosmos, Geometría, Aurora, Noir, Orgánico), con previsualización y guardado SAF. Es procedural/offline; generación por IA real sigue pendiente.
+- Los paquetes OCR adicionales y el modelo local de etiquetas visuales aumentarán el tamaño de APK; revisar informe de empaquetado firmado del nuevo SHA.
+- No se envían imágenes, documentos u OCR a servicios externos; no se ejecutan instrucciones incrustadas en adjuntos.
+- Pruebas físicas de Xiaomi 11T Pro, latencia, temperatura y escucha de WAV siguen pendientes.

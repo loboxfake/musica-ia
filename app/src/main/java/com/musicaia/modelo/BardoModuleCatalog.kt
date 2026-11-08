@@ -58,7 +58,8 @@ object BardoModuleCatalog {
         Descriptor("voice_synthesis", "Voz cantada", "voice_synthesis", null, null, "Pendiente", "MiVoz no integrada", true, false),
         Descriptor("stem_separation", "Separación de stems", "stem_separation", null, null, "En evaluación", "Demucs / UVR por investigar", true, false),
         Descriptor("mix_master", "Mezcla y masterización profesional", "mix_master", null, null, "Pendiente", "Procesamiento profesional no implementado", false, false),
-        Descriptor("cover_art", "Generación de portadas con IA", "cover_art", null, null, "Pendiente", "Modelo de imagen local no integrado", false, false)
+        Descriptor("cover_art_procedural", "Portadas gráficas offline", "cover_art_procedural", null, null, "Incluido", "Renderizador PNG 1024×1024, cinco estilos locales", false, true),
+        Descriptor("cover_art", "Generación de portadas con IA", "cover_art", null, null, "Pendiente", "Modelo generativo local no integrado", true, false)
     )
 
     fun descriptors(): List<Descriptor> = entries.toList()

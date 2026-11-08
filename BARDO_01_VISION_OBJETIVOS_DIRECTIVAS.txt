@@ -450,3 +450,14 @@ El flujo guiado puede recoger género, tema, ambiente, ritmo/BPM, idioma y tipo 
 
 13.5 TRANSCRIPCIÓN BILINGÜE
 El ASR local soporta español e inglés estadounidense mediante modelos Vosk independientes y selección explícita del usuario. BARDO recuerda la última elección, no afirma detección automática de idioma y no descarga modelos sin consentimiento. Cada modelo se verifica por tamaño y SHA-256 antes de instalarse. La existencia del modelo no demuestra aún la calidad de reconocimiento en el Xiaomi.
+
+
+13.6 ENTRADAS MULTILINGÜES, RECONOCIMIENTO VISUAL Y PORTADAS — 2026-11-08
+- El chat general debe intentar responder en el idioma del mensaje más reciente cuando Gemma lo maneje; si no entiende una lengua o fragmento, debe reconocerlo y pedir aclaración.
+- Los documentos y textos conservan Unicode y se analizan en cualquier idioma que el procesador de formato pueda leer; esto no significa traducción automática.
+- La creación guiada de canciones/letras nuevas está limitada por ahora a español e inglés. Los demás idiomas se rechazan explícitamente y BARDO vuelve a preguntar.
+- ASR offline permanece limitado a los modelos Vosk separados para español e inglés estadounidense; la elección sigue siendo explícita.
+- OCR offline en imágenes cubre scripts latino, chino, devanagari, japonés y coreano. No cubre todos los alfabetos ni todos los idiomas.
+- La clasificación visual offline usa etiquetas generales y confianza; no sustituye la comprensión completa de escenas ni identifica personas.
+- Se incluye un renderizador procedural de portadas PNG 1024×1024 con cinco estilos. Se presenta como diseño gráfico local, no como imagen generada por un modelo de IA.
+- La generación artística mediante un modelo local de difusión/imagen sigue pendiente hasta hallar un modelo compatible, licenciado y viable por RAM/temperatura para el hardware móvil objetivo.

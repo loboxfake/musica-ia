@@ -127,6 +127,9 @@ class BardoCapabilityRegistryTest {
         ).associateBy { it.id }
         assertEquals(BardoCapabilityRegistry.Status.NOT_IMPLEMENTED, items.getValue("voice_synthesis").status)
         assertEquals(BardoCapabilityRegistry.Status.NOT_IMPLEMENTED, items.getValue("mix_master").status)
+        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("image_recognition_labels").status)
+        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("image_ocr_multiscript").status)
+        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("cover_art_procedural").status)
         assertEquals(BardoCapabilityRegistry.Status.NOT_IMPLEMENTED, items.getValue("cover_art").status)
         assertTrue(items.getValue("self_install").detail.contains("403"))
         assertTrue(items.getValue("self_install").detail.contains("artefacto"))
