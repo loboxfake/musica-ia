@@ -64,6 +64,16 @@ jobs:
           test "$(jq -r '.conclusion' <<< "$validation")" = "success"
           test "$(jq -r '.head_sha' <<< "$validation")" = "$BASE_SHA"
           test "$(jq -r '.display_title' <<< "$validation")" = "BARDO candidate validation · $CANDIDATE_ID"
+
+      - name: Retrieve the immutable report from the validated run
+        uses: actions/download-artifact@v4
+        with:
+          name: bardo-candidate-validation-${{ inputs.candidate_id }}
+          path: ${{ runner.temp }}/bardo-validation
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.validation_run_id }}
+
       - name: Checkout main without exposing credentials to candidate code
         uses: actions/checkout@v4
         with:
@@ -102,6 +112,17 @@ jobs:
               raise SystemExit("BARDO_PATCH_SIZE_INVALID")
           pathlib.Path(sys.argv[1]).write_bytes(patch)
           PY
+          expected_patch_sha256="$(sed -nE 's/^Patch SHA-256: ([0-9a-f]{64})$/\1/p' "$RUNNER_TEMP/bardo-validation/candidate-validation-report.txt")"
+          actual_patch_sha256="$(sha256sum "$RUNNER_TEMP/bardo-approved.patch" | awk '{print $1}')"
+          test -n "$expected_patch_sha256" || {
+            echo "::error::Validation report has no exact patch digest."
+            exit 1
+          }
+          test "$actual_patch_sha256" = "$expected_patch_sha256" || {
+            echo "::error::The integration patch differs from the patch that passed validation."
+            exit 1
+          }
+          echo "Exact patch digest matches the successful validation artifact."
           git apply --check "$RUNNER_TEMP/bardo-approved.patch"
           git apply "$RUNNER_TEMP/bardo-approved.patch"
           python3 - <<'PY'
