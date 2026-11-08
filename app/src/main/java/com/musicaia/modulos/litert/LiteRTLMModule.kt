@@ -10,12 +10,18 @@ object LiteRTLMModule {
     const val COMMIT_SHA = "6e5c4f1e395deb959c494953478fa5cec4b8008f"
     const val MODEL_FILENAME = "gemma-4-E2B-it.litertlm"
     const val EXPECTED_SIZE_BYTES = 2_588_147_712L
-    const val EXPECTED_SHA256 = "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c1"
+    const val EXPECTED_SHA256 = "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
+    private val SHA256_PATTERN = Regex("^[0-9a-f]{64}$")
     const val MODEL_URL =
         "https://huggingface.co/$REPO/resolve/$COMMIT_SHA/$MODEL_FILENAME"
 
     fun modelFile(context: Context): File =
         File(File(context.filesDir, "models"), MODEL_FILENAME)
+
+    internal fun verificarIdentidadModelo(sizeBytes: Long, sha256: String): Boolean =
+        sizeBytes == EXPECTED_SIZE_BYTES &&
+            SHA256_PATTERN.matches(sha256) &&
+            sha256 == EXPECTED_SHA256
 
     fun verificarModelo(file: File): Boolean {
         if (!file.isFile || file.length() != EXPECTED_SIZE_BYTES) return false
@@ -29,7 +35,7 @@ object LiteRTLMModule {
             }
         }
         val actual = digest.digest().joinToString("") { "%02x".format(it) }
-        if (!actual.equals(EXPECTED_SHA256, ignoreCase = true)) {
+        if (!verificarIdentidadModelo(file.length(), actual)) {
             file.delete()
             return false
         }
