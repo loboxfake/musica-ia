@@ -139,7 +139,6 @@ class ConversacionGuiadaTest {
     }
 
     @Test
-    @Test
     fun completedFieldsCanBeChangedWithoutRestartingTheFlow() {
         val original = mapOf("tema" to "historia antigua", "estilo" to "pop")
         val updated = original + ("tema" to "superar obstáculos")
