@@ -1,6 +1,7 @@
 package com.musicaia.diagnostico
 
 import android.app.ActivityManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -9,14 +10,16 @@ import android.os.Build
 import android.os.Environment
 import android.os.StatFs
 import android.service.voice.VoiceInteractionService
+import android.speech.RecognitionService
+import android.speech.tts.TextToSpeech
 import java.util.Locale
 
 /**
  * Inventario local y de solo lectura del dispositivo.
  *
  * Android limita la visibilidad de paquetes. Se consultan aplicaciones con
- * actividad MAIN/LAUNCHER, receptores declarados de ACTION_ASSIST y el titular
- * de ROLE_ASSISTANT. No se usa QUERY_ALL_PACKAGES.
+ * actividad MAIN/LAUNCHER, manejadores de ACTION_ASSIST y servicios de voz
+ * (VoiceInteractionService, reconocimiento y TTS). No se usa QUERY_ALL_PACKAGES.
  */
 object BardoDeviceInventory {
     data class AppEntry(
@@ -30,8 +33,11 @@ object BardoDeviceInventory {
     data class AssistantEntry(
         val label: String,
         val packageName: String,
+        val activeVoiceInteractionService: Boolean,
         val handlesAssistAction: Boolean,
-        val providesVoiceInteractionService: Boolean
+        val providesVoiceInteractionService: Boolean,
+        val providesSpeechRecognition: Boolean,
+        val providesTextToSpeech: Boolean
     )
 
     data class Snapshot(
@@ -100,11 +106,21 @@ object BardoDeviceInventory {
         val handlers = queryActivities(pm, Intent(Intent.ACTION_ASSIST))
             .mapNotNull { it.activityInfo?.packageName }
             .toSet()
-        val voiceServices = queryVoiceInteractionServices(pm)
+
+        val voiceServiceInfos = queryIntentServices(pm, Intent(VoiceInteractionService.SERVICE_INTERFACE))
             .filter { it.serviceInfo?.permission == "android.permission.BIND_VOICE_INTERACTION" }
-            .mapNotNull { it.serviceInfo?.packageName }
-            .toSet()
-        val packages = handlers + voiceServices
+        val voiceServices = voiceServiceInfos.mapNotNull { it.serviceInfo?.packageName }.toSet()
+        val activeVoiceServices = voiceServiceInfos.filter { resolved ->
+            val service = resolved.serviceInfo ?: return@filter false
+            VoiceInteractionService.isActiveService(context, ComponentName(service.packageName, service.name))
+        }.mapNotNull { it.serviceInfo?.packageName }.toSet()
+
+        val speechServices = queryIntentServices(pm, Intent(RecognitionService.SERVICE_INTERFACE))
+            .mapNotNull { it.serviceInfo?.packageName }.toSet()
+        val ttsServices = queryIntentServices(pm, Intent(TextToSpeech.Engine.INTENT_ACTION_TTS_SERVICE))
+            .mapNotNull { it.serviceInfo?.packageName }.toSet()
+
+        val packages = handlers + voiceServices + speechServices + ttsServices
         val labels = launchableApps.associate { it.packageName to it.label }
         return packages.map { packageName ->
             val label = labels[packageName] ?: runCatching {
@@ -114,10 +130,13 @@ object BardoDeviceInventory {
             AssistantEntry(
                 label = label.ifBlank { packageName },
                 packageName = packageName,
+                activeVoiceInteractionService = packageName in activeVoiceServices,
                 handlesAssistAction = packageName in handlers,
-                providesVoiceInteractionService = packageName in voiceServices
+                providesVoiceInteractionService = packageName in voiceServices,
+                providesSpeechRecognition = packageName in speechServices,
+                providesTextToSpeech = packageName in ttsServices
             )
-        }.sortedBy { it.label.lowercase(Locale.ROOT) }
+        }.sortedWith(compareBy<AssistantEntry> { !it.activeVoiceInteractionService }.thenBy { it.label.lowercase(Locale.ROOT) })
     }
 
     private fun probableAiApps(apps: List<AppEntry>): List<AppEntry> {
@@ -140,15 +159,13 @@ object BardoDeviceInventory {
             pm.queryIntentActivities(intent, 0)
         }
 
-    private fun queryVoiceInteractionServices(pm: PackageManager): List<ResolveInfo> {
-        val intent = Intent(VoiceInteractionService.SERVICE_INTERFACE)
-        return if (Build.VERSION.SDK_INT >= 33) {
+    private fun queryIntentServices(pm: PackageManager, intent: Intent): List<ResolveInfo> =
+        if (Build.VERSION.SDK_INT >= 33) {
             pm.queryIntentServices(intent, PackageManager.ResolveInfoFlags.of(0L))
         } else {
             @Suppress("DEPRECATION")
             pm.queryIntentServices(intent, 0)
         }
-    }
 
     private fun appEntry(pm: PackageManager, packageName: String, resolvedLabel: String? = null): AppEntry? {
         val packageInfo = runCatching { getPackageInfo(pm, packageName) }.getOrNull() ?: return null
