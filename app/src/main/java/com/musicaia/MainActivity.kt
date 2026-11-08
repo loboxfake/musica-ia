@@ -24,6 +24,7 @@ import android.widget.ProgressBar
 import android.widget.SeekBar
 import android.widget.RadioGroup
 import android.widget.TextView
+import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -229,7 +230,7 @@ class MainActivity : AppCompatActivity() {
          if (uris.isNotEmpty()) prepararMezclaPistasWav(uris)
      }
 
- private val selectorGuardarMezclaPistas =
+ private val selectorGuardarMezclaPistas: ActivityResultLauncher<String> =
      registerForActivityResult(ActivityResultContracts.CreateDocument("audio/wav")) { uri ->
          val origen = mezclaPistasPendiente
          if (origen == null) {
