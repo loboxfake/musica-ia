@@ -48,7 +48,7 @@ class BardoArchiveDocumentImporterTest {
         val rtf = createTempFile(suffix = ".rtf")
         try {
             html.writeText("<html><script>secret()</script><h1>Título</h1><p>Contenido &amp; datos</p></html>")
-            rtf.writeText("{\\rtf1\\ansi Texto visible\\par Segundo párrafo}")
+            rtf.writeText("{\\rtf1\\ansi Texto visible\\par Segundo p\\'e1rrafo}", Charsets.ISO_8859_1)
             val htmlText = BardoArchiveDocumentImporter.extractHtml(html)
             val rtfText = BardoArchiveDocumentImporter.extractRtf(rtf)
             assertTrue(htmlText.contains("Título"))
