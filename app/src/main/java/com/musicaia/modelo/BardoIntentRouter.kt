@@ -16,6 +16,98 @@ object BardoIntentRouter {
 
     private val requiredCreationFields = listOf("tema", "estilo", "ambiente", "ritmo", "idioma", "tipo")
 
+    /**
+     * Extrae solo campos indicados explícitamente. No deduce estilo, emoción o ritmo
+     * a partir de palabras aisladas; los datos ambiguos permanecen para la pregunta guiada.
+     */
+    fun extractProvidedFields(message: String): Map<String, String> {
+        val result = linkedMapOf<String, String>()
+        val aliases = listOf(
+            "fuente\\s+de\\s+voz", "voz\\s+fuente", "tema", "estilo", "g[ée]nero",
+            "ambiente", "emoci[oó]n", "tono", "ritmo", "tempo", "idioma", "lengua", "tipo"
+        ).joinToString("|")
+        val labelled = Regex(
+            """(?i)\b($aliases)\b\s*(?::|=|\b(?:es|de|del)\b)?\s+(.+?)(?=(?:[,;.!?\n]|\s+\b(?:$aliases)\b\s*(?:[:=]|\s+))|$)"""
+        )
+        labelled.findAll(message).forEach { match ->
+            val alias = normalize(match.groupValues[1]).replace(Regex("\\s+"), " ")
+            val key = when (alias) {
+                "genero" -> "estilo"
+                "emocion", "tono" -> "ambiente"
+                "tempo" -> "ritmo"
+                "lengua" -> "idioma"
+                "fuente de voz", "voz fuente" -> "vozFuente"
+                else -> alias
+            }
+            val raw = match.groupValues[2].trim().trimEnd('.', '!', '?')
+                .replace(Regex("^(es|de|del|sobre|en|el|la|los|las|musical)\\s+", RegexOption.IGNORE_CASE), "")
+                .trim()
+            if (raw.isNotBlank()) result[key] = normalizeFieldValue(key, raw)
+        }
+
+        if ("tema" !in result) {
+            val theme = Regex(
+                """(?i)^\s*(?:(?:quiero|necesito|hazme|crea)\s+)?(?:una\s+)?canci[oó]n\s+(?:sobre|de)\s+(.+?)(?=[,;.!?\n]|$)"""
+            ).find(message)?.groupValues?.get(1)?.trim()
+            if (!theme.isNullOrBlank()) result["tema"] = theme
+        }
+
+        if ("idioma" !in result) {
+            val language = Regex(
+                """(?i)\b(?:en|idioma\s*[:=]?)\s*(español|castellano|inglés|ingles|francés|frances|italiano|portugués|portugues|alemán|aleman)\b"""
+            ).find(message)?.groupValues?.get(1)
+            if (!language.isNullOrBlank()) result["idioma"] = language
+        }
+
+        if ("tipo" !in result) {
+            val normalized = normalize(message)
+            val detectedType = when {
+                Regex("""\b(ambas|voz e instrumental|voz e instrumentales)\b""").containsMatchIn(normalized) ->
+                    "ambas (voz e instrumental)"
+                Regex("""\b(solo instrumental|instrumental sin voz|sin voz|sin canto)\b""").containsMatchIn(normalized) ->
+                    "solo instrumental"
+                Regex("""\bcon voz\b""").containsMatchIn(normalized) -> "voz"
+                else -> null
+            }
+            if (detectedType != null) result["tipo"] = detectedType
+        }
+
+        if ("tipo" in result && isInstrumentalOnlyType(result["tipo"].orEmpty())) {
+            result["vozFuente"] = "ninguna"
+        } else if ("vozFuente" !in result) {
+            val normalized = normalize(message)
+            val source = when {
+                Regex("""\b(voz grabada|voz propia grabada|grabare mi voz|grabacion propia)\b""").containsMatchIn(normalized) -> "grabada"
+                Regex("""\b(archivo de voz|voz en un archivo|fichero de voz|importar voz)\b""").containsMatchIn(normalized) -> "archivo"
+                Regex("""\b(sin voz|ninguna voz|no quiero voz)\b""").containsMatchIn(normalized) -> "ninguna"
+                else -> null
+            }
+            if (source != null) result["vozFuente"] = source
+        }
+        return result
+    }
+
+    private fun normalizeFieldValue(key: String, value: String): String {
+        if (key == "vozFuente") {
+            val normalized = normalize(value)
+            return when {
+                normalized.contains("ningun") || normalized.contains("sin voz") || normalized == "no" -> "ninguna"
+                normalized.contains("archivo") || normalized.contains("fichero") || normalized.contains("importar") -> "archivo"
+                normalized.contains("grabad") || normalized.contains("grabar") -> "grabada"
+                else -> value
+            }
+        }
+        if (key == "tipo") {
+            return when {
+                isInstrumentalOnlyType(value) -> "solo instrumental"
+                normalize(value).contains("ambas") || normalize(value).contains("voz e instrumental") ->
+                    "ambas (voz e instrumental)"
+                else -> value
+            }
+        }
+        return value
+    }
+
     /** Devuelve el primer dato obligatorio pendiente; voz solo se solicita cuando se eligió voz. */
     fun nextRequiredField(values: Map<String, String>): String? {
         requiredCreationFields.firstOrNull { values[it].isNullOrBlank() }?.let { return it }

@@ -45,6 +45,44 @@ class ConversacionGuiadaTest {
     }
 
     @Test
+    fun extractsSeveralExplicitCreativeFieldsFromOneMessage() {
+        val parsed = BardoIntentRouter.extractProvidedFields(
+            "Una canción sobre superar obstáculos, estilo: rock alternativo, ambiente: esperanzador, " +
+                "ritmo: rápido, idioma: español, tipo: solo instrumental"
+        )
+        assertEquals("superar obstáculos", parsed["tema"])
+        assertEquals("rock alternativo", parsed["estilo"])
+        assertEquals("esperanzador", parsed["ambiente"])
+        assertEquals("rápido", parsed["ritmo"])
+        assertEquals("español", parsed["idioma"])
+        assertEquals("solo instrumental", parsed["tipo"])
+        assertEquals("ninguna", parsed["vozFuente"])
+    }
+
+    @Test
+    fun extractsVoiceSourceOnlyWhenTheMessageClearlyProvidesIt() {
+        val parsed = BardoIntentRouter.extractProvidedFields(
+            "Tema: valentía; género: pop; emoción: optimista; tempo: medio; lengua: español; " +
+                "tipo: ambas; fuente de voz: grabada"
+        )
+        assertEquals("valentía", parsed["tema"])
+        assertEquals("pop", parsed["estilo"])
+        assertEquals("optimista", parsed["ambiente"])
+        assertEquals("medio", parsed["ritmo"])
+        assertEquals("español", parsed["idioma"])
+        assertEquals("ambas (voz e instrumental)", parsed["tipo"])
+        assertEquals("grabada", parsed["vozFuente"])
+    }
+
+    @Test
+    fun doesNotInferCreativeFieldsFromUnlabelledAmbiguousWords() {
+        assertEquals(
+            emptyMap<String, String>(),
+            BardoIntentRouter.extractProvidedFields("He escuchado rock y me siento optimista.")
+        )
+    }
+
+    @Test
     fun completedFieldsCanBeChangedWithoutRestartingTheFlow() {
         val original = mapOf("tema" to "historia antigua", "estilo" to "pop")
         val updated = original + ("tema" to "superar obstáculos")

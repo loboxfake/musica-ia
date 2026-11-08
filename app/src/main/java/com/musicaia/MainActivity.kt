@@ -2175,6 +2175,25 @@ private fun crearEstructuraCarpetaBardo() {
     }
 
     val lower = texto.lowercase()
+    val camposExtraidos = BardoIntentRouter.extractProvidedFields(texto)
+    camposExtraidos.forEach { (clave, valor) -> datosConver[clave] = valor }
+    if (camposExtraidos.containsKey("tipo")) {
+        val tipoDetectado = camposExtraidos.getValue("tipo")
+        if (BardoIntentRouter.isInstrumentalOnlyType(tipoDetectado)) {
+            datosConver["vozFuente"] = "ninguna"
+            val promptInstrumental = listOf(
+                "Tema: " + datosConver["tema"].orEmpty(),
+                "Estilo: " + datosConver["estilo"].orEmpty(),
+                "Ambiente: " + datosConver["ambiente"].orEmpty(),
+                "Ritmo: " + datosConver["ritmo"].orEmpty(),
+                "Idioma: " + datosConver["idioma"].orEmpty()
+            ).filterNot { it.substringAfter(": ").isBlank() }.joinToString(". ")
+            editPromptInstrumental.setText(promptInstrumental)
+            grupoModo.check(R.id.modoInstrumental)
+        } else {
+            grupoModo.check(R.id.modoConversacion)
+        }
+    }
     if (lower in listOf("crear", "crear canción", "crear cancion", "sí", "si", "continuar")) {
         val faltan = camposRequeridos.filter { datosConver[it].isNullOrBlank() } + listOfNotNull(if ((datosConver["tipo"].orEmpty().contains("voz", true) || datosConver["tipo"].orEmpty().contains("ambas", true)) && datosConver["vozFuente"].isNullOrBlank()) "vozFuente" else null)
         if (faltan.isNotEmpty()) {
@@ -2198,9 +2217,24 @@ private fun crearEstructuraCarpetaBardo() {
     val campo = when (campoExplicito) {
         "voz" -> "vozFuente"
         else -> campoExplicito
-    } ?: siguienteCampoPendiente()
+    } ?: if (camposExtraidos.isEmpty()) siguienteCampoPendiente() else null
 
     if (campo == null) {
+        if (camposExtraidos.isNotEmpty()) {
+            guardarPreferenciasCreativas()
+            actualizarUI()
+            val siguiente = siguienteCampoPendiente()
+            val mensaje = if (siguiente != null) {
+                val recogidos = camposExtraidos.entries.joinToString(", ") { it.key + ": " + it.value }
+                "He guardado los datos que has indicado (" + recogidos + "). " + preguntaParaCampo(siguiente)
+            } else {
+                val resumen = (camposRequeridos + camposOpcionales).joinToString("\\n") { "- $it: " + datosConver[it] }
+                "Resumen de la canción:\\n" + resumen + "\\n" + notaIA + "\\nEscribe 'crear' o cambia un campo indicando su nombre."
+            }
+            responderConOrquestador(texto, mensaje)
+            if (siguiente == null) findViewById<TextView>(R.id.navCrear).performClick()
+            return
+        }
         responderConOrquestador(texto, "Los datos creativos ya están completos. El chat está en modo guiado; escribe 'crear' para iniciar o indica el campo que quieres cambiar.")
         return
     }
