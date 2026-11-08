@@ -327,6 +327,105 @@ class BardoGitHubActionsClient(private val token: String) {
         return matches.maxByOrNull { it.createdAt }
     }
 
+    /**
+     * Downloads an immutable source archive for the current main tip.
+     * The fine-grained token is sent only to api.github.com; the codeload
+     * redirect is host-checked and is fetched without Authorization.
+     */
+    fun downloadMainSourceSnapshot(destination: java.io.File): Pair<String, java.io.File> {
+        val commitJson = JSONObject(request("GET", "/commits/main", null, setOf(200)))
+        val sourceSha = commitJson.optString("sha")
+        BardoGitHubPolicy.validateBaseSha(sourceSha)
+
+        val temporary = java.io.File(destination.parentFile ?: throw IOException("Falta carpeta de destino."),
+            destination.name + ".part")
+        temporary.parentFile?.let { check(it.isDirectory || it.mkdirs()) { "No se pudo crear la carpeta del snapshot." } }
+        temporary.delete()
+
+        var apiConnection: HttpURLConnection? = null
+        var archiveConnection: HttpURLConnection? = null
+        try {
+            val archiveEndpoint = URL("$API_ROOT/zipball/$sourceSha")
+            apiConnection = (archiveEndpoint.openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = 20000
+                readTimeout = 60000
+                instanceFollowRedirects = false
+                setRequestProperty("Accept", "application/vnd.github+json")
+                setRequestProperty("Authorization", "Bearer $token")
+                setRequestProperty("X-GitHub-Api-Version", "2022-11-28")
+                setRequestProperty("User-Agent", "BARDO-Developer/1.0")
+            }
+            val apiStatus = apiConnection.responseCode
+            val archiveUrl = when (apiStatus) {
+                HttpURLConnection.HTTP_MOVED_TEMP,
+                HttpURLConnection.HTTP_MOVED_PERM,
+                307,
+                308 -> {
+                    val location = apiConnection.getHeaderField("Location")
+                        ?: throw IOException("GitHub no devolvió la URL del archivo fuente.")
+                    val redirected = URL(archiveEndpoint, location)
+                    require(redirected.protocol.equals("https", true) &&
+                        redirected.host.equals("codeload.github.com", true) &&
+                        (redirected.port == -1 || redirected.port == 443)) {
+                        "GitHub devolvió un destino de descarga no permitido."
+                    }
+                    redirected
+                }
+                HttpURLConnection.HTTP_OK -> archiveEndpoint
+                else -> throw IOException("GitHub no pudo preparar el snapshot (HTTP $apiStatus).")
+            }
+
+            val input = if (apiStatus == HttpURLConnection.HTTP_OK) {
+                apiConnection.inputStream
+            } else {
+                apiConnection.disconnect()
+                apiConnection = null
+                archiveConnection = (archiveUrl.openConnection() as HttpURLConnection).apply {
+                    requestMethod = "GET"
+                    connectTimeout = 20000
+                    readTimeout = 60000
+                    instanceFollowRedirects = false
+                    setRequestProperty("Accept", "application/zip")
+                    setRequestProperty("User-Agent", "BARDO-Developer/1.0")
+                    // Never forward the GitHub PAT to codeload.github.com.
+                }
+                val downloadStatus = archiveConnection.responseCode
+                if (downloadStatus != HttpURLConnection.HTTP_OK) {
+                    throw IOException("No se pudo descargar el snapshot de GitHub (HTTP $downloadStatus).")
+                }
+                archiveConnection.inputStream
+            }
+
+            input.use { source ->
+                temporary.outputStream().buffered().use { output ->
+                    val buffer = ByteArray(64 * 1024)
+                    var total = 0L
+                    while (true) {
+                        val count = source.read(buffer)
+                        if (count < 0) break
+                        total += count
+                        require(total <= 50L * 1024L * 1024L) {
+                            "El ZIP de fuentes supera el límite comprimido de 50 MB."
+                        }
+                        output.write(buffer, 0, count)
+                    }
+                    output.flush()
+                }
+            }
+            check(temporary.isFile && temporary.length() > 0L) { "GitHub devolvió un ZIP vacío." }
+            if (destination.exists()) check(destination.delete()) { "No se pudo sustituir el snapshot temporal anterior." }
+            check(temporary.renameTo(destination)) { "No se pudo publicar el ZIP temporal del snapshot." }
+            return sourceSha to destination
+        } catch (error: Throwable) {
+            temporary.delete()
+            throw error
+        } finally {
+            apiConnection?.disconnect()
+            archiveConnection?.disconnect()
+        }
+    }
+
     private fun parseRun(item: JSONObject): BardoGitHubRun = BardoGitHubRun(
         id = item.optLong("id"),
         status = item.optString("status"),
