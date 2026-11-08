@@ -991,6 +991,9 @@ private fun crearEstructuraCarpetaBardo() {
              imageResourceBlockReason = BardoResourceBudget.blockingReason(this, BardoCapabilityRegistry.MIN_IMAGE_GENERATION_FREE_MEMORY_BYTES),
              launchableAppCount = device.apps.size,
              assistantAppCount = device.assistantApps.size,
+             activeVoiceAssistantCount = device.assistantApps.count { it.activeVoiceInteractionService },
+             speechRecognitionAppCount = device.assistantApps.count { it.providesSpeechRecognition },
+             ttsEngineCount = device.assistantApps.count { it.providesTextToSpeech },
              probableAiAppCount = device.probableAiApps.size,
              registeredModuleCount = modulos.size
          )
