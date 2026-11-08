@@ -1299,12 +1299,8 @@ private fun crearEstructuraCarpetaBardo() {
          if (usuario) marginStart = dp(7) else marginEnd = dp(7)
      }
      if (!usuario && !sistema) {
-         fila.addView(ImageView(this).apply {
-             setImageResource(R.mipmap.ic_launcher_foreground)
-             background = getDrawable(R.drawable.bg_brand_orb)
-             setPadding(dp(4), dp(4), dp(4), dp(4))
-             scaleType = ImageView.ScaleType.FIT_CENTER
-             contentDescription = "BARDO"
+         fila.addView(BardoAvatarView(this).apply {
+             contentDescription = "Icono original de BARDO"
          }, avatarParams)
      }
      fila.addView(

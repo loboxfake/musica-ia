@@ -57,10 +57,10 @@ The visual refinement uses quieter ink-navy surfaces, thin cool borders, a more 
 The user's confirmed model location is Downloads/BARDO/Modelos. The UI offers linking/importing that existing model and does not initiate another download. SAF permission remains required by Android; the original model file is preserved.
 
 
-## BARDO avatar — first chat integration
+## BARDO avatar — original launcher icon
 
-The main chat uses the actual launcher foreground artwork as BARDO's avatar, preserving the feather, musical notes, gold detail, cyan and violet identity. A lightweight activity ring and status dot distinguish observable states: idle, listening/typing, reading chat, studying/importing a file, thinking, responding, generating, waiting, completed and attention/error.
+The user's explicit preference is that BARDO's avatar be the complete, unmodified official application icon. The avatar renders `R.mipmap.ic_launcher` itself, preserving the original feather, musical notes, border, colors and BARDO wordmark. Do not create a separate character or add an outer ring, status dot, frame, particles, colored backing or other decoration.
 
-The avatar is deliberately a status representation, not a claim of consciousness or human emotion. Its state is driven by chat input, scroll activity, local response flow, attachment analysis and the audio task service. A low-amplitude pulse runs only while an active state is visible; it stops when the view is hidden, detached or the window is not visible. The main chat remains usable if animation is unavailable.
+Functional reactions remain: idle, receiving text, reading, studying/importing, thinking, responding, generating, waiting, completed and attention/error. The state is exposed in separate accessible status text; it is never drawn over or baked into the logo. While active, the original icon may make a very subtle scale pulse (1.8% maximum). In idle and terminal success/error states it remains still. Animation respects Android's animator setting and pauses when the view or window is hidden or detached. No other visual effect changes the artwork.
 
-Future BARDO self-evolution may propose avatar, interface, code, skill and capability improvements through isolated diffs, previews, objective tests and rollback. Integration still follows the existing approval and protected-file rules.
+The same complete icon is used beside BARDO's chat messages. The avatar is a functional status signal, not a claim of consciousness or human emotion. Future BARDO self-evolution may propose optional avatar behaviour or UI changes, but must preserve the official icon as the default identity and use previews, objective tests, resource/accessibility impact and rollback through the existing approval process.
