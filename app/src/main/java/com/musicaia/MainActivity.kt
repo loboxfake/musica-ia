@@ -1683,22 +1683,11 @@ private fun crearEstructuraCarpetaBardo() {
  private fun iniciarTranscripcionAdjuntoAudio(
      nombre: String, mime: String, archivo: File, taskId: String, metadata: String
  ) {
-     if (gemmaInferenceEnCurso || deteccionGemmaExternaEnCurso) {
-         tvEstado.text = "Gemma está ocupado. Espera a que termine antes de cargar el reconocedor de audio."
-         anexarChat("\nBARDO: No he iniciado la transcripción para evitar cargar dos modelos a la vez.")
-         return
-     }
      val estadoAudio = getSharedPreferences(BardoTaskService.PREFS, MODE_PRIVATE)
          .getString(BardoTaskService.KEY_STATE, "").orEmpty()
      if (estadoAudio == "running") {
          tvEstado.text = "Hay una tarea de audio activa. La transcripción esperará a que termine."
          anexarChat("\nBARDO: No he iniciado la transcripción mientras el motor musical está ocupado.")
-         return
-     }
-     val bloqueo = BardoResourceBudget.blockingReason(this, 1024L * 1024L * 1024L)
-     if (bloqueo != null) {
-         tvEstado.text = bloqueo
-         anexarChat("\nBARDO: No he iniciado el ASR para proteger la RAM, batería y temperatura del teléfono: " + bloqueo)
          return
      }
      BardoActivityStore.record(this, taskId, "analisis_audio", "running", "transcripcion_offline_es",
@@ -1708,6 +1697,11 @@ private fun crearEstructuraCarpetaBardo() {
          Thread({
              val resultado = runCatching {
                  val appContext = applicationContext
+                 // Gemma se libera antes de calcular el presupuesto real de memoria para ASR.
+                 val bloqueo = BardoResourceBudget.blockingReason(appContext, 1024L * 1024L * 1024L)
+                 require(bloqueo == null) {
+                     bloqueo ?: "Los recursos disponibles no permiten ejecutar el ASR de forma segura."
+                 }
                  val modelDir = if (BardoOfflineAsr.isModelInstalled(appContext)) BardoOfflineAsr.modelDirectory(appContext)
                  else BardoOfflineAsr.downloadAndInstall(appContext) { porcentaje ->
                      runOnUiThread {
@@ -1808,10 +1802,11 @@ private fun crearEstructuraCarpetaBardo() {
          BardoActivityStore.record(this, taskIdAdjunto, "importacion", "running", "ocr_video", "BARDO está muestreando fotogramas y leyendo texto visible; no interpreta la escena ni el audio.", 10, destino.absolutePath)
          Thread({
              val extraccion = runCatching { com.musicaia.importacion.BardoOcrImporter.extractVideo(destino) }
+             // MediaExtractor inspecciona el contenedor fuera del hilo de interfaz.
+             val contieneAudio = BardoOfflineAsr.hasAudioTrack(destino)
              runOnUiThread {
                  if (isFinishing || isDestroyed) return@runOnUiThread
                  val textoVideo = extraccion.getOrNull().orEmpty()
-                 val contieneAudio = BardoOfflineAsr.hasAudioTrack(destino)
                  if (textoVideo.isBlank()) {
                      val error = extraccion.exceptionOrNull()?.message ?: "No se encontró texto en los fotogramas muestreados."
                      BardoActivityStore.record(this, taskIdAdjunto, "analisis_video",
