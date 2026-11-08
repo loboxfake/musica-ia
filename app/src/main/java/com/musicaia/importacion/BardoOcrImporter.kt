@@ -52,7 +52,7 @@ object BardoOcrImporter {
             "El vídeo debe existir y ocupar como máximo 100 MB."
         }
         val retriever = MediaMetadataRetriever()
-        val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+        val recognizers = createMultiscriptRecognizers()
         try {
             retriever.setDataSource(file.absolutePath)
             val duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
@@ -69,7 +69,7 @@ object BardoOcrImporter {
                     val bitmap = scaled(original)
                     if (bitmap !== original) original.recycle()
                     try {
-                        val text = recognize(bitmap, recognizer)
+                        val text = recognizeMultiscript(bitmap, recognizers)
                         if (text.isNotBlank()) append("[Fotograma aprox. ").append(timestampMs / 1000L)
                             .append(" s]\n").append(text).append('\n')
                     } finally {
@@ -78,7 +78,7 @@ object BardoOcrImporter {
                 }
             }.trim()
         } finally {
-            recognizer.close()
+            closeRecognizers(recognizers)
             retriever.release()
         }
     }
@@ -88,7 +88,7 @@ object BardoOcrImporter {
             "El OCR de PDF escaneado admite hasta 100 páginas."
         }
         val renderer = PDFRenderer(document)
-        val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+        val recognizers = createMultiscriptRecognizers()
         try {
             val pages = minOf(document.numberOfPages, 10)
             return buildString {
@@ -97,7 +97,7 @@ object BardoOcrImporter {
                     val bitmap = scaled(original)
                     if (bitmap !== original) original.recycle()
                     try {
-                        val text = recognize(bitmap, recognizer)
+                        val text = recognizeMultiscript(bitmap, recognizers)
                         if (text.isNotBlank()) append("[Página ").append(page + 1).append("]\n")
                             .append(text).append('\n')
                     } finally {
@@ -106,44 +106,44 @@ object BardoOcrImporter {
                 }
             }.trim()
         } finally {
-            recognizer.close()
+            closeRecognizers(recognizers)
         }
     }
 
+    private fun createMultiscriptRecognizers(): List<Pair<String, TextRecognizer>> = listOf(
+        "latino" to TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS),
+        "chino" to TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build()),
+        "devanagari" to TextRecognition.getClient(DevanagariTextRecognizerOptions.Builder().build()),
+        "japones" to TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build()),
+        "coreano" to TextRecognition.getClient(KoreanTextRecognizerOptions.Builder().build())
+    )
+
+    private fun closeRecognizers(recognizers: List<Pair<String, TextRecognizer>>) {
+        recognizers.forEach { runCatching { it.second.close() } }
+    }
+
     private fun recognizeMultiscript(bitmap: Bitmap): String {
-        val image = InputImage.fromBitmap(bitmap, 0)
-        val recognizers = buildList<Pair<String, TextRecognizer>> {
-            add("latino" to TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS))
-            add("chino" to TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build()))
-            add("devanagari" to TextRecognition.getClient(DevanagariTextRecognizerOptions.Builder().build()))
-            add("japones" to TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build()))
-            add("coreano" to TextRecognition.getClient(KoreanTextRecognizerOptions.Builder().build()))
+        val recognizers = createMultiscriptRecognizers()
+        return try {
+            recognizeMultiscript(bitmap, recognizers)
+        } finally {
+            closeRecognizers(recognizers)
         }
-        try {
-            val outputs = mutableListOf<String>()
+    }
+
+    private fun recognizeMultiscript(bitmap: Bitmap, recognizers: List<Pair<String, TextRecognizer>>): String {
+        val image = InputImage.fromBitmap(bitmap, 0)
+        val outputs = mutableListOf<String>()
             recognizers.forEach { (script, recognizer) ->
                 val text = runCatching {
                     Tasks.await(recognizer.process(image), 8, TimeUnit.SECONDS).text.trim()
                 }.getOrDefault("")
                 if (text.isNotBlank()) outputs.add("[$script]\n$text")
             }
-            return outputs.distinctBy {
-                it.substringAfter('\n').lowercase(java.util.Locale.ROOT)
-                    .replace(Regex("\\s+"), " ").trim()
-            }.joinToString("\n\n").take(240000)
-        } finally {
-            recognizers.forEach { runCatching { it.second.close() } }
-        }
-    }
-
-    private fun recognize(bitmap: Bitmap): String {
-        val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-        return try { recognize(bitmap, recognizer) } finally { recognizer.close() }
-    }
-
-    private fun recognize(bitmap: Bitmap, recognizer: TextRecognizer): String {
-        val image = InputImage.fromBitmap(bitmap, 0)
-        return Tasks.await(recognizer.process(image), 45, TimeUnit.SECONDS).text
+        return outputs.distinctBy {
+            it.substringAfter('\n').lowercase(java.util.Locale.ROOT)
+                .replace(Regex("\\s+"), " ").trim()
+        }.joinToString("\n\n").take(240000)
     }
 
     private fun scaled(bitmap: Bitmap): Bitmap {
