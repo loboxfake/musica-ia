@@ -51,12 +51,12 @@ object BardoDeviceInventory {
     ) {
         val summary: String
             get() = buildString {
-                append("Fabricante/modelo: ").append(manufacturer).append(' ').append(model).append('\\n')
-                append("Android: ").append(androidRelease).append(" (API ").append(sdk).append(")\\n")
-                append("ABI: ").append(supportedAbis.joinToString().ifBlank { "no declarada" }).append('\\n')
+                append("Fabricante/modelo: ").append(manufacturer).append(' ').append(model).append('\n')
+                append("Android: ").append(androidRelease).append(" (API ").append(sdk).append(")\n")
+                append("ABI: ").append(supportedAbis.joinToString().ifBlank { "no declarada" }).append('\n')
                 append("RAM total/libre: ").append(gib(totalRamBytes)).append(" / ").append(gib(availableRamBytes)).append(" GiB")
-                append(if (lowMemory) " · Android indica memoria baja" else "").append('\\n')
-                append("Almacenamiento interno total/libre: ").append(gib(totalStorageBytes)).append(" / ").append(gib(availableStorageBytes)).append(" GiB").append('\\n')
+                append(if (lowMemory) " · Android indica memoria baja" else "").append('\n')
+                append("Almacenamiento interno total/libre: ").append(gib(totalStorageBytes)).append(" / ").append(gib(availableStorageBytes)).append(" GiB").append('\n')
                 append("Apps lanzables visibles: ").append(apps.size).append(" · asistentes Android declarados: ").append(assistantApps.size)
                 append(" · posibles apps IA por nombre: ").append(probableAiApps.size)
             }
