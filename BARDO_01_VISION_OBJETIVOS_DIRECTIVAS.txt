@@ -539,3 +539,14 @@ El ASR local soporta español e inglés estadounidense mediante modelos Vosk ind
 - Reconocimiento de imágenes adjuntas y generación de imágenes son capacidades separadas. El análisis visual depende de los reconocedores disponibles; no afirmar comprensión universal de cualquier imagen.
 
 - La APK integral debe comprobar que el artefacto Stable Audio siga vigente; una ejecución histórica en verde con artefacto caducado no es suficiente. Si falta, solicitar una nueva exportación fijada en main y esperar su artefacto verificado.
+
+
+15. OCR BILINGÜE Y ESPACIO VISUAL INDEPENDIENTE — 2026-11-08
+
+- Requisito mínimo obligatorio de OCR: español e inglés. Ambos idiomas utilizan escritura latina y deben procesarse localmente con el reconocedor latino bundled de ML Kit, sin depender de red ni exigir dos modelos distintos.
+- El OCR debe extraer texto visible, conservar acentos, signos y Unicode, y devolver únicamente lo reconocido. No debe confundir OCR con traducción ni con identificación automática del idioma del texto.
+- Se mantiene el soporte adicional para chino, devanagari, japonés y coreano únicamente donde los reconocedores bundled estén integrados y disponibles. No se promete OCR universal.
+- «Imágenes» es un espacio de trabajo de primer nivel, separado de Crear música y Biblioteca. Debe estar incluido en la configuración de navegación/reordenación/visibilidad; no puede desaparecer de la personalización por faltar en el catálogo de pestañas.
+- Desde Imágenes se permite solicitar a BARDO una imagen independiente y crear una portada vinculada a una canción/disco ya existente. Los resultados deben distinguir modelo IA local Bonsai de diseño procedural offline, con etiqueta veraz.
+- La interfaz debe mostrar el estado real del modelo, memoria necesaria, progreso, errores y opciones de guardar. La pestaña no autoriza a presentar el modelo como descargado o probado si no lo está.
+- La integración actual debe preservar el modo offline, no enviar adjuntos a la nube y no modificar el archivo protegido Modo3MezclaVozUsuario.kt.
