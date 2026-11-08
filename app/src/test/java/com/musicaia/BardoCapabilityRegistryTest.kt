@@ -74,6 +74,7 @@ class BardoCapabilityRegistryTest {
         assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("chat_attachments").status)
         assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("user_authorized_learning").status)
         assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("wav_mastering_basic").status)
+        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("mix_wav_basic").status)
         assertEquals(BardoCapabilityRegistry.Status.NEEDS_MODEL, items.getValue("speech_transcription_es").status)
         assertEquals(BardoCapabilityRegistry.Status.REQUIRES_USER_ACTION, items.getValue("research").status)
         assertEquals(BardoCapabilityRegistry.Status.REQUIRES_USER_ACTION, items.getValue("project_build").status)

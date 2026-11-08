@@ -90,6 +90,8 @@ class MainActivity : AppCompatActivity() {
  private var rutaAudio: String? = null
  private var rutaExportacion: String? = null
  private var rutaMasterizadoPendiente: String? = null
+ private var mezclaPistasPendiente: File? = null
+ @Volatile private var mezclaPistasEnCurso = false
  private var rutaExportacionTemporal = false
  private var rutaMp3Compartir: String? = null
  private var rutaVoz: String? = null
@@ -219,6 +221,29 @@ class MainActivity : AppCompatActivity() {
  private val selectorMasterizarWav =
      registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
          if (uri != null) procesarWavParaMasterizar(uri)
+     }
+
+ private val selectorMezclarPistasWav =
+     registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+         if (uris.isNotEmpty()) prepararMezclaPistasWav(uris)
+     }
+
+ private val selectorGuardarMezclaPistas =
+     registerForActivityResult(ActivityResultContracts.CreateDocument("audio/wav")) { uri ->
+         val origen = mezclaPistasPendiente
+         mezclaPistasPendiente = null
+         if (uri == null || origen == null) origen?.parentFile?.deleteRecursively()
+         else Thread({
+             val error = runCatching {
+                 val output = contentResolver.openOutputStream(uri) ?: error("No se pudo abrir el destino.")
+                 output.use { target -> origen.inputStream().buffered().use { it.copyTo(target) } }
+             }.exceptionOrNull()
+             origen.parentFile?.deleteRecursively()
+             runOnUiThread {
+                 if (!isFinishing && !isDestroyed) tvEstado.text =
+                     if (error == null) "Mezcla WAV estéreo guardada." else "No se pudo guardar la mezcla: " + error.message
+             }
+         }, "BARDO-Save-Multitrack-WAV").start()
      }
 
  private val selectorGuardarMasterizado =
@@ -550,6 +575,10 @@ class MainActivity : AppCompatActivity() {
  findViewById<Button>(R.id.btnBibliotecaImportar).setOnClickListener { selectorImportarAudioBiblioteca.launch(arrayOf("audio/mpeg", "audio/wav")) }
  findViewById<Button>(R.id.btnMasterizarWav).setOnClickListener {
      selectorMasterizarWav.launch(arrayOf("audio/wav", "audio/x-wav", "audio/*"))
+ }
+ findViewById<Button>(R.id.btnMezclarPistasWav).setOnClickListener {
+     if (mezclaPistasEnCurso) tvEstado.text = "Ya hay una mezcla WAV en curso."
+     else selectorMezclarPistasWav.launch(arrayOf("audio/wav", "audio/x-wav"))
  }
  btnDescargarModelo.setOnClickListener { seleccionarModeloLocal() }
  btnGrabar.setOnClickListener { solicitarMicrofonoYAlternar() }
@@ -2074,6 +2103,139 @@ private fun crearEstructuraCarpetaBardo() {
              }.onFailure { anexarChat("\\nBARDO: No pude guardar la ficha: ${it.message}") }
          }.show()
  }
+
+
+ private fun prepararMezclaPistasWav(uris: List<Uri>) {
+     if (uris.size !in 2..8) { tvEstado.text = "Selecciona entre 2 y 8 pistas WAV."; return }
+     if (mezclaPistasEnCurso) return
+     mezclaPistasEnCurso = true
+     tvEstado.text = "Importando pistas WAV..."
+     Thread({
+         var cleanup: File? = null
+         val result = runCatching {
+             val session = File(File(cacheDir, "bardo_multitrack"), "session-" + System.currentTimeMillis())
+             check(session.mkdirs()) { "No se pudo crear la sesión temporal." }
+             cleanup = session
+             var total = 0L
+             val sources = uris.mapIndexed { index, uri ->
+                 val name = contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+                     ?.use { if (it.moveToFirst()) it.getString(0) else null } ?: "pista-\${index + 1}.wav"
+                 val file = File(session, "source-\${index + 1}.wav")
+                 val input = contentResolver.openInputStream(uri) ?: error("No se pudo abrir " + name)
+                 input.use { source ->
+                     FileOutputStream(file).use { output ->
+                         val buffer = ByteArray(65536); var trackBytes = 0L
+                         while (true) {
+                             val n = source.read(buffer); if (n < 0) break
+                             trackBytes += n; total += n
+                             require(trackBytes <= com.musicaia.modulos.BardoWavMultitrackMixer.MAX_TRACK_BYTES) { "Pista supera 25 MB: " + name }
+                             require(total <= com.musicaia.modulos.BardoWavMultitrackMixer.MAX_TOTAL_INPUT_BYTES) { "Las pistas superan 100 MB." }
+                             output.write(buffer, 0, n)
+                         }
+                         output.fd.sync()
+                     }
+                 }
+                 name to file
+             }
+             session to sources
+         }
+         runOnUiThread {
+             mezclaPistasEnCurso = false
+             if (isFinishing || isDestroyed) { cleanup?.deleteRecursively(); return@runOnUiThread }
+             result.onSuccess { (session, sources) -> mostrarConfiguracionMezclaPistas(session, sources) }
+                 .onFailure { error ->
+                     cleanup?.deleteRecursively()
+                     tvEstado.text = "No se pudieron importar las pistas: " + error.message
+                 }
+         }
+     }, "BARDO-Import-WAV-Tracks").start()
+ }
+
+ private fun mostrarConfiguracionMezclaPistas(session: File, sources: List<Pair<String, File>>) {
+     data class C(val file: File, val gain: SeekBar, val pan: SeekBar)
+     val scroll = ScrollView(this)
+     val panel = LinearLayout(this).apply {
+         orientation = LinearLayout.VERTICAL
+         val p = (16 * resources.displayMetrics.density).toInt(); setPadding(p,p,p,p)
+     }
+     panel.addView(TextView(this).apply {
+         text = "Mezcla PCM16 estéreo · misma frecuencia · originales intactos. Ganancia -24 a +6 dB; panorama L/R. Pico objetivo -1 dBFS (no true-peak)."
+     })
+     val controls = mutableListOf<C>()
+     sources.forEachIndexed { index, source ->
+         panel.addView(TextView(this).apply { text = "\${index + 1}. \${source.first}" })
+         val gain = SeekBar(this).apply { max = 30; progress = 24 }
+         val pan = SeekBar(this).apply { max = 200; progress = 100 }
+         val summary = TextView(this)
+         fun update() {
+             val g = gain.progress - 24; val p = pan.progress - 100
+             val side = when { p <= -95 -> "izquierda"; p >= 95 -> "derecha"; p in -5..5 -> "centro"; p < 0 -> "izquierda \${-p}%"; else -> "derecha \${p}%" }
+             summary.text = "Ganancia: \${g} dB · Panorama: \${side}"
+         }
+         val l = object : SeekBar.OnSeekBarChangeListener {
+             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) = update()
+             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+         }
+         gain.setOnSeekBarChangeListener(l); pan.setOnSeekBarChangeListener(l); update()
+         panel.addView(TextView(this).apply { text = "Ganancia" }); panel.addView(gain)
+         panel.addView(TextView(this).apply { text = "Panorama" }); panel.addView(pan); panel.addView(summary)
+         controls += C(source.second, gain, pan)
+     }
+     scroll.addView(panel)
+     val dialog = AlertDialog.Builder(this).setTitle("Configurar \${sources.size} pistas WAV")
+         .setView(scroll).setNegativeButton("Cancelar", null).setPositiveButton("Mezclar WAV", null).create()
+     var submitted = false
+     dialog.setOnDismissListener { if (!submitted) session.deleteRecursively() }
+     dialog.setOnShowListener {
+         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+             val tracks = controls.map { c ->
+                 com.musicaia.modulos.BardoWavMultitrackMixer.Track(c.file, (c.gain.progress - 24).toDouble(), (c.pan.progress - 100) / 100.0)
+             }
+             submitted = true; dialog.dismiss(); iniciarMezclaPistasWav(session, sources, tracks)
+         }
+     }
+     dialog.show()
+ }
+
+ private fun iniciarMezclaPistasWav(
+     session: File, sources: List<Pair<String, File>>,
+     tracks: List<com.musicaia.modulos.BardoWavMultitrackMixer.Track>
+ ) {
+     mezclaPistasEnCurso = true
+     tvEstado.text = "Mezclando pistas WAV localmente..."
+     val output = File(session, "mezcla-estereo.wav")
+     val taskId = java.util.UUID.randomUUID().toString()
+     BardoActivityStore.record(this, taskId, "mezcla_multipista_basica", "running", "mix_pcm16_stereo", "Mezcla offline de \${tracks.size} pistas.", 10, session.absolutePath)
+     Thread({
+         val result = runCatching { com.musicaia.modulos.BardoWavMultitrackMixer.mix(tracks, output) }
+         sources.forEach { it.second.delete() }
+         runOnUiThread {
+             mezclaPistasEnCurso = false
+             if (isFinishing || isDestroyed) { session.deleteRecursively(); return@runOnUiThread }
+             result.onSuccess { mix ->
+                 BardoActivityStore.record(this, taskId, "mezcla_multipista_basica", "completed", "mix_pcm16_stereo",
+                     "Mezcla WAV verificada; \${mix.trackCount} pistas; originales intactos.", 100, output.absolutePath)
+                 mezclaPistasPendiente = output
+                 val duration = mix.frames.toDouble() / mix.sampleRate
+                 val report = "Mezcla estéreo verificada.\\n\\nPistas: \${mix.trackCount}\\nFrecuencia: \${mix.sampleRate} Hz\\nDuración: " +
+                     String.format(java.util.Locale.ROOT, "%.2f", duration) + " s\\nPico antes: " +
+                     String.format(java.util.Locale.ROOT, "%.2f", mix.peakBeforeDbfs) + " dBFS\\nPico después: " +
+                     String.format(java.util.Locale.ROOT, "%.2f", mix.peakAfterDbfs) + " dBFS\\nSin EQ, automatización ni true-peak mastering."
+                 AlertDialog.Builder(this).setTitle("Mezcla WAV básica lista").setMessage(report)
+                     .setNegativeButton("Descartar") { _, _ -> mezclaPistasPendiente?.parentFile?.deleteRecursively(); mezclaPistasPendiente = null }
+                     .setPositiveButton("Guardar WAV") { _, _ -> selectorGuardarMezclaPistas.launch("BARDO-mezcla-estereo.wav") }
+                     .show()
+                 tvEstado.text = "Mezcla WAV completada; pendiente de guardar."
+             }.onFailure { error ->
+                 session.deleteRecursively()
+                 BardoActivityStore.record(this, taskId, "mezcla_multipista_basica", "failed", "mix_pcm16_stereo", error.message ?: "Error.", null, null)
+                 tvEstado.text = "No se pudo mezclar: " + error.message
+             }
+         }
+     }, "BARDO-WAV-Multitrack-Mix").start()
+ }
+
 
  private fun procesarWavParaMasterizar(uri: Uri) {
      tvEstado.text = "Copiando el WAV y preparando el procesado local..."

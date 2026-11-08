@@ -440,3 +440,7 @@ La importación de adjuntos de audio dispone de una nueva ruta de reconocimiento
 
 13.2 AUDIO DE VÍDEOS
 BARDO puede ofrecer una transcripción de habla en español de la pista de audio separada del OCR de fotogramas, si el contenedor y los códecs Android permiten decodificarla. El usuario autoriza de forma separada la descarga del modelo y el guardado de conocimiento. No debe presentarse este flujo como comprensión semántica del vídeo ni como análisis musical.
+
+
+13.3 MEZCLA WAV BÁSICA
+Herramienta offline no destructiva para sumar 2–8 pistas WAV PCM16, con ganancia y panorama por pista y exportación estéreo verificada. No sustituye un DAW, mezcla profesional, automatización, separación de stems ni mastering true-peak.

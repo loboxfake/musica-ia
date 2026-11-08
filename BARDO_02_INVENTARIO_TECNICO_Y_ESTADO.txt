@@ -1115,3 +1115,12 @@ Continuidad y límites:
 - SVG permanece en la ruta de texto/XML, no se envía al decodificador raster OCR.
 - Los MIME genéricos o desconocidos no se interpretan arbitrariamente: se conserva el fichero y se informa de la limitación.
 - Incluye pruebas para nombres sin extensión, parámetros MIME y formatos no reconocidos. La ejecución CI sobre el commit final queda pendiente.
+
+
+50. MEZCLA WAV MULTIPISTA BÁSICA — 2026-11-08
+
+- Mezclador local de 2–8 pistas WAV PCM16 mono/estéreo, salida estéreo, ganancia (-24 a +6 dB) y panorama por pista.
+- Frecuencia común requerida (8–96 kHz); no realiza remuestreo. Límite 25 MB por pista, 100 MB total y 5 minutos.
+- Procesamiento por bloques, normalización de pico digital objetivo -1 dBFS con subida limitada a +12 dB. No calcula true peak.
+- Nueva salida temporal verificada (RIFF, tamaño, formato, canales, frecuencia y frames); originales conservados.
+- No incluye automatización, EQ, compresión avanzada, stems, DAW ni mastering profesional. Pendiente de CI y escucha real en Xiaomi.
