@@ -15,7 +15,7 @@ class BardoWavMultitrackMixerTest {
         bb.put("RIFF".toByteArray(Charsets.US_ASCII)).putInt(36+size)
         bb.put("WAVE".toByteArray(Charsets.US_ASCII)).put("fmt ".toByteArray(Charsets.US_ASCII))
         bb.putInt(16).putShort(1).putShort(1).putInt(rate).putInt(rate*2).putShort(2).putShort(16)
-        bb.put("data".toByteArray(Charsets.US_ASCII)).putInt(size); samples.forEach(bb::putShort)
+        bb.put("data".toByteArray(Charsets.US_ASCII)).putInt(size); samples.forEach { sample -> bb.putShort(sample) }
         file.writeBytes(bb.array())
     }
 
@@ -48,7 +48,7 @@ class BardoWavMultitrackMixerTest {
         val bad=File(dir,"bad.wav")
         val output=File(dir,"output.wav")
         createWav(good,16000,shortArrayOf(1000,1000))
-        bad.writeBytes(ByteArray(64) { 0x41 })
+        bad.writeBytes(ByteArray(64) { 0x41.toByte() })
         assertThrows(IllegalArgumentException::class.java) {
             BardoWavMultitrackMixer.mix(
                 listOf(BardoWavMultitrackMixer.Track(good),BardoWavMultitrackMixer.Track(bad)),
