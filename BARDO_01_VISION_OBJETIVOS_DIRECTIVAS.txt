@@ -447,3 +447,6 @@ Herramienta offline no destructiva para sumar 2–8 pistas WAV PCM16, con gananc
 
 13.4 EXTRACCIÓN DE PREFERENCIAS
 El flujo guiado puede recoger género, tema, ambiente, ritmo/BPM, idioma y tipo de creación desde construcciones lingüísticas claras, incluso sin etiquetas. No debe inferir preferencias por palabras ambiguas aisladas. Debe conservar los campos ya respondidos y preguntar solo el siguiente pendiente.
+
+13.5 TRANSCRIPCIÓN BILINGÜE
+El ASR local soporta español e inglés estadounidense mediante modelos Vosk independientes y selección explícita del usuario. BARDO recuerda la última elección, no afirma detección automática de idioma y no descarga modelos sin consentimiento. Cada modelo se verifica por tamaño y SHA-256 antes de instalarse. La existencia del modelo no demuestra aún la calidad de reconocimiento en el Xiaomi.

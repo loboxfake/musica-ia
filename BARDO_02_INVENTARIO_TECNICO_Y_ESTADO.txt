@@ -1132,3 +1132,11 @@ Continuidad y límites:
 - La extracción no infiere ambiente ni género por palabras sueltas fuera de una construcción clara; cada campo ya reconocido se guarda para evitar volver a preguntarlo.
 - La interpretación sigue siendo determinista y guiada, no una afirmación de razonamiento generativo cuando Gemma no está cargado.
 - Los tests cubren la separación género/tema, idioma, ambiente, ritmo, instrumental y BPM.
+
+52. TRANSCRIPCIÓN EN ESPAÑOL E INGLÉS — 2026-11-08
+
+- El ASR offline ofrece modelos Vosk independientes: español vosk-model-small-es-0.42 e inglés estadounidense vosk-model-small-en-us-0.15.
+- El usuario elige el idioma antes de cada transcripción; BARDO recuerda la última elección, pero no afirma detección automática.
+- Cada modelo se descarga por separado tras autorización y se verifica por tamaño y SHA-256. Directorios y ficheros temporales independientes evitan que un paquete reemplace al otro.
+- La salida y el historial indican el idioma elegido; guardar el texto como referencia requiere consentimiento separado.
+- La capacidad de cada idioma solo aparece disponible cuando su modelo local está instalado y validado. La transcripción real en ambos idiomas y en el Xiaomi sigue pendiente de pruebas físicas.
