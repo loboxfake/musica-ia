@@ -1,5 +1,5 @@
 BARDO — VISIÓN, OBJETIVOS Y DIRECTIVAS
-Versión documental: 2026-11-07
+Versión documental: 2026-11-08
 Rama de trabajo: main (única rama canónica desde la consolidación de seis historiales del 2026-11-07)
 Estado: ESPECIFICACIÓN VIGENTE. Los objetivos no implican que estén implementados ni probados.
 
@@ -158,7 +158,7 @@ Obligaciones:
 - No declarar una instrucción como acuerdo aceptado si el usuario no la ha establecido o aprobado.
 - La respuesta de chat no sustituye el registro documental. Antes de cerrar una fase, comprobar que ambos documentos están actualizados en la rama de trabajo.
 - Si no se puede actualizar GitHub, comunicarlo claramente; no afirmar que los documentos se actualizaron.
-- Toda actualización documental se realiza en bardo-unified-core; no modificar main ni fusionar sin autorización expresa.
+- DIRECTIVA HISTÓRICA SUSTITUIDA por el apartado 24 (2026-11-07): la mención a bardo-unified-core como destino obligatorio de actualizaciones documentales ya no está vigente. La rama canónica y única es main; los dos maestros se actualizan allí mediante commits normales fast-forward, sin crear ramas paralelas ni reescribir historia.
 
 La petición del usuario del 2026-11-07 establece expresamente esta obligación como directiva permanente.
 
@@ -815,3 +815,34 @@ EVOLUCIÓN
 - Validación #499 y build integral #347 SUCCESS sobre 74f44506e60fbd5791d77fa8c48a429bd8417ff7.
 - Revisión adicional del inventario: corregir la clase WAV de UtilWav a AudioUtil, que es el nombre real del helper en el código.
 - No implica prueba funcional de Gemma, Stable Audio, OCR, ASR, Bonsai ni reproducción audible en Xiaomi; requieren prueba física.
+
+
+34. ESTADO CONSOLIDADO DE BARDO Y ALCANCE DEL AUTOINVENTARIO — 2026-11-08
+
+ACLARACIÓN VIGENTE DEL USUARIO
+- El autoinventario debe describir exclusivamente BARDO: su propio APK, código, modelos, motores, módulos, habilidades, skills/ayudantes internos, permisos y recursos. No debe enumerar aplicaciones de terceros ni intentar descubrir las capacidades privadas de otras aplicaciones.
+- La antigua propuesta de inventario de apps externas, asistentes Android, TTS/ASR externos y candidatos IA por nombre queda sustituida por el autoinventario propio descrito en los apartados 30–33 y por esta actualización. Se conserva la entrada antigua solo como historial.
+- No añadir QUERY_ALL_PACKAGES ni consultas de PackageManager para enumerar apps ajenas.
+
+AUTOCONOCIMIENTO INTERNO VIGENTE
+- BardoSelfInventory es la fuente del inventario de la instalación BARDO: identidad/versión, dispositivo y Android/API, ABI, RAM, memoria baja, almacenamiento privado libre, batería/carga, estado térmico, conexión SAF del espacio BARDO, modelos, ayudantes, catálogo de módulos y capacidades.
+- Los ayudantes se detectan por las clases del propio APK. Incluyen conversación local Gemma/LiteRT-LM; Orquestador, router y parser guiado; DeveloperCore/Worker; credenciales/política/cliente GitHub y PatchApplier; memoria, conocimiento, actividad y copias; generación Stable Audio; exportación MP3; ASR offline; OCR/PDF/Office; visión/clasificación; portadas procedurales; Bonsai; herramientas WAV; grabación/mezcla de voz propia; tareas en segundo plano; almacenamiento SAF y avatar.
+- El catálogo contiene ocho módulos: lyrics, instrumental, voice_synthesis, voice_mix_user, stem_separation, mix_master, cover_art_procedural y cover_art. Los ocho deben tener correspondencia en BardoCapabilityRegistry. La existencia en catálogo o de una clase no significa que la función esté operativa.
+- La capacidad voice_mix_user es distinta de voice_synthesis. La ruta activa de mezcla utiliza MezclaVoz.mezclar y LectorWav para procesar voz real aportada por el usuario. Modo3MezclaVozUsuario.kt permanece como adaptador legacy protegido y no se convierte en la ruta activa.
+- voice_synthesis (voz cantada generada por IA), stem_separation y la masterización profesional siguen NO IMPLEMENTADAS. Las portadas procedurales no se deben anunciar como generación de imágenes por IA.
+
+ESTADOS DE MODELOS Y LÍMITES
+- Gemma 4 E2B-it: el usuario ya tiene el archivo en Descargas/BARDO/Modelos. No duplicar descarga ni borrar el original. El inventario local comprueba la presencia y el tamaño de la copia privada; la huella SHA-256 fijada y la carga real deben validarse al importar/inicializar. No declarar conversación generativa hasta que LiteRT-LM cargue y responda de verdad.
+- Stable Audio Open Small: los artefactos del modelo y la biblioteca nativa están incluidos en la APK #348. El inventario comprueba los cuatro assets y la disponibilidad de AudioGenNative; eso no demuestra por sí solo una inferencia real, WAV correcto ni reproducción audible.
+- Vosk español/inglés: el inventario detecta la estructura de los modelos opcionales; una transcripción real con muestras de voz sigue pendiente.
+- Bonsai Image 4B: su instalador valida la revisión y los artefactos al instalar. La generación real, el consumo térmico y su viabilidad en el Xiaomi siguen pendientes.
+- ML Kit OCR/etiquetado visual: las bibliotecas están integradas; no equivale a haber probado documentos reales, OCR bilingüe efectivo ni comprensión visual general.
+
+AUTOINVESTIGACIÓN Y EVOLUCIÓN
+- BardoDeveloperWorker incorpora el snapshot de BardoSelfInventory a su contexto de autoestudio para que BARDO pueda inspeccionar qué componentes propios declara tener antes de analizar y proponer mejoras.
+- El resultado es autoconocimiento técnico y contexto de diagnóstico; no es entrenamiento de los pesos de Gemma ni aprendizaje autónomo ilimitado.
+- El agente puede analizar y preparar una propuesta/diff aislado. La ejecución de pruebas de un candidato, su integración automática sin aprobación y un ciclo autónomo end-to-end no se declaran completados. Se conservan la revisión y aprobación humana y las protecciones de archivos, firma, Secrets y Modo3.
+
+REGLA OPERATIVA
+- Mantener el autoinventario limitado a BARDO y refrescarlo al cambiar APK, modelos, permisos o recursos. Mostrar por separado código integrado, modelo incluido/descargado/verificado, runtime cargado, disponibilidad por recursos y prueba funcional real.
+- Los apartados históricos no se borran; esta entrada y el apartado 30 son la interpretación vigente cuando exista contradicción con la antigua propuesta de inventariar aplicaciones externas.

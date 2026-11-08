@@ -1,8 +1,9 @@
 BARDO — INVENTARIO TÉCNICO Y ESTADO REAL
 NOTA DE VIGENCIA (2026-11-07): Las entradas de inventario anteriores al apartado 46 son registros históricos fechados en su contexto. Las menciones de bardo-unified-core como rama de trabajo describen la etapa previa a la consolidación del commit 28332da4. Desde esa consolidación, main es la única rama activa. No interpretar los estados históricos como estado actual.
 
-Fecha de inspección: 2026-11-07
+Fecha de inspección: 2026-11-08
 Rama canónica de integración: main
+Baseline técnico completo de la última APK comprobada: commit 2051ce17d0e4bba273c5d4697c8b408f861482c4 (build #348). Esta revisión actualiza también los dos maestros; su commit documental posterior activa una nueva validación/build.
 Estado: inventario técnico; ninguna función se marca como probada en el Xiaomi hasta confirmación del usuario.
 
 1. REPOSITORIO Y CONTROL DE CAMBIOS
@@ -1682,3 +1683,46 @@ PENDIENTE
 - Ajuste posterior a auditoría de la lista de helpers: nombre correcto de utilidad WAV es AudioUtil, no UtilWav.
 - El build #347 no incluye ese ajuste posterior; nueva validación/build disparados por el commit documental/técnico siguiente.
 - No se ha instalado en el Xiaomi ni se ha escuchado WAV físicamente. No declarar funcionalidad real por la compilación o presencia de clases.
+
+
+81. ESTADO ACTUAL VERIFICADO — AUTOINVENTARIO PROPIO Y BUILD #348 — 2026-11-08
+
+REFERENCIA Y CI
+- Rama canónica: main.
+- Commit fuente del último build integral comprobado: 2051ce17d0e4bba273c5d4697c8b408f861482c4.
+- Validación BARDO #500, run ID 42519329871: completed / SUCCESS sobre ese SHA. Pasaron checkout del historial completo, Gitleaks sobre el historial, actionlint de los workflows, tests unitarios y compilación debug.
+- Build offline integral #348, run ID 42519329913: completed / SUCCESS sobre el mismo SHA. Pasaron tests unitarios, preparación JDK 17/NDK/CMake, headers PyTorch y checkout fijado de ExecuTorch, compilación de la APK integral, firma, auditoría de contenido/integridad, prueba del escáner, auditoría de credenciales/material de firma, publicación del artefacto, publicación de Release y comprobación de main como única rama.
+- Acciones: https://github.com/loboxfake/musica-ia/actions/runs/42519329871 y https://github.com/loboxfake/musica-ia/actions/runs/42519329913.
+- Release prerelease: https://github.com/loboxfake/musica-ia/releases/tag/bardo-build-348.
+- Asset app-release.apk: 977004292 bytes; digest SHA-256 publicado por GitHub: b7e6e58777063889ec789486cd95feaf026238c4eb4ed58f0b8c809190fb6184.
+- Asset full-apk-audit.txt: 6271 bytes; digest SHA-256 publicado por GitHub: d26954cf4b98b33674616241e2dc9fa2387e1ebfa1302279c352d8e0dce59e2b.
+- Artefacto BARDO-full-offline-348: ID 13632159665; tamaño 715437867 bytes; digest SHA-256 del ZIP a7f58e21f17d4067be36718298485d28b453e142a8fec05c99cd5c8175989401; retención hasta 2026-12-08.
+- La Release y el artefacto corresponden al mismo SHA fuente 2051ce17d0e4bba273c5d4697c8b408f861482c4. Este resultado confirma CI, compilación, firma, auditorías y publicación; no confirma funcionamiento físico.
+
+CAMBIO TÉCNICO INCLUIDO EN #348
+- Se corrigió el detector del ayudante WAV en BardoSelfInventory: la clase real es com.musicaia.modulos.AudioUtil; se eliminó la referencia incorrecta a UtilWav.
+- Los maestros ya recogían el autoinventario propio, los ocho módulos/capacidades y la distinción entre mezcla de voz real del usuario y voz cantada generativa. Esta entrada consolida esos datos con el resultado del build #348.
+- El inventario no enumera apps ajenas, asistentes Android externos, TTS/ASR de terceros ni candidatos IA por nombre. AndroidManifest no necesita consultas para descubrir esas apps ni QUERY_ALL_PACKAGES.
+- BardoSelfInventory detecta componentes propios mediante clases del APK y declara modelos, ayudantes, módulos, capacidades y recursos; separa presencia de código/archivo, runtime y prueba real.
+- BardoDeveloperWorker incorpora el snapshot del autoinventario a su contexto de autoestudio. Esto ayuda a que BARDO conozca sus componentes declarados, pero no demuestra que pueda ejecutar o reparar por sí sola todo el código que detecta.
+
+CATÁLOGO Y ESTADOS QUE NO DEBEN CONFUNDIRSE
+- Ocho módulos registrados y con capability asociada: lyrics, instrumental, voice_synthesis, voice_mix_user, stem_separation, mix_master, cover_art_procedural y cover_art.
+- Voz propia: grabación/importación y mezcla WAV mediante MezclaVoz.mezclar + LectorWav; prueba auditiva en el teléfono pendiente. Modo3MezclaVozUsuario.kt es un adaptador legacy protegido.
+- Voz cantada IA, separación de stems y masterización profesional: NO IMPLEMENTADAS.
+- Gemma: el usuario tiene el modelo original en Descargas/BARDO/Modelos. La importación SAF/copia privada/huella e inicialización real siguen necesitando comprobación en el Xiaomi; no descargar duplicado ni borrar original.
+- Stable Audio: assets y bibliotecas nativas comprobados en la APK; generación real, exportación WAV y escucha siguen pendientes de aceptación física.
+- Vosk: detección de modelo no equivale a transcripción validada.
+- Bonsai: detección/verificación de instalación no equivale a generación de imágenes probada.
+- OCR, clasificación visual, MP3, herramientas WAV y avatar: código o bibliotecas detectados; las respectivas pruebas reales del dispositivo siguen pendientes.
+
+PROTECCIONES Y PRUEBA FÍSICA
+- Modo3MezclaVozUsuario.kt conserva el blob SHA-1 protegido 8f2745fa841a06af43bf909732fba834474bf7dc; se consultó en main y coincide exactamente.
+- No se modificaron Modo3, el certificado autorizado ni Secrets durante este ajuste.
+- No hay confirmación de instalación de #348 en el Xiaomi 11T Pro. Arranque, navegación, permisos SAF, Gemma cargado, inferencia conversacional, RAM/temperatura, generación/reproducción/escucha WAV, OCR/ASR con muestras reales, Bonsai, avatar y ciclo completo de autoevolución siguen pendientes de aceptación en dispositivo.
+- No declarar terminada la entrega integral hasta que el usuario pruebe las funciones en su Xiaomi y confirme los resultados.
+
+ACTUALIZACIÓN DOCUMENTAL
+- Se actualiza la fecha de vigencia de BARDO_01 y la fecha de inspección de este inventario a 2026-11-08.
+- Se marca como sustituida la antigua instrucción de editar bardo-unified-core: main es la rama única vigente según el apartado 24 de BARDO_01.
+- Esta sincronización conserva las entradas anteriores como historial y añade el estado vigente; no borra ni reescribe commits previos.
