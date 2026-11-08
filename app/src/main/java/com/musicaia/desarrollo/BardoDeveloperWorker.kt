@@ -196,7 +196,8 @@ a pasar validación en otro runner.
             val timestamp = System.currentTimeMillis()
             val proposalFile = File(workspace, "autoestudio-" + timestamp + ".md")
             proposalFile.writeText(
-                "# Autoestudio BARDO\n\n" + auditText +
+                "# Autoestudio BARDO\n\n## Inventario propio capturado antes de cargar Gemma\n\n" +
+                    selfInventoryText + "\n\n## Auditoría estática\n\n" + auditText +
                     "\n\n## Respuesta del modelo\n\n" + response,
                 Charsets.UTF_8
             )
