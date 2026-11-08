@@ -76,6 +76,7 @@ class BardoCapabilityRegistryTest {
         assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("wav_mastering_basic").status)
         assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("mix_wav_basic").status)
         assertEquals(BardoCapabilityRegistry.Status.NEEDS_MODEL, items.getValue("speech_transcription_es").status)
+        assertEquals(BardoCapabilityRegistry.Status.NEEDS_MODEL, items.getValue("speech_transcription_en").status)
         assertEquals(BardoCapabilityRegistry.Status.REQUIRES_USER_ACTION, items.getValue("research").status)
         assertEquals(BardoCapabilityRegistry.Status.REQUIRES_USER_ACTION, items.getValue("project_build").status)
         assertEquals(BardoCapabilityRegistry.Status.REQUIRES_USER_ACTION, items.getValue("github_development").status)
@@ -93,10 +94,12 @@ class BardoCapabilityRegistryTest {
         val installed = BardoCapabilityRegistry.snapshot(
             BardoCapabilityRegistry.RuntimeFacts(
                 gemmaFilePresent = true, audioEnginePresent = true, mp3EncoderPresent = true,
-                speechModelPresent = true
+                speechModelPresent = true,
+                speechEnglishModelPresent = true
             )
         ).associateBy { it.id }
         assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, installed.getValue("speech_transcription_es").status)
+        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, installed.getValue("speech_transcription_en").status)
         assertTrue(installed.getValue("speech_transcription_es").detail.contains("no se envía audio a la nube"))
     }
 

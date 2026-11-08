@@ -100,7 +100,8 @@ object BardoModuleCatalog {
             mp3EncoderPresent = Mp3Exporter.available,
             availableMemoryBytes = memoryInfo.availMem,
             resourceBlockReason = resourceBlock,
-            speechModelPresent = com.musicaia.modulos.BardoOfflineAsr.isModelInstalled(app)
+            speechModelPresent = com.musicaia.modulos.BardoOfflineAsr.isModelInstalled(app, com.musicaia.modulos.BardoOfflineAsr.Language.SPANISH),
+            speechEnglishModelPresent = com.musicaia.modulos.BardoOfflineAsr.isModelInstalled(app, com.musicaia.modulos.BardoOfflineAsr.Language.ENGLISH)
         )
         val capabilities = BardoCapabilityRegistry.snapshot(facts).associateBy { it.id }
         val selected = selectMusicModuleIds(
