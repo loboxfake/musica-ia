@@ -24,7 +24,7 @@ enum class BardoAvatarState(
     val animated: Boolean
 ) {
     IDLE("En reposo", Color.rgb(78, 209, 241), false),
-    LISTENING("Te escucha", Color.rgb(78, 209, 241), true),
+    LISTENING("Recibiendo texto", Color.rgb(78, 209, 241), true),
     READING("Leyendo", Color.rgb(42, 91, 187), true),
     STUDYING("Estudiando", Color.rgb(115, 69, 215), true),
     THINKING("Pensando", Color.rgb(115, 69, 215), true),

@@ -1833,6 +1833,7 @@ private fun crearEstructuraCarpetaBardo() {
  }
 
  private fun procesarAdjuntoChat(uri: Uri) {
+     actualizarAvatar(BardoAvatarState.READING)
      val nombre = contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
          ?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
          ?: "archivo_importado"
@@ -2019,6 +2020,7 @@ private fun crearEstructuraCarpetaBardo() {
   }
 
 private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) {
+     actualizarAvatar(BardoAvatarState.STUDYING)
      val taskIdAdjunto = java.util.UUID.randomUUID().toString()
      BardoActivityStore.record(this, taskIdAdjunto, "importacion", "stored", "archivo_copiado", "Adjunto recibido: $nombre ($mime, ${destino.length()} bytes).", null, destino.absolutePath)
      val extension = com.musicaia.importacion.BardoMimeTypeResolver.resolveExtension(nombre, mime)
@@ -3911,7 +3913,6 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
      btnCancelarTarea.visibility = if (ocupado) View.VISIBLE else View.GONE
      btnCancelarTarea.isEnabled = ocupado
      if (estado == "completed") {
-         actualizarAvatar(BardoAvatarState.SUCCESS, 2600L)
          creacionMusicalEnCurso = false
          guardarEstadoCreacionMusical()
          btnCancelarTarea.visibility = View.GONE
@@ -3924,6 +3925,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
          if (letra.isNotBlank() && !solo) editLetra.setText(letra)
          segundos = intent.getIntExtra(BardoTaskService.EXTRA_ELAPSED, segundos)
          if (audio.isNotBlank() && File(audio).isFile && File(audio).length() > 44L) {
+             actualizarAvatar(BardoAvatarState.SUCCESS, 2600L)
              rutaInstrumental = audio
              rutaAudio = mp3.takeIf { it.isNotBlank() && File(it).isFile && File(it).length() > 1024L } ?: audio
              rutaMp3Compartir = mp3.takeIf { it.isNotBlank() && File(it).isFile && File(it).length() > 128L }
@@ -3937,6 +3939,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
              tvEstado.text = mensajeActual
              actualizarBiblioteca()
          } else {
+             actualizarAvatar(BardoAvatarState.ERROR, 3200L)
              tvEstado.text = "BARDO terminó, pero no encontró un WAV válido."
          }
      } else if (estado == "failed" || estado == "cancelled" || estado == "interrupted") {
