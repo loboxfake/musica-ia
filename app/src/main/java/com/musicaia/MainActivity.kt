@@ -44,7 +44,7 @@ import com.musicaia.desarrollo.BardoGitHubCredentialStore
 import com.musicaia.memoria.BardoConversationStore
 import com.musicaia.memoria.BardoKnowledgeStore
 import com.musicaia.memoria.BardoActivityStore
-import com.musicaia.storage.BardoSharedStorage
+import com.musicaia.storage.BardoSharedStorage\nimport com.musicaia.diagnostico.BardoDeviceInventory
 import com.musicaia.ui.BardoAvatarState
 import com.musicaia.ui.BardoAvatarView
 import java.io.File
@@ -985,7 +985,7 @@ private fun crearEstructuraCarpetaBardo() {
              speechModelPresent = BardoOfflineAsr.isModelInstalled(this, BardoOfflineAsr.Language.SPANISH),
               speechEnglishModelPresent = BardoOfflineAsr.isModelInstalled(this, BardoOfflineAsr.Language.ENGLISH),
              imageModelPresent = com.musicaia.modulos.imagen.BardoBonsaiModelInstaller.isInstalled(this),
-             imageResourceBlockReason = BardoResourceBudget.blockingReason(this, BardoCapabilityRegistry.MIN_IMAGE_GENERATION_FREE_MEMORY_BYTES)
+             imageResourceBlockReason = BardoResourceBudget.blockingReason(this, BardoCapabilityRegistry.MIN_IMAGE_GENERATION_FREE_MEMORY_BYTES),\n             launchableAppCount = BardoDeviceInventory.launchableApps(this).size
          )
      )
      val texto = android.text.SpannableStringBuilder()
@@ -1017,6 +1017,16 @@ private fun crearEstructuraCarpetaBardo() {
              .append("\nCriterio de aceptación: ").append(item.acceptanceCriteria)
              .append("\n\n")
      }
+     val device = BardoDeviceInventory.snapshot(this)
+     texto.append("INVENTARIO DEL DISPOSITIVO\\n")
+         .append(device.summary).append("\\n\\n")
+         .append("APLICACIONES LANZABLES DETECTADAS (").append(device.apps.size).append(")\\n")
+     device.apps.take(80).forEach { app ->
+         texto.append("• ").append(app.label).append(" · ").append(app.packageName)
+             .append(" · ").append(app.versionName ?: "versión no declarada").append("\\n")
+     }
+     if (device.apps.size > 80) texto.append("… y ").append(device.apps.size - 80).append(" más.\\n")
+     texto.append("\\nNota: Android limita la visibilidad de paquetes. Este inventario incluye apps con actividad de inicio visible; no inspecciona datos privados ni garantiza enumerar paquetes ocultos.\\n\\n")
      texto.append("RAM libre detectada: ${memoriaLibre / (1024L * 1024L * 1024L)} GB. Umbral preventivo Gemma: 4 GB. Verde significa componente detectado, no prueba en el teléfono; solo se marca como probado cuando tú lo confirmes tras instalar y usar la APK.")
      AlertDialog.Builder(this)
          .setTitle("Capacidades de BARDO")
