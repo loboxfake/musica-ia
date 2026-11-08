@@ -7,7 +7,7 @@ val bardoVersionCode = project.findProperty("bardoVersionCode")?.toString()?.toI
 
 android {
     namespace = "com.musicaia"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.musicaia"
@@ -64,6 +64,16 @@ android {
         jvmTarget = "17"
     }
 
+    packaging {
+        jniLibs {
+            pickFirsts += setOf(
+                "**/libc++_shared.so",
+                "**/libtensorflowlite_jni.so",
+                "**/libtensorflowlite_gpu_jni.so"
+            )
+        }
+    }
+
     buildFeatures {
         viewBinding = true
     }
@@ -77,6 +87,8 @@ dependencies {
     implementation("androidx.work:work-runtime-ktx:2.9.0")
     // LiteRT-LM 0.16.1 (Ruta A) — coordinación exacta a verificar al compilar
     implementation("com.google.ai.edge.litertlm:litertlm-android:0.16.1")
+    // LiteRT Interpreter + XNNPACK para generación de imágenes local Bonsai.
+    implementation("com.google.ai.edge.litert:litert:2.1.3")
     // Extracción local de texto PDF; no requiere red en tiempo de ejecución.
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")
     // OCR offline empaquetado para los scripts latino, chino, devanagari, japonés y coreano.

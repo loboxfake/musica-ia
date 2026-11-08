@@ -110,6 +110,7 @@ object BardoBonsaiModelInstaller {
         cancelled: AtomicBoolean,
         onProgress: (Long) -> Unit
     ) {
+        target.parentFile?.let { if (!it.exists() && !it.mkdirs()) error("No se pudo crear ${it.absolutePath}") }
         val part = File(target.parentFile, target.name + ".part")
         if (part.length() > spec.size) part.delete()
         if (part.length() == spec.size && verifyFile(part, spec)) {
@@ -200,7 +201,7 @@ object BardoBonsaiModelInstaller {
                 if (count > 0) digest.update(buffer, 0, count)
             }
         }
-        return digest.digest().joinToString("") { "%02x".format(it) }
+        return digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xff) }
     }
 
     private fun checkCancelled(cancelled: AtomicBoolean) {

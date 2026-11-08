@@ -120,6 +120,31 @@ class BardoCapabilityRegistryTest {
         assertTrue(items.getValue("github_development").acceptanceCriteria.contains("aprobación explícita"))
     }
 
+
+    @Test
+    fun reportsLocalAiCoverModelAndMemoryRequirements() {
+        val missing = BardoCapabilityRegistry.snapshot(
+            BardoCapabilityRegistry.RuntimeFacts(true, true, true)
+        ).associateBy { it.id }
+        assertEquals(BardoCapabilityRegistry.Status.NEEDS_MODEL, missing.getValue("cover_art").status)
+        val lowMemory = BardoCapabilityRegistry.snapshot(
+            BardoCapabilityRegistry.RuntimeFacts(
+                gemmaFilePresent = true, audioEnginePresent = true, mp3EncoderPresent = true,
+                availableMemoryBytes = BardoCapabilityRegistry.MIN_IMAGE_GENERATION_FREE_MEMORY_BYTES - 1,
+                imageModelPresent = true
+            )
+        ).associateBy { it.id }
+        assertEquals(BardoCapabilityRegistry.Status.NEEDS_MEMORY, lowMemory.getValue("cover_art").status)
+        val ready = BardoCapabilityRegistry.snapshot(
+            BardoCapabilityRegistry.RuntimeFacts(
+                gemmaFilePresent = true, audioEnginePresent = true, mp3EncoderPresent = true,
+                availableMemoryBytes = BardoCapabilityRegistry.MIN_IMAGE_GENERATION_FREE_MEMORY_BYTES,
+                imageModelPresent = true
+            )
+        ).associateBy { it.id }
+        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, ready.getValue("cover_art").status)
+    }
+
     @Test
     fun placeholderCapabilitiesRemainExplicitlyUnavailable() {
         val items = BardoCapabilityRegistry.snapshot(

@@ -155,6 +155,9 @@
                     <Button android:id="@+id/btnCrearPortada" android:layout_width="match_parent"
                         android:layout_height="46dp" android:layout_marginTop="7dp"
                         android:text="Crear portada PNG · diseño gráfico offline" android:textAllCaps="false"/>
+                    <Button android:id="@+id/btnCrearPortadaIA" android:layout_width="match_parent"
+                        android:layout_height="46dp" android:layout_marginTop="7dp"
+                        android:text="Generar portada con IA local · Bonsai 4,27 GB" android:textAllCaps="false"/>
                 <LinearLayout android:id="@+id/playerControls" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingTop="8dp" android:visibility="gone">
                     <SeekBar android:id="@+id/seekPlayback" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="1000" android:contentDescription="Posición de reproducción"/>
                     <TextView android:id="@+id/tvPlaybackTime" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="00:00 / 00:00" android:textColor="#A9B8D2" android:textSize="12sp"/>

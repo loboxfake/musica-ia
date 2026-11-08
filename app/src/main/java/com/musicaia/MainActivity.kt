@@ -670,6 +670,7 @@ class MainActivity : AppCompatActivity() {
      selectorMasterizarWav.launch(arrayOf("audio/wav", "audio/x-wav", "audio/*"))
  }
  findViewById<Button>(R.id.btnCrearPortada).setOnClickListener { mostrarGeneradorPortada() }
+ findViewById<Button>(R.id.btnCrearPortadaIA).setOnClickListener { mostrarGeneradorPortadaIA() }
  findViewById<Button>(R.id.btnMezclarPistasWav).setOnClickListener {
      if (mezclaPistasEnCurso) {
          tvEstado.text = "Ya hay una mezcla WAV en curso."
@@ -956,7 +957,9 @@ private fun crearEstructuraCarpetaBardo() {
              resourceBlockReason = BardoResourceBudget.blockingReason(this, BardoCapabilityRegistry.MIN_GEMMA_FREE_MEMORY_BYTES),
              githubActionsConfigured = BardoGitHubCredentialStore.hasToken(this),
              speechModelPresent = BardoOfflineAsr.isModelInstalled(this, BardoOfflineAsr.Language.SPANISH),
-              speechEnglishModelPresent = BardoOfflineAsr.isModelInstalled(this, BardoOfflineAsr.Language.ENGLISH)
+              speechEnglishModelPresent = BardoOfflineAsr.isModelInstalled(this, BardoOfflineAsr.Language.ENGLISH),
+             imageModelPresent = com.musicaia.modulos.imagen.BardoBonsaiModelInstaller.isInstalled(this),
+             imageResourceBlockReason = BardoResourceBudget.blockingReason(this, BardoCapabilityRegistry.MIN_IMAGE_GENERATION_FREE_MEMORY_BYTES)
          )
      )
      val texto = android.text.SpannableStringBuilder()
@@ -2445,6 +2448,227 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
  }
 
 
+
+
+ private fun mostrarGeneradorPortadaIA() {
+     if (com.musicaia.modulos.imagen.BardoBonsaiModelInstaller.isInstalled(this)) {
+         mostrarFormularioPortadaIA()
+         return
+     }
+     val bytes = com.musicaia.modulos.imagen.BardoBonsaiModelInstaller.REQUIRED_FREE_BYTES
+     AlertDialog.Builder(this)
+         .setTitle("Instalar generador de portadas IA local")
+         .setMessage(
+             "Bonsai Image 4B se ejecuta completamente en el teléfono, sin nube. " +
+                 "La descarga ocupa aproximadamente 4,27 GB y requiere al menos 4,8 GB libres. " +
+                 "En un móvil con 8 GB de RAM es el mínimo práctico: puede tardar varios minutos, " +
+                 "calentar el dispositivo y cerrar apps en segundo plano. Necesita conexión solo para descargar; " +
+                 "después genera sin Internet. Se verifican SHA-256 de los grafos y tokenizer. " +
+                 "¿Descargar e instalar ahora?"
+         )
+         .setNegativeButton("Ahora no", null)
+         .setPositiveButton("Descargar modelo") { _, _ ->
+             if (!com.musicaia.modulos.imagen.BardoBonsaiModelInstaller.hasEnoughStorage(this)) {
+                 AlertDialog.Builder(this)
+                     .setMessage("No hay espacio libre suficiente. Se necesitan al menos " +
+                         String.format(java.util.Locale.ROOT, "%.2f GB", bytes / 1_000_000_000.0) + ".")
+                     .setPositiveButton("Aceptar", null).show()
+             } else {
+                 descargarModeloBonsai()
+             }
+         }
+         .show()
+ }
+
+ private fun descargarModeloBonsai() {
+     val cancelled = java.util.concurrent.atomic.AtomicBoolean(false)
+     val progressText = TextView(this).apply {
+         text = "Preparando descarga segura..."
+         setPadding(dp(16), dp(8), dp(16), dp(8))
+     }
+     val progressBar = android.widget.ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+         max = 1000
+         isIndeterminate = true
+     }
+     val content = LinearLayout(this).apply {
+         orientation = LinearLayout.VERTICAL
+         setPadding(dp(16), dp(12), dp(16), dp(8))
+         addView(progressText)
+         addView(progressBar)
+     }
+     val dialog = AlertDialog.Builder(this)
+         .setTitle("Descargando Bonsai Image 4B")
+         .setView(content)
+         .setNegativeButton("Cancelar", null)
+         .create()
+     dialog.setOnShowListener {
+         dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener {
+             cancelled.set(true)
+             progressText.text = "Cancelando de forma segura; se conservará lo descargado para reanudar."
+             it.isEnabled = false
+         }
+     }
+     dialog.show()
+     Thread({
+         val result = runCatching {
+             com.musicaia.modulos.imagen.BardoBonsaiModelInstaller.download(this, cancelled) { fileName, done, total ->
+                 runOnUiThread {
+                     if (isFinishing || isDestroyed) return@runOnUiThread
+                     progressBar.isIndeterminate = false
+                     progressBar.progress = ((done * 1000L) / total).toInt().coerceIn(0, 1000)
+                     progressText.text = fileName + "\n" +
+                         String.format(java.util.Locale.ROOT, "%.2f / %.2f GB",
+                             done / 1_000_000_000.0, total / 1_000_000_000.0)
+                 }
+             }
+         }
+         runOnUiThread {
+             if (isFinishing || isDestroyed) return@runOnUiThread
+             dialog.dismiss()
+             result.onSuccess {
+                 tvEstado.text = "Modelo Bonsai instalado y verificado por SHA-256."
+                 mostrarFormularioPortadaIA()
+             }.onFailure { error ->
+                 tvEstado.text = "No se pudo instalar el modelo Bonsai: " + error.message
+                 AlertDialog.Builder(this)
+                     .setTitle("Instalación no completada")
+                     .setMessage(error.message ?: "Error desconocido. Los fragmentos parciales verificados pueden reanudarse.")
+                     .setPositiveButton("Aceptar", null).show()
+             }
+         }
+     }, "BARDO-Bonsai-Download").start()
+ }
+
+ private fun mostrarFormularioPortadaIA() {
+     val form = LinearLayout(this).apply {
+         orientation = LinearLayout.VERTICAL
+         setPadding(dp(20), dp(8), dp(20), dp(4))
+     }
+     fun field(hint: String, limit: Int) = EditText(this).apply {
+         this.hint = hint
+         filters = arrayOf(android.text.InputFilter.LengthFilter(limit))
+     }
+     val title = field("Título de canción o disco", 96)
+     val artist = field("Artista (opcional)", 100)
+     val concept = field("Concepto, escena o emoción que quieres representar", 500)
+     val style = android.widget.Spinner(this).apply {
+         adapter = android.widget.ArrayAdapter(
+             this@MainActivity, android.R.layout.simple_spinner_dropdown_item,
+             com.musicaia.modulos.BardoCoverArtGenerator.STYLES
+         )
+     }
+     form.addView(title)
+     form.addView(artist)
+     form.addView(concept)
+     form.addView(TextView(this).apply { text = "Dirección artística"; setPadding(0, dp(10), 0, dp(3)) })
+     form.addView(style)
+     val dialog = AlertDialog.Builder(this)
+         .setTitle("Crear portada con IA local")
+         .setMessage("Bonsai genera una imagen original 512×512 en el teléfono. La tipografía del título y artista se superpone después para que quede legible. No se envía nada a la nube.")
+         .setView(form)
+         .setNegativeButton("Cancelar", null)
+         .setPositiveButton("Generar", null)
+         .create()
+     dialog.setOnShowListener {
+         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+             val songTitle = title.text.toString().trim()
+             if (songTitle.isBlank()) {
+                 title.error = "El título es obligatorio."
+                 return@setOnClickListener
+             }
+             if (gemmaInferenceEnCurso) {
+                 tvEstado.text = "Espera a que termine la inferencia de Gemma antes de cargar el modelo de imágenes."
+                 return@setOnClickListener
+             }
+             val audioBlock = bloqueoPorTareaAudio()
+             if (!audioBlock.isNullOrBlank()) {
+                 tvEstado.text = "No se puede generar la portada mientras el motor de audio está ocupado: " + audioBlock
+                 return@setOnClickListener
+             }
+             dialog.dismiss()
+             val artistName = artist.text.toString().trim()
+             val visualConcept = concept.text.toString().trim()
+             val artStyle = style.selectedItem?.toString().orEmpty()
+             val prompt = "Create premium square 512x512 album cover artwork. No text, letters, typography, logos or watermark. " +
+                 "Strong clear visual composition, professional music-art direction. Style: " + artStyle +
+                 ". Visual concept: " + visualConcept + ". Title theme: " + songTitle +
+                 ". Artist theme: " + artistName + ". Keep the lower quarter visually calm and dark for title lettering."
+             val cancelled = java.util.concurrent.atomic.AtomicBoolean(false)
+             val progressText = TextView(this).apply { text = "Cerrando otros modelos y preparando LiteRT..." }
+             val progressBar = android.widget.ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+                 max = 1000
+                 isIndeterminate = true
+             }
+             val content = LinearLayout(this).apply {
+                 orientation = LinearLayout.VERTICAL
+                 setPadding(dp(16), dp(12), dp(16), dp(8))
+                 addView(progressText)
+                 addView(progressBar)
+             }
+             val progressDialog = AlertDialog.Builder(this)
+                 .setTitle("Generando portada IA offline")
+                 .setView(content)
+                 .setNegativeButton("Cancelar", null)
+                 .create()
+             progressDialog.setOnShowListener {
+                 progressDialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener {
+                     cancelled.set(true)
+                     progressText.text = "Cancelación solicitada; se detendrá al finalizar el paso actual."
+                     it.isEnabled = false
+                 }
+             }
+             progressDialog.show()
+             Thread({
+                 val result = runCatching {
+                     com.musicaia.modulos.litert.EngineLiteRT.cerrar()
+                     val reason = BardoResourceBudget.blockingReason(
+                         this, BardoCapabilityRegistry.MIN_IMAGE_GENERATION_FREE_MEMORY_BYTES
+                     )
+                     check(reason.isNullOrBlank()) {
+                         reason ?: "No hay memoria suficiente para Bonsai Image 4B."
+                     }
+                     val target = File(
+                         File(filesDir, "covers"),
+                         "bardo-ai-cover-" + System.currentTimeMillis().toString() + ".png"
+                     )
+                     com.musicaia.modulos.imagen.BardoBonsaiImageGenerator.generate(
+                         this, prompt, songTitle, artistName, target, cancelled,
+                         status = { message -> runOnUiThread { if (!isFinishing && !isDestroyed) progressText.text = message } },
+                         progress = { message, fraction ->
+                             runOnUiThread {
+                                 if (!isFinishing && !isDestroyed) {
+                                     progressBar.isIndeterminate = false
+                                     progressBar.progress = (fraction * 1000).toInt().coerceIn(0, 1000)
+                                     progressText.text = message
+                                 }
+                             }
+                         }
+                     )
+                 }
+                 runOnUiThread {
+                     if (isFinishing || isDestroyed) {
+                         result.getOrNull()?.file?.delete()
+                         return@runOnUiThread
+                     }
+                     progressDialog.dismiss()
+                     result.onSuccess { generated ->
+                         portadaPendiente?.takeIf { it != generated.file }?.delete()
+                         portadaPendiente = generated.file
+                         tvEstado.text = "Portada generada con Bonsai Image 4B local en " +
+                             String.format(java.util.Locale.ROOT, "%.1f", generated.seconds) + " s."
+                         mostrarVistaPortada(generated.file, songTitle)
+                     }.onFailure { error ->
+                         tvEstado.text = "No se pudo generar la portada IA: " + error.message
+                         AlertDialog.Builder(this)
+                             .setMessage(error.message ?: "Error de generación.")
+                             .setPositiveButton("Aceptar", null).show()
+                     }
+                 }
+             }, "BARDO-Bonsai-Image-Generation").start()
+         }
+     }
+     dialog.show()
+ }
 
  private fun mostrarGeneradorPortada() {
      val form = LinearLayout(this).apply {

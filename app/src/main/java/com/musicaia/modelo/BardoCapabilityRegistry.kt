@@ -5,6 +5,7 @@ object BardoCapabilityRegistry {
     enum class Status { AVAILABLE, NEEDS_MODEL, NEEDS_MEMORY, NEEDS_RESOURCES, NEEDS_FULL_APK, REQUIRES_USER_ACTION, NOT_IMPLEMENTED }
 
     const val MIN_GEMMA_FREE_MEMORY_BYTES = 4_000L * 1024L * 1024L
+    const val MIN_IMAGE_GENERATION_FREE_MEMORY_BYTES = 3_500L * 1024L * 1024L
 
     data class Capability(
         val id: String,
@@ -22,7 +23,9 @@ object BardoCapabilityRegistry {
         val resourceBlockReason: String? = null,
         val githubActionsConfigured: Boolean = false,
         val speechModelPresent: Boolean = false,
-        val speechEnglishModelPresent: Boolean = false
+        val speechEnglishModelPresent: Boolean = false,
+        val imageModelPresent: Boolean = false,
+        val imageResourceBlockReason: String? = null
     )
 
     private fun gemmaStatus(facts: RuntimeFacts): Status = when {
@@ -37,6 +40,20 @@ object BardoCapabilityRegistry {
         Status.NEEDS_MEMORY -> "Gemma está presente, pero Android informa menos de 4 GB de RAM disponible. Cierra otras aplicaciones y vuelve a intentarlo. La comprobación es preventiva, no una garantía de compatibilidad."
         Status.NEEDS_RESOURCES -> facts.resourceBlockReason.orEmpty()
         else -> "Gemma está presente y hay memoria disponible suficiente según el umbral preventivo. Se verifica su SHA-256 y compatibilidad al cargar."
+    }
+
+    private fun imageGenerationStatus(facts: RuntimeFacts): Status = when {
+        !facts.imageModelPresent -> Status.NEEDS_MODEL
+        facts.availableMemoryBytes < MIN_IMAGE_GENERATION_FREE_MEMORY_BYTES -> Status.NEEDS_MEMORY
+        !facts.imageResourceBlockReason.isNullOrBlank() -> Status.NEEDS_RESOURCES
+        else -> Status.AVAILABLE
+    }
+
+    private fun imageGenerationDetail(facts: RuntimeFacts): String = when (imageGenerationStatus(facts)) {
+        Status.NEEDS_MODEL -> "Bonsai Image 4B LiteRT opcional: descarga explícita de unos 4,27 GB; requiere 4,8 GB libres. En 8 GB de RAM es el mínimo práctico y puede ser lento/calentar el teléfono."
+        Status.NEEDS_MEMORY -> "Bonsai está instalado, pero hay menos de 3,5 GiB de RAM libre. Cierra aplicaciones y motores de audio/Gemma antes de generar."
+        Status.NEEDS_RESOURCES -> facts.imageResourceBlockReason.orEmpty()
+        else -> "Bonsai Image 4B está instalado; generación 512×512 local con LiteRT/XNNPACK, sin nube. La compatibilidad térmica y de velocidad debe comprobarse en el Xiaomi."
     }
 
     fun snapshot(facts: RuntimeFacts): List<Capability> {
@@ -109,7 +126,7 @@ object BardoCapabilityRegistry {
             ),
             Capability("voice_synthesis", "Generación de voz cantada", Status.NOT_IMPLEMENTED, "Todavía no está integrada; el antiguo módulo de tonos se ha desactivado para evitar simular voz.", "Modelo de voz legítimo, consentimiento, WAV real reproducible y pruebas de calidad; MiVoz sigue pendiente."),
             Capability("mix_master", "Mezcla multipista y masterización profesional", Status.NOT_IMPLEMENTED, "La mezcla multipista, automatización, ecualización avanzada y masterización profesional siguen pendientes. Existe por separado un procesador básico offline para un WAV mono PCM 16-bit; no se presenta como estudio profesional.", "Cadena multipista no destructiva, EQ dinámica, compresión, limitador true-peak, métricas, A/B, exportación validada y pruebas auditivas."),
-            Capability("cover_art", "Generación de portadas con IA", Status.NOT_IMPLEMENTED, "No hay modelo local generativo de imágenes integrado. cover_art_procedural genera composiciones PNG offline, sin presentarlas como imágenes generadas por IA.", "Modelo generativo local compatible con el hardware móvil, licencia verificada, generación real y evaluación de calidad; sin servicios cloud obligatorios."),
+            Capability("cover_art", "Generación de portadas con IA local", imageGenerationStatus(facts), imageGenerationDetail(facts), "Bonsai Image 4B descargado y verificado, imagen PNG 512×512 real sin nube, guardado y previsualización; medir RAM/temperatura/tiempo en Xiaomi 11T Pro."),
             Capability("self_install", "Actualización asistida", Status.NOT_IMPLEMENTED, "La última build auditada está disponible como artefacto de Actions; crear una Release nueva está bloqueado por HTTP 403 del token de Actions. Existe una Release previa; la actualización automática y el parche diferencial no están implementados. Android exige aprobación e instalación mediante el sistema.", "APK completa y parche publicados, SHA-256 y certificado coincidentes, copia de datos y confirmación del instalador Android.")
         )
     }
