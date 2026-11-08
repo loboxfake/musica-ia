@@ -27,7 +27,11 @@ class BardoWavMultitrackMixerTest {
         assertTrue(out.length()>44); assertEquals(16000,result.sampleRate); assertEquals(4L,result.frames); assertEquals(2,result.trackCount)
         assertEquals(ah,a.readBytes().contentHashCode()); assertEquals(bh,b.readBytes().contentHashCode())
         val bytes=out.readBytes(); assertEquals("RIFF",String(bytes,0,4,Charsets.US_ASCII)); assertEquals("WAVE",String(bytes,8,4,Charsets.US_ASCII))
-        assertEquals(2,ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).getShort(22).toInt()); assertTrue(result.peakAfterDbfs<=-0.9)
+        val pcm = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
+        assertEquals(2, pcm.getShort(22).toInt())
+        assertTrue("La pista panoramizada a la izquierda debe llegar al canal izquierdo.", pcm.getShort(44) > 0)
+        assertTrue("La pista panoramizada a la derecha debe llegar al canal derecho.", pcm.getShort(46) < 0)
+        assertTrue(result.peakAfterDbfs<=-0.9)
     }
 
     @Test fun rejectsDifferentRatesAndInvalidPan() {
