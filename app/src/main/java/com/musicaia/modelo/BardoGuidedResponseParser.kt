@@ -68,18 +68,18 @@ object BardoGuidedResponseParser {
         val lower = value.lowercase(Locale.ROOT)
         return when (field) {
             "language" -> when {
-                lower == "es" || lower.startsWith("es-") || lower in setOf("spanish", "español", "castellano") -> "es"
-                lower == "en" || lower.startsWith("en-") || lower in setOf("english", "inglés", "ingles") -> "en"
+                lower == "es" || lower.startsWith("es-") || lower in setOf("spanish", "español", "castellano") -> "Español"
+                lower == "en" || lower.startsWith("en-") || lower in setOf("english", "inglés", "ingles") -> "English"
                 else -> null
             }
             "type" -> when (lower) {
-                "instrumental", "instrumental only", "no vocals" -> "instrumental"
+                "instrumental", "instrumental only", "no vocals" -> "solo instrumental"
                 "voice", "vocals", "vocal", "singing", "voz", "con voz" -> "voz"
-                "both", "both vocals and instrumental", "ambas", "voz e instrumental" -> "ambas"
+                "both", "both vocals and instrumental", "ambas", "voz e instrumental" -> "ambas (voz e instrumental)"
                 else -> null
             }
             "voice_source" -> when (lower) {
-                "own", "own voice", "recording", "my voice", "propia", "mi voz", "grabación" -> "propia"
+                "own", "own voice", "recording", "my voice", "propia", "mi voz", "grabación" -> "grabada"
                 "file", "voice file", "audio file", "archivo", "fichero" -> "archivo"
                 "none", "no voice", "no vocals", "ninguna", "sin voz" -> "ninguna"
                 else -> null

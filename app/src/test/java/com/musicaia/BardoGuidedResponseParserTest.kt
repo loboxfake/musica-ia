@@ -41,7 +41,9 @@ class BardoGuidedResponseParserTest {
     @Test fun normalizesSongLanguageAndRejectsUnsupportedSongLanguages() {
         val spanish = """{"fields":{"language":{"value":"Spanish","evidence":"Spanish"}},"reply":"¿Qué estilo?"}"""
         val french = """{"fields":{"language":{"value":"French","evidence":"French"}},"reply":"Choose Spanish or English."}"""
-        assertEquals("es", BardoGuidedResponseParser.parse(spanish, "Please make it Spanish", emptyMap())!!.updates["idioma"])
+        val parsedSpanish = BardoGuidedResponseParser.parse(spanish, "Please make it Spanish", emptyMap())!!
+        assertEquals("Español", parsedSpanish.updates["idioma"])
+        assertTrue(com.musicaia.modelo.BardoIntentRouter.isSupportedSongLanguage(parsedSpanish.updates["idioma"].orEmpty()))
         assertFalse(BardoGuidedResponseParser.parse(french, "Please make it French", emptyMap())!!.updates.containsKey("idioma"))
     }
 
@@ -53,8 +55,8 @@ class BardoGuidedResponseParserTest {
         val parsed = BardoGuidedResponseParser.parse(
             json, "I want vocals and instrumental using my own voice", emptyMap()
         )!!
-        assertEquals("ambas", parsed.updates["tipo"])
-        assertEquals("propia", parsed.updates["vozFuente"])
+        assertEquals("ambas (voz e instrumental)", parsed.updates["tipo"])
+        assertEquals("grabada", parsed.updates["vozFuente"])
     }
 
     @Test fun rejectsMalformedOrIncompleteStructuredResponses() {

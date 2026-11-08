@@ -3090,7 +3090,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                   For each field explicitly stated in the LATEST user message, replace null with {"value":"canonical value","evidence":"an exact short quote copied from the latest user message","change":false}.
                   If the user explicitly changes a previously saved value, set change:true and quote the exact evidence for the change. Never overwrite an existing field without an explicit change request. Leave all other fields null.
                   Supported field names: theme, style, mood, rhythm, language, type, voice_source.
-                  Song language is currently restricted to Spanish or English. For language use only "es" or "en"; if the user requests another song language, leave language null and ask them to choose Spanish or English. This does NOT restrict the language of this conversation or imported files.
+                  Song language is currently restricted to Spanish or English. For language use only "Español" or "English"; if the user requests another song language, leave language null and ask them to choose Spanish or English. This does NOT restrict the language of this conversation or imported files.
                   Canonical type values: "instrumental", "voice", "both". Canonical voice_source values: "own", "file", "none".
                   The app validates every evidence quote against the exact latest user message. Do not invent evidence or fill a field from a guess.
                   Existing saved creative fields:
