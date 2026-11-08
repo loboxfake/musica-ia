@@ -2472,6 +2472,20 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
          .show()
  }
 
+
+ private fun mostrarGeneradorImagenIA() {
+     if (com.musicaia.modulos.imagen.BardoBonsaiModelInstaller.isInstalled(this)) {
+         mostrarFormularioPortadaIA(standaloneImage = true)
+         return
+     }
+     AlertDialog.Builder(this)
+         .setTitle("Instalar generador de imágenes IA local")
+         .setMessage("Bonsai Image 4B genera imágenes independientes y portadas en el teléfono. La descarga ocupa aproximadamente 4,27 GB; requiere espacio y memoria suficientes. Tras instalarlo, la generación funciona sin nube. ¿Descargar e instalar ahora?")
+         .setNegativeButton("Ahora no", null)
+         .setPositiveButton("Descargar modelo") { _, _ -> descargarModeloBonsai(standaloneImage = true) }
+         .show()
+ }
+
  private fun descargarModeloBonsai(standaloneImage: Boolean = false) {
      val cancelled = java.util.concurrent.atomic.AtomicBoolean(false)
      val progressText = TextView(this).apply {

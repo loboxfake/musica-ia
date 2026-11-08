@@ -225,7 +225,7 @@
         <TextView android:id="@+id/navOrquestador" style="@style/NavItem" android:text="✧\nIA" android:contentDescription="Asistente"/>
         <TextView android:id="@+id/navCrear" style="@style/NavItem" android:text="♫\nCrear" android:contentDescription="Crear música"/>
         <TextView android:id="@+id/navBiblioteca" style="@style/NavItem" android:text="▧\nArchivo" android:contentDescription="Biblioteca de archivos"/>
-        <TextView android:id="@+id/navImagenes" style="@style/NavItem" android:text="▣\\nImágenes" android:contentDescription="Generación de imágenes y portadas"/>
+        <TextView android:id="@+id/navImagenes" style="@style/NavItem" android:text="▣\nImágenes" android:contentDescription="Generación de imágenes y portadas"/>
         <TextView android:id="@+id/navLaboratorio" style="@style/NavItem" android:text="✧\nLab" android:contentDescription="Laboratorio y evolución local"/>
         <TextView android:id="@+id/navSistema" style="@style/NavItem" android:text="⚙\nSistema" android:contentDescription="Sistema y ajustes"/>
     </LinearLayout>
