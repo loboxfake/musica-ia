@@ -192,7 +192,7 @@ class MainActivity : AppCompatActivity() {
  private var configuracionInterfazPendiente = ""
  private var accentColorUI = "#4ED1F1"
  private var navActivoId = R.id.navOrquestador
- private val tabsDisponibles = listOf("orchestrator", "create", "library", "lab", "system")
+ private val tabsDisponibles = listOf("orchestrator", "create", "library", "images", "lab", "system")
  private var navigationOrder = tabsDisponibles
  private var visibleTabs = tabsDisponibles.toMutableSet()
 
@@ -1422,6 +1422,7 @@ private fun crearEstructuraCarpetaBardo() {
          "orchestrator" to R.id.navOrquestador,
          "create" to R.id.navCrear,
          "library" to R.id.navBiblioteca,
+         "images" to R.id.navImagenes,
          "lab" to R.id.navLaboratorio,
          "system" to R.id.navSistema
      )
@@ -1959,7 +1960,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
      val mimeBase = mime.substringBefore(';').trim().lowercase()
      if ((mimeBase.startsWith("image/") && mimeBase != "image/svg+xml") || extension in setOf("jpg", "jpeg", "png", "webp", "bmp")) {
          BardoActivityStore.record(this, taskIdAdjunto, "importacion", "running", "vision_y_ocr_local",
-             "Clasificación visual local y OCR multiescritura del texto visible.", 10, destino.absolutePath)
+             "Clasificación visual local y OCR offline (español e inglés; otros alfabetos según modelo).", 10, destino.absolutePath)
          Thread({
              val labelsResult = runCatching { com.musicaia.importacion.BardoImageVision.analyze(destino) }
              val ocrResult = runCatching { com.musicaia.importacion.BardoOcrImporter.extractImage(destino) }

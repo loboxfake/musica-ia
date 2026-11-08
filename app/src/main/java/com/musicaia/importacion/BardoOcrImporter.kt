@@ -19,10 +19,14 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 
 /**
- * OCR local de texto visible. No identifica objetos ni interpreta semánticamente
- * imágenes; devuelve solo texto que el reconocedor haya podido leer.
+ * OCR local de texto visible. El reconocedor latino bundled cubre español e inglés
+ * (ambos usan escritura latina); otros scripts se intentan si el latino no encuentra texto.
+ * No identifica objetos, no traduce ni determina el idioma del texto.
  */
 object BardoOcrImporter {
+    val minimumSupportedLanguages: Set<String>
+        get() = BardoOcrLanguageSupport.minimumSupportedLanguages
+
     private const val MAX_IMAGE_DIMENSION = 2048
     private const val MAX_VIDEO_DURATION_MS = 10L * 60L * 1000L
     private const val MAX_VIDEO_FRAMES = 8
@@ -133,17 +137,28 @@ object BardoOcrImporter {
 
     private fun recognizeMultiscript(bitmap: Bitmap, recognizers: List<Pair<String, TextRecognizer>>): String {
         val image = InputImage.fromBitmap(bitmap, 0)
+        val latinRecognizer = recognizers.firstOrNull { it.first == "latino" }?.second
+        val latinText = latinRecognizer?.let { recognizer ->
+            runCatching {
+                Tasks.await(recognizer.process(image), 8, TimeUnit.SECONDS).text.trim()
+            }.getOrDefault("")
+        }.orEmpty()
+
+        // Spanish and English both use the bundled Latin recognizer. Avoid running
+        // four unrelated script models for the normal bilingual case.
+        if (latinText.isNotBlank()) return "[latino]\\n$latinText".take(240000)
+
         val outputs = mutableListOf<String>()
-            recognizers.forEach { (script, recognizer) ->
-                val text = runCatching {
-                    Tasks.await(recognizer.process(image), 8, TimeUnit.SECONDS).text.trim()
-                }.getOrDefault("")
-                if (text.isNotBlank()) outputs.add("[$script]\n$text")
-            }
+        recognizers.filterNot { it.first == "latino" }.forEach { (script, recognizer) ->
+            val text = runCatching {
+                Tasks.await(recognizer.process(image), 8, TimeUnit.SECONDS).text.trim()
+            }.getOrDefault("")
+            if (text.isNotBlank()) outputs.add("[$script]\\n$text")
+        }
         return outputs.distinctBy {
-            it.substringAfter('\n').lowercase(java.util.Locale.ROOT)
-                .replace(Regex("\\s+"), " ").trim()
-        }.joinToString("\n\n").take(240000)
+            it.substringAfter('\\n').lowercase(java.util.Locale.ROOT)
+                .replace(Regex("\\\\s+"), " ").trim()
+        }.joinToString("\\n\\n").take(240000)
     }
 
     private fun scaled(bitmap: Bitmap): Bitmap {
