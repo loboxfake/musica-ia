@@ -537,3 +537,5 @@ El ASR local soporta español e inglés estadounidense mediante modelos Vosk ind
 - El generador Bonsai Image 4B es opcional y local: descarga explícita, verificación de archivos y umbral de memoria. El renderizador procedural PNG se identifica como diseño gráfico determinista, nunca como IA generativa.
 - La imagen resultante se previsualiza y se puede guardar/compartir; las imágenes no se generan automáticamente al terminar una canción sin acción del usuario.
 - Reconocimiento de imágenes adjuntas y generación de imágenes son capacidades separadas. El análisis visual depende de los reconocedores disponibles; no afirmar comprensión universal de cualquier imagen.
+
+- La APK integral debe comprobar que el artefacto Stable Audio siga vigente; una ejecución histórica en verde con artefacto caducado no es suficiente. Si falta, solicitar una nueva exportación fijada en main y esperar su artefacto verificado.

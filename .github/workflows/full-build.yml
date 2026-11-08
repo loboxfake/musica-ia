@@ -29,14 +29,14 @@ on:
       - README.md
 
 permissions:
-  actions: read
+  actions: write
   contents: write
   statuses: write
 
 jobs:
   full-build:
     runs-on: ubuntu-22.04
-    timeout-minutes: 120
+    timeout-minutes: 240
     steps:
       - name: Mark full offline build pending
         uses: actions/github-script@v7
@@ -90,14 +90,62 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          run_id=$(gh run list --workflow prepare-audio-model.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId')
-          if [ -z "$run_id" ] || [ "$run_id" = "null" ]; then
-            echo "No successful Stable Audio model export exists on canonical main; refusing to use artifacts from retired branches."
+          set -euo pipefail
+          artifact_name="stable-audio-open-small-executorch"
+          run_id=""
+          download_if_available() {
+            local candidate="$1"
+            local available
+            available="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$candidate/artifacts" --jq "[.artifacts[] | select(.name == \"$artifact_name\" and .expired == false)] | length")"
+            if [ "$available" -gt 0 ]; then
+              rm -rf app/src/main/assets/audio_model
+              mkdir -p app/src/main/assets/audio_model
+              if gh run download "$candidate" --name "$artifact_name" --dir app/src/main/assets/audio_model; then
+                if [ -s app/src/main/assets/audio_model/conditioners_model.pte ] && \
+                   [ -s app/src/main/assets/audio_model/dit_model.pte ] && \
+                   [ -s app/src/main/assets/audio_model/autoencoder_model.pte ] && \
+                   [ -s app/src/main/assets/audio_model/spiece.model ] && \
+                   [ -s app/src/main/assets/audio_model/LICENSE ]; then
+                  run_id="$candidate"
+                  return 0
+                fi
+              fi
+              rm -rf app/src/main/assets/audio_model
+            fi
+            return 1
+          }
+          # Reuse a valid, unexpired artifact; never mistake a green run with expired artifacts for a usable model.
+          for candidate in $(gh run list --workflow prepare-audio-model.yml --branch main --status success --limit 20 --json databaseId --jq '.[].databaseId'); do
+            if download_if_available "$candidate"; then break; fi
+          done
+          if [ -z "$run_id" ]; then
+            # A workflow push may already have queued the exporter. Dispatch only when none is queued/running.
+            active="$(gh run list --workflow prepare-audio-model.yml --branch main --limit 20 --json status --jq '[.[] | select(.status == "queued" or .status == "in_progress")] | length')"
+            if [ "$active" -eq 0 ]; then
+              echo "No unexpired audio model artifact; requesting a fresh pinned export on main."
+              gh workflow run prepare-audio-model.yml --ref main
+            else
+              echo "Waiting for the already queued/running canonical model export."
+            fi
+            for attempt in $(seq 1 180); do
+              for candidate in $(gh run list --workflow prepare-audio-model.yml --branch main --status success --limit 20 --json databaseId --jq '.[].databaseId'); do
+                if download_if_available "$candidate"; then break; fi
+              done
+              [ -n "$run_id" ] && break
+              latest_status="$(gh run list --workflow prepare-audio-model.yml --branch main --limit 1 --json status,conclusion --jq '.[0].status + ":" + (.[0].conclusion // "")')"
+              if [ "$latest_status" = "completed:failure" ] || [ "$latest_status" = "completed:cancelled" ]; then
+                echo "::error::The pinned audio model export failed or was cancelled."
+                exit 1
+              fi
+              echo "Waiting for a valid Stable Audio artifact ($attempt/180)..."
+              sleep 60
+            done
+          fi
+          if [ -z "$run_id" ]; then
+            echo "::error::No unexpired Stable Audio model artifact became available within three hours."
             exit 1
           fi
-          echo "Using model export run: $run_id"
-          mkdir -p app/src/main/assets/audio_model
-          gh run download "$run_id" --name stable-audio-open-small-executorch --dir app/src/main/assets/audio_model
+          echo "Using verified model export artifact from run: $run_id"
           ls -lh app/src/main/assets/audio_model
           test -s app/src/main/assets/audio_model/conditioners_model.pte
           test -s app/src/main/assets/audio_model/dit_model.pte

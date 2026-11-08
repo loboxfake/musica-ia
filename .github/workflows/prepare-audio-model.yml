@@ -102,4 +102,4 @@ jobs:
           path: /tmp/audio-export/models/
           compression-level: 0
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 7
