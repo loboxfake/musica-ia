@@ -102,6 +102,18 @@ object BardoCapabilityRegistry {
             Capability("cover_art_procedural", "Creación gráfica de portadas PNG", Status.AVAILABLE, "Genera portadas PNG cuadradas 1024×1024 con cinco estilos gráficos, tipografía y concepto. Es diseño procedural offline, no IA generativa.", "Generar PNG real, comprobar tamaño, previsualizar y exportar mediante el selector de documentos Android."),
             Capability("user_authorized_learning", "Referencias aportadas para evolución futura", Status.AVAILABLE, "Solo se incorporan a la biblioteca cuando el usuario autoriza expresamente «Analizar y aprender». El autoestudio local puede consultarlas para diagnósticos y propuestas; no reentrena los pesos del modelo ni modifica el núcleo instalado.", "Verificar SHA-256 de cada referencia, conservar procedencia, tratar el contenido como datos no confiables y exigir aprobación separada para cualquier candidato y su integración."),
             Capability("research", "Investigación web autorizada", Status.REQUIRES_USER_ACTION, "Solo tras pulsar investigar; HTTPS y dominios de documentación permitidos.", "Acción explícita del usuario, fuentes citadas y ninguna afirmación de investigación sin conexión."),
+            Capability(
+                "autonomous_developer",
+                "Autoestudio local y propuesta de correcciones",
+                gemmaStatus(facts),
+                when (gemmaStatus(facts)) {
+                    Status.NEEDS_MODEL -> "Necesita Gemma local verificado para estudiar el snapshot del proyecto."
+                    Status.NEEDS_MEMORY -> "Gemma está presente, pero falta RAM libre para realizar autoestudio con seguridad."
+                    Status.NEEDS_RESOURCES -> facts.resourceBlockReason.orEmpty()
+                    else -> "BARDO puede analizar estáticamente un snapshot con Gemma, guardar memoria técnica y proponer un único diff en una copia aislada. No ejecuta el código importado ni modifica el proyecto original; la validación se hace en GitHub Actions y la integración exige aprobación humana."
+                },
+                "Ejecutar autoestudio con Gemma verificado; conservar snapshot original; validar diff y rutas protegidas; no ejecutar código importado; compilar y probar candidato en runner aislado; exigir aprobación explícita antes de integrar."
+            ),
             Capability("code_audit", "Auditoría de código", Status.AVAILABLE, "Análisis estático de un snapshot; no demuestra que el proyecto compile.", "Informe reproducible de archivos y hallazgos; diferenciar análisis estático de compilación y pruebas."),
             Capability("patch_sandbox", "Propuestas de parches aislados", Status.AVAILABLE, "Solo crea una copia candidata; no modifica la aplicación instalada.", "Diff aislado, pruebas previas, SHA de protecciones intactos, auditoría y reversión demostrable."),
             Capability(

@@ -16,6 +16,7 @@ class BardoCapabilityRegistryTest {
             )
         ).associateBy { it.id }
         assertEquals(BardoCapabilityRegistry.Status.NEEDS_MODEL, items.getValue("general_chat").status)
+        assertEquals(BardoCapabilityRegistry.Status.NEEDS_MODEL, items.getValue("autonomous_developer").status)
         assertEquals(BardoCapabilityRegistry.Status.NEEDS_FULL_APK, items.getValue("instrumental").status)
         assertEquals(BardoCapabilityRegistry.Status.NOT_IMPLEMENTED, items.getValue("voice_synthesis").status)
     }
@@ -61,6 +62,7 @@ class BardoCapabilityRegistryTest {
             )
         ).associateBy { it.id }
         assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("general_chat").status)
+        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("autonomous_developer").status)
         assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("lyrics").status)
     }
 
@@ -70,6 +72,7 @@ class BardoCapabilityRegistryTest {
             BardoCapabilityRegistry.RuntimeFacts(true, true, true)
         ).associateBy { it.id }
         assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("history").status)
+        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("device_inventory").status)
         assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("knowledge").status)
         assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("chat_attachments").status)
         assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("user_authorized_learning").status)
