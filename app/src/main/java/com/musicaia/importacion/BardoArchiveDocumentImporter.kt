@@ -187,10 +187,10 @@ object BardoArchiveDocumentImporter {
                     val name = node.localName ?: node.nodeName.substringAfter(':')
                     if (name.lowercase() in ignoredTags) return
                     val block = name.lowercase() in blockTags
-                    if (block && isNotEmpty() && last() != '\n') append('\\n')
+                    if (block && isNotEmpty() && last() != '\n') append('\n')
                     val children = node.childNodes
                     for (index in 0 until children.length) walk(children.item(index))
-                    if (block && isNotEmpty() && last() != '\n') append('\\n')
+                    if (block && isNotEmpty() && last() != '\n') append('\n')
                 } else if (node.nodeType == Node.TEXT_NODE || node.nodeType == Node.CDATA_SECTION_NODE) {
                     val value = node.nodeValue.orEmpty().replace(Regex("\\s+"), " ")
                     if (value.isNotBlank()) append(value)
