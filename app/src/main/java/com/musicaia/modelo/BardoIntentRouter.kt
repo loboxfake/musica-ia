@@ -165,9 +165,6 @@ object BardoIntentRouter {
         return result
     }
 
-    private fun normalizeFieldValue        return result
-    }
-
     private fun normalizeFieldValue(key: String, value: String): String {
         if (key == "vozFuente") {
             val normalized = normalize(value)
