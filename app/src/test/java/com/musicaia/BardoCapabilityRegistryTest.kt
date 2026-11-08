@@ -89,32 +89,23 @@ class BardoCapabilityRegistryTest {
     }
 
     @Test
-    fun exposesDeviceAssistantAiAppAndInternalModuleCounts() {
+    fun exposesOnlyBardoInternalInventoryCounts() {
         val inventory = BardoCapabilityRegistry.snapshot(
             BardoCapabilityRegistry.RuntimeFacts(
                 gemmaFilePresent = true,
                 audioEnginePresent = true,
                 mp3EncoderPresent = true,
-                launchableAppCount = 42,
-                assistantAppCount = 4,
-                activeVoiceAssistantCount = 1,
-                speechRecognitionAppCount = 2,
-                ttsEngineCount = 1,
-                probableAiAppCount = 3,
+                installedModelCount = 4,
+                availableHelperCount = 16,
                 registeredModuleCount = 7
             )
-        ).associateBy { it.id }.getValue("device_inventory")
+        ).associateBy { it.id }.getValue("self_inventory")
 
         assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, inventory.status)
-        assertTrue(inventory.detail.contains("42"))
-        assertTrue(inventory.detail.contains("4"))
-        assertTrue(inventory.detail.contains("asistentes de voz activos: 1"))
-        assertTrue(inventory.detail.contains("motores de reconocimiento: 2"))
-        assertTrue(inventory.detail.contains("motores TTS: 1"))
-        assertTrue(inventory.detail.contains("3"))
-        assertTrue(inventory.detail.contains("7"))
-        assertTrue(inventory.detail.contains("componentes de asistente/voz detectados"))
-        assertTrue(inventory.detail.contains("módulos internos"))
+        assertTrue(inventory.detail.contains("7 módulos"))
+        assertTrue(inventory.detail.contains("4 modelos/motores"))
+        assertTrue(inventory.detail.contains("16 ayudantes internos"))
+        assertTrue(inventory.detail.contains("no consulta paquetes ni aplicaciones externas"))
     }
 
     @Test
@@ -188,7 +179,7 @@ class BardoCapabilityRegistryTest {
         assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("image_ocr_multiscript").status)
         assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("cover_art_procedural").status)
         assertEquals(BardoCapabilityRegistry.Status.NEEDS_MODEL, items.getValue("cover_art").status)
-        assertTrue(items.getValue("self_install").detail.contains("403"))
-        assertTrue(items.getValue("self_install").detail.contains("artefacto"))
+        assertTrue(items.getValue("self_install").detail.contains("no descarga ni instala actualizaciones"))
+        assertTrue(items.getValue("self_install").detail.contains("GitHub Release"))
     }
 }

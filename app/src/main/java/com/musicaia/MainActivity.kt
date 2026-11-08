@@ -45,7 +45,7 @@ import com.musicaia.memoria.BardoConversationStore
 import com.musicaia.memoria.BardoKnowledgeStore
 import com.musicaia.memoria.BardoActivityStore
 import com.musicaia.storage.BardoSharedStorage
-import com.musicaia.diagnostico.BardoDeviceInventory
+import com.musicaia.diagnostico.BardoSelfInventory
 import com.musicaia.ui.BardoAvatarState
 import com.musicaia.ui.BardoAvatarView
 import java.io.File
@@ -973,120 +973,73 @@ private fun crearEstructuraCarpetaBardo() {
  }
 
  private fun mostrarCapacidades() {
-     val modelo = LiteRTLMModule.modelFile(this)
-     val memoriaLibre = memoriaLibreActualBytes()
-     val device = BardoDeviceInventory.snapshot(this)
-     val modulos = com.musicaia.modelo.BardoModuleCatalog.descriptors()
-     val capacidades = BardoCapabilityRegistry.snapshot(
-         BardoCapabilityRegistry.RuntimeFacts(
-             gemmaFilePresent = modelo.isFile && modelo.length() == LiteRTLMModule.EXPECTED_SIZE_BYTES,
-             audioEnginePresent = AudioGenNative.available,
-             mp3EncoderPresent = Mp3Exporter.available,
-             availableMemoryBytes = memoriaLibre,
-             resourceBlockReason = BardoResourceBudget.blockingReason(this, BardoCapabilityRegistry.MIN_GEMMA_FREE_MEMORY_BYTES),
-             githubActionsConfigured = BardoGitHubCredentialStore.hasToken(this),
-             speechModelPresent = BardoOfflineAsr.isModelInstalled(this, BardoOfflineAsr.Language.SPANISH),
-             speechEnglishModelPresent = BardoOfflineAsr.isModelInstalled(this, BardoOfflineAsr.Language.ENGLISH),
-             imageModelPresent = com.musicaia.modulos.imagen.BardoBonsaiModelInstaller.isInstalled(this),
-             imageResourceBlockReason = BardoResourceBudget.blockingReason(this, BardoCapabilityRegistry.MIN_IMAGE_GENERATION_FREE_MEMORY_BYTES),
-             launchableAppCount = device.apps.size,
-             assistantAppCount = device.assistantApps.size,
-             activeVoiceAssistantCount = device.assistantApps.count { it.activeVoiceInteractionService },
-             speechRecognitionAppCount = device.assistantApps.count { it.providesSpeechRecognition },
-             ttsEngineCount = device.assistantApps.count { it.providesTextToSpeech },
-             probableAiAppCount = device.probableAiApps.size,
-             registeredModuleCount = modulos.size
-         )
-     )
+     val inventory = BardoSelfInventory.snapshot(this)
      val texto = android.text.SpannableStringBuilder()
-     capacidades.forEach { item ->
-         val estado = when (item.status) {
-             BardoCapabilityRegistry.Status.AVAILABLE -> "Componente detectado · prueba Xiaomi pendiente"
-             BardoCapabilityRegistry.Status.NEEDS_MODEL -> "BLOQUEADO · falta modelo local"
-             BardoCapabilityRegistry.Status.NEEDS_MEMORY -> "BLOQUEADO · RAM insuficiente"
-             BardoCapabilityRegistry.Status.NEEDS_RESOURCES -> "BLOQUEADO · batería o temperatura"
-             BardoCapabilityRegistry.Status.NEEDS_FULL_APK -> "BLOQUEADO · falta APK offline completa"
-             BardoCapabilityRegistry.Status.REQUIRES_USER_ACTION -> "ESPERA · requiere tu autorización"
+     texto.append("IDENTIDAD DE ESTA INSTALACIÓN\n")
+         .append("Paquete: ").append(inventory.packageName).append("\n")
+         .append("Versión BARDO: ").append(inventory.versionName)
+         .append(" (code ").append(inventory.versionCode.toString()).append(")\n")
+         .append("Dispositivo: ").append(inventory.deviceModel).append("\n")
+         .append("Android/API: ").append(inventory.androidRelease).append(" / ").append(inventory.sdk.toString()).append("\n")
+         .append("ABI: ").append(inventory.supportedAbis.joinToString().ifBlank { "no declarada" }).append("\n\n")
+
+     texto.append("MODELOS Y MOTORES PROPIOS (").append(inventory.models.size.toString()).append(")\n")
+     inventory.models.forEach { model ->
+         texto.append("• ").append(model.name)
+             .append(" · ").append(if (model.installed) "PRESENTE" else "NO INSTALADO")
+             .append("\n  ").append(model.detail)
+         if (model.bytes > 0L) texto.append("\n  Tamaño detectado: ").append(model.bytes.toString()).append(" bytes")
+         texto.append("\n\n")
+     }
+
+     texto.append("AGENTES Y AYUDANTES INTERNOS (").append(inventory.helpers.size.toString()).append(")\n")
+     inventory.helpers.forEach { helper ->
+         texto.append("• ").append(helper.name)
+             .append(" · ").append(if (helper.integrated) "CÓDIGO INTEGRADO" else "NO DISPONIBLE")
+             .append("\n  ").append(helper.detail).append("\n\n")
+     }
+
+     texto.append("MÓDULOS MUSICALES Y CREATIVOS (").append(inventory.modules.size.toString()).append(")\n")
+     inventory.modules.forEach { module ->
+         val capability = inventory.capabilities.firstOrNull { it.id == module.capabilityId }
+         texto.append("• ").append(module.name)
+             .append(" · ").append(if (module.implemented) "IMPLEMENTADO EN CÓDIGO" else "PENDIENTE")
+             .append("\n  Estado runtime: ").append(capability?.status?.name ?: "SIN REGISTRO")
+         capability?.let { texto.append("\n  ").append(it.detail) }
+         module.modelId?.let { texto.append("\n  Modelo: ").append(it) }
+         texto.append("\n  Licencia/procedencia: ").append(module.license)
+             .append(" · ").append(module.attribution).append("\n\n")
+     }
+
+     texto.append("HABILIDADES Y CAPACIDADES REGISTRADAS (")
+         .append(inventory.capabilities.size.toString()).append(")\n")
+     inventory.capabilities.forEach { capability ->
+         val status = when (capability.status) {
+             BardoCapabilityRegistry.Status.AVAILABLE -> "DISPONIBLE SEGÚN RUNTIME · prueba física pendiente"
+             BardoCapabilityRegistry.Status.NEEDS_MODEL -> "FALTA MODELO"
+             BardoCapabilityRegistry.Status.NEEDS_MEMORY -> "RAM INSUFICIENTE"
+             BardoCapabilityRegistry.Status.NEEDS_RESOURCES -> "RECURSOS NO SEGUROS"
+             BardoCapabilityRegistry.Status.NEEDS_FULL_APK -> "FALTA COMPONENTE DE APK"
+             BardoCapabilityRegistry.Status.REQUIRES_USER_ACTION -> "REQUIERE AUTORIZACIÓN"
              BardoCapabilityRegistry.Status.NOT_IMPLEMENTED -> "NO IMPLEMENTADO"
          }
-         val color = when (item.status) {
-             BardoCapabilityRegistry.Status.AVAILABLE -> android.graphics.Color.rgb(72, 213, 151)
-             BardoCapabilityRegistry.Status.REQUIRES_USER_ACTION -> android.graphics.Color.rgb(217, 184, 107)
-             else -> android.graphics.Color.rgb(255, 101, 122)
-         }
-         texto.append(item.name).append("\nEstado: ")
-         val inicioEstado = texto.length
-         texto.append(estado)
-         texto.setSpan(
-             android.text.style.ForegroundColorSpan(color),
-             inicioEstado,
-             texto.length,
-             android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-         )
-         texto.append("\n").append(item.detail)
-             .append("\nCriterio de aceptación: ").append(item.acceptanceCriteria)
-             .append("\n\n")
+         texto.append("• ").append(capability.name).append(" · ").append(status)
+             .append("\n  ").append(capability.detail)
+             .append("\n  Prueba pendiente: ").append(capability.acceptanceCriteria).append("\n\n")
      }
 
-     texto.append("MÓDULOS Y HABILIDADES INTERNAS DE BARDO (").append(modulos.size.toString()).append(")\n")
-     modulos.forEach { modulo ->
-         texto.append("• ").append(modulo.name)
-             .append(" · ").append(if (modulo.implemented) "registrado en código" else "no implementado")
-             .append("\n  ID: ").append(modulo.id)
-         val estadoModulo = capacidades.firstOrNull { it.id == modulo.capabilityId }
-         if (estadoModulo != null) {
-             texto.append("\n  Disponibilidad actual: ").append(estadoModulo.status.name)
-             texto.append(" · ").append(estadoModulo.detail)
-         } else {
-             texto.append("\n  Disponibilidad actual: sin registro de capacidad runtime")
-         }
-         modulo.modelId?.let { texto.append("\n  Modelo/runtime: ").append(it) }
-         texto.append("\n  Licencia/procedencia: ").append(modulo.license)
-             .append(" · ").append(modulo.attribution).append("\n\n")
-     }
+     texto.append("RECURSOS DEL DISPOSITIVO\n")
+         .append("RAM libre: ").append((inventory.availableRamBytes / (1024L * 1024L)).toString()).append(" MiB")
+         .append(if (inventory.lowMemory) " · Android indica memoria baja" else "").append("\n")
+         .append("Almacenamiento libre de BARDO: ").append((inventory.availableStorageBytes / (1024L * 1024L)).toString()).append(" MiB\n")
+         .append("Batería: ").append(inventory.batteryPercent?.let { it.toString() + "%" } ?: "no disponible")
+         .append(if (inventory.charging) " · cargando" else "").append("\n")
+         .append("Estado térmico Android: ").append(inventory.thermalStatus?.toString() ?: "no disponible")
+         .append("\n\n")
+         .append("Este inventario consulta únicamente el paquete, modelos, recursos, módulos y ayudantes propios de BARDO. No enumera aplicaciones externas. «Código integrado» no significa función probada; «modelo presente» tampoco garantiza que pueda cargarse. Gemma se identifica por archivo y tamaño; su SHA-256 debe validarse antes de inferir. Solo se considera probado lo ejecutado realmente en el Xiaomi 11T Pro.")
 
-     texto.append("APPS CON FUNCIONES DE ASISTENTE DETECTADAS (").append(device.assistantApps.size.toString()).append(")\n")
-     if (device.assistantApps.isEmpty()) {
-         texto.append("No se han encontrado apps visibles que declaren ACTION_ASSIST, VoiceInteractionService, reconocimiento de voz o TTS.\n")
-     } else {
-         device.assistantApps.forEach { assistant ->
-             texto.append("• ").append(assistant.label).append(" · ").append(assistant.packageName)
-                 .append(" · ").append(assistant.versionName ?: "versión no declarada")
-                 .append(" · code ").append(assistant.versionCode.toString())
-             if (assistant.activeVoiceInteractionService) texto.append(" · asistente de voz activo del sistema")
-             if (assistant.handlesAssistAction) texto.append(" · gestiona ACTION_ASSIST")
-             if (assistant.providesVoiceInteractionService) texto.append(" · servicio de interacción por voz")
-             if (assistant.providesSpeechRecognition) texto.append(" · reconocimiento de voz")
-             if (assistant.providesTextToSpeech) texto.append(" · síntesis de voz (TTS)")
-             texto.append("\n")
-         }
-     }
-
-     texto.append("\nPOSIBLES APLICACIONES DE IA (detección heurística por nombre, no certificación) (")
-         .append(device.probableAiApps.size.toString()).append(")\n")
-     if (device.probableAiApps.isEmpty()) {
-         texto.append("No se han encontrado nombres coincidentes entre las apps lanzables visibles.\n")
-     } else {
-         device.probableAiApps.forEach { app ->
-             texto.append("• ").append(app.label).append(" · ").append(app.packageName)
-                 .append(" · ").append(app.versionName ?: "versión no declarada").append("\n")
-         }
-     }
-
-     texto.append("\nINVENTARIO DE APLICACIONES LANZABLES VISIBLES (").append(device.apps.size.toString()).append(")\n")
-     device.apps.forEach { app ->
-         texto.append("• ").append(app.label).append(" · ").append(app.packageName)
-             .append(" · ").append(app.versionName ?: "versión no declarada")
-             .append(" · code ").append(app.versionCode.toString())
-             .append(if (app.systemApp) " · sistema" else " · usuario")
-             .append("\n")
-     }
-     texto.append("\nLÍMITES DE DETECCIÓN\n")
-         .append("Android no permite que una app enumere indiscriminadamente todos los paquetes ni inspeccione datos privados. BARDO consulta apps lanzables visibles, manejadores ACTION_ASSIST y servicios de voz; VoiceInteractionService.isActiveService identifica el servicio de voz global activo cuando Android lo expone. Los motores de reconocimiento y TTS se enumeran como servicios compatibles, no como IA generativa. Las posibles apps IA se señalan solo por el nombre. Android no dispone de un catálogo universal que permita leer las skills, plugins, modelos privados o extensiones internas de otras aplicaciones. En BARDO se muestran sus capacidades registradas y el catálogo interno de módulos/habilidades; las entradas con modelo opcional dependen de que el modelo se encuentre realmente instalado y supere sus verificaciones.\n\n")
-     texto.append("RAM libre detectada: ").append((memoriaLibre / (1024L * 1024L * 1024L)).toString())
-         .append(" GB. Umbral preventivo Gemma: 4 GB. Verde significa componente detectado, no prueba física; solo se considera probado después de instalar y ejecutar la APK en el Xiaomi.")
      AlertDialog.Builder(this)
-         .setTitle("Capacidades de BARDO")
+         .setTitle("BARDO · Inventario propio")
          .setMessage(texto)
          .setPositiveButton("Cerrar", null)
          .show()

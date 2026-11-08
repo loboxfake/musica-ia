@@ -1620,3 +1620,36 @@ PENDIENTE DE PRUEBA FÍSICA EN XIAOMI 11T PRO
 6. Continuar con build #340, firma, auditoría, artefacto y Release. No pedir instalar hasta que haya APK completa y publicada con SHA y certificado verificados.
 7. Tras instalar la futura APK, comprobar RAM, temperatura, estabilidad, SAF y funciones offline reales. CI no sustituye estas pruebas.
 
+
+
+77. AUTOCONOCIMIENTO INTERNO — CORRECCIÓN DE INVENTARIO — 2026-11-08
+
+ACLARACIÓN
+- El inventario anterior de apps lanzables/asistentes externos (entrada 76 y BardoDeviceInventory) no responde al objetivo. Queda sustituido por inventario exclusivamente interno de BARDO.
+- No inspeccionar aplicaciones ajenas, asistentes Android externos, paquetes, TTS/ASR externos ni buscar IA por nombres.
+- Se elimina el bloque <queries> del manifiesto; no se solicita QUERY_ALL_PACKAGES.
+
+IMPLEMENTACIÓN EN MAIN
+- Nuevo BardoSelfInventory.kt. Recoge identidad de la instalación (paquete/versión), dispositivo/ABI, RAM, almacenamiento privado, batería y temperatura.
+- Modelos: Gemma 4 E2B-it (archivo privado y tamaño; SHA debe validarse al cargar), Stable Audio (cuatro artefactos incluidos + libaudiogen cargada), Vosk español/inglés (estructura privada), Bonsai Image 4B (marcador de revisión y tamaños; SHA validado durante instalación), ML Kit OCR e image labeling incluidos.
+- Ayudantes por presencia de clases del propio APK: Gemma/LiteRT-LM, Orquestador/router/parser, DeveloperCore/Worker, GitHubAutomation/PatchApplier, memoria, audio/MP3, ASR, OCR, visión, portadas, Bonsai, WAV, Modo3, tareas, SAF y avatar.
+- Catálogo de siete módulos de BardoModuleCatalog y capacidades de BardoCapabilityRegistry en secciones separadas.
+- RuntimeFacts sustituye contadores de apps externas por installedModelCount, availableHelperCount y registeredModuleCount. La capacidad pasa a self_inventory.
+- Se corrige self_install: la publicación manual de APK firmada mediante GitHub Release funciona; la actualización automática sigue sin implementarse.
+
+BUILD ANTERIOR
+- Build integral #341 SUCCESS sobre 5f07969aabda2c3a821dfb7bffffa8a3e570e127; validación #493 SUCCESS.
+- Release bardo-build-341: https://github.com/loboxfake/musica-ia/releases/tag/bardo-build-341.
+- APK 977000196 bytes; SHA-256 bea9140911bddc3e2ca9335e8c5568beaef0ed4af0bd9cedc2b39a71d0c55a2d; versionCode 1341; versionName 1.0.1341; package com.musicaia; ARM64; firma v2/v3 y certificado SHA-256 c46232017513c3171ba04d91cf579a72202a834f0bcd1c0a22e0c9de0e030368.
+- La APK #341 es anterior a esta corrección y no contiene el inventario propio nuevo.
+
+PROTECCIONES
+- Modo3MezclaVozUsuario.kt sigue con blob SHA 8f2745fa841a06af43bf909732fba834474bf7dc; no se edita.
+- No se modifican firma, secretos ni workflows de seguridad.
+
+PENDIENTE
+1. Validación CI y build integral tras esta corrección.
+2. Auditar APK, firma, SHA, assets y Release nueva.
+3. Instalar y probar en Xiaomi 11T Pro; contrastar Gemma, modelos, ayudantes, SAF, RAM, temperatura y estabilidad.
+4. Probar generación musical, transcripción, OCR, visión, portada, mezcla WAV, Modo3 y autoestudio.
+5. Conectar inventario al ciclo Developer: autoinspección → diagnóstico → priorización → propuesta aislada → tests → aprobación → integración.

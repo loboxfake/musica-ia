@@ -757,3 +757,35 @@ LÍMITES Y PRIVACIDAD
 GOBIERNO
 - Este inventario no amplía permisos ni modifica protecciones. Modo3MezclaVozUsuario.kt, firma, secretos, workflow de seguridad y aprobación humana permanecen protegidos.
 - Las pruebas CI acreditan compilación y tests; los resultados de inventario real, permisos, asistentes instalados y rendimiento requieren verificación en el Xiaomi 11T Pro.
+
+
+30. AUTOCONOCIMIENTO INTERNO DE BARDO — CORRECCIÓN DE ALCANCE — 2026-11-08
+
+DIRECTIVA
+- El inventario debe leer los componentes de BARDO, no aplicaciones de otras empresas.
+- No enumerar apps externas, asistentes Android, paquetes de terceros, ACTION_ASSIST, TTS externos ni posibles apps IA por coincidencias de nombre.
+- No añadir QUERY_ALL_PACKAGES ni consultas PackageManager para aplicaciones ajenas.
+- La fuente de verdad es el propio APK, BardoModuleCatalog, BardoCapabilityRegistry, los agentes/helpers internos, los modelos privados de BARDO y los recursos/runtime del dispositivo.
+
+ESTADOS OBLIGATORIOS
+1. Código integrado en el APK.
+2. Modelo/artefacto incluido en APK.
+3. Modelo opcional descargado en almacenamiento privado y verificado.
+4. Runtime/biblioteca nativa cargada.
+5. Capacidad disponible según RAM, batería y temperatura.
+6. Función probada de verdad en el dispositivo.
+Nunca convertir «clase presente» o «archivo presente» en «IA funcional».
+
+ELEMENTOS
+- Identidad: packageName, versionName/versionCode, ABI, Android y dispositivo.
+- Modelos: Gemma 4 E2B, Stable Audio Open Small, Vosk español/inglés, Bonsai Image 4B y ML Kit OCR/visión incluidos.
+- Ayudantes: conversación LiteRT-LM, Orquestador/router/parser, DeveloperCore/Worker, automatización GitHub, patch applier, memoria/conocimiento/copias, OCR, visión, ASR, audio nativo, MP3, herramientas WAV, portadas, Bonsai, Modo3, SAF y tareas.
+- Módulos: BardoModuleCatalog.
+- Habilidades: BardoCapabilityRegistry, con estado, requisitos y aceptación.
+- Recursos: RAM, almacenamiento privado libre, batería y temperatura.
+
+EVOLUCIÓN
+- Refrescar inventario tras importar/retirar modelos, cambiar APK o reiniciar.
+- El agente Developer usa el inventario para diagnosticar capacidades ausentes, priorizar trabajo y proponer mejoras.
+- El autoestudio requiere Gemma cargable, conocimiento autorizado, copia aislada, tests, GitHub Actions y aprobación humana.
+- Modo3, firma, secretos, protecciones y aprobación no pueden auto-modificarse.
