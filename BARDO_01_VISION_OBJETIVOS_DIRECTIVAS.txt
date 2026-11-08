@@ -577,3 +577,19 @@ El ASR local soporta español e inglés estadounidense mediante modelos Vosk ind
 - Ciclo autorizado: sincronizar main → auditar → razonar con Gemma local → diff en copia aislada → validar en runner efímero → aprobación explícita → fast-forward en main → build integral firmada y auditada → mostrar actualización Android. Sin auto-merge ni instalación silenciosa.
 - Límites que deben comunicarse: necesita Gemma real verificado y recursos suficientes, token autorizado, conectividad a GitHub para CI y aprobación humana de integración/instalación. BARDO puede prescindir de ChatGPT como herramienta de codificación, pero no puede ignorar permisos, seguridad, costes o decisiones del propietario.
 - Prohibición permanente: no tocar Modo3MezclaVozUsuario.kt ni material de firma/secretos; no force-push, reset --hard, borrar historia ni crear ramas paralelas.
+
+
+19. MANTENIMIENTO PERMANENTE DE LOS DOCUMENTOS MAESTROS Y AUTONOMÍA — 2026-11-08
+
+DIRECTIVA OPERATIVA VIGENTE:
+- BARDO_01_VISION_OBJETIVOS_DIRECTIVAS.txt y BARDO_02_INVENTARIO_TECNICO_Y_ESTADO.txt deben mantenerse sincronizados con el estado más reciente del proyecto. No son documentos de cierre puntual: se actualizan de forma continua durante cada ciclo de trabajo.
+- BARDO_01 registra decisiones, objetivos, prioridades, límites y cambios aprobados por el usuario. BARDO_02 registra evidencia: SHA, commit, archivos, cambios, resultados de pruebas/CI, artefactos, hashes, fallos, advertencias y pendientes.
+- Cada cambio técnico o decisión que afecte a ambos ámbitos obliga a actualizar ambos maestros en el mismo ciclo; comprobar el commit final y su coherencia antes de cerrar la tarea.
+- La rama canónica actual es main y el repositorio debe conservar una sola rama activa. Esta directiva posterior aclara y sustituye, para el mantenimiento documental, la frase histórica del apartado 14 que remitía todas las actualizaciones a bardo-unified-core y prohibía modificar main. La actualización documental solicitada por el usuario se realiza en main; no implica autorización general para cambios de código, auto-merge, cambios de workflows/secretos o instalación.
+- Los maestros conservan el historial: no borrar registros anteriores; añadir entradas fechadas que aclaren, resuelvan o sustituyan estados anteriores y señalar expresamente qué afirmaciones han quedado obsoletas.
+- BARDO debe tener como primera referencia la fuente actualizada de main, conservando el SHA exacto del snapshot. Las propuestas de código deben verificarse contra la base actual y con CI sobre el mismo SHA; solo se integra el diff exacto que superó validación y con aprobación humana.
+- Para declarar una entrega deben separarse cuatro niveles: fuente integrada, CI/artefacto firmado, instalación real y funcionamiento probado en el dispositivo. Ninguno sustituye al siguiente.
+- Objetivo de autonomía: que BARDO pueda sincronizar, analizar, proponer, validar, diagnosticar y preparar entregas sin depender de ChatGPT como programador. Se mantienen obligatorios Gemma local operativo y verificado, autorización GitHub, red para sincronización/CI, aprobación de integración y acción del usuario para instalar. El sistema no debe prometer autonomía ilimitada ni saltarse estas barreras.
+- Modo3MezclaVozUsuario.kt y el material de firma permanecen protegidos; mantener sus huellas verificadas antes/después y no modificar workflows de seguridad, claves, secretos o controles críticos sin autorización expresa.
+
+La primera aplicación de esta directiva se registra en BARDO_02, entrada 66, con la validación #451 y la APK integral #299 del SHA 4855c3326a8459995576c187c50f02afcb45aa48.
