@@ -39,6 +39,51 @@ class BardoDeveloperCoreTest {
         }
     }
 
+    @Test fun importsGitHubArchiveAndStripsItsSingleRepositoryFolder() {
+        val base = createTempDir(prefix = "bardo-dev-github-archive")
+        try {
+            val imported = BardoDeveloperCore.importarZip(
+                ByteArrayInputStream(
+                    zip(
+                        "musica-ia-abc123/" to "",
+                        "musica-ia-abc123/app/src/Main.kt" to "fun main() {}",
+                        "musica-ia-abc123/README.md" to "# BARDO"
+                    )
+                ),
+                base,
+                stripSingleRootDirectory = true
+            )
+            assertEquals(2, imported.files)
+            assertTrue(File(imported.directory, "app/src/Main.kt").isFile)
+            assertTrue(File(imported.directory, "README.md").isFile)
+            assertTrue(!File(imported.directory, "musica-ia-abc123").exists())
+        } finally {
+            base.deleteRecursively()
+        }
+    }
+
+    @Test fun rejectsGitHubArchiveWithMultipleRootFoldersAndCleansPartialSnapshot() {
+        val base = createTempDir(prefix = "bardo-dev-github-unsafe")
+        try {
+            val error = runCatching {
+                BardoDeveloperCore.importarZip(
+                    ByteArrayInputStream(
+                        zip(
+                            "repo-a/app/Main.kt" to "fun main() {}",
+                            "repo-b/app/Other.kt" to "fun main() {}"
+                        )
+                    ),
+                    base,
+                    stripSingleRootDirectory = true
+                )
+            }.exceptionOrNull()
+            assertTrue(error is IllegalArgumentException)
+            assertTrue(base.listFiles().isNullOrEmpty())
+        } finally {
+            base.deleteRecursively()
+        }
+    }
+
     @Test fun failedImportRemovesItsPartialSnapshot() {
         val base = createTempDir(prefix = "bardo-dev-partial")
         try {
