@@ -1282,3 +1282,14 @@ Inspección sobre main, HEAD 635e8ad74a9645c1c52cb1c27b66b57a5895dc93:
 - La pestaña Imágenes debe quedar separada de Crear y Biblioteca y admitir portada vinculada a canción/disco e imagen libre solicitada a BARDO. El código ya tiene la sección visual y entrada independiente; revisar flujo, etiquetas y navegación configurable.
 - Último commit de HEAD: 635e8ad74a9645c1c52cb1c27b66b57a5895dc93. Modo3MezclaVozUsuario.kt sigue protegido con blob SHA-1 8f2745fa841a06af43bf909732fba834474bf7dc; no modificar.
 - No existe APK integral instalable para el HEAD inspeccionado. La prueba física en Xiaomi 11T Pro y la escucha de WAV continúan pendientes.
+
+
+63. CAMBIOS OCR BILINGÜE Y NAVEGACIÓN — 2026-11-08
+
+- Commit fb222598570e3e59b928590fdee5594ec1add9e8: añade BardoOcrLanguageSupport (mínimo es/en y locales), pruebas unitarias para es, es-ES, en y en-US, incluye la pestaña images en tabsDisponibles/navIds y fija Android Lint 8.8.2 para resolver el crash del detector NullSafeMutableLiveData.
+- Commit 154c4bfc1a0d7cd774ff24b6a9345214db90e10d: corrige los escapes de salto de línea y espacios del texto OCR.
+- BardoOcrImporter mantiene los reconocedores bundled de scripts latino, chino, devanagari, japonés y coreano; ejecuta primero el latino y solo invoca los otros scripts si no encuentra texto. El contrato mínimo español/inglés se prueba con tags regionales. No se declara detección automática del idioma.
+- MainActivity incluye images en el catálogo de pestañas y en el mapa de navegación; la sección Imágenes mantiene los botones separados para portada IA vinculada a canción/disco, imagen libre con BARDO y portada procedural sin IA.
+- Modo3MezclaVozUsuario.kt sigue intacto: blob SHA-1 8f2745fa841a06af43bf909732fba834474bf7dc.
+- CI del HEAD 154c4bfc: BARDO integration validation #434 / run 42481973474 y Build full offline APK #284 / run 42481973487 estaban PENDING. Las ejecuciones anteriores #431 y #281 sobre el commit documental 93376f1 seguían IN_PROGRESS en testDebugUnitTest; no constituyen validación del código nuevo. La ejecución #430 del SHA anterior pasó; #280 falló en Release Lint. No hay todavía APK firmada/publicada para el nuevo HEAD.
+- No declarar corrección Lint, OCR ni navegación como CI-validada hasta que los workflows sobre el SHA que contiene estos cambios terminen SUCCESS. La instalación y prueba física en Xiaomi 11T Pro siguen pendientes.
