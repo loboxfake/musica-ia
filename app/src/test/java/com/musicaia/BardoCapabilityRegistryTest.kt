@@ -89,6 +89,29 @@ class BardoCapabilityRegistryTest {
     }
 
     @Test
+    fun exposesDeviceAssistantAiAppAndInternalModuleCounts() {
+        val inventory = BardoCapabilityRegistry.snapshot(
+            BardoCapabilityRegistry.RuntimeFacts(
+                gemmaFilePresent = true,
+                audioEnginePresent = true,
+                mp3EncoderPresent = true,
+                launchableAppCount = 42,
+                assistantAppCount = 1,
+                probableAiAppCount = 3,
+                registeredModuleCount = 7
+            )
+        ).associateBy { it.id }.getValue("device_inventory")
+
+        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, inventory.status)
+        assertTrue(inventory.detail.contains("42"))
+        assertTrue(inventory.detail.contains("1"))
+        assertTrue(inventory.detail.contains("3"))
+        assertTrue(inventory.detail.contains("7"))
+        assertTrue(inventory.detail.contains("asistentes de Android"))
+        assertTrue(inventory.detail.contains("módulos internos"))
+    }
+
+    @Test
     fun exposesOfflineSpeechTranscriptionOnlyWhenSpanishModelIsInstalled() {
         val missing = BardoCapabilityRegistry.snapshot(
             BardoCapabilityRegistry.RuntimeFacts(true, true, true)
