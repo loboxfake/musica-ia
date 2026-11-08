@@ -18,7 +18,7 @@ class BardoBonsaiMathTest {
         assertEquals(1024 * 4, image.size)
         assertEquals(256 * 4, text.size)
         assertEquals(0f, image[0], 0f)
-        assertEquals(1f, image[2], 0f)
+        assertEquals(1f, image[6], 0f)
         assertEquals(255f, text[text.lastIndex], 0f)
     }
 

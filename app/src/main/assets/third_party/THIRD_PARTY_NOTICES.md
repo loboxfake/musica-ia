@@ -17,7 +17,7 @@ The LAME source files retain their original LGPL notices. The Android build adap
 BARDO includes an optional on-device text-to-image pipeline based on Bonsai Image 4B LiteRT, distributed under Apache-2.0:
 
 - Model: https://huggingface.co/litert-community/Bonsai-Image-ternary-4B
-- Pinned model revision: ca6456fc392624e1690c9e8ec053ad5917500d0a
+- Pinned model revision: a15c5766bf5fe099762c81df7246185f793b150b
 - Runtime/pipeline reference: https://github.com/john-rocky/hf-to-litertlm/tree/main/bonsai_image_work/device/BonsaiAppAndroid
 - Android host code: Copyright 2026 Daisuke Majima, Apache-2.0. Original license header retained in the adapted Kotlin files.
 - Runtime: LiteRT 2.1.3 with CPU/XNNPACK; no remote inference.

@@ -1238,3 +1238,11 @@ No declarar la fase cerrada solo por CI verde; la prueba física en Xiaomi 11T P
 - La conversación general local indica a Gemma que detecte y responda en el idioma del mensaje más reciente cuando lo pueda interpretar; depende del modelo local instalado y de recursos suficientes. La creación musical sigue restringida a español/inglés.
 - Portadas disponibles: PNG procedural offline 1024×1024, cinco estilos. Generación IA local real sigue NOT_IMPLEMENTED por falta de modelo móvil validado.
 - Estado técnico: commit de código OCR 7cbbbd33 pendiente de CI; no declarar validado hasta que el run de ese SHA termine.
+
+
+59. GENERACIÓN DE PORTADAS CON IA LOCAL — BONSAI IMAGE 4B
+- Implementación añadida: BardoBonsaiModelInstaller, BardoQwenTokenizer, BardoBonsaiMath, BardoBonsaiPipeline y BardoBonsaiImageGenerator. LiteRT 2.1.3 + XNNPACK; 4 pasos de muestreo; 512×512 PNG; título/artista superpuestos con tipografía nítida.
+- Modelo Bonsai Image 4B (Apache-2.0), revisión a15c5766bf5fe099762c81df7246185f793b150b. Descarga total fijada 4.268.742.555 bytes (incluye pipeline_meta, tokenizer y 3 grafos). Modelos y tokenizer verificados por SHA-256; pipeline_meta se valida por tamaño y esquema sobre revisión inmutable. Descarga por HTTPS, reanudable, almacenamiento privado y consentimiento explícito.
+- Umbral preventivo 3,5 GiB RAM libre; se cierra Gemma antes de cargar el generador y se bloquea si el motor de audio está ocupado. El dispositivo de referencia Xiaomi 11T Pro (8 GB) está en el límite inferior publicado; no se afirma prueba física ni rendimiento garantizado.
+- Tests JVM para sigma schedule, posiciones, ruido determinista y unpatchify; tests del registro de capacidades para modelo ausente, RAM baja y listo. La inferencia real requiere modelo descargado y test de dispositivo.
+- Código Android portado bajo Apache-2.0 desde https://github.com/john-rocky/hf-to-litertlm/tree/main/bonsai_image_work/device/BonsaiAppAndroid. Modelo Apache-2.0: https://huggingface.co/litert-community/Bonsai-Image-ternary-4B.

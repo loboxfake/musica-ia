@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * tamaño + SHA-256. pipeline_meta.json se fija por revisión, tamaño y esquema.
  */
 object BardoBonsaiModelInstaller {
-    const val REVISION = "ca6456fc392624e1690c9e8ec053ad5917500d0a"
+    const val REVISION = "a15c5766bf5fe099762c81df7246185f793b150b"
     const val TOTAL_BYTES = 4_268_742_555L
     const val REQUIRED_FREE_BYTES = TOTAL_BYTES + 512L * 1024L * 1024L
     private const val BASE_URL =

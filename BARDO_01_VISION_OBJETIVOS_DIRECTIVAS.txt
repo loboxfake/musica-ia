@@ -515,3 +515,11 @@ El ASR local soporta español e inglés estadounidense mediante modelos Vosk ind
 - Se reutiliza el conjunto de reconocedores OCR bundled (latino, chino, devanagari, japonés y coreano) en imágenes, PDF escaneados y fotogramas de vídeo; los clientes se reutilizan durante cada archivo y se cierran al terminar.
 - La extracción de texto digital de documentos es independiente del idioma y conserva Unicode; el OCR solo cubre los scripts enumerados. No afirmar «cualquier idioma» para OCR ni transcripción de audio.
 - La conversación general local pide al modelo responder en el idioma del último mensaje cuando lo pueda manejar. Esto depende de que Gemma esté instalado, verificado y tenga RAM; sin modelo no se simula respuesta generativa.
+
+
+14.5 GENERACIÓN DE PORTADAS CON IA LOCAL — 2026-11-08
+- Se integra como capacidad opcional Bonsai Image 4B LiteRT, con descarga explícita del usuario (~4,27 GB), uso local CPU/XNNPACK y salida PNG 512×512. No se envía el prompt ni la imagen a servicios cloud.
+- El Xiaomi 11T Pro tiene 8 GB de RAM: es el mínimo publicado, no una garantía. El modelo puede tardar varios minutos, elevar temperatura y provocar cierre de apps en segundo plano. BARDO cierra Gemma, bloquea si el motor de audio está ocupado y exige 3,5 GiB libres antes de generar.
+- Modelo y tokenizer se fijan a una revisión inmutable. SHA-256 verificado para los tres grafos LiteRT y los dos archivos tokenizer; pipeline_meta.json se valida por revisión, tamaño y estructura. Descargas reanudables y privadas.
+- La composición añade el título/artista después de generar el fondo, para evitar depender de que el modelo dibuje texto legible. La portada procedural sigue disponible como alternativa ligera.
+- No afirmar compatibilidad física con el Xiaomi hasta probar generación real, tiempo, RAM y temperatura en ese dispositivo.

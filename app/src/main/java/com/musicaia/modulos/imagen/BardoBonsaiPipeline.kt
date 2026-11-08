@@ -170,11 +170,11 @@ class BardoBonsaiPipeline(private val modelsDir: File, meta: JSONObject) {
 
         // ---- stage 2: DiT Euler loop ----------------------------------------
         progress("Loading DiT (2.1 GiB)…", 0.10)
-        val sigmas = BonsaiMath.sigmas(steps)
-        val imgIds = fbuf(BonsaiMath.imgIds())
-        val txtIds = fbuf(BonsaiMath.txtIds())
+        val sigmas = BardoBonsaiMath.sigmas(steps)
+        val imgIds = fbuf(BardoBonsaiMath.imgIds())
+        val txtIds = fbuf(BardoBonsaiMath.txtIds())
         val embedsBuf = fbuf(embeds)
-        var lat = BonsaiMath.noise(seed)
+        var lat = BardoBonsaiMath.noise(seed)
         val stepSeconds = ArrayList<Double>(steps)
         Graph(modelFile(ditFile), THREADS).use { dit ->
             status("DiT loaded %.1fs".format(dit.loadSeconds))
@@ -184,7 +184,7 @@ class BardoBonsaiPipeline(private val modelsDir: File, meta: JSONObject) {
                 val t = System.nanoTime()
                 val v = dit.run(
                     listOf(fbuf(lat), embedsBuf, fbuf(floatArrayOf(sigmas[k])), imgIds, txtIds),
-                    BonsaiMath.TOKENS * BonsaiMath.PACKED_CHANNELS
+                    BardoBonsaiMath.TOKENS * BardoBonsaiMath.PACKED_CHANNELS
                 )
                 val ds = sigmas[k + 1] - sigmas[k]
                 for (i in lat.indices) lat[i] += ds * v[i]
@@ -197,7 +197,7 @@ class BardoBonsaiPipeline(private val modelsDir: File, meta: JSONObject) {
 
         // ---- stage 3: unpatchify + VAE decode -------------------------------
         progress("Decoding image…", 0.90)
-        val z = BonsaiMath.unpatchify(lat, bnScale, bnShift)
+        val z = BardoBonsaiMath.unpatchify(lat, bnScale, bnShift)
         val rgb = ByteArray(512 * 512 * 3)
         Graph(modelFile(vaeFile), THREADS).use { vae ->
             val t = System.nanoTime()
