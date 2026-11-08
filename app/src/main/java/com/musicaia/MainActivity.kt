@@ -975,6 +975,8 @@ private fun crearEstructuraCarpetaBardo() {
  private fun mostrarCapacidades() {
      val modelo = LiteRTLMModule.modelFile(this)
      val memoriaLibre = memoriaLibreActualBytes()
+     val device = BardoDeviceInventory.snapshot(this)
+     val modulos = com.musicaia.modelo.BardoModuleCatalog.descriptors()
      val capacidades = BardoCapabilityRegistry.snapshot(
          BardoCapabilityRegistry.RuntimeFacts(
              gemmaFilePresent = modelo.isFile && modelo.length() == LiteRTLMModule.EXPECTED_SIZE_BYTES,
@@ -984,10 +986,13 @@ private fun crearEstructuraCarpetaBardo() {
              resourceBlockReason = BardoResourceBudget.blockingReason(this, BardoCapabilityRegistry.MIN_GEMMA_FREE_MEMORY_BYTES),
              githubActionsConfigured = BardoGitHubCredentialStore.hasToken(this),
              speechModelPresent = BardoOfflineAsr.isModelInstalled(this, BardoOfflineAsr.Language.SPANISH),
-              speechEnglishModelPresent = BardoOfflineAsr.isModelInstalled(this, BardoOfflineAsr.Language.ENGLISH),
+             speechEnglishModelPresent = BardoOfflineAsr.isModelInstalled(this, BardoOfflineAsr.Language.ENGLISH),
              imageModelPresent = com.musicaia.modulos.imagen.BardoBonsaiModelInstaller.isInstalled(this),
              imageResourceBlockReason = BardoResourceBudget.blockingReason(this, BardoCapabilityRegistry.MIN_IMAGE_GENERATION_FREE_MEMORY_BYTES),
-             launchableAppCount = BardoDeviceInventory.launchableApps(this).size
+             launchableAppCount = device.apps.size,
+             assistantAppCount = device.assistantApps.size,
+             probableAiAppCount = device.probableAiApps.size,
+             registeredModuleCount = modulos.size
          )
      )
      val texto = android.text.SpannableStringBuilder()
@@ -1006,7 +1011,7 @@ private fun crearEstructuraCarpetaBardo() {
              BardoCapabilityRegistry.Status.REQUIRES_USER_ACTION -> android.graphics.Color.rgb(217, 184, 107)
              else -> android.graphics.Color.rgb(255, 101, 122)
          }
-         texto.append(item.name).append("\nEstado: ")
+         texto.append(item.name).append("\\nEstado: ")
          val inicioEstado = texto.length
          texto.append(estado)
          texto.setSpan(
@@ -1015,21 +1020,56 @@ private fun crearEstructuraCarpetaBardo() {
              texto.length,
              android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
          )
-         texto.append("\n").append(item.detail)
-             .append("\nCriterio de aceptación: ").append(item.acceptanceCriteria)
-             .append("\n\n")
+         texto.append("\\n").append(item.detail)
+             .append("\\nCriterio de aceptación: ").append(item.acceptanceCriteria)
+             .append("\\n\\n")
      }
-     val device = BardoDeviceInventory.snapshot(this)
-     texto.append("INVENTARIO DEL DISPOSITIVO\n")
-         .append(device.summary).append("\n\n")
-         .append("APLICACIONES LANZABLES DETECTADAS (").append(device.apps.size).append(")\n")
-     device.apps.take(80).forEach { app ->
+
+     texto.append("MÓDULOS Y HABILIDADES INTERNAS DE BARDO (").append(modulos.size).append(")\\n")
+     modulos.forEach { modulo ->
+         texto.append("• ").append(modulo.name)
+             .append(" · ").append(if (modulo.implemented) "código registrado" else "no implementado")
+             .append("\\n  ID: ").append(modulo.id)
+         modulo.modelId?.let { texto.append("\\n  Modelo/runtime: ").append(it) }
+         texto.append("\\n  Licencia/procedencia: ").append(modulo.license)
+             .append(" · ").append(modulo.attribution).append("\\n\\n")
+     }
+
+     texto.append("ASISTENTES DEL SISTEMA DETECTADOS (").append(device.assistantApps.size).append(")\\n")
+     if (device.assistantApps.isEmpty()) {
+         texto.append("Android no expone ahora un asistente registrado por ROLE_ASSISTANT ni una app que gestione ACTION_ASSIST.\\n")
+     } else {
+         device.assistantApps.forEach { assistant ->
+             texto.append("• ").append(assistant.label).append(" · ").append(assistant.packageName)
+             if (assistant.activeAssistantRole) texto.append(" · asistente activo del sistema")
+             if (assistant.handlesAssistAction) texto.append(" · gestiona ACTION_ASSIST")
+             texto.append("\\n")
+         }
+     }
+
+     texto.append("\\nPOSIBLES APLICACIONES DE IA (detección heurística por nombre, no certificación) (")
+         .append(device.probableAiApps.size).append(")\\n")
+     if (device.probableAiApps.isEmpty()) {
+         texto.append("No se han encontrado nombres coincidentes entre las apps lanzables visibles.\\n")
+     } else {
+         device.probableAiApps.forEach { app ->
+             texto.append("• ").append(app.label).append(" · ").append(app.packageName)
+                 .append(" · ").append(app.versionName ?: "versión no declarada").append("\\n")
+         }
+     }
+
+     texto.append("\\nINVENTARIO DE APLICACIONES LANZABLES VISIBLES (").append(device.apps.size).append(")\\n")
+     device.apps.forEach { app ->
          texto.append("• ").append(app.label).append(" · ").append(app.packageName)
-             .append(" · ").append(app.versionName ?: "versión no declarada").append("\n")
+             .append(" · ").append(app.versionName ?: "versión no declarada")
+             .append(" · code ").append(app.versionCode)
+             .append(if (app.systemApp) " · sistema" else " · usuario")
+             .append("\\n")
      }
-     if (device.apps.size > 80) texto.append("… y ").append(device.apps.size - 80).append(" más.\n")
-     texto.append("\nNota: Android limita la visibilidad de paquetes. Este inventario incluye apps con actividad de inicio visible; no inspecciona datos privados ni garantiza enumerar paquetes ocultos.\n\n")
-     texto.append("RAM libre detectada: ${memoriaLibre / (1024L * 1024L * 1024L)} GB. Umbral preventivo Gemma: 4 GB. Verde significa componente detectado, no prueba en el teléfono; solo se marca como probado cuando tú lo confirmes tras instalar y usar la APK.")
+     texto.append("\\nLÍMITES DE DETECCIÓN\\n")
+         .append("Android no permite que una app enumere indiscriminadamente todos los paquetes ni inspeccione datos privados. BARDO consulta apps lanzables visibles y asistentes declarados mediante ROLE_ASSISTANT/ACTION_ASSIST; las posibles apps IA se señalan solo por el nombre. Android no dispone de un catálogo universal que permita leer las skills, plugins, modelos privados o extensiones internas de otras aplicaciones. En BARDO se muestran sus capacidades registradas y el catálogo interno de módulos/habilidades; las entradas con modelo opcional dependen de que el modelo se encuentre realmente instalado y supere sus verificaciones.\\n\\n")
+     texto.append("RAM libre detectada: ").append(memoriaLibre / (1024L * 1024L * 1024L))
+         .append(" GB. Umbral preventivo Gemma: 4 GB. Verde significa componente detectado, no prueba física; solo se considera probado después de instalar y ejecutar la APK en el Xiaomi.")
      AlertDialog.Builder(this)
          .setTitle("Capacidades de BARDO")
          .setMessage(texto)
