@@ -150,7 +150,8 @@ jobs:
             echo "Changed files:"
             cat candidate-validation-changed-files.txt
           } > candidate-validation-report.txt
-          sha256sum "$RUNNER_TEMP/bardo-candidate/change.patch" >> candidate-validation-report.txt
+          patch_sha256="$(sha256sum "$RUNNER_TEMP/bardo-candidate/change.patch" | awk '{print $1}')"
+          echo "Patch SHA-256: $patch_sha256" >> candidate-validation-report.txt
 
       - name: Publish candidate validation report
         uses: actions/upload-artifact@v4
