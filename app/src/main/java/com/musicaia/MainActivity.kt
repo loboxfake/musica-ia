@@ -2455,7 +2455,6 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
          mostrarFormularioPortadaIA()
          return
      }
-     val bytes = com.musicaia.modulos.imagen.BardoBonsaiModelInstaller.REQUIRED_FREE_BYTES
      AlertDialog.Builder(this)
          .setTitle("Instalar generador de portadas IA local")
          .setMessage(
@@ -2467,16 +2466,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                  "¿Descargar e instalar ahora?"
          )
          .setNegativeButton("Ahora no", null)
-         .setPositiveButton("Descargar modelo") { _, _ ->
-             if (!com.musicaia.modulos.imagen.BardoBonsaiModelInstaller.hasEnoughStorage(this)) {
-                 AlertDialog.Builder(this)
-                     .setMessage("No hay espacio libre suficiente. Se necesitan al menos " +
-                         String.format(java.util.Locale.ROOT, "%.2f GB", bytes / 1_000_000_000.0) + ".")
-                     .setPositiveButton("Aceptar", null).show()
-             } else {
-                 descargarModeloBonsai()
-             }
-         }
+         .setPositiveButton("Descargar modelo") { _, _ -> descargarModeloBonsai() }
          .show()
  }
 
@@ -2497,6 +2487,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
          addView(progressBar)
      }
      val dialog = AlertDialog.Builder(this)
+         .setCancelable(false)
          .setTitle("Descargando Bonsai Image 4B")
          .setView(content)
          .setNegativeButton("Cancelar", null)
@@ -2606,6 +2597,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                  addView(progressBar)
              }
              val progressDialog = AlertDialog.Builder(this)
+                 .setCancelable(false)
                  .setTitle("Generando portada IA offline")
                  .setView(content)
                  .setNegativeButton("Cancelar", null)

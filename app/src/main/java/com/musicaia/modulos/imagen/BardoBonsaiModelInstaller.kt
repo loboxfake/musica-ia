@@ -49,8 +49,23 @@ object BardoBonsaiModelInstaller {
     fun availableBytes(context: Context): Long =
         StatFs(context.filesDir.absolutePath).availableBytes
 
+    fun requiredFreeBytes(context: Context): Long {
+        val dir = modelDir(context)
+        val remaining = files.sumOf { spec ->
+            val target = File(dir, spec.path)
+            if (target.isFile && verifyFile(target, spec)) {
+                0L
+            } else {
+                val part = File(target.parentFile ?: dir, target.name + ".part")
+                val partial = part.length().coerceIn(0L, spec.size)
+                spec.size - partial
+            }
+        }
+        return remaining + 512L * 1024L * 1024L
+    }
+
     fun hasEnoughStorage(context: Context): Boolean =
-        availableBytes(context) >= REQUIRED_FREE_BYTES
+        availableBytes(context) >= requiredFreeBytes(context)
 
     fun isInstalled(context: Context): Boolean {
         val dir = modelDir(context)
@@ -71,8 +86,8 @@ object BardoBonsaiModelInstaller {
         val dir = modelDir(appContext)
         if (!dir.exists() && !dir.mkdirs()) error("No se pudo crear el directorio privado del modelo.")
         if (!hasEnoughStorage(appContext)) {
-            error("Se necesitan al menos %.2f GB libres para el modelo y margen temporal."
-                .format(REQUIRED_FREE_BYTES / 1_000_000_000.0))
+            error("Se necesitan al menos %.2f GB libres para los archivos que faltan y margen temporal."
+                .format(requiredFreeBytes(appContext) / 1_000_000_000.0))
         }
 
         var completed = 0L
