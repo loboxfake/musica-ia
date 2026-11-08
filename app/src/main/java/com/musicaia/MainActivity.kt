@@ -1350,12 +1350,14 @@ private fun crearEstructuraCarpetaBardo() {
      json.put("welcomeTitle", findViewById<TextView>(R.id.tvWelcomeTitle).text.toString())
      json.put("welcomeDescription", findViewById<TextView>(R.id.tvWelcomeDescription).text.toString())
      json.put("accentColor", accentColorUI)
+     json.put("navigationVersion", 2)
      json.put("navigationOrder", JSONArray(navigationOrder))
      json.put("visibleTabs", JSONArray(tabsDisponibles.filter { it in visibleTabs }))
      json.put("navigation", JSONObject()
          .put("orchestrator", findViewById<TextView>(R.id.navOrquestador).text.toString())
          .put("create", findViewById<TextView>(R.id.navCrear).text.toString())
          .put("library", findViewById<TextView>(R.id.navBiblioteca).text.toString())
+         .put("images", findViewById<TextView>(R.id.navImagenes).text.toString())
          .put("lab", findViewById<TextView>(R.id.navLaboratorio).text.toString())
          .put("system", findViewById<TextView>(R.id.navSistema).text.toString()))
      return json
@@ -1389,6 +1391,7 @@ private fun crearEstructuraCarpetaBardo() {
          }
      }
      navigationOrder = (ordenLeido + tabsDisponibles.filter { it !in ordenLeido })
+     val navigationVersion = json.optInt("navigationVersion", 1)
      val visiblesImportados = json.optJSONArray("visibleTabs")
      val visiblesLeidos = mutableSetOf<String>()
      if (visiblesImportados != null) {
@@ -1397,17 +1400,22 @@ private fun crearEstructuraCarpetaBardo() {
              if (key in tabsDisponibles) visiblesLeidos.add(key)
          }
      }
-     visibleTabs = (if (visiblesLeidos.isEmpty()) tabsDisponibles.toSet() else visiblesLeidos).toMutableSet()
+     visibleTabs = when {
+         visiblesLeidos.isEmpty() -> tabsDisponibles.toSet()
+         navigationVersion < 2 -> visiblesLeidos + "images"
+         else -> visiblesLeidos
+     }.toMutableSet()
      visibleTabs.add("orchestrator")
      findViewById<TextView>(R.id.navOrquestador).text = navigation.optString("orchestrator", "✧\nIA").take(18)
      findViewById<TextView>(R.id.navCrear).text = navigation.optString("create", "♫\nCrear").take(18)
      findViewById<TextView>(R.id.navBiblioteca).text = navigation.optString("library", "▤\nArchivo").take(18)
+     findViewById<TextView>(R.id.navImagenes).text = navigation.optString("images", "▣\nImágenes").take(18)
      findViewById<TextView>(R.id.navLaboratorio).text = navigation.optString("lab", "◇\nLab").take(18)
      findViewById<TextView>(R.id.navSistema).text = navigation.optString("system", "⚙\nSistema").take(18)
      findViewById<TextView>(R.id.tvWelcomeTitle).setTextColor(android.graphics.Color.rgb(245, 248, 255))
      findViewById<TextView>(R.id.tvBrandName).setTextColor(android.graphics.Color.rgb(245, 248, 255))
      actualizarNavegacionConfigurada()
-     listOf(R.id.navOrquestador, R.id.navCrear, R.id.navBiblioteca, R.id.navLaboratorio, R.id.navSistema)
+     listOf(R.id.navOrquestador, R.id.navCrear, R.id.navBiblioteca, R.id.navImagenes, R.id.navLaboratorio, R.id.navSistema)
          .forEach { id ->
              findViewById<TextView>(id).setTextColor(
                  android.graphics.Color.parseColor(if (id == navActivoId) acento else "#8FA2BE")
