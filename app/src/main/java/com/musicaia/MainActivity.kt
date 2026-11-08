@@ -2719,8 +2719,8 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
         return
     }
 
-    val etiqueta = Regex("(?i)^(tema|theme|estilo|style|genre|ambiente|mood|ritmo|rhythm|idioma|language|tipo|type|voz|voice)\\\\s*[:=]\\\\s*(.+)$").matchEntire(texto)
-    val cambio = Regex("(?i)^(?:cambiar|cambia|modificar|modifica|change|switch)\\\\s+(?:(?:el|la|the)\\\\s+)?(tema|theme|estilo|style|genre|ambiente|mood|ritmo|rhythm|idioma|language|tipo|type|voz|voice)\\\\s+(?:a|por|to)\\\\s+(.+)$").matchEntire(texto)
+    val etiqueta = Regex("(?i)^(tema|theme|estilo|style|genre|ambiente|mood|ritmo|rhythm|idioma|language|tipo|type|voz|voice)\\s*[:=]\\s*(.+)$").matchEntire(texto)
+    val cambio = Regex("(?i)^(?:cambiar|cambia|modificar|modifica|change|switch)\\s+(?:(?:el|la|the)\\s+)?(tema|theme|estilo|style|genre|ambiente|mood|ritmo|rhythm|idioma|language|tipo|type|voz|voice)\\s+(?:a|por|to)\\s+(.+)$").matchEntire(texto)
     val campoExplicito = cambio?.groupValues?.get(1)?.lowercase()
         ?: etiqueta?.groupValues?.get(1)?.lowercase()
     val valorExplicito = cambio?.groupValues?.get(2) ?: etiqueta?.groupValues?.get(2)
@@ -2864,9 +2864,12 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
               }
               modeloChatVerificado = true
               EngineLiteRT.inicializar(modelo.absolutePath, File(cacheDir, "litert-cache").absolutePath)
+              val instruccionIdioma = if (idiomaConversacionUi == "en") {
+                  "Respond naturally and briefly in English to the latest user message. Explain that new songs are currently limited to Spanish or English."
+              } else {
+                  "Reacciona en español con naturalidad y brevedad al último mensaje del usuario. Explica que las canciones nuevas solo pueden escribirse en español o inglés."
+              }
               val prompt = """
-                  Eres BARDO (B.A.R.D.O.: Binary Automated Rhythm and Digital Orchestration), la identidad principal y núcleo orquestador del estudio musical. Tu identidad y objetivos persisten entre sesiones. Evoluciona de forma gradual mediante memoria local, preferencias, conversaciones y conocimientos que el usuario autorice, así como modelos y skills verificados que se incorporen modularmente. No afirmes que entrenas tus pesos ni que has instalado capacidades que no están disponibles. Coordina los módulos especializados sin perder el contexto ni la identidad.
-                  ${idiomaConversacionUi == "en" ? "Respond naturally and briefly in English to the latest user message." : "Reacciona en español con naturalidad y brevedad al último mensaje del usuario."}
                   No inventes capacidades, resultados, modelos instalados ni tareas completadas.
                   No hagas preguntas ni solicites datos: el flujo guiado de la aplicación formulará el siguiente paso.
                   No afirmes que puedes generar voz cantada clonada: esa función todavía no está integrada.

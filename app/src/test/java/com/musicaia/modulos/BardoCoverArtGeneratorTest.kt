@@ -31,6 +31,15 @@ class BardoCoverArtGeneratorTest {
     }
 
     @Test
+    fun titleAtTheMaximumLengthIsWrappedWithoutLosingCharacters() {
+        val title = "One two three four five six seven eight nine ten eleven twelve thirteen fourteen"
+        val lines = BardoCoverArtGenerator.wrapTitle(title, 28)
+        assertTrue(lines.size <= 3)
+        assertEquals(title, lines.joinToString(" "))
+        assertTrue(lines.all { it.length <= 28 })
+    }
+
+    @Test
     fun titleLongerThanThreeLineLimitIsRejectedInsteadOfTruncated() {
         val error = runCatching { BardoCoverArtGenerator.wrapTitle("A".repeat(97)) }.exceptionOrNull()
         assertTrue(error is IllegalArgumentException)

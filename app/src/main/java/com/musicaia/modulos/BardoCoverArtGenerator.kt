@@ -23,21 +23,34 @@ object BardoCoverArtGenerator {
         listOf(title.trim(), artist.trim(), concept.trim(), style.trim()).joinToString("|").hashCode()
 
     fun wrapTitle(title: String, maxCharacters: Int = 32): List<String> {
-        val normalized = title.trim()
+        val normalized = title.trim().replace(Regex("\\s+"), " ")
         if (normalized.isEmpty()) return listOf("SIN TÍTULO")
         require(normalized.length <= 96) { "El título de portada admite hasta 96 caracteres para evitar recortes." }
+        val firstLineLimit = maxCharacters.coerceAtLeast(1)
+        val finalLineLimit = maxOf(firstLineLimit, 28)
         val lines = mutableListOf<String>()
-        var remaining = normalized
-        while (remaining.isNotEmpty() && lines.size < 3) {
-            var end = minOf(maxCharacters.coerceAtLeast(1), remaining.length)
-            if (end < remaining.length) {
-                val space = remaining.lastIndexOf(' ', end)
-                if (space > end / 2) end = space
+        var current = ""
+
+        normalized.split(' ').forEach { word ->
+            if (current.isEmpty()) {
+                current = word
+            } else {
+                val limit = if (lines.size >= 2) finalLineLimit else firstLineLimit
+                if (current.length + 1 + word.length <= limit) {
+                    current += " $word"
+                } else {
+                    lines.add(current)
+                    current = word
+                }
             }
-            lines.add(remaining.substring(0, end).trim())
-            remaining = remaining.substring(end).trimStart()
+            require(lines.size < 3 || current.length <= finalLineLimit) {
+                "El título no cabe en tres líneas; acórtalo un poco."
+            }
         }
-        require(remaining.isEmpty()) { "El título no cabe en tres líneas; acórtalo un poco." }
+        if (current.isNotEmpty()) lines.add(current)
+        require(lines.size <= 3 && lines.lastOrNull().orEmpty().length <= finalLineLimit) {
+            "El título no cabe en tres líneas; acórtalo un poco."
+        }
         return lines
     }
 
