@@ -78,6 +78,14 @@ class BardoModuleCatalogTest {
     }
 
     @Test
+    fun userVoiceMixIsCataloguedSeparatelyFromGeneratedSinging() {
+        val modules = BardoModuleCatalog.descriptors().associateBy { it.id }
+        assertEquals(true, modules.getValue("voice_mix_user").implemented)
+        assertEquals("voice_mix_user", modules.getValue("voice_mix_user").capabilityId)
+        assertEquals(false, modules.getValue("voice_synthesis").implemented)
+    }
+
+    @Test
     fun voiceSynthesisIsExplicitlyNotImplementedAndNeverSelected() {
         val voice = BardoModuleCatalog.descriptors().first { it.id == "voice_synthesis" }
         assertEquals(false, voice.implemented)

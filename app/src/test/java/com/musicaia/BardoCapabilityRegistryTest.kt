@@ -97,15 +97,28 @@ class BardoCapabilityRegistryTest {
                 mp3EncoderPresent = true,
                 installedModelCount = 4,
                 availableHelperCount = 16,
-                registeredModuleCount = 7
+                registeredModuleCount = 8
             )
         ).associateBy { it.id }.getValue("self_inventory")
 
         assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, inventory.status)
-        assertTrue(inventory.detail.contains("7 módulos"))
+        assertTrue(inventory.detail.contains("8 módulos"))
         assertTrue(inventory.detail.contains("4 modelos/motores"))
         assertTrue(inventory.detail.contains("16 ayudantes internos"))
         assertTrue(inventory.detail.contains("no consulta paquetes ni aplicaciones externas"))
+    }
+
+    @Test
+    fun reportsActiveUserVoiceMixSeparatelyFromAiSinging() {
+        val items = BardoCapabilityRegistry.snapshot(
+            BardoCapabilityRegistry.RuntimeFacts(true, true, true)
+        ).associateBy { it.id }
+        val mix = items.getValue("voice_mix_user")
+        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, mix.status)
+        assertTrue(mix.detail.contains("MezclaVoz.mezclar"))
+        assertTrue(mix.detail.contains("adaptador legacy"))
+        assertTrue(mix.acceptanceCriteria.contains("WAV PCM16"))
+        assertEquals(BardoCapabilityRegistry.Status.NOT_IMPLEMENTED, items.getValue("voice_synthesis").status)
     }
 
     @Test

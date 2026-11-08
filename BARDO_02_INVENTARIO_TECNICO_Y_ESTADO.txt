@@ -1653,3 +1653,12 @@ PENDIENTE
 3. Instalar y probar en Xiaomi 11T Pro; contrastar Gemma, modelos, ayudantes, SAF, RAM, temperatura y estabilidad.
 4. Probar generación musical, transcripción, OCR, visión, portada, mezcla WAV, Modo3 y autoestudio.
 5. Conectar inventario al ciclo Developer: autoinspección → diagnóstico → priorización → propuesta aislada → tests → aprobación → integración.
+
+
+78. MEJORA DEL INVENTARIO Y CATÁLOGO — 2026-11-08
+
+- Se corrige el detector del ayudante GitHub: usa BardoGitHubCredentialStore, BardoGitHubPolicy, BardoGitHubActionsClient y BardoPatchApplier (no existe una clase BardoGitHubAutomation).
+- Se añade GrabadoraWav al grupo de voz propia; se explica que el flujo activo mezcla con MezclaVoz.mezclar y que Modo3MezclaVozUsuario.kt es un adaptador legacy preservado.
+- Se incorpora voice_mix_user como octavo módulo y habilidad separada de voice_synthesis (voz cantada IA, no implementada).
+- El inventario informa el permiso SAF persistente de Descargas/BARDO, las rutas/revisiones de modelos, IDs de cada elemento y RAM total/libre.
+- Tests añadidos para separar mezcla de voz propia de voz cantada IA y verificar catálogo de ocho módulos.

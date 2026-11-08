@@ -981,7 +981,8 @@ private fun crearEstructuraCarpetaBardo() {
          .append(" (code ").append(inventory.versionCode.toString()).append(")\n")
          .append("Dispositivo: ").append(inventory.deviceModel).append("\n")
          .append("Android/API: ").append(inventory.androidRelease).append(" / ").append(inventory.sdk.toString()).append("\n")
-         .append("ABI: ").append(inventory.supportedAbis.joinToString().ifBlank { "no declarada" }).append("\n\n")
+         .append("ABI: ").append(inventory.supportedAbis.joinToString().ifBlank { "no declarada" }).append("\n")
+         .append("Carpeta Descargas/BARDO: ").append(if (inventory.sharedWorkspaceConnected) "permiso SAF conectado" else "sin permiso SAF conectado").append("\n\n")
 
      texto.append("MODELOS Y MOTORES PROPIOS (").append(inventory.models.size.toString()).append(")\n")
      inventory.models.forEach { model ->
@@ -994,7 +995,7 @@ private fun crearEstructuraCarpetaBardo() {
 
      texto.append("AGENTES Y AYUDANTES INTERNOS (").append(inventory.helpers.size.toString()).append(")\n")
      inventory.helpers.forEach { helper ->
-         texto.append("• ").append(helper.name)
+         texto.append("• ").append(helper.name).append(" [").append(helper.id).append("]")
              .append(" · ").append(if (helper.integrated) "CÓDIGO INTEGRADO" else "NO DISPONIBLE")
              .append("\n  ").append(helper.detail).append("\n\n")
      }
@@ -1002,7 +1003,7 @@ private fun crearEstructuraCarpetaBardo() {
      texto.append("MÓDULOS MUSICALES Y CREATIVOS (").append(inventory.modules.size.toString()).append(")\n")
      inventory.modules.forEach { module ->
          val capability = inventory.capabilities.firstOrNull { it.id == module.capabilityId }
-         texto.append("• ").append(module.name)
+         texto.append("• ").append(module.name).append(" [").append(module.id).append("]")
              .append(" · ").append(if (module.implemented) "IMPLEMENTADO EN CÓDIGO" else "PENDIENTE")
              .append("\n  Estado runtime: ").append(capability?.status?.name ?: "SIN REGISTRO")
          capability?.let { texto.append("\n  ").append(it.detail) }
@@ -1023,13 +1024,14 @@ private fun crearEstructuraCarpetaBardo() {
              BardoCapabilityRegistry.Status.REQUIRES_USER_ACTION -> "REQUIERE AUTORIZACIÓN"
              BardoCapabilityRegistry.Status.NOT_IMPLEMENTED -> "NO IMPLEMENTADO"
          }
-         texto.append("• ").append(capability.name).append(" · ").append(status)
+         texto.append("• ").append(capability.name).append(" [").append(capability.id).append("] · ").append(status)
              .append("\n  ").append(capability.detail)
              .append("\n  Prueba pendiente: ").append(capability.acceptanceCriteria).append("\n\n")
      }
 
      texto.append("RECURSOS DEL DISPOSITIVO\n")
-         .append("RAM libre: ").append((inventory.availableRamBytes / (1024L * 1024L)).toString()).append(" MiB")
+         .append("RAM total/libre: ").append((inventory.totalRamBytes / (1024L * 1024L)).toString()).append(" / ")
+         .append((inventory.availableRamBytes / (1024L * 1024L)).toString()).append(" MiB")
          .append(if (inventory.lowMemory) " · Android indica memoria baja" else "").append("\n")
          .append("Almacenamiento libre de BARDO: ").append((inventory.availableStorageBytes / (1024L * 1024L)).toString()).append(" MiB\n")
          .append("Batería: ").append(inventory.batteryPercent?.let { it.toString() + "%" } ?: "no disponible")

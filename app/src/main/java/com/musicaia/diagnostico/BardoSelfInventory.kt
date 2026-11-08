@@ -2,6 +2,7 @@ package com.musicaia.diagnostico
 
 import android.content.Context
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.StatFs
 import com.musicaia.desarrollo.BardoGitHubCredentialStore
@@ -49,6 +50,7 @@ object BardoSelfInventory {
         val batteryPercent: Int?,
         val charging: Boolean,
         val thermalStatus: Int?,
+        val sharedWorkspaceConnected: Boolean,
         val models: List<ModelEntry>,
         val helpers: List<HelperEntry>,
         val modules: List<BardoModuleCatalog.Descriptor>,
@@ -83,7 +85,9 @@ object BardoSelfInventory {
             "com.musicaia.desarrollo.BardoDeveloperWorker"
         )),
         HelperSpec("github_agent", "Ayudante de validación e integración GitHub", listOf(
-            "com.musicaia.desarrollo.BardoGitHubAutomation",
+            "com.musicaia.desarrollo.BardoGitHubCredentialStore",
+            "com.musicaia.desarrollo.BardoGitHubPolicy",
+            "com.musicaia.desarrollo.BardoGitHubActionsClient",
             "com.musicaia.desarrollo.BardoPatchApplier"
         )),
         HelperSpec("memory", "Memoria, conocimiento, actividad y copias", listOf(
@@ -122,6 +126,7 @@ object BardoSelfInventory {
         )),
         HelperSpec("voice_mix", "Mezcla de voz del usuario · Modo3", listOf(
             "com.musicaia.modulos.Modo3MezclaVozUsuario",
+            "com.musicaia.modulos.GrabadoraWav",
             "com.musicaia.modulos.MezclaVoz",
             "com.musicaia.modulos.LectorWav"
         )),
@@ -146,26 +151,31 @@ object BardoSelfInventory {
         val englishAsr = BardoOfflineAsr.isModelInstalled(app, BardoOfflineAsr.Language.ENGLISH)
         val bonsaiInstalled = BardoBonsaiModelInstaller.isInstalled(app)
         val githubConfigured = runCatching { BardoGitHubCredentialStore.hasToken(app) }.getOrDefault(false)
+        val sharedTree = app.getSharedPreferences("bardo_storage", Context.MODE_PRIVATE)
+            .getString("tree_uri", null)?.let { runCatching { Uri.parse(it) }.getOrNull() }
+        val sharedWorkspaceConnected = sharedTree != null && app.contentResolver.persistedUriPermissions.any {
+            it.uri == sharedTree && it.isReadPermission && it.isWritePermission
+        }
 
         val modules = BardoModuleCatalog.descriptors()
         val models = listOf(
             ModelEntry("gemma", "Gemma 4 E2B-it · asistente de texto local", gemmaPresent,
                 when {
-                    !gemma.exists() -> "No está copiado al almacenamiento privado de BARDO. Archivo esperado: " + LiteRTLMModule.MODEL_FILENAME + "."
+                    !gemma.exists() -> "No está copiado al almacenamiento privado de BARDO. Archivo esperado: " + LiteRTLMModule.MODEL_FILENAME + ". Carpeta compartida BARDO: " + (if (sharedWorkspaceConnected) "permiso conectado; importación automática pendiente" else "sin permiso persistente conectado") + "."
                     !gemmaPresent -> "El archivo existe, pero su tamaño no coincide con el modelo fijado (" + LiteRTLMModule.EXPECTED_SIZE_BYTES + " bytes). No se declara instalado."
-                    else -> "Archivo y tamaño correctos en almacenamiento privado. El inventario no recalcula 2,6 GB de SHA-256; la carga debe validar la huella fijada antes de inferir."
+                    else -> "Archivo y tamaño correctos en almacenamiento privado. SHA-256 esperado: " + LiteRTLMModule.EXPECTED_SHA256 + ". El inventario no recalcula 2,6 GB; la carga/autoestudio debe validar la huella antes de inferir."
                 }, if (gemma.isFile) gemma.length() else 0L),
             ModelEntry("stable_audio", "Stable Audio Open Small · modelo instrumental", audioReady,
                 if (audioReady) "Los cuatro artefactos PTE/tokenizer están incluidos en assets/audio_model y libaudiogen se ha cargado. El éxito de inferencia y la calidad WAV aún requieren prueba real."
                 else "Falta algún artefacto interno de audio o la biblioteca nativa no se pudo cargar.", 876_975_464L),
             ModelEntry("vosk_es", "Vosk small · español", spanishAsr,
-                if (spanishAsr) "Modelo descargado en almacenamiento privado; estructura detectada. La prueba de transcripción real sigue pendiente."
+                if (spanishAsr) "Modelo descargado; estructura detectada en " + BardoOfflineAsr.modelDirectory(app, BardoOfflineAsr.Language.SPANISH).absolutePath + ". La prueba de transcripción real sigue pendiente."
                 else "Modelo español opcional no instalado."),
             ModelEntry("vosk_en", "Vosk small · inglés", englishAsr,
-                if (englishAsr) "Modelo descargado en almacenamiento privado; estructura detectada. La prueba de transcripción real sigue pendiente."
+                if (englishAsr) "Modelo descargado; estructura detectada en " + BardoOfflineAsr.modelDirectory(app, BardoOfflineAsr.Language.ENGLISH).absolutePath + ". La prueba de transcripción real sigue pendiente."
                 else "Modelo inglés opcional no instalado."),
             ModelEntry("bonsai", "Bonsai Image 4B · generación local de imágenes", bonsaiInstalled,
-                if (bonsaiInstalled) "Revisión .verified y tamaños de los seis artefactos coinciden; SHA-256 verificado durante instalación. Generación real y viabilidad térmica pendientes."
+                if (bonsaiInstalled) "Revisión " + BardoBonsaiModelInstaller.REVISION + " y tamaños de los seis artefactos coinciden en " + BardoBonsaiModelInstaller.modelDir(app).absolutePath + "; SHA-256 verificado durante instalación. Generación real y viabilidad térmica pendientes."
                 else "Modelo opcional no instalado o no supera revisión/tamaños."),
             ModelEntry("mlkit_ocr", "ML Kit · OCR multiescritura incluido",
                 classPresent(app, "com.google.mlkit.vision.text.TextRecognition"),
@@ -191,6 +201,8 @@ object BardoSelfInventory {
                     else "Código integrado; biblioteca MP3 no disponible en runtime."
                 spec.id == "offline_asr" -> "Código integrado; español: " + (if (spanishAsr) "modelo presente" else "falta modelo") +
                     "; inglés: " + (if (englishAsr) "modelo presente" else "falta modelo") + "."
+                spec.id == "voice_mix" -> "El flujo activo de MainActivity usa MezclaVoz.mezclar y LectorWav para una mezcla PCM16 real; Modo3MezclaVozUsuario.kt se conserva como adaptador legacy y no es la ruta activa. Prueba auditiva en Xiaomi pendiente."
+                spec.id == "shared_storage" -> if (sharedWorkspaceConnected) "Permiso SAF persistente de lectura/escritura para la carpeta BARDO detectado; no se recorren otras carpetas." else "Código integrado; falta conectar o restaurar el permiso SAF de la carpeta BARDO."
                 spec.id == "bonsai_image" -> if (bonsaiInstalled) "Código y modelo opcional presentes; generación real pendiente."
                     else "Código integrado; falta instalar el modelo Bonsai opcional."
                 else -> "Código integrado en el paquete BARDO; prueba funcional específica pendiente."
@@ -233,6 +245,7 @@ object BardoSelfInventory {
             batteryPercent = resources.batteryPercent,
             charging = resources.charging,
             thermalStatus = resources.thermalStatus,
+            sharedWorkspaceConnected = sharedWorkspaceConnected,
             models = models,
             helpers = helpers,
             modules = modules,

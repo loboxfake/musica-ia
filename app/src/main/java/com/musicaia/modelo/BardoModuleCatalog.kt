@@ -56,6 +56,7 @@ object BardoModuleCatalog {
             implemented = true
         ),
         Descriptor("voice_synthesis", "Voz cantada", "voice_synthesis", null, null, "Pendiente", "MiVoz no integrada", true, false),
+        Descriptor("voice_mix_user", "Mezcla WAV con voz del usuario", "voice_mix_user", null, null, "Código propio", "MainActivity + MezclaVoz/LectorWav; adaptador Modo3 legacy conservado", false, true),
         Descriptor("stem_separation", "Separación de stems", "stem_separation", null, null, "En evaluación", "Demucs / UVR por investigar", true, false),
         Descriptor("mix_master", "Mezcla y masterización profesional", "mix_master", null, null, "Pendiente", "Procesamiento profesional no implementado", false, false),
         Descriptor("cover_art_procedural", "Portadas gráficas offline", "cover_art_procedural", null, null, "Incluido", "Renderizador PNG 1024×1024, cinco estilos locales", false, true),

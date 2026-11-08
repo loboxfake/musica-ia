@@ -789,3 +789,11 @@ EVOLUCIÓN
 - El agente Developer usa el inventario para diagnosticar capacidades ausentes, priorizar trabajo y proponer mejoras.
 - El autoestudio requiere Gemma cargable, conocimiento autorizado, copia aislada, tests, GitHub Actions y aprobación humana.
 - Modo3, firma, secretos, protecciones y aprobación no pueden auto-modificarse.
+
+
+31. CATÁLOGO INTERNO COMPLETO — MEZCLA REAL CON VOZ PROPIA — 2026-11-08
+
+- Se añade voice_mix_user al BardoModuleCatalog y BardoCapabilityRegistry como capacidad distinta de voz cantada generada por IA.
+- La ruta activa de MainActivity utiliza MezclaVoz.mezclar + LectorWav para WAV PCM16 reales. La clase protegida Modo3MezclaVozUsuario.kt se conserva sin cambios y se identifica como adaptador legacy, no como ruta activa.
+- El catálogo queda con ocho módulos; voz cantada generada y masterización profesional siguen pendientes.
+- El inventario añade estado de permiso SAF de Descargas/BARDO, IDs de helpers/módulos/capacidades y RAM total/libre.
