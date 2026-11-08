@@ -1123,4 +1123,5 @@ Continuidad y límites:
 - Frecuencia común requerida (8–96 kHz); no realiza remuestreo. Límite 25 MB por pista, 100 MB total y 5 minutos.
 - Procesamiento por bloques, normalización de pico digital objetivo -1 dBFS con subida limitada a +12 dB. No calcula true peak.
 - Nueva salida temporal verificada (RIFF, tamaño, formato, canales, frecuencia y frames); originales conservados.
+- Informe técnico básico: pico digital, RMS antes/después de normalizar, factor de cresta y offset DC. No presenta estos valores como LUFS ni true peak.
 - No incluye automatización, EQ, compresión avanzada, stems, DAW ni mastering profesional. Pendiente de CI y escucha real en Xiaomi.
