@@ -613,8 +613,28 @@ class MainActivity : AppCompatActivity() {
      selectorMasterizarWav.launch(arrayOf("audio/wav", "audio/x-wav", "audio/*"))
  }
  findViewById<Button>(R.id.btnMezclarPistasWav).setOnClickListener {
-     if (mezclaPistasEnCurso) tvEstado.text = "Ya hay una mezcla WAV en curso."
-     else selectorMezclarPistasWav.launch(arrayOf("audio/wav", "audio/x-wav"))
+     if (mezclaPistasEnCurso) {
+         tvEstado.text = "Ya hay una mezcla WAV en curso."
+     } else {
+         val pendiente = mezclaPistasPendiente
+         if (pendiente == null) {
+             selectorMezclarPistasWav.launch(arrayOf("audio/wav", "audio/x-wav"))
+         } else {
+             AlertDialog.Builder(this)
+                 .setTitle("Hay una mezcla pendiente")
+                 .setMessage("Puedes guardar el WAV temporal existente o descartarlo para iniciar otra sesión.")
+                 .setNegativeButton("Cancelar", null)
+                 .setPositiveButton("Guardar pendiente") { _, _ ->
+                     selectorGuardarMezclaPistas.launch("BARDO-mezcla-estereo.wav")
+                 }
+                 .setNeutralButton("Descartar y crear otra") { _, _ ->
+                     pendiente.parentFile?.deleteRecursively()
+                     mezclaPistasPendiente = null
+                     selectorMezclarPistasWav.launch(arrayOf("audio/wav", "audio/x-wav"))
+                 }
+                 .show()
+         }
+     }
  }
  btnDescargarModelo.setOnClickListener { seleccionarModeloLocal() }
  btnGrabar.setOnClickListener { solicitarMicrofonoYAlternar() }
