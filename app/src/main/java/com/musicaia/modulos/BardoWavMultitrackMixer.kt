@@ -123,7 +123,7 @@ object BardoWavMultitrackMixer {
                 }
                 "data" -> if(dataPos<0) { dataPos=start; dataBytes=size.toInt() }
             }
-            val next=end+(size and 1L); require(next>=end && next<=Int.MAX_VALUE) { "Chunk RIFF inválido." }; pos=next.toInt()
+            val next=end+(size and 1L); require(next>=end && next<=data.size.toLong() && next<=Int.MAX_VALUE) { "Chunk RIFF inválido o relleno truncado." }; pos=next.toInt()
         }
         require(format==1 && bits==16) { "Solo se admite WAV PCM16." }
         require(channels in 1..2 && rate in 8000..96000) { "Canales/frecuencia no compatibles." }
