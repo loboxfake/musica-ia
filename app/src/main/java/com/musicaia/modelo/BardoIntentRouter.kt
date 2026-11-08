@@ -10,7 +10,18 @@ object BardoIntentRouter {
         MUSIC_CREATION,
         OWN_LYRICS,
         CONFIRM_CREATION,
-        CHANGE_CREATION
+        CHANGE_CREATION,
+        END_CREATION
+    }
+
+    private val requiredCreationFields = listOf("tema", "estilo", "ambiente", "ritmo", "idioma", "tipo")
+
+    /** Devuelve el primer dato obligatorio pendiente; voz solo se solicita cuando se eligió voz. */
+    fun nextRequiredField(values: Map<String, String>): String? {
+        requiredCreationFields.firstOrNull { values[it].isNullOrBlank() }?.let { return it }
+        return if (requiresUserVoice(values["tipo"].orEmpty()) && values["vozFuente"].isNullOrBlank()) {
+            "vozFuente"
+        } else null
     }
 
     /** "Instrumental" means no generated lyric/vocal module is selected. */
@@ -31,10 +42,16 @@ object BardoIntentRouter {
         val text = normalize(message)
         if (text.isBlank()) return Intent.GENERAL_CHAT
 
+        if (listOf(
+                "salir de la creacion", "cancelar creacion", "cancelar la cancion",
+                "volver al chat general", "volver a conversacion general",
+                "dejar el modo musical", "terminar modo musical"
+            ).any { text.contains(it) }) return Intent.END_CREATION
+
         if (listOf("mi letra", "texto propio", "pegar mi letra", "tengo mi letra")
                 .any { text.contains(it) }) return Intent.OWN_LYRICS
 
-        if (Regex("^(cambiar|cambia|modificar|modifica)\\s+(?:(?:el|la)\\s+)?(tema|estilo|ambiente|ritmo|idioma|tipo|voz)\\b")
+        if (creationInProgress && Regex("^(cambiar|cambia|modificar|modifica)\\s+(?:(?:el|la)\\s+)?(tema|estilo|ambiente|ritmo|idioma|tipo|voz)\\b")
                 .containsMatchIn(text)) return Intent.CHANGE_CREATION
 
         if (creationInProgress && text in setOf("crear", "crear cancion", "crear musica", "si", "continuar", "adelante"))
@@ -45,14 +62,12 @@ object BardoIntentRouter {
             "hazme una cancion", "crea una cancion", "compon una cancion",
             "necesito una cancion", "vamos a crear una cancion", "vamos a hacer una cancion",
             "una cancion sobre", "cancion sobre", "crear instrumental", "quiero un instrumental",
-            "crear musica", "quiero crear musica", "quiero hacer musica"
+            "crear musica", "quiero crear musica", "quiero hacer musica", "reanudar creacion",
+            "continuar creacion"
         )
         if (explicitMusicRequest.any { text.contains(it) }) return Intent.MUSIC_CREATION
 
-        // Una vez iniciada una creación, cada respuesta debe completar o modificar
-        // el siguiente campo pendiente; no se desvía accidentalmente al chat libre.
         if (creationInProgress) return Intent.MUSIC_CREATION
-
         return Intent.GENERAL_CHAT
     }
 

@@ -50,9 +50,9 @@ object BardoPatchApplier {
         val first = lines.indexOfFirst { it.startsWith("--- a/") }
         require(first >= 0) { "No se encontró un diff unificado." }
         val candidate = File(workspace, "candidate-" + System.currentTimeMillis())
-        root.copyRecursively(candidate, overwrite = false)
         val changed = mutableListOf<String>()
         try {
+            root.copyRecursively(candidate, overwrite = false)
             var i = first
             while (i < lines.size) {
                 if (!lines[i].startsWith("--- a/")) {
@@ -71,6 +71,7 @@ object BardoPatchApplier {
                 require(!isProtected(oldPath)) {
                     "Protección activa: el archivo pertenece al núcleo protegido, a Modo3 o a la configuración de build/workflows: " + oldPath
                 }
+                require(oldPath !in changed) { "El diff repite una ruta de archivo: " + oldPath }
                 val sourceFile = File(root, oldPath).canonicalFile
                 require(sourceFile.path.startsWith(root.canonicalPath + File.separator) && sourceFile.isFile) {
                     "El archivo no existe en el snapshot: " + oldPath

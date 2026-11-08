@@ -155,6 +155,7 @@ class MainActivity : AppCompatActivity() {
  private lateinit var conversationStore: BardoConversationStore
  private lateinit var knowledgeStore: BardoKnowledgeStore
  private var activeConversationId: String? = null
+ private var creacionMusicalEnCurso = false
  private var uriCarpetaBardo: Uri? = null
  private var bardoRootDocumentId: String? = null
  private lateinit var btnEnviar: Button
@@ -601,6 +602,7 @@ class MainActivity : AppCompatActivity() {
      val prefs = getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE)
      datosConver.clear()
      val id = activeConversationId
+     creacionMusicalEnCurso = id?.let { prefs.getBoolean("creacion_musical_en_curso_$it", false) } ?: false
      val claveConversacion = id?.let { "preferencias_creativas_$it" }
      val tienePreferenciasPropias = claveConversacion?.let { prefs.contains(it) } == true
      val datos = if (tienePreferenciasPropias) claveConversacion?.let { prefs.getString(it, null) }
@@ -635,6 +637,7 @@ class MainActivity : AppCompatActivity() {
              ?: conversaciones.first().id
      }
      prefs.edit().putString("active_conversation_id", activeConversationId).apply()
+     cargarMemoriaLocal()
      renderizarConversacionActiva()
  }
 
@@ -721,8 +724,10 @@ private fun crearEstructuraCarpetaBardo() {
      val nueva = conversationStore.createConversation(titulo)
      activeConversationId = nueva.id
      datosConver.clear()
+     creacionMusicalEnCurso = false
      getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE).edit()
          .putString("preferencias_creativas_${nueva.id}", "{}")
+         .putBoolean("creacion_musical_en_curso_${nueva.id}", false)
          .remove("preferencias_creativas")
          .putString("active_conversation_id", nueva.id).apply()
      chatLog.text = ""
@@ -1137,6 +1142,13 @@ private fun crearEstructuraCarpetaBardo() {
          .remove("preferencias_creativas")
      activeConversationId?.let { editor.putString("preferencias_creativas_$it", preferencias.toString()) }
      editor.apply()
+ }
+
+ private fun guardarEstadoCreacionMusical() {
+     val id = activeConversationId ?: return
+     getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE).edit()
+         .putBoolean("creacion_musical_en_curso_$id", creacionMusicalEnCurso)
+         .apply()
  }
 
 
@@ -1842,7 +1854,21 @@ private fun crearEstructuraCarpetaBardo() {
         return
     }
 
-    val intent = BardoIntentRouter.classify(texto, creationInProgress = datosConver.isNotEmpty())
+    val intent = BardoIntentRouter.classify(texto, creationInProgress = creacionMusicalEnCurso)
+    if (intent == BardoIntentRouter.Intent.END_CREATION) {
+        creacionMusicalEnCurso = false
+        guardarEstadoCreacionMusical()
+        anexarChat("\nTú: $texto\nBARDO: He salido del modo de creación musical. Tus preferencias guardadas se conservan, pero el próximo mensaje irá al chat general salvo que vuelvas a pedir una canción.")
+        return
+    }
+    if (intent == BardoIntentRouter.Intent.MUSIC_CREATION) {
+        if (!creacionMusicalEnCurso) datosConver.clear()
+        creacionMusicalEnCurso = true
+        guardarEstadoCreacionMusical()
+    } else if (intent == BardoIntentRouter.Intent.OWN_LYRICS) {
+        creacionMusicalEnCurso = false
+        guardarEstadoCreacionMusical()
+    }
     if (intent == BardoIntentRouter.Intent.GENERAL_CHAT) {
         responderChatLibre(texto)
         return
@@ -2156,13 +2182,11 @@ private fun crearEstructuraCarpetaBardo() {
  }
 
  private fun siguienteCampoPendiente(): String? {
-     val pendienteObligatorio = camposRequeridos.firstOrNull { datosConver[it].isNullOrBlank() }
-     if (pendienteObligatorio != null) return pendienteObligatorio
-     val tipo = datosConver["tipo"].orEmpty()
-     val requiereFuenteVoz = BardoIntentRouter.requiresUserVoice(tipo)
-     if (requiereFuenteVoz && datosConver["vozFuente"].isNullOrBlank()) return "vozFuente"
-     if (!requiereFuenteVoz) datosConver["vozFuente"] = "ninguna"
-     return null
+     val siguiente = BardoIntentRouter.nextRequiredField(datosConver)
+     if (!BardoIntentRouter.requiresUserVoice(datosConver["tipo"].orEmpty())) {
+         datosConver["vozFuente"] = "ninguna"
+     }
+     return siguiente
  }
 
  private fun preguntaParaCampo(campo: String): String = when (campo) {
@@ -2686,6 +2710,8 @@ private fun crearEstructuraCarpetaBardo() {
      btnCancelarTarea.visibility = if (ocupado) View.VISIBLE else View.GONE
      btnCancelarTarea.isEnabled = ocupado
      if (estado == "completed") {
+         creacionMusicalEnCurso = false
+         guardarEstadoCreacionMusical()
          btnCancelarTarea.visibility = View.GONE
          detenerReloj()
          val solo = intent.getBooleanExtra(BardoTaskService.EXTRA_SOLO, false)

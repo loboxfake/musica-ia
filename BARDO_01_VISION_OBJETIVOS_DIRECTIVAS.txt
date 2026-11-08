@@ -410,3 +410,15 @@ La instrucción vigente del usuario es desarrollar la autonomía de BARDO de for
 - La aprobación de un candidato debe estar vinculada no solo a un ID y un resultado SUCCESS, sino también al workflow de validación exacto, evento workflow_dispatch, rama main y SHA base exacto.
 - No declarar aceptación integral sin prueba real en Xiaomi 11T Pro y WAV generado/reproducido.
 - Mantener los dos documentos maestros sincronizados en cada ciclo y no crear ramas paralelas.
+
+
+21. SEPARACIÓN DEL ESTADO DE CREACIÓN Y DEL HISTORIAL — 2026-11-08
+
+- Las preferencias creativas guardadas por conversación no significan que una creación siga activa. El estado guiado se persiste por separado mediante creacion_musical_en_curso_<conversationId>.
+- El router permite salir explícitamente del flujo con «volver al chat general» o «cancelar creación». Las conversaciones nuevas comienzan fuera del modo musical; al recuperar una conversación se recupera su estado explícito, no se deduce de que existan preferencias antiguas.
+- Una nueva petición musical limpia las preferencias de la sesión anterior antes de recoger los datos de la nueva canción. Al completar correctamente una generación, el flujo queda cerrado.
+- La selección de campos obligatorios y la petición condicional de fuente de voz se centralizan en BardoIntentRouter y tienen pruebas unitarias específicas.
+- El importador ZIP del autoestudio rechaza rutas duplicadas y elimina el snapshot parcial si la importación falla. El aplicador de parches limpia también las copias candidatas incompletas.
+- Modo3 permanece protegido y sin cambios. No se declara aceptado sin verificación real de mezcla y WAV.
+- La aceptación física en Xiaomi 11T Pro sigue pendiente. El éxito de CI no sustituye instalación, ejecución, generación y escucha de WAV.
+- Advertencia de seguridad vigente: docs/SECURITY_AUDIT.md documenta que una clave de firma de depuración fue incluida en el repositorio público. No utilizar esa firma para una distribución de producción; la migración requiere plan de respaldo/restauración y autorización del usuario.

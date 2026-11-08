@@ -39,6 +39,23 @@ class BardoDeveloperCoreTest {
         }
     }
 
+    @Test fun failedImportRemovesItsPartialSnapshot() {
+        val base = createTempDir(prefix = "bardo-dev-partial")
+        try {
+            val oversized = "x".repeat(2 * 1024 * 1024 + 1)
+            val error = runCatching {
+                BardoDeveloperCore.importarZip(
+                    ByteArrayInputStream(zip("first.kt" to "valid", "too-large.kt" to oversized)),
+                    base
+                )
+            }.exceptionOrNull()
+            assertTrue(error is IllegalArgumentException)
+            assertTrue(base.listFiles().isNullOrEmpty())
+        } finally {
+            base.deleteRecursively()
+        }
+    }
+
     @Test fun reportsKnownStaticRiskPatterns() {
         val base = createTempDir(prefix = "bardo-dev-scan")
         try {

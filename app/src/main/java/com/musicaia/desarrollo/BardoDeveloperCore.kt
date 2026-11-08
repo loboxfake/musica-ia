@@ -34,51 +34,59 @@ object BardoDeveloperCore {
     fun importarZip(input: InputStream, base: File): ImportResult {
         val root = File(base, "snapshot-${System.currentTimeMillis()}")
         check(root.mkdirs()) { "No se pudo crear el espacio de trabajo privado." }
-        var count = 0
-        var skipped = 0
-        var total = 0L
-        var entries = 0
-        ZipInputStream(BufferedInputStream(input)).use { zip ->
-            while (true) {
-                val entry = zip.nextEntry ?: break
-                entries++
-                require(entries <= MAX_ENTRADAS) { "El ZIP contiene demasiadas entradas." }
-                if (entry.isDirectory) {
-                    zip.closeEntry()
-                    continue
-                }
-                val normalized = entry.name.replace(92.toChar(), '/')
-                val parts = normalized.split('/')
-                val ext = normalized.substringAfterLast('.', "").lowercase()
-                val safe = normalized.isNotBlank() && !normalized.startsWith("/") &&
-                    !normalized.contains(':') && parts.none { it.isBlank() || it == "." || it == ".." }
-                if (!safe || ext !in extensiones || count >= MAX_ARCHIVOS) {
-                    skipped++
-                    zip.closeEntry()
-                    continue
-                }
-                val output = ByteArrayOutputStream()
-                val buffer = ByteArray(8192)
-                var size = 0
+        try {
+            var count = 0
+            var skipped = 0
+            var total = 0L
+            var entries = 0
+            val seenPaths = mutableSetOf<String>()
+            ZipInputStream(BufferedInputStream(input)).use { zip ->
                 while (true) {
-                    val n = zip.read(buffer)
-                    if (n < 0) break
-                    size += n
-                    total += n
-                    require(size <= MAX_ARCHIVO_BYTES) { "Archivo demasiado grande en ZIP: ${entry.name}" }
-                    require(total <= MAX_TOTAL_BYTES) { "El proyecto supera el límite de 60 MB de fuentes." }
-                    output.write(buffer, 0, n)
+                    val entry = zip.nextEntry ?: break
+                    entries++
+                    require(entries <= MAX_ENTRADAS) { "El ZIP contiene demasiadas entradas." }
+                    if (entry.isDirectory) {
+                        zip.closeEntry()
+                        continue
+                    }
+                    val normalized = entry.name.replace(92.toChar(), '/')
+                    val parts = normalized.split('/')
+                    val ext = normalized.substringAfterLast('.', "").lowercase()
+                    val safe = normalized.isNotBlank() && !normalized.startsWith("/") &&
+                        !normalized.contains(':') && parts.none { it.isBlank() || it == "." || it == ".." }
+                    if (!safe || ext !in extensiones || count >= MAX_ARCHIVOS) {
+                        skipped++
+                        zip.closeEntry()
+                        continue
+                    }
+                    require(seenPaths.add(normalized)) { "El ZIP contiene una ruta duplicada: $normalized" }
+                    val output = ByteArrayOutputStream()
+                    val buffer = ByteArray(8192)
+                    var size = 0
+                    while (true) {
+                        val n = zip.read(buffer)
+                        if (n < 0) break
+                        size += n
+                        total += n
+                        require(size <= MAX_ARCHIVO_BYTES) { "Archivo demasiado grande en ZIP: ${entry.name}" }
+                        require(total <= MAX_TOTAL_BYTES) { "El proyecto supera el límite de 60 MB de fuentes." }
+                        output.write(buffer, 0, n)
+                    }
+                    val destination = File(root, normalized).canonicalFile
+                    require(destination.path.startsWith(root.canonicalPath + File.separator)) { "Ruta insegura en ZIP." }
+                    destination.parentFile?.mkdirs()
+                    destination.writeBytes(output.toByteArray())
+                    count++
+                    zip.closeEntry()
                 }
-                val destination = File(root, normalized).canonicalFile
-                require(destination.path.startsWith(root.canonicalPath + File.separator)) { "Ruta insegura en ZIP." }
-                destination.parentFile?.mkdirs()
-                destination.writeBytes(output.toByteArray())
-                count++
-                zip.closeEntry()
             }
+            require(count > 0) { "El ZIP no contiene archivos de código reconocidos." }
+            return ImportResult(root, count, total, skipped)
+        } catch (error: Throwable) {
+            // Nunca dejar un snapshot parcial que el siguiente autoestudio pueda confundir con el original.
+            root.deleteRecursively()
+            throw error
         }
-        require(count > 0) { "El ZIP no contiene archivos de código reconocidos." }
-        return ImportResult(root, count, total, skipped)
     }
 
     fun analizar(root: File): Report {

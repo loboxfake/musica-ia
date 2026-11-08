@@ -1057,3 +1057,18 @@ Continuidad y límites:
 - La validación #355 detectó que, además del bloque correcto al inicio del job, quedaba un fragmento de shell duplicado insertado después del último paso del workflow. actionlint lo señaló en la línea 190 (YAML inválido); no se ejecutaron tests Kotlin en esa validación.
 - Se elimina el fragmento residual y se conserva una sola secuencia de pasos: verificación de run, checkout, revalidación del diff, tests, commit y despacho de build.
 - La versión resultante queda pendiente de actionlint, Gitleaks, tests, assembleDebug y build integral. Los fallos previos #354/#355 se conservan como historial y no se presentan como verdes.
+
+
+
+61. REPARACIÓN DEL ESTADO CONVERSACIONAL Y ENDURECIMIENTO DEL AUTOESTUDIO — 2026-11-08
+
+- Se separa el booleano de creación musical activa del mapa de preferencias creativas. Antes, classify(..., creationInProgress = datosConver.isNotEmpty()) convertía cualquier conversación con preferencias históricas en un flujo musical permanente.
+- El estado activo se guarda por ID de conversación y se restaura al cambiar/recuperar conversación. Las preferencias antiguas ya no activan por sí solas el router.
+- Nueva intención END_CREATION: «salir de la creación», «cancelar creación» y «volver al chat general» cierran el flujo. Las preferencias se conservan para consulta, pero no bloquean el chat general.
+- Una petición musical nueva limpia los datos creativos anteriores si no había un flujo activo. Al completar correctamente la tarea de audio, se cierra el estado de creación.
+- BardoIntentRouter centraliza nextRequiredField; ConversacionGuiadaTest comprueba orden de campos, cambios, vozFuente condicional e instrumental sin voz. BardoIntentRouterTest cubre chat general, entrada musical, salida y confirmación.
+- BardoDeveloperCore.importarZip ahora elimina el directorio snapshot parcial ante cualquier fallo y rechaza rutas de archivo duplicadas. BardoPatchApplier limpia la copia candidata incluso si falla la copia inicial y rechaza rutas repetidas dentro del diff.
+- Modo3MezclaVozUsuario.kt no se ha modificado; SHA-1 protegido sigue siendo 8f2745fa841a06af43bf909732fba834474bf7dc. Su aceptación funcional permanece pendiente y no se presume.
+- La rama canónica sigue siendo únicamente main. No se han modificado workflows, secretos ni material de firma en este cambio.
+- Pendiente de validación: actionlint/validación del workflow, testDebugUnitTest, assembleDebug y build integral de APK. Incluso si CI resulta verde, falta la instalación y prueba física en Xiaomi 11T Pro.
+- Riesgo de seguridad no resuelto: docs/SECURITY_AUDIT.md ya documenta una clave de firma de depuración comprometida en el repositorio público. No distribuir como producción con esa firma; cualquier rotación debe coordinarse con copia de seguridad/restauración y autorización del usuario.

@@ -2,15 +2,19 @@ package com.musicaia
 
 import com.musicaia.modelo.BardoIntentRouter
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BardoIntentRouterTest {
     @Test
-    fun ordinaryQuestionsStayInGeneralChat() {
+    fun ordinaryQuestionsStayInGeneralChatEvenWhenOldPreferencesExist() {
         assertEquals(BardoIntentRouter.Intent.GENERAL_CHAT,
             BardoIntentRouter.classify("Hola, ¿cómo estás?", false))
         assertEquals(BardoIntentRouter.Intent.GENERAL_CHAT,
             BardoIntentRouter.classify("Explícame qué es la inteligencia artificial", false))
+        assertEquals(BardoIntentRouter.Intent.GENERAL_CHAT,
+            BardoIntentRouter.classify("Cambia el estilo a rock", false))
     }
 
     @Test
@@ -22,7 +26,7 @@ class BardoIntentRouterTest {
     }
 
     @Test
-    fun ownLyricsAndChangesAreRecognizedBeforeGeneralChat() {
+    fun ownLyricsAndChangesAreRecognizedInCorrectContext() {
         assertEquals(BardoIntentRouter.Intent.OWN_LYRICS,
             BardoIntentRouter.classify("Quiero usar mi letra", false))
         assertEquals(BardoIntentRouter.Intent.CHANGE_CREATION,
@@ -30,13 +34,23 @@ class BardoIntentRouterTest {
     }
 
     @Test
-    fun activeCreationNeverFallsBackToFreeChatForFieldAnswers() {
+    fun activeCreationRoutesAnswersToTheNextField() {
         assertEquals(BardoIntentRouter.Intent.MUSIC_CREATION,
             BardoIntentRouter.classify("Superar los obstáculos y seguir adelante", true))
         assertEquals(BardoIntentRouter.Intent.MUSIC_CREATION,
             BardoIntentRouter.classify("Rock alternativo", true))
         assertEquals(BardoIntentRouter.Intent.MUSIC_CREATION,
             BardoIntentRouter.classify("Rápido", true))
+    }
+
+    @Test
+    fun userCanExplicitlyLeaveCreationMode() {
+        assertEquals(BardoIntentRouter.Intent.END_CREATION,
+            BardoIntentRouter.classify("Volver al chat general", true))
+        assertEquals(BardoIntentRouter.Intent.END_CREATION,
+            BardoIntentRouter.classify("Cancelar creación", true))
+        assertEquals(BardoIntentRouter.Intent.GENERAL_CHAT,
+            BardoIntentRouter.classify("Hola", false))
     }
 
     @Test
@@ -49,12 +63,12 @@ class BardoIntentRouterTest {
 
     @Test
     fun instrumentalAndVoiceChoicesMapToHonestExecutionModes() {
-        assertEquals(true, BardoIntentRouter.isInstrumentalOnlyType("instrumental"))
-        assertEquals(true, BardoIntentRouter.isInstrumentalOnlyType("solo instrumental"))
-        assertEquals(false, BardoIntentRouter.isInstrumentalOnlyType("ambas (voz e instrumental)"))
-        assertEquals(true, BardoIntentRouter.requiresUserVoice("voz"))
-        assertEquals(true, BardoIntentRouter.requiresUserVoice("ambas"))
-        assertEquals(false, BardoIntentRouter.requiresUserVoice("instrumental"))
-        assertEquals(false, BardoIntentRouter.requiresUserVoice("instrumental sin voz"))
+        assertTrue(BardoIntentRouter.isInstrumentalOnlyType("instrumental"))
+        assertTrue(BardoIntentRouter.isInstrumentalOnlyType("solo instrumental"))
+        assertFalse(BardoIntentRouter.isInstrumentalOnlyType("ambas (voz e instrumental)"))
+        assertTrue(BardoIntentRouter.requiresUserVoice("voz"))
+        assertTrue(BardoIntentRouter.requiresUserVoice("ambas"))
+        assertFalse(BardoIntentRouter.requiresUserVoice("instrumental"))
+        assertFalse(BardoIntentRouter.requiresUserVoice("instrumental sin voz"))
     }
 }
