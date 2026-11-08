@@ -110,7 +110,62 @@ object BardoIntentRouter {
             }
             if (source != null) result["vozFuente"] = source
         }
+        val englishLabels = Regex(
+            """(?i)\b(theme|style|genre|mood|rhythm|language|type)\s*[:=]\s*(.+?)(?=[,;.!?\n]|$)"""
+        )
+        englishLabels.findAll(message).forEach { match ->
+            val key = when (match.groupValues[1].lowercase(Locale.ROOT)) {
+                "theme" -> "tema"
+                "style", "genre" -> "estilo"
+                "mood" -> "ambiente"
+                "rhythm" -> "ritmo"
+                "language" -> "idioma"
+                "type" -> "tipo"
+                else -> return@forEach
+            }
+            if (key !in result) result[key] = normalizeFieldValue(key, match.groupValues[2].trim())
+        }
+
+        if ("tema" !in result) {
+            val theme = Regex("""(?i)^\s*(?:(?:write|create|make|compose)\s+(?:me\s+)?(?:a\s+)?|i\s+want\s+(?:to\s+)?(?:write|create|make)\s+(?:a\s+)?)?(?:song|track)\s+(?:about|on)\s+(.+?)(?=[,;.!?\n]|$)""")
+                .find(message)?.groupValues?.get(1)?.trim()
+            if (!theme.isNullOrBlank()) result["tema"] = theme
+        }
+        if ("estilo" !in result) {
+            val genre = Regex("""(?i)\b(alternative\s+rock|rock|pop|rap|hip[- ]?hop|trap|metal|indie|electronic|house|techno|jazz|blues|soul|funk|reggae|folk|country|synthwave|lo[- ]?fi|ambient|punk|disco|trance)\s*(?=[,;.]|\s+(?:song|track)\b)""")
+                .find(message)?.groupValues?.get(1)
+            if (!genre.isNullOrBlank()) result["estilo"] = genre
+        }
+        if ("ambiente" !in result) {
+            val mood = Regex("""(?i)\b(hopeful|happy|sad|melancholic|epic|motivational|romantic|dark|energetic|calm|nostalgic|aggressive|soft|intense)\s+(?:mood|feeling|atmosphere)\b""")
+                .find(message)?.groupValues?.get(1)
+            if (!mood.isNullOrBlank()) result["ambiente"] = mood
+        }
+        if ("ritmo" !in result) {
+            val tempo = Regex("""(?i)\b(fast|slow|medium|steady|danceable)\s+(?:tempo|rhythm)\b""")
+                .find(message)?.groupValues?.get(1)
+                ?: Regex("""(?i)\b(\d{2,3})\s*(?:bpm|beats\s+per\s+minute)\b""")
+                    .find(message)?.groupValues?.get(1)?.let { "$it BPM" }
+            if (!tempo.isNullOrBlank()) result["ritmo"] = tempo
+        }
+        if ("idioma" !in result) {
+            val language = Regex("""(?i)\b(?:in|language)\s+(english|spanish)\b""")
+                .find(message)?.groupValues?.get(1)
+            if (!language.isNullOrBlank()) result["idioma"] = normalizeFieldValue("idioma", language)
+        }
+        if ("tipo" !in result) {
+            val type = when {
+                Regex("""(?i)\b(instrumental\s+only|no\s+vocals|without\s+vocals)\b""").containsMatchIn(message) -> "solo instrumental"
+                Regex("""(?i)\b(both\s+vocals\s+and\s+instrumental)\b""").containsMatchIn(message) -> "ambas (voz e instrumental)"
+                Regex("""(?i)\b(with\s+vocals)\b""").containsMatchIn(message) -> "voz"
+                else -> null
+            }
+            if (type != null) result["tipo"] = type
+        }
         return result
+    }
+
+    private fun normalizeFieldValue        return result
     }
 
     private fun normalizeFieldValue(key: String, value: String): String {
@@ -124,19 +179,34 @@ object BardoIntentRouter {
             }
         }
         if (key == "tipo") {
+            val normalized = normalize(value)
             return when {
-                isInstrumentalOnlyType(value) -> "solo instrumental"
-                normalize(value).contains("ambas") || normalize(value).contains("voz e instrumental") ->
-                    "ambas (voz e instrumental)"
+                isInstrumentalOnlyType(value) || normalized.contains("no vocals") ||
+                    normalized == "instrumental only" || normalized == "without vocals" -> "solo instrumental"
+                normalized.contains("both vocals and instrumental") -> "ambas (voz e instrumental)"
+                normalized.contains("ambas") || normalized.contains("voz e instrumental") -> "ambas (voz e instrumental)"
+                normalized == "voice" || normalized == "vocals" || normalized == "with vocals" -> "voz"
                 else -> value
             }
         }
+        if (key == "idioma") return canonicalSongLanguage(value) ?: value
         return value
     }
 
+    fun canonicalSongLanguage(value: String): String? = when (normalize(value)) {
+        "es", "spanish", "espanol", "castellano" -> "Español"
+        "en", "en us", "en gb", "english", "ingles" -> "English"
+        else -> null
+    }
+
+    fun isSupportedSongLanguage(value: String): Boolean = canonicalSongLanguage(value) != null
+
     /** Devuelve el primer dato obligatorio pendiente; voz solo se solicita cuando se eligió voz. */
     fun nextRequiredField(values: Map<String, String>): String? {
-        requiredCreationFields.firstOrNull { values[it].isNullOrBlank() }?.let { return it }
+        requiredCreationFields.firstOrNull {
+            if (it == "idioma") !isSupportedSongLanguage(values[it].orEmpty())
+            else values[it].isNullOrBlank()
+        }?.let { return it }
         return if (requiresUserVoice(values["tipo"].orEmpty()) && values["vozFuente"].isNullOrBlank()) {
             "vozFuente"
         } else null
@@ -172,7 +242,7 @@ object BardoIntentRouter {
         if (creationInProgress && Regex("^(cambiar|cambia|modificar|modifica)\\s+(?:(?:el|la)\\s+)?(tema|estilo|ambiente|ritmo|idioma|tipo|voz)\\b")
                 .containsMatchIn(text)) return Intent.CHANGE_CREATION
 
-        if (creationInProgress && text in setOf("crear", "crear cancion", "crear musica", "si", "continuar", "adelante"))
+        if (creationInProgress && text in setOf("crear", "crear cancion", "crear musica", "si", "continuar", "adelante", "create", "continue", "yes"))
             return Intent.CONFIRM_CREATION
 
         val explicitMusicRequest = listOf(
@@ -181,7 +251,7 @@ object BardoIntentRouter {
             "necesito una cancion", "vamos a crear una cancion", "vamos a hacer una cancion",
             "una cancion sobre", "cancion sobre", "crear instrumental", "quiero un instrumental",
             "crear musica", "quiero crear musica", "quiero hacer musica", "reanudar creacion",
-            "continuar creacion"
+            "continuar creacion", "write a song", "create a song", "make a song", "compose a song", "write me a song", "create an instrumental", "make an instrumental", "song about", "track about"
         )
         if (explicitMusicRequest.any { text.contains(it) }) return Intent.MUSIC_CREATION
 

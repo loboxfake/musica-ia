@@ -2499,8 +2499,10 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
             grupoModo.check(R.id.modoConversacion)
         }
     }
-    if (lower in listOf("crear", "crear canción", "crear cancion", "sí", "si", "continuar")) {
-        val faltan = camposRequeridos.filter { datosConver[it].isNullOrBlank() } + listOfNotNull(if ((datosConver["tipo"].orEmpty().contains("voz", true) || datosConver["tipo"].orEmpty().contains("ambas", true)) && datosConver["vozFuente"].isNullOrBlank()) "vozFuente" else null)
+    if (lower in listOf("crear", "crear canción", "crear cancion", "sí", "si", "continuar", "create", "continue", "yes")) {
+        val faltan = camposRequeridos.filter {
+            datosConver[it].isNullOrBlank() || (it == "idioma" && !BardoIntentRouter.isSupportedSongLanguage(datosConver[it].orEmpty()))
+        } + listOfNotNull(if ((datosConver["tipo"].orEmpty().contains("voz", true) || datosConver["tipo"].orEmpty().contains("ambas", true)) && datosConver["vozFuente"].isNullOrBlank()) "vozFuente" else null)
         if (faltan.isNotEmpty()) {
             responderConOrquestador(texto, "Antes necesito: ${faltan.joinToString(", ")}. ${preguntaParaCampo(faltan.first())}")
             return
@@ -2546,7 +2548,15 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
 
     var valor = (valorExplicito ?: texto).trim()
     if (campo == "tema") valor = Regex("(?i)^(?:quiero\\s+)?(?:una\\s+)?canci[oó]n\\s+(?:sobre|de)\\s+").replace(valor, "").trim().ifBlank { texto.trim() }
-    if (campo == "tipo" && lower == "ambas") valor = "ambas (voz e instrumental)"
+    if (campo == "idioma") {
+        valor = BardoIntentRouter.canonicalSongLanguage(valor) ?: run {
+            datosConver.remove("idioma")
+            guardarPreferenciasCreativas()
+            responderConOrquestador(texto, preguntaParaCampo("idioma"))
+            return
+        }
+    }
+    if (campo == "tipo" && lower in listOf("ambas", "both")) valor = "ambas (voz e instrumental)"
     if (campo == "tipo" && (lower == "ninguna" || lower == "solo instrumental")) valor = "solo instrumental"
     if (campo == "vozFuente") {
         val fuenteIndicada = valor.lowercase(java.util.Locale.ROOT)
@@ -2769,7 +2779,8 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
              modeloChatVerificado = true
              EngineLiteRT.inicializar(modelo.absolutePath, File(cacheDir, "litert-cache").absolutePath)
              val prompt = """
-                 Eres BARDO, un asistente personal general. Conversa libremente en español, como un asistente útil y natural.
+                 Eres BARDO, un asistente personal general, útil y natural.
+                 Detecta el idioma del mensaje más reciente y responde en ese mismo idioma cuando puedas manejarlo. Comprende texto Unicode y documentos en los idiomas que puedas interpretar. Si no entiendes una lengua o fragmento, dilo y pide aclaración en vez de inventar.
                  Responde a la petición actual usando el contexto relevante. Puedes explicar, razonar, resumir, proponer ideas y hacer preguntas de aclaración cuando sean necesarias.
                  No fuerces la conversación hacia la música: solo activa esa especialidad cuando el usuario lo pida explícitamente.
                  No afirmes haber accedido a Internet, archivos, aplicaciones, herramientas o capacidades que no hayas utilizado realmente.
@@ -2820,7 +2831,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
     "estilo" -> "¿Qué estilo musical prefieres (pop, rock, rap, balada, electrónica...)?"
     "ambiente" -> "¿Qué ambiente o emoción buscas?"
     "ritmo" -> "¿Qué ritmo prefieres: lento, medio o rápido?"
-    "idioma" -> "¿En qué idioma quieres la letra?"
+    "idioma" -> "Por ahora BARDO solo crea canciones/letras nuevas en español o inglés. ¿Cuál de esos dos idiomas eliges?"
     "tipo" -> "¿Quieres voz, instrumental o ambas?"
     "vozFuente" -> "¿Usarás una voz grabada, un archivo de voz o ninguna?"
     else -> "¿Qué dato quieres añadir?"
@@ -3133,6 +3144,11 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
  }
 
  private fun crearCancion() {
+ if (!modoSoloInstrumental && grupoModo.checkedRadioButtonId != R.id.modoLetra &&
+     !BardoIntentRouter.isSupportedSongLanguage(datosConver["idioma"].orEmpty())) {
+     tvEstado.text = "Por ahora BARDO solo crea canciones/letras nuevas en español o inglés. Selecciona uno de esos idiomas en el chat."
+     return
+ }
  if (ocupado) {
      tvEstado.text = "BARDO ya tiene una tarea marcada como activa. Comprueba su estado antes de iniciar otra."
      Log.w(etiqueta, "Se evitó iniciar una segunda tarea porque ocupado=true")

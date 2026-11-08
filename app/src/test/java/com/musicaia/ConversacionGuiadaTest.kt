@@ -3,6 +3,7 @@ package com.musicaia
 import com.musicaia.modelo.BardoIntentRouter
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class ConversacionGuiadaTest {
@@ -107,6 +108,39 @@ class ConversacionGuiadaTest {
     }
 
     @Test
+    fun songsAreLimitedToSpanishAndEnglish() {
+        assertEquals("Español", BardoIntentRouter.canonicalSongLanguage("castellano"))
+        assertEquals("English", BardoIntentRouter.canonicalSongLanguage("English"))
+        assertEquals("English", BardoIntentRouter.canonicalSongLanguage("en-US"))
+        assertNull(BardoIntentRouter.canonicalSongLanguage("français"))
+        assertEquals("idioma", BardoIntentRouter.nextRequiredField(mapOf(
+            "tema" to "resilience", "estilo" to "rock", "ambiente" to "hopeful",
+            "ritmo" to "fast", "idioma" to "français", "tipo" to "solo instrumental"
+        )))
+    }
+
+    @Test
+    fun extractsEnglishSongBrief() {
+        val fields = BardoIntentRouter.extractProvidedFields(
+            "Write a song about overcoming obstacles, style: alternative rock, mood: hopeful, " +
+                "rhythm: fast tempo, language: English, type: instrumental only"
+        )
+        assertEquals("overcoming obstacles", fields["tema"])
+        assertEquals("alternative rock", fields["estilo"])
+        assertEquals("hopeful", fields["ambiente"])
+        assertEquals("fast tempo", fields["ritmo"])
+        assertEquals("English", fields["idioma"])
+        assertEquals("solo instrumental", fields["tipo"])
+    }
+
+    @Test
+    fun identifiesEnglishCreationIntent() {
+        assertEquals(BardoIntentRouter.Intent.MUSIC_CREATION,
+            BardoIntentRouter.classify("Write a song about hope", false))
+    }
+
+    @Test
+    fun completedFieldsCanBeChangedWithoutRestartingTheFlow() {    @Test
     fun completedFieldsCanBeChangedWithoutRestartingTheFlow() {
         val original = mapOf("tema" to "historia antigua", "estilo" to "pop")
         val updated = original + ("tema" to "superar obstáculos")
