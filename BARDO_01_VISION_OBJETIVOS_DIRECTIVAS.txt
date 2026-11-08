@@ -43,6 +43,7 @@ Requisitos:
 Modelo conversacional objetivo: Gemma 4 E2B-it en formato LiteRT-LM.
 - El usuario ya dispone del archivo original en Descargas/BARDO/Modelos. BARDO debe reutilizarlo, no descargar otro ni borrar el original.
 - El acceso se limita al árbol Descargas/BARDO concedido mediante SAF. No se autoriza explorar otras carpetas de Descargas.
+- Archivo original verificado físicamente por el usuario en Xiaomi 11T Pro: `Descargas/BARDO/Modelos/gemma-4-E2B-it.litertlm`, 2.588.147.712 bytes, SHA-256 `181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c`. La copia privada y la carga/inferencia siguen siendo verificaciones distintas.
 - Verificar tamaño y SHA-256 fijado antes de activar la copia privada. Huella fijada: 181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c.
 - Comprobar carga real, generación multi-turno, liberación determinista, errores y funcionamiento en modo avión.
 - La conversación debe ser general y contextual; no redirigir todo automáticamente a la música.
