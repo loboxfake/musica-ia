@@ -1035,14 +1035,14 @@ private fun crearEstructuraCarpetaBardo() {
              .append(" · ").append(modulo.attribution).append("\n\n")
      }
 
-     texto.append("ASISTENTES DEL SISTEMA DETECTADOS (").append(device.assistantApps.size).append(")\n")
+     texto.append("APPS CON FUNCIONES DE ASISTENTE DETECTADAS (").append(device.assistantApps.size).append(")\n")
      if (device.assistantApps.isEmpty()) {
-         texto.append("Android no expone ahora un asistente registrado por ROLE_ASSISTANT ni una app que gestione ACTION_ASSIST.\n")
+         texto.append("No hay apps visibles que declaren ACTION_ASSIST o un servicio VoiceInteractionService.\n")
      } else {
          device.assistantApps.forEach { assistant ->
              texto.append("• ").append(assistant.label).append(" · ").append(assistant.packageName)
-             if (assistant.activeAssistantRole) texto.append(" · asistente activo del sistema")
              if (assistant.handlesAssistAction) texto.append(" · gestiona ACTION_ASSIST")
+             if (assistant.providesVoiceInteractionService) texto.append(" · servicio de interacción por voz")
              texto.append("\n")
          }
      }
@@ -1067,7 +1067,7 @@ private fun crearEstructuraCarpetaBardo() {
              .append("\n")
      }
      texto.append("\nLÍMITES DE DETECCIÓN\n")
-         .append("Android no permite que una app enumere indiscriminadamente todos los paquetes ni inspeccione datos privados. BARDO consulta apps lanzables visibles y asistentes declarados mediante ROLE_ASSISTANT/ACTION_ASSIST; las posibles apps IA se señalan solo por el nombre. Android no dispone de un catálogo universal que permita leer las skills, plugins, modelos privados o extensiones internas de otras aplicaciones. En BARDO se muestran sus capacidades registradas y el catálogo interno de módulos/habilidades; las entradas con modelo opcional dependen de que el modelo se encuentre realmente instalado y supere sus verificaciones.\n\n")
+         .append("Android no permite que una app enumere indiscriminadamente todos los paquetes ni inspeccione datos privados. BARDO consulta apps lanzables visibles y apps que declaran ACTION_ASSIST o VoiceInteractionService; esto identifica compatibilidad, no cuál es el asistente predeterminado. Las posibles apps IA se señalan solo por el nombre. Android no dispone de un catálogo universal que permita leer las skills, plugins, modelos privados o extensiones internas de otras aplicaciones. En BARDO se muestran sus capacidades registradas y el catálogo interno de módulos/habilidades; las entradas con modelo opcional dependen de que el modelo se encuentre realmente instalado y supere sus verificaciones.\n\n")
      texto.append("RAM libre detectada: ").append(memoriaLibre / (1024L * 1024L * 1024L))
          .append(" GB. Umbral preventivo Gemma: 4 GB. Verde significa componente detectado, no prueba física; solo se considera probado después de instalar y ejecutar la APK en el Xiaomi.")
      AlertDialog.Builder(this)
