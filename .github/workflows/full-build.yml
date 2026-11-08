@@ -119,15 +119,9 @@ jobs:
           set -o pipefail
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "cmake;3.31.6" "ndk;27.2.12479018"
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: 8.10.2
-          cache-disabled: true
-
       - name: Run unit tests
         run: |
-          gradle testDebugUnitTest 2>&1 | tee full-tests.log
+          ./gradlew testDebugUnitTest 2>&1 | tee full-tests.log
           status=${PIPESTATUS[0]}
           if [ "$status" -ne 0 ]; then
             grep -E "FAILED|Exception|error:" full-tests.log || true
@@ -160,7 +154,7 @@ jobs:
 
       - name: Build full APK with on-device audio model
         run: |
-          gradle assembleRelease -PwithAudioNative=true -PbardoVersionCode="$((1000 + GITHUB_RUN_NUMBER))" -PetSrcPath="$RUNNER_TEMP/executorch" 2>&1 | tee full-build.log
+          ./gradlew assembleRelease -PwithAudioNative=true -PbardoVersionCode="$((1000 + GITHUB_RUN_NUMBER))" -PetSrcPath="$RUNNER_TEMP/executorch" 2>&1 | tee full-build.log
           status=${PIPESTATUS[0]}
           if [ "$status" -ne 0 ]; then
             grep -E "error:|CMake Error|FAILED|What went wrong" full-build.log | tail -100 || true

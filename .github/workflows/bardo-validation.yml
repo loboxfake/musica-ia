@@ -28,11 +28,6 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Set up Gradle 8.10.2
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: 8.10.2
-          cache-disabled: true
       - name: Set up Go for Gitleaks
         uses: actions/setup-go@v5
         with:
@@ -50,4 +45,4 @@ jobs:
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
           "$(go env GOPATH)/bin/actionlint" -color .github/workflows/*.yml
       - name: Run unit tests and compile debug APK
-        run: gradle testDebugUnitTest assembleDebug --no-daemon --stacktrace
+        run: ./gradlew testDebugUnitTest assembleDebug --no-daemon --stacktrace

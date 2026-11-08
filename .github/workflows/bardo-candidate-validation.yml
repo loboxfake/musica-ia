@@ -59,12 +59,6 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Gradle 8.10.2
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: 8.10.2
-          cache-disabled: true
-
       - name: Decode and safely apply BARDO candidate
         env:
           PATCH_GZIP_B64: ${{ inputs.patch_gzip_b64 }}
@@ -133,7 +127,7 @@ jobs:
       - name: Run unit tests and compile candidate debug APK
         run: |
           set -euo pipefail
-          gradle testDebugUnitTest assembleDebug --no-daemon --stacktrace 2>&1 | tee "$RUNNER_TEMP/bardo-candidate-tests.log"
+          ./gradlew testDebugUnitTest assembleDebug --no-daemon --stacktrace 2>&1 | tee "$RUNNER_TEMP/bardo-candidate-tests.log"
           status=${PIPESTATUS[0]}
           if [ "$status" -ne 0 ]; then
             grep -E "FAILED|Exception|error:|What went wrong" "$RUNNER_TEMP/bardo-candidate-tests.log" | tail -100 || true
