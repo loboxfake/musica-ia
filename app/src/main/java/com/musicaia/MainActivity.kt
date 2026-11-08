@@ -2673,7 +2673,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                          portadaPendiente = generated.file
                          tvEstado.text = (if (standaloneImage) "Imagen generada" else "Portada generada") + " con Bonsai Image 4B local en " +
                              String.format(java.util.Locale.ROOT, "%.1f", generated.seconds) + " s."
-                         mostrarVistaPortada(generated.file, songTitle.ifBlank { "Imagen BARDO" })
+                         mostrarVistaPortada(generated.file, songTitle.ifBlank { "Imagen BARDO" }, aiGenerated = true, standaloneImage = standaloneImage)
                      }.onFailure { error ->
                          tvEstado.text = "No se pudo generar la portada IA: " + error.message
                          AlertDialog.Builder(this)
@@ -2759,7 +2759,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
      dialog.show()
  }
 
- private fun mostrarVistaPortada(file: File, title: String) {
+ private fun mostrarVistaPortada(file: File, title: String, aiGenerated: Boolean = false, standaloneImage: Boolean = false) {
      val bitmap = android.graphics.BitmapFactory.decodeFile(file.absolutePath)
      if (bitmap == null) {
          tvEstado.text = "La portada se creó, pero no se pudo previsualizar."
@@ -2769,25 +2769,25 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
          setImageBitmap(bitmap)
          adjustViewBounds = true
          scaleType = ImageView.ScaleType.FIT_CENTER
-         contentDescription = "Previsualización de portada: " + title
+         contentDescription = (if (standaloneImage) "Previsualización de imagen: " else "Previsualización de portada: ") + title
      }
      val content = LinearLayout(this).apply {
          orientation = LinearLayout.VERTICAL
          setPadding(dp(16), dp(8), dp(16), dp(8))
          addView(preview, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(300)))
          addView(TextView(this@MainActivity).apply {
-             text = "PNG cuadrado 1024 × 1024 · diseño gráfico procedural offline, no IA generativa"
+             text = if (aiGenerated) "PNG cuadrado 512 × 512 · generado con Bonsai Image 4B local" else "PNG cuadrado 1024 × 1024 · diseño gráfico procedural offline, no IA generativa"
              setPadding(0, dp(8), 0, 0)
          })
      }
      val dialog = AlertDialog.Builder(this)
-         .setTitle("Portada creada")
+         .setTitle(if (standaloneImage) "Imagen creada" else "Portada creada")
          .setView(content)
          .setNegativeButton("Cerrar", null)
          .setPositiveButton("Guardar PNG") { _, _ ->
              selectorGuardarPortada.launch(
                  title.lowercase(java.util.Locale.ROOT).replace(Regex("[^a-z0-9]+"), "-")
-                     .trim('-').take(48).ifBlank { "bardo-cover" } + ".png"
+                     .trim('-').take(48).ifBlank { if (standaloneImage) "bardo-image" else "bardo-cover" } + ".png"
              )
          }
          .create()

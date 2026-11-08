@@ -1266,3 +1266,5 @@ No declarar la fase cerrada solo por CI verde; la prueba física en Xiaomi 11T P
 - Reparación de full-build: el export Stable Audio histórico #3 terminó SUCCESS pero su artefacto había caducado (retención de 1 día), por eso la APK integral fallaba antes de Gradle. La exportación ahora conserva artefactos 7 días; full-build busca artefactos no caducados, dispara una exportación en main si falta y espera hasta 3 h, verificando los cinco ficheros antes de compilar.
 
 - Corrección adicional detectada por CI: el valor canónico «ambas (voz e instrumental)» supera 24 caracteres; el límite de longitud del campo tipo se amplió a 40 para no descartar una normalización válida.
+
+- La previsualización distingue correctamente la salida Bonsai IA (512×512) de la portada procedural (1024×1024), evitando etiquetar una imagen generada por IA como diseño sin IA.
