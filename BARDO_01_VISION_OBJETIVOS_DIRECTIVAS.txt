@@ -529,3 +529,11 @@ El ASR local soporta español e inglés estadounidense mediante modelos Vosk ind
 - Con Gemma local instalado, el orquestador puede interpretar respuestas de creación musical en cualquier idioma que el modelo soporte, extraer varios campos explícitos y formular la siguiente pregunta en el idioma del usuario. La canción final continúa limitada a español/inglés.
 - La extracción estructurada exige evidencia textual exacta del último mensaje y no reemplaza campos previos salvo que el usuario indique un cambio. Si el modelo no devuelve JSON válido, BARDO vuelve al paso guiado sin guardar inferencias no verificadas.
 - Sin Gemma, el modo guiado de reserva solo está localizado en español e inglés; no se simula soporte generativo en otros idiomas.
+
+
+14.7 ESPACIO INDEPENDIENTE DE IMÁGENES — 2026-11-08
+- La generación y gestión visual debe residir en una pestaña propia «Imágenes», separada de Asistente, Crear música y Biblioteca.
+- Desde esa pestaña se puede crear una portada vinculada a una canción o disco ya generado, pedir a BARDO una imagen nueva para una canción concreta o generar una imagen independiente a partir de una descripción.
+- El generador Bonsai Image 4B es opcional y local: descarga explícita, verificación de archivos y umbral de memoria. El renderizador procedural PNG se identifica como diseño gráfico determinista, nunca como IA generativa.
+- La imagen resultante se previsualiza y se puede guardar/compartir; las imágenes no se generan automáticamente al terminar una canción sin acción del usuario.
+- Reconocimiento de imágenes adjuntas y generación de imágenes son capacidades separadas. El análisis visual depende de los reconocedores disponibles; no afirmar comprensión universal de cualquier imagen.

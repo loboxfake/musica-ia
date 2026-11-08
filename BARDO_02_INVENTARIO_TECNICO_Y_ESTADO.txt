@@ -1254,3 +1254,11 @@ No declarar la fase cerrada solo por CI verde; la prueba física en Xiaomi 11T P
 - MainActivity pide al modelo responder en el idioma del último mensaje, saltar campos ya contestados y formular exactamente una pregunta siguiente. Se eliminó la instrucción contradictoria que prohibía terminar con una pregunta.
 - Si el JSON no valida, no se guardan campos del modelo; se mantiene el flujo anterior como fallback. Tests JVM cubren idioma no inglés, evidencia falsa, cambio explícito, límites de idioma de canción y tipo/fuente de voz.
 - Requiere Gemma local verificado para idiomas fuera del fallback español/inglés; la cobertura real depende del idioma que soporte el modelo instalado.
+
+
+61. REVISIÓN CI Y ESPACIO VISUAL INDEPENDIENTE — 2026-11-08
+- Revisión del commit main 897193f46c089ee1e0aa67a980f301465eef9646: fallan BARDO integration validation y Build full offline APK. La prueba concreta observada es BardoGuidedResponseParserTest.normalizesVoiceTypeAndSource (aserción en línea 58); no publicar ni recomendar esa APK.
+- ExecuTorch native build para ese SHA terminó SUCCESS; no sustituye los tests Kotlin ni la APK completa.
+- La app ya contiene Bonsai Image 4B local y el renderizador procedural; la UI todavía coloca sus botones en Biblioteca. La fase debe moverlos a una pestaña «Imágenes» independiente y ofrecer tanto portada vinculada a canción/disco como imagen libre pedida a BARDO.
+- El catálogo declarativo de módulos debe reflejar que Bonsai está integrado como módulo opcional (requiere modelo) y no marcarlo falsamente como «no integrado».
+- Canciones: salida limitada actualmente a español e inglés. Conversación, instrucciones, adjuntos y OCR pueden aceptar cualquier idioma dentro de las capacidades reales de cada modelo/reconocedor; el soporte depende de la cobertura del modelo y nunca se debe prometer universalidad.
