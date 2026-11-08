@@ -19,8 +19,8 @@ Los estados se expresan como:
 1. REPOSITORIO Y ÚLTIMA REFERENCIA VERIFICADA
 - Repo: https://github.com/loboxfake/musica-ia
 - Rama única: main.
-- HEAD documental de referencia inicial de esta revisión: abc4ab6400b8965c75f82c4befaf64e526205840.
-- En esta revisión se ha consolidado BARDO_01 y se está sincronizando este inventario mediante commits normales en main. Registrar el HEAD final de ambos documentos al completar el commit de esta edición.
+- Baseline de entrada a esta revisión: abc4ab6400b8965c75f82c4befaf64e526205840.
+- La consolidación de BARDO_01 quedó registrada en el commit f5810aa1a284ffe420536ef6ef4de272bb3919f1. Esta edición consolida el inventario en commits normales sobre main; el HEAD vigente se consulta en la rama, sin fijar aquí un SHA autorreferencial.
 - No usar ramas antiguas como destino de trabajo; no hacer reset --hard, force-push ni borrar trabajo remoto.
 - El código funcional empaquetado en #349 es el mismo baseline funcional que #348; el commit abc4ab... fue una actualización documental, no una nueva implementación de funcionalidades.
 
