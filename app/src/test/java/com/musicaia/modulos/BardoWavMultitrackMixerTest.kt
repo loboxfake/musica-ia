@@ -42,6 +42,23 @@ class BardoWavMultitrackMixerTest {
         assertThrows(IllegalArgumentException::class.java) { BardoWavMultitrackMixer.mix(listOf(BardoWavMultitrackMixer.Track(a,pan=-2.0),BardoWavMultitrackMixer.Track(b)),File(dir,"pan.wav")) }
     }
 
+    @Test fun rejectsCorruptOrUnsupportedWavHeadersWithoutPublishingOutput() {
+        val dir=createTempDir(prefix="bardo-mix-corrupt-")
+        val good=File(dir,"good.wav")
+        val bad=File(dir,"bad.wav")
+        val output=File(dir,"output.wav")
+        createWav(good,16000,shortArrayOf(1000,1000))
+        bad.writeBytes(ByteArray(64) { 0x41 })
+        assertThrows(IllegalArgumentException::class.java) {
+            BardoWavMultitrackMixer.mix(
+                listOf(BardoWavMultitrackMixer.Track(good),BardoWavMultitrackMixer.Track(bad)),
+                output
+            )
+        }
+        assertTrue(!output.exists())
+        assertTrue(!File(dir,"output.wav.tmp").exists())
+    }
+
     @Test fun rejectsSingleTrackAndSilence() {
         val dir=createTempDir(prefix="bardo-mix-silent-"); val a=File(dir,"a.wav"); val b=File(dir,"b.wav")
         createWav(a,16000,shortArrayOf(0,0,0,0)); createWav(b,16000,shortArrayOf(0,0,0,0))
