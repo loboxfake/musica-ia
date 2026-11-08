@@ -46,8 +46,12 @@ object BardoIntentRouter {
         }
 
         if ("tema" !in result) {
-            val theme = Regex(
-                """(?i)^\s*(?:(?:quiero|necesito|hazme|crea)\s+)?(?:una\s+)?canci[oó]n\s+(?:sobre|de)\s+(.+?)(?=[,;.!?\n]|$)"""
+            val genres = "rock\\s+alternativo|rock|pop|rap|hip[- ]?hop|trap|reggaeton|metal|indie|electr[oó]nica|house|techno|jazz|blues|soul|funk|reggae|folk|country|flamenco|salsa|bachata|cumbia|merengue|orquestal|cinem[aá]tico"
+            val themeAfterGenre = Regex(
+                """(?i)\\b(?:una\\s+)?canci[oó]n\\s+de\\s+(?:$genres)\\s+(?:sobre|acerca\\s+de|que\\s+trate\\s+de|que\\s+hable\\s+de)\\s+(.+?)(?=[,;.!?\\n]|$)"""
+            ).find(message)?.groupValues?.get(1)?.trim()
+            val theme = themeAfterGenre ?: Regex(
+                """(?i)^\\s*(?:(?:quiero|necesito|hazme|crea)\\s+)?(?:una\\s+)?canci[oó]n\\s+(?:sobre|acerca\\s+de|que\\s+trate\\s+de|que\\s+hable\\s+de|de)\\s+(.+?)(?=[,;.!?\\n]|$)"""
             ).find(message)?.groupValues?.get(1)?.trim()
             if (!theme.isNullOrBlank()) result["tema"] = theme
         }
@@ -57,6 +61,28 @@ object BardoIntentRouter {
                 """(?i)\b(?:en|idioma\s*[:=]?)\s*(español|castellano|inglés|ingles|francés|frances|italiano|portugués|portugues|alemán|aleman)\b"""
             ).find(message)?.groupValues?.get(1)
             if (!language.isNullOrBlank()) result["idioma"] = language
+        }
+
+        if ("estilo" !in result) {
+            val genrePattern = Regex(
+                """(?i)\\b(?:de|estilo|g[eé]nero|sonido)\\s+(rock\\s+alternativo|rock|pop|rap|hip[- ]?hop|trap|reggaeton|metal|indie|electr[oó]nica|house|techno|jazz|blues|soul|funk|reggae|folk|country|flamenco|salsa|bachata|cumbia|merengue|orquestal|cinem[aá]tico)\\b"""
+            )
+            genrePattern.find(message)?.groupValues?.get(1)?.let { result["estilo"] = it }
+        }
+
+        if ("ambiente" !in result) {
+            val moodPattern = Regex(
+                """(?i)\\b(?:que\\s+sea|con\\s+(?:un\\s+)?(?:ambiente|tono|aire))\\s+(?:muy\\s+|bastante\\s+|algo\\s+)?(alegre|esperanzador[ao]?|triste|melanc[oó]lic[ao]|[eé]pic[ao]|motivador[ao]|rom[aá]ntic[ao]|oscur[ao]|energ[eé]tic[ao]|tranquil[ao]|nost[aá]lgic[ao]|agresiv[ao]|suave|intens[ao])\\b"""
+            )
+            moodPattern.find(message)?.groupValues?.get(1)?.let { result["ambiente"] = it }
+        }
+
+        if ("ritmo" !in result) {
+            val tempo = Regex("""(?i)\\b(?:que\\s+vaya|con\\s+un\\s+ritmo)\\s+(r[aá]pido|lento|medio|moderado|pausado|bailable|marcado)\\b""")
+                .find(message)?.groupValues?.get(1)
+            val bpm = Regex("""(?i)\\b(\\d{2,3})\\s*(?:bpm|pulsaciones\\s+por\\s+minuto)\\b""")
+                .find(message)?.groupValues?.get(1)?.let { "$it BPM" }
+            (tempo ?: bpm)?.let { result["ritmo"] = it }
         }
 
         if ("tipo" !in result) {

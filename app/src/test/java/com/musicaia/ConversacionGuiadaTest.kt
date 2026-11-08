@@ -75,6 +75,21 @@ class ConversacionGuiadaTest {
     }
 
     @Test
+    fun recognizesNaturalGenreMoodTempoThemeLanguageAndInstrumentalChoice() {
+        val parsed = BardoIntentRouter.extractProvidedFields(
+            "Quiero una canción de rock alternativo sobre superar obstáculos, que sea esperanzadora, " +
+                "con un ritmo rápido, en español y sin voz"
+        )
+        assertEquals("superar obstáculos", parsed["tema"])
+        assertEquals("rock alternativo", parsed["estilo"])
+        assertEquals("esperanzadora", parsed["ambiente"])
+        assertEquals("rápido", parsed["ritmo"])
+        assertEquals("español", parsed["idioma"])
+        assertEquals("solo instrumental", parsed["tipo"])
+        assertEquals("ninguna", parsed["vozFuente"])
+    }
+
+    @Test
     fun doesNotInferCreativeFieldsFromUnlabelledAmbiguousWords() {
         assertEquals(
             emptyMap<String, String>(),
