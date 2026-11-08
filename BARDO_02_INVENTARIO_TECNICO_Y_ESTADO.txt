@@ -1662,3 +1662,11 @@ PENDIENTE
 - Se incorpora voice_mix_user como octavo módulo y habilidad separada de voice_synthesis (voz cantada IA, no implementada).
 - El inventario informa el permiso SAF persistente de Descargas/BARDO, las rutas/revisiones de modelos, IDs de cada elemento y RAM total/libre.
 - Tests añadidos para separar mezcla de voz propia de voz cantada IA y verificar catálogo de ocho módulos.
+
+
+79. CORRESPONDENCIA MÓDULOS ↔ HABILIDADES — 2026-11-08
+
+- Se detectó que el módulo stem_separation del catálogo no tenía entrada propia en BardoCapabilityRegistry.
+- Añadida capability stem_separation con estado NOT_IMPLEMENTED y aceptación para exportar stems WAV sincronizados desde audio real.
+- Tests ahora verifican que tanto voz cantada IA como separación de stems permanecen explícitamente no implementadas.
+- Todos los módulos del catálogo tienen ahora una capability asociada; no debe aparecer «SIN REGISTRO» para un módulo declarado.

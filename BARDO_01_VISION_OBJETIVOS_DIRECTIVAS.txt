@@ -797,3 +797,10 @@ EVOLUCIÓN
 - La ruta activa de MainActivity utiliza MezclaVoz.mezclar + LectorWav para WAV PCM16 reales. La clase protegida Modo3MezclaVozUsuario.kt se conserva sin cambios y se identifica como adaptador legacy, no como ruta activa.
 - El catálogo queda con ocho módulos; voz cantada generada y masterización profesional siguen pendientes.
 - El inventario añade estado de permiso SAF de Descargas/BARDO, IDs de helpers/módulos/capacidades y RAM total/libre.
+
+
+32. REGISTRO COMPLETO DE MÓDULOS — 2026-11-08
+
+- Se comprueba la correspondencia de los ocho módulos del catálogo con BardoCapabilityRegistry.
+- Se añade la capacidad stem_separation con estado NOT_IMPLEMENTED y criterios de aceptación explícitos; el inventario ya no muestra «SIN REGISTRO» para ese módulo.
+- La separación de stems sigue pendiente; no se declara disponible ni se instala un modelo sin autorización.

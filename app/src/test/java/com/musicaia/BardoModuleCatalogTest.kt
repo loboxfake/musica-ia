@@ -83,6 +83,7 @@ class BardoModuleCatalogTest {
         assertEquals(true, modules.getValue("voice_mix_user").implemented)
         assertEquals("voice_mix_user", modules.getValue("voice_mix_user").capabilityId)
         assertEquals(false, modules.getValue("voice_synthesis").implemented)
+        assertEquals(false, modules.getValue("stem_separation").implemented)
     }
 
     @Test
