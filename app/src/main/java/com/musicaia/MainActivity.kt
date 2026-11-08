@@ -1931,8 +1931,7 @@ private fun crearEstructuraCarpetaBardo() {
          return
      }
      analizarTextoAdjunto(nombre, mime, destino, contenido, "texto", taskIdAdjunto)
-
-
+ }
 
  private fun ofrecerGuardarMetadatosAdjunto(nombre: String, mime: String, file: File, detalle: String) {
      AlertDialog.Builder(this)
