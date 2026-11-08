@@ -19,12 +19,32 @@ import java.security.MessageDigest
 import java.util.Locale
 import java.util.zip.ZipInputStream
 
-/** Reconocimiento local de voz en español para adjuntos decodificables por Android. */
+/** Reconocimiento local de voz en español e inglés para adjuntos decodificables por Android. */
 object BardoOfflineAsr {
+    enum class Language(
+        val code: String,
+        val label: String,
+        val directoryName: String,
+        val archiveSizeBytes: Long,
+        val archiveSha256: String,
+        val archiveUrl: String
+    ) {
+        SPANISH(
+            "es", "Español", "vosk-model-small-es-0.42", 39_817_833L,
+            "09b239888f633ef2f0b4e09736e3d9936acfd810bc65d53fad45261762c6511f",
+            "https://github.com/BartekReterski/VoskModels/releases/download/v1/vosk-model-small-es-0.42.zip"
+        ),
+        ENGLISH(
+            "en", "English", "vosk-model-small-en-us-0.15", 41_205_931L,
+            "30f26242c4eb449f948e42cb302dd7a686cb29a3423a8367f99ff41780942498",
+            "https://github.com/BartekReterski/VoskModels/releases/download/v1/vosk-model-small-en-us-0.15.zip"
+        )
+    }
+
+    // Alias históricos del modelo español; se conservan para compatibilidad.
     const val MODEL_ARCHIVE_SIZE_BYTES = 39_817_833L
     const val MODEL_ARCHIVE_SHA256 = "09b239888f633ef2f0b4e09736e3d9936acfd810bc65d53fad45261762c6511f"
     const val MODEL_ARCHIVE_URL = "https://github.com/BartekReterski/VoskModels/releases/download/v1/vosk-model-small-es-0.42.zip"
-    private const val MODEL_DIRECTORY_NAME = "vosk-model-small-es-0.42"
     private const val MAX_ARCHIVE_ENTRIES = 3000
     private const val MAX_UNPACKED_BYTES = 240L * 1024L * 1024L
     private const val MAX_MEDIA_BYTES = 100L * 1024L * 1024L
@@ -32,10 +52,11 @@ object BardoOfflineAsr {
     private const val MAX_DECODED_PCM_BYTES = 512L * 1024L * 1024L
     private const val MAX_TRANSCRIPT_CHARS = 240_000
 
-    fun modelDirectory(context: Context): File =
-        File(File(context.filesDir, "bardo_models"), MODEL_DIRECTORY_NAME)
+    fun modelDirectory(context: Context, language: Language = Language.SPANISH): File =
+        File(File(context.filesDir, "bardo_models"), language.directoryName)
 
-    fun isModelInstalled(context: Context): Boolean = hasModelLayout(modelDirectory(context))
+    fun isModelInstalled(context: Context, language: Language = Language.SPANISH): Boolean =
+        hasModelLayout(modelDirectory(context, language))
 
     private fun hasModelLayout(directory: File): Boolean =
         File(directory, "am/final.mdl").isFile &&
@@ -43,21 +64,25 @@ object BardoOfflineAsr {
             File(directory, "graph").isDirectory &&
             File(directory, "graph").listFiles()?.any { it.isFile && it.extension == "fst" } == true
 
-    fun downloadAndInstall(context: Context, onProgress: (Int) -> Unit = {}): File {
-        val target = modelDirectory(context)
+    fun downloadAndInstall(
+        context: Context,
+        language: Language = Language.SPANISH,
+        onProgress: (Int) -> Unit = {}
+    ): File {
+        val target = modelDirectory(context, language)
         if (hasModelLayout(target)) return target
         val parent = target.parentFile ?: error("No se pudo resolver la carpeta del modelo.")
         check(parent.exists() || parent.mkdirs()) { "No se pudo crear la carpeta de modelos." }
-        val archive = File(parent, ".vosk-es.zip.part")
-        val staging = File(parent, ".vosk-es-stage")
-        val installTemp = File(parent, ".vosk-es-install")
-        val backup = File(parent, ".vosk-es-previous")
+        val archive = File(parent, ".vosk-${language.code}.zip.part")
+        val staging = File(parent, ".vosk-${language.code}-stage")
+        val installTemp = File(parent, ".vosk-${language.code}-install")
+        val backup = File(parent, ".vosk-${language.code}-previous")
         archive.delete()
         staging.deleteRecursively()
         installTemp.deleteRecursively()
         var connection: HttpURLConnection? = null
         try {
-            val url = URL(MODEL_ARCHIVE_URL)
+            val url = URL(language.archiveUrl)
             require(url.protocol.equals("https", true)) { "La descarga del modelo exige HTTPS." }
             connection = (url.openConnection() as HttpURLConnection).apply {
                 connectTimeout = 20_000
@@ -72,7 +97,7 @@ object BardoOfflineAsr {
             }
             require(connection.url.protocol.equals("https", true)) { "La redirección del modelo no conservó HTTPS." }
             val declaredLength = connection.contentLengthLong
-            require(declaredLength == -1L || declaredLength == MODEL_ARCHIVE_SIZE_BYTES) {
+            require(declaredLength == -1L || declaredLength == language.archiveSizeBytes) {
                 "El tamaño anunciado del modelo no coincide con el publicado."
             }
             val digest = MessageDigest.getInstance("SHA-256")
@@ -84,17 +109,17 @@ object BardoOfflineAsr {
                         val count = input.read(buffer)
                         if (count < 0) break
                         copied += count
-                        require(copied <= MODEL_ARCHIVE_SIZE_BYTES) { "El archivo del modelo supera el tamaño esperado." }
+                        require(copied <= language.archiveSizeBytes) { "El archivo del modelo supera el tamaño esperado." }
                         digest.update(buffer, 0, count)
                         output.write(buffer, 0, count)
-                        runCatching { onProgress(((copied * 100L) / MODEL_ARCHIVE_SIZE_BYTES).toInt().coerceIn(0, 99)) }
+                        runCatching { onProgress(((copied * 100L) / language.archiveSizeBytes).toInt().coerceIn(0, 99)) }
                     }
                     output.fd.sync()
                 }
             }
-            require(copied == MODEL_ARCHIVE_SIZE_BYTES) { "Descarga incompleta: $copied de $MODEL_ARCHIVE_SIZE_BYTES bytes." }
+            require(copied == language.archiveSizeBytes) { "Descarga incompleta: $copied de ${language.archiveSizeBytes} bytes." }
             val hash = digest.digest().joinToString("") { "%02x".format(Locale.ROOT, it.toInt() and 0xff) }
-            require(hash.equals(MODEL_ARCHIVE_SHA256, true)) { "La verificación SHA-256 del modelo español ha fallado." }
+            require(hash.equals(language.archiveSha256, true)) { "La verificación SHA-256 del modelo ${language.label} ha fallado." }
 
             check(staging.mkdirs()) { "No se pudo preparar la extracción temporal." }
             var entries = 0
@@ -138,7 +163,7 @@ object BardoOfflineAsr {
             }
             val modelRoot = if (hasModelLayout(staging)) staging else
                 staging.listFiles()?.firstOrNull { it.isDirectory && hasModelLayout(it) }
-                    ?: error("El ZIP no contiene la estructura esperada del modelo Vosk español.")
+                    ?: error("El ZIP no contiene la estructura esperada del modelo Vosk ${language.label}.")
             if (modelRoot == staging) {
                 check(staging.renameTo(installTemp)) { "No se pudo preparar la instalación atómica del modelo." }
             } else {
@@ -182,7 +207,7 @@ object BardoOfflineAsr {
 
     /** Decodifica el primer flujo de audio usando códecs Android y transmite PCM a Vosk. */
     fun transcribeMediaFile(modelDirectory: File, mediaFile: File, onProgress: (Int) -> Unit = {}): String {
-        require(hasModelLayout(modelDirectory)) { "El modelo Vosk español no está instalado o está incompleto." }
+        require(hasModelLayout(modelDirectory)) { "El modelo Vosk no está instalado o está incompleto." }
         require(mediaFile.isFile && mediaFile.length() in 1..MAX_MEDIA_BYTES) {
             "El audio no existe, está vacío o supera el límite de 100 MB."
         }
