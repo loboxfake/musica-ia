@@ -550,3 +550,12 @@ El ASR local soporta español e inglés estadounidense mediante modelos Vosk ind
 - Desde Imágenes se permite solicitar a BARDO una imagen independiente y crear una portada vinculada a una canción/disco ya existente. Los resultados deben distinguir modelo IA local Bonsai de diseño procedural offline, con etiqueta veraz.
 - La interfaz debe mostrar el estado real del modelo, memoria necesaria, progreso, errores y opciones de guardar. La pestaña no autoriza a presentar el modelo como descargado o probado si no lo está.
 - La integración actual debe preservar el modo offline, no enviar adjuntos a la nube y no modificar el archivo protegido Modo3MezclaVozUsuario.kt.
+
+
+16. IMPLEMENTACIÓN OCR BILINGÜE Y NAVEGACIÓN VISUAL — 2026-11-08
+
+- La implementación incorpora un contrato mínimo explícito de OCR para español (es) e inglés (en), incluidos locales es-ES y en-US. Ambos idiomas se procesan con el reconocedor latino bundled; no se requiere un modelo independiente por idioma.
+- El OCR no infiere automáticamente si una frase es español o inglés, ni traduce el resultado. Solo extrae el texto que reconoce.
+- La ruta OCR prioriza el reconocedor latino para documentos españoles/ingleses y solo procesa los reconocedores adicionales si el latino no devuelve texto; se conserva la extracción multiescritura como fallback.
+- La pestaña «Imágenes» queda incluida en tabsDisponibles y en el mapa navIds, por lo que participa en orden, visibilidad y preferencias persistentes. Su sección visual separa portada vinculada a canción/disco, imagen libre pedida a BARDO y diseño procedural offline.
+- La incompatibilidad del detector Lint de AndroidX Lifecycle se aborda fijando Android Lint 8.8.2 en gradle.properties, sin desactivar el análisis ni las auditorías. La validación integral debe confirmarlo antes de declarar la reparación cerrada.
