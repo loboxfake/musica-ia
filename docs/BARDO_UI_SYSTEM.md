@@ -1,6 +1,6 @@
 # BARDO — UI system and product structure
 
-Version: 2026-11-08
+Version: 2026-11-08 · UI revision 2
 
 ## Product frame
 
@@ -42,3 +42,16 @@ The user's established working directory is Downloads/BARDO, with the already do
 - New visual states must be backed by observable code, not placeholder labels.
 - Never report a module as device-tested without actual device evidence.
 - Preserve `Modo3MezclaVozUsuario.kt`, signing material and security controls unless separately and explicitly authorized.
+
+
+## Experience structure — implemented refinement
+
+The six workspaces remain the stable product map. The Assistant home now also offers direct, accessible shortcuts to Studio, Library and Evolution; these shortcuts invoke the same existing navigation listeners and do not create duplicate navigation state.
+
+Studio is presented as a deliberate creation flow: choose complete guided song, user-supplied lyrics, or instrumental; attach a user voice reference only when needed. The interface explicitly states that recording/importing a voice is not voice cloning or generated singing. The actual PCM voice/instrumental mixing path remains distinct from any future voice synthesis.
+
+Evolution separates the visual hierarchy into local models, memory/knowledge and development autonomy. Gemma, audio generation and Bonsai remain independent model states. A model in Downloads is not marked active until the app has imported and verified its private copy and the runtime checks succeed.
+
+The visual refinement uses quieter ink-navy surfaces, thin cool borders, a more restrained cyan/violet primary gradient, clearer input contrast and a stronger active navigation state. It avoids bright blue card outlines and decorative gold borders. Touch targets remain at least 48dp where applicable; the six configurable navigation items and all existing view IDs/listeners are preserved.
+
+The user's confirmed model location is Downloads/BARDO/Modelos. The UI offers linking/importing that existing model and does not initiate another download. SAF permission remains required by Android; the original model file is preserved.

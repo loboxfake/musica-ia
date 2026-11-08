@@ -1371,3 +1371,12 @@ PENDIENTES DE ACEPTACIÓN FÍSICA
 - Archivos modificados: activity_main.xml, styles.xml, etiquetas de navegación y estados de Gemma/carpeta en MainActivity.kt. Nuevo documento de diseño: docs/BARDO_UI_SYSTEM.md.
 - La validación CI y la instalación Xiaomi de esta revisión visual deben registrarse después de su resultado; no se consideran probadas por el historial anterior.
 - Modo3MezclaVozUsuario.kt sigue protegido y debe conservar SHA-1 8f2745fa841a06af43bf909732fba834474bf7dc.
+
+
+68. REFINAMIENTO VISUAL Y JERARQUÍA DE ESPACIOS — 2026-11-08
+
+- Fuente base de esta revisión: main HEAD 8665793d3451ef7c04a20aad1369d280fae86697 (build integral #302 previo al refinamiento).
+- Cambios preparados: accesos rápidos en Asistente hacia Estudio, Archivo y Evolución; jerarquía de flujo creativo y explicación veraz del uso de voz propia; agrupación visual de modelos, memoria/conocimiento y autonomía; superficies y controles con paleta más sobria, contraste y bordes discretos.
+- Se preservan seis áreas configurables, navegación persistente, IDs/listeners existentes, flujos de audio, memoria, permisos y preferencias. Modo3MezclaVozUsuario.kt no se modifica.
+- Gemma ya está descargado por el usuario en Descargas/BARDO/Modelos. La app reutiliza el fichero existente mediante SAF; el estado visual diferencia modelo por vincular/localizando, copia importada, SHA verificado y bloqueo por RAM. No se inicia una descarga nueva por defecto ni se elimina el original.
+- La aceptación de CI y la APK de esta revisión quedan pendientes hasta que finalicen los workflows del commit visual; la aceptación física en Xiaomi sigue separada.

@@ -618,3 +618,13 @@ Sistema visual vigente:
 Proyección de evolución, sin declararla implementada: orquestación transversal de proyectos, sesiones no destructivas, pistas/stems, edición vocal, mezcla/masterización avanzada, plugins, skills, actualizaciones verificadas y herramientas de creación visual. Su integración debe ampliar los espacios existentes sin romper la navegación ni el estado persistente.
 
 El usuario confirma el 2026-11-08 que la carpeta de BARDO está en Descargas y que Gemma ya está descargado dentro de Modelos. La aplicación debe reutilizar ese fichero existente, localizarlo mediante el permiso SAF persistente de Descargas/BARDO/Modelos, verificar tamaño y SHA-256, importar una copia privada solo cuando proceda y conservar el original. No iniciar otra descarga por defecto. Android puede exigir volver a autorizar el árbol si no conserva el permiso; el sistema no debe sortear las restricciones de almacenamiento.
+
+
+21. REFINAMIENTO DE LA EXPERIENCIA Y ESTUDIO MODULAR — 2026-11-08
+
+- Se consolida la arquitectura de seis espacios (Asistente, Estudio, Archivo, Imagen, Evolución y Sistema) y se añaden accesos directos desde el inicio a Estudio, Archivo y Evolución. Los accesos reutilizan los listeners de navegación existentes; no crean un segundo estado de navegación.
+- El Estudio se ordena como flujo de creación: canción guiada, letra propia o instrumental; la voz grabada/importada se explica como referencia de voz propia para mezclas compatibles, no como clonación ni síntesis cantada.
+- Evolución distingue modelos locales, memoria/conocimiento y autonomía de desarrollo. Los estados Gemma, audio y Bonsai se mantienen separados y sujetos a comprobaciones reales.
+- Se refinan las superficies oscuras, los bordes, los gradientes, el contraste de entrada, el estado de navegación y los objetivos táctiles. Se preservan IDs/listeners, preferencias de orden/visibilidad, memoria y módulos de audio.
+- Ubicación confirmada por el usuario: Descargas/BARDO/Modelos contiene el Gemma ya descargado. No iniciar descarga duplicada; vincular el árbol SAF, localizar el archivo existente, validar tamaño/SHA-256 e importar una copia privada cuando proceda. Conservar el original.
+- Esta revisión no altera Modo3MezclaVozUsuario.kt ni certifica funcionamiento en el Xiaomi; CI y aceptación física se registran por separado.

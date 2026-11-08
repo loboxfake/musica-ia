@@ -4,10 +4,10 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#050A15">
+    android:background="#070D19">
 
-    <LinearLayout android:id="@+id/brandHeader" android:layout_width="match_parent" android:layout_height="76dp" android:orientation="horizontal" android:gravity="center_vertical" android:paddingStart="18dp" android:paddingEnd="18dp" android:background="@drawable/bg_panel" android:elevation="5dp">
-        <ImageView android:layout_width="48dp" android:layout_height="48dp" android:src="@mipmap/ic_launcher_foreground" android:background="@drawable/bg_brand_orb" android:padding="4dp" android:scaleType="fitCenter" android:contentDescription="Símbolo de BARDO"/>
+    <LinearLayout android:id="@+id/brandHeader" android:layout_width="match_parent" android:layout_height="70dp" android:orientation="horizontal" android:gravity="center_vertical" android:paddingStart="18dp" android:paddingEnd="18dp" android:background="@drawable/bg_panel" android:elevation="5dp">
+        <ImageView android:layout_width="44dp" android:layout_height="44dp" android:src="@mipmap/ic_launcher_foreground" android:background="@drawable/bg_brand_orb" android:padding="4dp" android:scaleType="fitCenter" android:contentDescription="Símbolo de BARDO"/>
         <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:paddingStart="12dp">
             <TextView android:id="@+id/tvBrandName" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="BARDO" android:textColor="#EAF2FF" android:textSize="22sp" android:textStyle="bold" android:fontFamily="sans-serif-smallcaps" android:letterSpacing="0.20"/>
             <TextView android:id="@+id/tvBrandSubtitle" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="SISTEMA PERSONAL · LOCAL FIRST" android:textColor="#68D6E8" android:textSize="9sp" android:textStyle="bold" android:letterSpacing="0.10"/>
@@ -33,8 +33,8 @@
             android:paddingBottom="30dp">
 inearLayout>
 
-            <LinearLayout android:id="@+id/seccionOrquestador" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingTop="28dp">
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="01 · NÚCLEO DE ORQUESTACIÓN" android:textColor="#4ED1F1" android:textSize="10sp" android:textStyle="bold" android:letterSpacing="0.16"/>
+            <LinearLayout android:id="@+id/seccionOrquestador" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingTop="20dp">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="01 · ASISTENTE Y ORQUESTACIÓN" android:textColor="#4ED1F1" android:textSize="10sp" android:textStyle="bold" android:letterSpacing="0.16"/>
                 <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="7dp" android:id="@+id/tvWelcomeTitle" android:text="Tu centro de inteligencia y creación." android:textColor="#F5F8FF" android:textSize="27sp" android:textStyle="bold"/>
                 <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="5dp" android:paddingBottom="16dp" android:id="@+id/tvWelcomeDescription" android:text="Conversa, importa conocimiento, organiza proyectos y coordina herramientas locales. Cada módulo muestra su estado real y puede evolucionar sin convertir el núcleo en una pantalla de botones." android:textColor="#A9B8D2" android:textSize="14sp" android:lineSpacingExtra="3dp"/>
                 <HorizontalScrollView android:layout_width="match_parent" android:layout_height="wrap_content" android:scrollbars="none" android:layout_marginBottom="13dp">
@@ -44,6 +44,12 @@ inearLayout>
                         <TextView android:layout_width="wrap_content" android:layout_height="32dp" android:layout_marginStart="7dp" android:gravity="center" android:paddingStart="12dp" android:paddingEnd="12dp" android:text="ARQUITECTURA MODULAR" android:textColor="#D9C18A" android:textSize="9sp" android:textStyle="bold" android:background="@drawable/bg_icon_button"/>
                     </LinearLayout>
                 </HorizontalScrollView>
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingBottom="7dp" android:text="ACCESO RÁPIDO A TUS ESPACIOS" android:textColor="#8FA4C1" android:textSize="10sp" android:textStyle="bold" android:letterSpacing="0.10"/>
+                <LinearLayout android:id="@+id/workspaceShortcuts" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginBottom="14dp">
+                    <TextView android:id="@+id/shortcutStudio" android:layout_width="0dp" android:layout_height="68dp" android:layout_weight="1" android:layout_marginEnd="5dp" android:gravity="center" android:padding="5dp" android:text="♫\nEstudio" android:textColor="#DCEAFF" android:textSize="12sp" android:textStyle="bold" android:background="@drawable/bg_secondary_button" android:clickable="true" android:focusable="true" android:contentDescription="Abrir el estudio musical"/>
+                    <TextView android:id="@+id/shortcutLibrary" android:layout_width="0dp" android:layout_height="68dp" android:layout_weight="1" android:layout_marginStart="3dp" android:layout_marginEnd="3dp" android:gravity="center" android:padding="5dp" android:text="▣\nArchivo" android:textColor="#DCEAFF" android:textSize="12sp" android:textStyle="bold" android:background="@drawable/bg_secondary_button" android:clickable="true" android:focusable="true" android:contentDescription="Abrir la biblioteca de audio"/>
+                    <TextView android:id="@+id/shortcutEvolution" android:layout_width="0dp" android:layout_height="68dp" android:layout_weight="1" android:layout_marginStart="5dp" android:gravity="center" android:padding="5dp" android:text="⌘\nEvolución" android:textColor="#DCEAFF" android:textSize="12sp" android:textStyle="bold" android:background="@drawable/bg_secondary_button" android:clickable="true" android:focusable="true" android:contentDescription="Abrir modelos y evolución de BARDO"/>
+                </LinearLayout>
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:id="@+id/panelConversacion" android:orientation="vertical" android:padding="16dp" android:background="@drawable/bg_generation_card">
                     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal">
                         <ImageView android:layout_width="50dp" android:layout_height="50dp" android:src="@mipmap/ic_launcher_foreground" android:background="@drawable/bg_brand_orb" android:padding="3dp" android:scaleType="fitCenter" android:contentDescription="Núcleo BARDO"/>
@@ -51,7 +57,7 @@ inearLayout>
                             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="BARDO · NÚCLEO CENTRAL" android:textColor="#F0F6FF" android:textSize="14sp" android:textStyle="bold"/>
                             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Conversación · Memoria · Módulos especializados" android:textColor="#A9B8D2" android:textSize="12sp"/>
                         </LinearLayout>
-                        <TextView android:id="@+id/tvEstadoLocal" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="● GEMMA PENDIENTE" android:textColor="#D9B86B" android:textSize="10sp" android:textStyle="bold" android:contentDescription="Estado del modelo local Gemma"/>
+                        <TextView android:id="@+id/tvEstadoLocal" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="● GEMMA POR VINCULAR" android:textColor="#D9B86B" android:textSize="10sp" android:textStyle="bold" android:contentDescription="Estado del modelo local Gemma"/>
                     </LinearLayout>
                     <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="14dp" android:layout_marginBottom="12dp" android:background="#29466E"/>
                     <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="CONVERSACIÓN" android:textColor="#8FA4C1" android:textSize="10sp" android:textStyle="bold" android:letterSpacing="0.12"/>
@@ -80,6 +86,7 @@ inearLayout>
             <LinearLayout android:id="@+id/seccionCrear" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingTop="30dp">
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="02 · ESTUDIO MUSICAL" android:textColor="#4ED1F1" android:textSize="10sp" android:textStyle="bold" android:letterSpacing="0.16"/>
                 <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="5dp" android:paddingBottom="12dp" android:text="Crear, producir y experimentar" android:textColor="#F5F8FF" android:textSize="21sp" android:textStyle="bold"/>
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingBottom="7dp" android:text="ELIGE CÓMO QUIERES CREAR" android:textColor="#8FA4C1" android:textSize="10sp" android:textStyle="bold" android:letterSpacing="0.10"/>
                 <RadioGroup android:id="@+id/grupoModo" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center" android:padding="5dp" android:background="@drawable/bg_panel" android:visibility="visible">
                     <RadioButton android:id="@+id/modoConversacion" android:layout_width="0dp" android:layout_height="54dp" android:layout_weight="1" android:gravity="center" android:buttonTint="#69D6E8" android:textColor="#DCEAFF" android:textSize="11sp" android:maxLines="2" android:checked="true" android:text="Canción completa"/>
                     <RadioButton android:id="@+id/modoLetra" android:layout_width="0dp" android:layout_height="54dp" android:layout_weight="1" android:gravity="center" android:buttonTint="#69D6E8" android:textColor="#DCEAFF" android:textSize="11sp" android:maxLines="2" android:text="Mi letra"/>
@@ -109,8 +116,8 @@ inearLayout>
                     <EditText android:id="@+id/editIndicaciones" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="9dp" android:hint="Estilo, ambiente, ritmo..." android:textColor="#F5F8FF" android:textColorHint="#8195B4" android:background="@drawable/bg_input" android:inputType="textCapSentences" android:padding="12dp"/>
                 </LinearLayout>
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="@drawable/bg_panel" android:padding="14dp" android:layout_marginTop="10dp">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="PERFIL VOCAL" android:textColor="#4ED1F1" android:textSize="10sp" android:textStyle="bold"/>
-                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="4dp" android:paddingBottom="8dp" android:text="Añade una muestra de voz para futuras funciones vocales." android:textColor="#A9B8D2" android:textSize="12sp"/>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="TU VOZ · REFERENCIA PARA MEZCLA" android:textColor="#4ED1F1" android:textSize="10sp" android:textStyle="bold"/>
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="4dp" android:paddingBottom="8dp" android:text="Graba o importa tu voz para usarla en una mezcla compatible. No es clonación ni síntesis de voz." android:textColor="#A9B8D2" android:textSize="12sp"/>
                     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
                         <Button android:id="@+id/btnGrabar" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:text="Grabar voz" android:textAllCaps="false"/>
                         <Button android:id="@+id/btnElegirVoz" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:layout_marginStart="8dp" android:text="Importar audio" android:textAllCaps="false"/>
@@ -187,12 +194,14 @@ inearLayout>
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="05 · INTELIGENCIA Y EVOLUCIÓN" android:textColor="#4ED1F1" android:textSize="10sp" android:textStyle="bold" android:letterSpacing="0.16"/>
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="17dp" android:layout_marginTop="9dp" android:background="@drawable/bg_panel">
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Modelos, memoria y autonomía" android:textColor="#F5F8FF" android:textSize="19sp" android:textStyle="bold"/>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="10dp" android:text="MODELOS LOCALES" android:textColor="#65D5E7" android:textSize="10sp" android:textStyle="bold" android:letterSpacing="0.10"/>
                     <TextView android:id="@+id/estadoModelo" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="8dp" android:text="Gemma local: comprobando la copia y su integridad…" android:textColor="#A9B8D2" android:textSize="12sp"/>
                     <TextView android:id="@+id/estadoAudioModelo" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="7dp" android:text="Instrumental IA: comprobando motor local..." android:textColor="#A9B8D2" android:textSize="12sp"/>
                     <TextView android:id="@+id/estadoImagenModelo" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="7dp" android:text="Bonsai Image 4B: modelo opcional; estado sujeto a instalación, memoria disponible y prueba en dispositivo." android:textColor="#A9B8D2" android:textSize="12sp"/>
                     <TextView android:id="@+id/estadoVozModelo" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="7dp" android:text="Voz cantada IA: todavía no integrada; no se simula." android:textColor="#E8B987" android:textSize="12sp"/>
                     <ProgressBar android:id="@+id/progresoModelo" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="wrap_content" android:max="1000" android:visibility="gone"/>
                     <Button android:id="@+id/btnDescargarModelo" android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="8dp" android:text="Localizar Gemma existente · verificar e importar" android:textAllCaps="false"/>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="12dp" android:text="MEMORIA Y CONOCIMIENTO" android:textColor="#A99AEF" android:textSize="10sp" android:textStyle="bold" android:letterSpacing="0.10"/>
                     <TextView android:id="@+id/estadoConocimiento" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="8dp" android:text="Conocimiento importado: ninguno." android:textColor="#A9B8D2" android:textSize="12sp"/>
                     <Button android:id="@+id/btnImportarConocimiento" android:layout_width="match_parent"
                         android:layout_height="48dp" android:layout_marginTop="8dp"
@@ -200,6 +209,7 @@ inearLayout>
                     <Button android:id="@+id/btnBorrarConocimiento" android:layout_width="match_parent"
                         android:layout_height="46dp" android:layout_marginTop="6dp"
                         android:text="Borrar conocimiento importado" android:textAllCaps="false" android:visibility="gone"/>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingTop="12dp" android:text="AUTONOMÍA DE DESARROLLO" android:textColor="#D8BC7A" android:textSize="10sp" android:textStyle="bold" android:letterSpacing="0.10"/>
                     <Button android:id="@+id/btnAbrirDeveloper" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="56dp" android:layout_marginTop="10dp" android:paddingStart="12dp" android:paddingEnd="12dp" android:text="BARDO Developer · Autoestudio prioritario" android:textAllCaps="false" android:maxLines="2" android:ellipsize="end" android:visibility="visible"/>
                     <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="8dp" android:text="Próximas capacidades: catálogo de modelos, skills verificadas y memoria de aprendizaje." android:textColor="#8295B1" android:textSize="11sp"/>
                 </LinearLayout>
@@ -230,7 +240,7 @@ inearLayout>
         </LinearLayout>
     </ScrollView>
     <LinearLayout android:id="@+id/bottomNavigation" android:layout_width="match_parent"
-        android:layout_height="68dp" android:orientation="horizontal" android:gravity="center"
+        android:layout_height="72dp" android:orientation="horizontal" android:gravity="center"
         android:paddingStart="4dp" android:paddingEnd="4dp"
         android:background="@drawable/bg_panel" android:elevation="12dp">
         <TextView android:id="@+id/navOrquestador" style="@style/NavItem" android:text="✧\nAsistente" android:contentDescription="Asistente"/>

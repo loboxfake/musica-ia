@@ -777,6 +777,9 @@ class MainActivity : AppCompatActivity() {
      findViewById<View>(R.id.btnAtajoSistema).setOnClickListener {
          findViewById<TextView>(R.id.navSistema).performClick()
      }
+     findViewById<View>(R.id.shortcutStudio).setOnClickListener { findViewById<TextView>(R.id.navCrear).performClick() }
+     findViewById<View>(R.id.shortcutLibrary).setOnClickListener { findViewById<TextView>(R.id.navBiblioteca).performClick() }
+     findViewById<View>(R.id.shortcutEvolution).setOnClickListener { findViewById<TextView>(R.id.navLaboratorio).performClick() }
      seleccionar(R.id.navOrquestador)
  }
 
@@ -1122,7 +1125,7 @@ private fun crearEstructuraCarpetaBardo() {
      val insignia = findViewById<TextView>(R.id.tvEstadoLocal)
      val modelo = LiteRTLMModule.modelFile(this)
      val texto = when {
-         !modelo.isFile || modelo.length() != LiteRTLMModule.EXPECTED_SIZE_BYTES -> "● GEMMA PENDIENTE"
+         !modelo.isFile || modelo.length() != LiteRTLMModule.EXPECTED_SIZE_BYTES -> if (uriCarpetaBardo != null) "● GEMMA LOCALIZANDO" else "● GEMMA POR VINCULAR"
          bloqueoGemmaPorMemoria() != null -> "● RAM INSUFICIENTE"
          modeloChatVerificado -> "● SHA-256 VERIFICADO"
          else -> "● GEMMA SIN VALIDAR"
