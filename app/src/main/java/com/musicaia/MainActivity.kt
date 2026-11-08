@@ -781,6 +781,8 @@ class MainActivity : AppCompatActivity() {
      val prefs = getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE)
      datosConver.clear()
      val id = activeConversationId
+     idiomaConversacionUi = id?.let { prefs.getString("idioma_conversacion_$it", "es") }
+         ?.takeIf { it == "es" || it == "en" } ?: "es"
      creacionMusicalEnCurso = id?.let { prefs.getBoolean("creacion_musical_en_curso_$it", false) } ?: false
      val claveConversacion = id?.let { "preferencias_creativas_$it" }
      val tienePreferenciasPropias = claveConversacion?.let { prefs.contains(it) } == true
@@ -904,7 +906,9 @@ private fun crearEstructuraCarpetaBardo() {
      activeConversationId = nueva.id
      datosConver.clear()
      creacionMusicalEnCurso = false
+     idiomaConversacionUi = "es"
      getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE).edit()
+         .putString("idioma_conversacion_${nueva.id}", "es")
          .putString("preferencias_creativas_${nueva.id}", "{}")
          .putBoolean("creacion_musical_en_curso_${nueva.id}", false)
          .remove("preferencias_creativas")
@@ -2452,7 +2456,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
          filters = arrayOf(android.text.InputFilter.LengthFilter(maxChars))
          minLines = 1
      }
-     val titleInput = textField("Título de la canción o disco", 140)
+     val titleInput = textField("Título de la canción o disco · máximo 96 caracteres", 96)
      val artistInput = textField("Artista (opcional)", 100)
      val conceptInput = textField("Concepto visual (opcional)", 500)
      val styleInput = android.widget.Spinner(this).apply {
@@ -2637,7 +2641,14 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
  private fun enviarConversacion() {
     val texto = chatEntrada.text.toString().trim()
     if (texto.isEmpty()) return
-     BardoIntentRouter.detectConversationLanguage(texto)?.let { idiomaConversacionUi = it }
+     BardoIntentRouter.detectConversationLanguage(texto)?.let { detected ->
+         idiomaConversacionUi = detected
+         activeConversationId?.let { id ->
+             getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE).edit()
+                 .putString("idioma_conversacion_$id", detected)
+                 .apply()
+         }
+     }
     chatEntrada.text.clear()
 
     if (Regex("(?i)\\b(autoestudio|estudiar el c[oó]digo|revisar el proyecto|auditar el c[oó]digo)\\b").containsMatchIn(texto)) {
@@ -2708,13 +2719,19 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
         return
     }
 
-    val etiqueta = Regex("(?i)^(tema|estilo|ambiente|ritmo|idioma|tipo|voz)\\s*[:=]\\s*(.+)$").matchEntire(texto)
-    val cambio = Regex("(?i)^(?:cambiar|cambia|modificar|modifica)\\s+(?:(?:el|la)\\s+)?(tema|estilo|ambiente|ritmo|idioma|tipo|voz)\\s+(?:a|por)\\s+(.+)$").matchEntire(texto)
+    val etiqueta = Regex("(?i)^(tema|theme|estilo|style|genre|ambiente|mood|ritmo|rhythm|idioma|language|tipo|type|voz|voice)\\\\s*[:=]\\\\s*(.+)$").matchEntire(texto)
+    val cambio = Regex("(?i)^(?:cambiar|cambia|modificar|modifica|change|switch)\\\\s+(?:(?:el|la|the)\\\\s+)?(tema|theme|estilo|style|genre|ambiente|mood|ritmo|rhythm|idioma|language|tipo|type|voz|voice)\\\\s+(?:a|por|to)\\\\s+(.+)$").matchEntire(texto)
     val campoExplicito = cambio?.groupValues?.get(1)?.lowercase()
         ?: etiqueta?.groupValues?.get(1)?.lowercase()
     val valorExplicito = cambio?.groupValues?.get(2) ?: etiqueta?.groupValues?.get(2)
     val campo = when (campoExplicito) {
-        "voz" -> "vozFuente"
+        "voz", "voice" -> "vozFuente"
+        "theme" -> "tema"
+        "style", "genre" -> "estilo"
+        "mood" -> "ambiente"
+        "rhythm" -> "ritmo"
+        "language" -> "idioma"
+        "type" -> "tipo"
         else -> campoExplicito
     } ?: if (camposExtraidos.isEmpty()) siguienteCampoPendiente() else null
 
@@ -2810,7 +2827,11 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
      anexarChat("\nTú: $textoUsuario")
      val modelo = LiteRTLMModule.modelFile(this)
      if (!modelo.isFile || modelo.length() != LiteRTLMModule.EXPECTED_SIZE_BYTES) {
-         anexarChat("\nBARDO: MODO GUIADO, SIN IA GENERATIVA. Gemma aún no está importado en el almacenamiento privado y no estoy generando respuestas con un modelo. Puedo ayudarte mediante preguntas y opciones guiadas. Configura Descargas/BARDO para reutilizar el Gemma que ya guardaste o selecciónalo manualmente.")
+         anexarChat(if (idiomaConversacionUi == "en") {
+             "\\nBARDO: GUIDED MODE, NO GENERATIVE AI. Gemma is not installed in app storage, so I am not generating model responses. I can continue with structured questions and options."
+         } else {
+             "\\nBARDO: MODO GUIADO, SIN IA GENERATIVA. Gemma aún no está importado en el almacenamiento privado y no estoy generando respuestas con un modelo. Puedo ayudarte mediante preguntas y opciones guiadas. Configura Descargas/BARDO para reutilizar el Gemma que ya guardaste o selecciónalo manualmente."
+         })
          anexarChat("\nBARDO: $respuestaGuiada")
          return
      }
@@ -2845,7 +2866,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
               EngineLiteRT.inicializar(modelo.absolutePath, File(cacheDir, "litert-cache").absolutePath)
               val prompt = """
                   Eres BARDO (B.A.R.D.O.: Binary Automated Rhythm and Digital Orchestration), la identidad principal y núcleo orquestador del estudio musical. Tu identidad y objetivos persisten entre sesiones. Evoluciona de forma gradual mediante memoria local, preferencias, conversaciones y conocimientos que el usuario autorice, así como modelos y skills verificados que se incorporen modularmente. No afirmes que entrenas tus pesos ni que has instalado capacidades que no están disponibles. Coordina los módulos especializados sin perder el contexto ni la identidad.
-                  Reacciona en español con naturalidad y brevedad al último mensaje del usuario.
+                  ${idiomaConversacionUi == "en" ? "Respond naturally and briefly in English to the latest user message." : "Reacciona en español con naturalidad y brevedad al último mensaje del usuario."}
                   No inventes capacidades, resultados, modelos instalados ni tareas completadas.
                   No hagas preguntas ni solicites datos: el flujo guiado de la aplicación formulará el siguiente paso.
                   No afirmes que puedes generar voz cantada clonada: esa función todavía no está integrada.
@@ -2927,7 +2948,11 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
      val modelo = LiteRTLMModule.modelFile(this)
      if (!modelo.isFile || modelo.length() != LiteRTLMModule.EXPECTED_SIZE_BYTES) {
          BardoActivityStore.record(this, idActividad, "analisis_documental", "blocked", "modelo_no_disponible", "No se puede ejecutar análisis generativo local: Gemma no está instalado.")
-         anexarChat("\nBARDO: El chat general libre todavía necesita el modelo local Gemma 4 E2B (2,6 GB), que no está disponible en el almacenamiento de la aplicación. No voy a simular una respuesta de IA ni activar la creación musical cuando no la has pedido.")
+         anexarChat(if (idiomaConversacionUi == "en") {
+             "\\nBARDO: General chat and multilingual document analysis need the local Gemma 4 E2B model (about 2.6 GB), which is not installed. I will not pretend to generate an AI response."
+         } else {
+             "\\nBARDO: El chat general libre todavía necesita el modelo local Gemma 4 E2B (2,6 GB), que no está disponible en la aplicación. No voy a simular una respuesta de IA ni activar la creación musical cuando no la has pedido."
+         })
          tvEstado.text = "Chat general: modelo local no instalado. El flujo musical guiado sigue disponible."
          return
      }

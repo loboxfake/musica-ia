@@ -162,6 +162,18 @@ class ConversacionGuiadaTest {
     }
 
     @Test
+    fun classifiesEnglishFieldChangesWithoutRestartingCreation() {
+        assertEquals(
+            BardoIntentRouter.Intent.CHANGE_CREATION,
+            BardoIntentRouter.classify("change theme to resilience", true)
+        )
+        assertEquals(
+            BardoIntentRouter.Intent.CHANGE_CREATION,
+            BardoIntentRouter.classify("switch language to English", true)
+        )
+    }
+
+    @Test
     fun detectsEnglishAndSpanishGuidedDialogueWithoutGuessingFromOneAmbiguousWord() {
         assertEquals("en", BardoIntentRouter.detectGuidedLanguage("Write a song about hope"))
         assertEquals("es", BardoIntentRouter.detectGuidedLanguage("Quiero una canción sobre esperanza"))

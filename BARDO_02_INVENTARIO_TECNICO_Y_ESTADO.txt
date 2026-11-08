@@ -1213,3 +1213,11 @@ No declarar la fase cerrada solo por CI verde; la prueba física en Xiaomi 11T P
 - La generación de letras recibe una instrucción de salida inglesa o española según el campo Idioma; no afirma generación cuando Gemma no está instalado y verificado.
 - Los títulos de portada se conservan completos hasta 96 caracteres, se dibujan en hasta tres líneas y se rechaza el exceso de longitud en vez de truncarlo.
 - CI posterior a esta actualización queda pendiente. Criterio de cierre: tests, compileDebug, build offline firmada/auditada y ambos workflows SUCCESS sobre el mismo SHA. Instalación/uso en Xiaomi 11T Pro y escucha WAV siguen pendientes.
+
+
+56. PERSISTENCIA Y CAMBIOS DE CAMPOS EN INGLÉS — 2026-11-08
+- El idioma de diálogo es/en se persiste por conversación. Las conversaciones nuevas empiezan en español; al restaurar historial se recupera el idioma usado.
+- El idioma detectado se aplica a preguntas y al prompt del orquestador; la lengua final de canción sigue independiente y restringida a Español o English.
+- El parser de edición reconoce change/switch theme/style/genre/mood/rhythm/language/type y conserva el resto de preferencias.
+- El estado del modelo ausente se comunica en el idioma activo; no se simula IA generativa.
+- Pendiente de CI sobre el SHA posterior: unit tests, compileDebug, build integral y auditoría.

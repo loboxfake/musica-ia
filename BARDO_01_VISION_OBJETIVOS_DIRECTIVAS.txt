@@ -493,3 +493,9 @@ El ASR local soporta español e inglés estadounidense mediante modelos Vosk ind
 - Las instrucciones de Gemma y del generador de letras exigen el idioma de salida seleccionado. Sin Gemma, BARDO identifica el modo guiado y no afirma generación generativa.
 - Los títulos de portada se conservan completos dentro del límite validado; el generador rechaza los títulos largos en vez de recortarlos silenciosamente.
 - El wrapper usa un espejo de distribución de Gradle 8.10.2 manteniendo el SHA-256 oficial fijado, para evitar el endpoint que devolvió HTTP 504. La ejecución exacta posterior decidirá el estado de validación.
+
+
+14.2 PERSISTENCIA DEL DIÁLOGO BILINGÜE — 2026-11-08
+- El idioma de conversación guiada (es/en) queda guardado por identificador de conversación y se restaura al recuperar una conversación del historial.
+- Las órdenes change/switch theme/style/genre/mood/rhythm/language/type se reconocen como cambios de un campo sin borrar las demás preferencias.
+- El estado de ausencia del modelo local se comunica en el idioma activo del diálogo; nunca se presenta el flujo guiado como generación generativa.
