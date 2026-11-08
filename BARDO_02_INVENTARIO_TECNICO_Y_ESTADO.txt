@@ -1317,3 +1317,43 @@ Inspección sobre main, HEAD 635e8ad74a9645c1c52cb1c27b66b57a5895dc93:
 - El ciclo operativo mantiene límites deliberados: Gemma debe estar instalado/verificado y caber en la RAM; Gradle/NDK se ejecutan en runners de GitHub, no en el móvil; la integración a main requiere aprobación expresa en la app; Android exige que el usuario instale la APK. Esto elimina la dependencia de ChatGPT para producir y validar propuestas, pero no elimina permisos de GitHub ni decisiones humanas de seguridad/instalación.
 - Modo3MezclaVozUsuario.kt sigue protegido: SHA-1 8f2745fa841a06af43bf909732fba834474bf7dc.
 - Pendiente de la presente serie de cambios: confirmar BARDO validation y full-build SUCCESS en el SHA final que contiene el sync de main, CI diagnostics y autoestudio. Después sigue pendiente instalación y prueba real de OCR/audio/estudio en Xiaomi 11T Pro; CI verde no demuestra funcionamiento físico.
+
+
+66. CIERRE CI Y PUBLICACIÓN DE APK INTEGRAL; AUTONOMÍA DOCUMENTAL — 2026-11-08
+
+FUENTE Y RAMA
+- Rama canónica: main (única rama activa, comprobación explícita superada en el propio workflow de publicación).
+- SHA fuente exacto: 4855c3326a8459995576c187c50f02afcb45aa48.
+- Commit: "Document autonomous source sync, CI diagnosis and exact validated patch binding".
+- Etiqueta bardo-build-299 apunta al mismo commit. La ejecución y la etiqueta no se deben confundir con pruebas físicas.
+
+VALIDACIÓN DE INTEGRACIÓN
+- BARDO integration validation #451, run ID 42484567792: SUCCESS sobre el SHA fuente indicado.
+- Pasos completados: checkout con historial, configuración JDK 17, escaneo Gitleaks de historial completo, actionlint de todos los workflows, testDebugUnitTest y compileDebug. No hubo pasos fallidos.
+- URL: https://github.com/loboxfake/musica-ia/actions/runs/42484567792
+
+COMPILACIÓN Y PUBLICACIÓN INTEGRAL
+- Build full offline APK #299, run ID 42484567807: SUCCESS sobre el mismo SHA.
+- Todos los pasos del job full-build pasaron: empaquetado snapshot de fuentes BARDO, descarga del paquete de modelo de audio fijado, tests unitarios, instalación de cabeceras PyTorch, checkout de ExecuTorch fijado, compilación nativa y APK Release, firma, auditoría estructural/integridad, tests y escaneo de credenciales, artefacto y Release, verificación de rama única.
+- Release prerelease: https://github.com/loboxfake/musica-ia/releases/tag/bardo-build-299
+- Assets publicados: app-release.apk y full-apk-audit.txt. El asset APK tiene tamaño 976,946,948 bytes y digest SHA-256 eea913c1986f01381f01c530442d0d8a5a80114ec1b77a6213f95c36c7054c29 (confirmado por el digest del asset en Release y por el informe del workflow).
+- Paquete Android: com.musicaia; versionCode 1299; versionName 1.0.1299; minSdk 26; compileSdk 35; ABI nativa incluida arm64-v8a.
+- El APK se verificó como no-debuggable y firmado con APK Signature Scheme v2 y v3. Certificado autorizado SHA-256: c46232017513c3171ba04d91cf579a72202a834f0bcd1c0a22e0c9de0e030368. No se regeneró ni sustituyó el certificado.
+- Auditoría confirmó dentro de la APK los recursos críticos del modelo de audio: conditioners_model.pte (220,250,112 bytes), dit_model.pte (343,439,104 bytes), autoencoder_model.pte (312,494,592 bytes), spiece.model (791,656 bytes), LICENSE y NOTICE; los tres .pte y el tokenizer requeridos se almacenan ZIP_STORED para compatibilidad de apertura por descriptor. También se verificaron AndroidManifest.xml, resources.arsc y lib/arm64-v8a/libaudiogen.so (9,176,464 bytes).
+- Escáner de secretos: pasaron pruebas que ignoran únicamente el falso positivo conocido de ML Kit en su ruta exacta, rechazan tokens en cualquier otra entrada, rechazan material de firma aunque esté vacío y detectan tokens dentro de ZIP anidado. La auditoría APK también terminó SUCCESS.
+- Artefacto de respaldo GitHub Actions: BARDO-full-offline-299, ID 13619492226, tamaño 715,375,672 bytes; retención hasta 2026-12-08. La Release permanece como entrega principal.
+- URL de Actions: https://github.com/loboxfake/musica-ia/actions/runs/42484567807
+
+ADVERTENCIAS NO BLOQUEANTES OBSERVADAS
+- La compilación concluyó SUCCESS. Se observaron avisos de dependencias nativas de terceros (deprecación codecvt/override), aviso del entorno de exportación PyTorch por falta de NumPy aunque el paso de modelo continuó y pasó, y avisos de deprecación Node 20/punycode en acciones GitHub que el runner fuerza a Node 24. No son fallos del build ni se ocultaron; quedan como mantenimiento técnico separado. No se modificaron indiscriminadamente dependencias de terceros ni acciones sin una validación específica.
+
+AUTONOMÍA BARDO — ESTADO INTEGRADO
+- Sobre este SHA quedan integrados el snapshot actualizado de main fijado por SHA, importación ZIP con validación de raíz/traversal/duplicados/tamaño, PAT limitado y cifrado con Android Keystore, limpieza de candidatos obsoletos, análisis estático posterior a sincronización, diagnóstico jobs/steps CI persistido y reutilizable por Gemma, autoestudio periódico con diagnóstico y verificación SHA-256 del parche exacto entre validación e integración.
+- La integración de código sigue requiriendo aprobación expresa; la instalación Android sigue requiriendo acción del usuario. BARDO necesita Gemma local real, verificado y con RAM suficiente para operar como asistente de desarrollo autónomo; CI/Gradle/NDK se ejecutan en GitHub, no en el teléfono. No afirmar que estas condiciones ya se probaron en el dispositivo si no existe evidencia.
+- Modo3MezclaVozUsuario.kt se comprobó de nuevo en main: SHA-1 8f2745fa841a06af43bf909732fba834474bf7dc, intacto.
+- Los maestros se actualizarán juntos en cada ciclo posterior. Esta entrada resuelve el estado pendiente de confirmación que figuraba al final de la entrada 65: los workflows finales #451 y #299 sí terminaron SUCCESS en el SHA definitivo.
+
+PENDIENTES DE ACEPTACIÓN FÍSICA
+- No se ha instalado ni ejecutado esta APK en el Xiaomi 11T Pro desde este proceso. Pendientes: instalar, abrir sin crash, revisar permisos y almacenamiento, cargar/ejecutar generación real de audio offline, exportar WAV real, escucharlo, comprobar OCR es/en y scripts adicionales con imágenes reales, y probar generación Bonsai con modelo instalado y memoria suficiente.
+- Tampoco se declara Gemma instalado/cargado ni conversación generativa local probada por la mera inclusión de fuentes y APK. Mantener los estados de modelo separado de la compilación.
+- La APK pesa aproximadamente 977 MB (976,946,948 bytes); requiere espacio libre suficiente para descarga/instalación y almacenamiento adicional de datos temporales/modelos. Evaluar capacidad y RAM reales antes de activar cargas pesadas.
