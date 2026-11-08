@@ -87,8 +87,7 @@ object BardoDeviceInventory {
                     pm.getPackageInfo(packageName, 0)
                 }
             }.getOrNull() ?: return@mapNotNull null
-            val versionCode = if (Build.VERSION.SDK_INT >= 28) packageInfo.longVersionCode
-                else @Suppress("DEPRECATION") packageInfo.versionCode.toLong()
+            val versionCode = packageVersionCode(packageInfo)
             AppEntry(
                 label = info.loadLabel(pm)?.toString()?.trim().orEmpty().ifBlank { packageName },
                 packageName = packageName,
@@ -99,6 +98,10 @@ object BardoDeviceInventory {
         }.distinctBy { it.packageName }
             .sortedWith(compareBy<AppEntry> { it.label.lowercase(Locale.ROOT) }.thenBy { it.packageName })
     }
+
+    @Suppress("DEPRECATION")
+    private fun packageVersionCode(info: android.content.pm.PackageInfo): Long =
+        if (Build.VERSION.SDK_INT >= 28) info.longVersionCode else info.versionCode.toLong()
 
     private fun gib(bytes: Long): String = String.format(Locale.ROOT, "%.2f", bytes / (1024.0 * 1024.0 * 1024.0))
 }
