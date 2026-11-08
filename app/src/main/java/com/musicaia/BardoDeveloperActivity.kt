@@ -213,6 +213,78 @@ class BardoDeveloperActivity : AppCompatActivity() {
         output.text = "Autoestudio automático pausado. Los informes, la memoria y las copias candidatas ya guardadas se conservan."
     }
 
+    private fun configurarAccesoGithub() {
+        val tokenField = EditText(this).apply {
+            hint = "github_pat_…"
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            setSingleLine(true)
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Acceso GitHub de BARDO")
+            .setMessage(
+                "Crea un Fine-grained Personal Access Token limitado al repositorio " +
+                    BardoGitHubPolicy.REPOSITORY +
+                    " con Contents: Read y Actions: Read and write. BARDO lo cifra con Android Keystore; nunca se incluye en la APK ni se envía al runner."
+            )
+            .setView(tokenField)
+            .setNegativeButton("Cancelar", null)
+            .setPositiveButton("Guardar cifrado") { _, _ ->
+                runCatching { BardoGitHubCredentialStore.save(this, tokenField.text.toString()) }
+                    .onSuccess { output.text = "Token guardado cifrado en Android Keystore." }
+                    .onFailure { output.text = "No se pudo guardar el token: ${it.message}" }
+            }
+            .show()
+    }
+
+    private fun actualizarFuentesDesdeMain() {
+        val token = BardoGitHubCredentialStore.read(this)
+        if (token == null) {
+            output.text = "Primero configura el acceso GitHub limitado."
+            configurarAccesoGithub()
+            return
+        }
+        if (isBusy) return
+        setBusy(true, "Conectando con GitHub para obtener el SHA actual de main…")
+        worker.execute {
+            val archive = File(cacheDir, "bardo-main-source-${System.currentTimeMillis()}.zip")
+            val result = runCatching {
+                val (sourceSha, downloaded) = BardoGitHubActionsClient(token).downloadMainSourceSnapshot(archive)
+                val imported = downloaded.inputStream().use { input ->
+                    BardoDeveloperCore.importarZip(input, workspace, stripSingleRootDirectory = true)
+                }
+                File(imported.directory, "BARDO_SOURCE_COMMIT.txt").writeText(sourceSha + "\n", Charsets.UTF_8)
+                sourceSha to imported
+            }
+            archive.delete()
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                result.onSuccess { (sourceSha, imported) ->
+                    snapshot = imported.directory
+                    getSharedPreferences("bardo_developer", MODE_PRIVATE).edit()
+                        .putString("snapshot_path", imported.directory.absolutePath)
+                        .putString("source_snapshot_path", imported.directory.absolutePath)
+                        .remove("candidate_path")
+                        .remove("candidate_patch")
+                        .remove("candidate_base_sha")
+                        .remove("candidate_files")
+                        .remove("candidate_id")
+                        .remove("candidate_validation_succeeded")
+                        .remove("candidate_validation_run_id")
+                        .apply()
+                    candidatePatch = ""
+                    lastReport = ""
+                    lastProposal = ""
+                    btnApply.isEnabled = false
+                    output.text = "FUENTES ACTUALIZADAS DESDE GITHUB MAIN\nCommit: $sourceSha\nArchivos: ${imported.files}\nTamaño: ${imported.bytes / 1024} KB\nEntradas omitidas: ${imported.skipped}\n\nEl código no se ha ejecutado. Iniciando auditoría estática…"
+                    setBusy(false)
+                    analizarProyecto()
+                }.onFailure { error ->
+                    output.text = "No se pudieron actualizar las fuentes desde main: ${error.javaClass.simpleName}: ${error.message}\nSe conserva el snapshot anterior y no se ha creado un candidato."
+                    setBusy(false)
+                }
+            }
+        }
+    }
     private fun importarCodigoPropio() {
         setBusy(true, "BARDO está preparando una copia de solo lectura de su propio código…")
         worker.execute {
