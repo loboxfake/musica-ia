@@ -19,7 +19,7 @@ object BardoGuidedResponseParser {
         FieldSpec("mood", "ambiente", 100),
         FieldSpec("rhythm", "ritmo", 100),
         FieldSpec("language", "idioma", 12),
-        FieldSpec("type", "tipo", 24),
+        FieldSpec("type", "tipo", 40),
         FieldSpec("voice_source", "vozFuente", 24)
     )
 

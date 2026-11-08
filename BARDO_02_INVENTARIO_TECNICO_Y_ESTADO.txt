@@ -1264,3 +1264,5 @@ No declarar la fase cerrada solo por CI verde; la prueba física en Xiaomi 11T P
 - Canciones: salida limitada actualmente a español e inglés. Conversación, instrucciones, adjuntos y OCR pueden aceptar cualquier idioma dentro de las capacidades reales de cada modelo/reconocedor; el soporte depende de la cobertura del modelo y nunca se debe prometer universalidad.
 
 - Reparación de full-build: el export Stable Audio histórico #3 terminó SUCCESS pero su artefacto había caducado (retención de 1 día), por eso la APK integral fallaba antes de Gradle. La exportación ahora conserva artefactos 7 días; full-build busca artefactos no caducados, dispara una exportación en main si falta y espera hasta 3 h, verificando los cinco ficheros antes de compilar.
+
+- Corrección adicional detectada por CI: el valor canónico «ambas (voz e instrumental)» supera 24 caracteres; el límite de longitud del campo tipo se amplió a 40 para no descartar una normalización válida.
