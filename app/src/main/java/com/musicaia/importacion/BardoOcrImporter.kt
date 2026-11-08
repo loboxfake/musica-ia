@@ -146,19 +146,19 @@ object BardoOcrImporter {
 
         // Spanish and English both use the bundled Latin recognizer. Avoid running
         // four unrelated script models for the normal bilingual case.
-        if (latinText.isNotBlank()) return "[latino]\\n$latinText".take(240000)
+        if (latinText.isNotBlank()) return "[latino]\n$latinText".take(240000)
 
         val outputs = mutableListOf<String>()
         recognizers.filterNot { it.first == "latino" }.forEach { (script, recognizer) ->
             val text = runCatching {
                 Tasks.await(recognizer.process(image), 8, TimeUnit.SECONDS).text.trim()
             }.getOrDefault("")
-            if (text.isNotBlank()) outputs.add("[$script]\\n$text")
+            if (text.isNotBlank()) outputs.add("[$script]\n$text")
         }
         return outputs.distinctBy {
-            it.substringAfter('\\n').lowercase(java.util.Locale.ROOT)
-                .replace(Regex("\\\\s+"), " ").trim()
-        }.joinToString("\\n\\n").take(240000)
+            it.substringAfter('\n').lowercase(java.util.Locale.ROOT)
+                .replace(Regex("\\s+"), " ").trim()
+        }.joinToString("\n\n").take(240000)
     }
 
     private fun scaled(bitmap: Bitmap): Bitmap {
