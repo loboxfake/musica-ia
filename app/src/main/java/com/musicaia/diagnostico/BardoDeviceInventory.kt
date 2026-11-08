@@ -1,7 +1,6 @@
 package com.musicaia.diagnostico
 
 import android.app.ActivityManager
-import android.app.role.RoleManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -9,6 +8,7 @@ import android.content.pm.ResolveInfo
 import android.os.Build
 import android.os.Environment
 import android.os.StatFs
+import android.service.voice.VoiceInteractionService
 import java.util.Locale
 
 /**
@@ -30,8 +30,8 @@ object BardoDeviceInventory {
     data class AssistantEntry(
         val label: String,
         val packageName: String,
-        val activeAssistantRole: Boolean,
-        val handlesAssistAction: Boolean
+        val handlesAssistAction: Boolean,
+        val providesVoiceInteractionService: Boolean
     )
 
     data class Snapshot(
@@ -97,11 +97,14 @@ object BardoDeviceInventory {
 
     private fun assistantApps(context: Context, launchableApps: List<AppEntry>): List<AssistantEntry> {
         val pm = context.packageManager
-        val activeHolders = activeAssistantRoleHolders(context)
         val handlers = queryActivities(pm, Intent(Intent.ACTION_ASSIST))
             .mapNotNull { it.activityInfo?.packageName }
             .toSet()
-        val packages = activeHolders + handlers
+        val voiceServices = queryVoiceInteractionServices(pm)
+            .filter { it.serviceInfo?.permission == "android.permission.BIND_VOICE_INTERACTION" }
+            .mapNotNull { it.serviceInfo?.packageName }
+            .toSet()
+        val packages = handlers + voiceServices
         val labels = launchableApps.associate { it.packageName to it.label }
         return packages.map { packageName ->
             val label = labels[packageName] ?: runCatching {
@@ -111,22 +114,10 @@ object BardoDeviceInventory {
             AssistantEntry(
                 label = label.ifBlank { packageName },
                 packageName = packageName,
-                activeAssistantRole = packageName in activeHolders,
-                handlesAssistAction = packageName in handlers
+                handlesAssistAction = packageName in handlers,
+                providesVoiceInteractionService = packageName in voiceServices
             )
-        }.sortedWith(compareBy<AssistantEntry> { !it.activeAssistantRole }.thenBy { it.label.lowercase(Locale.ROOT) })
-    }
-
-    private fun activeAssistantRoleHolders(context: Context): Set<String> {
-        if (Build.VERSION.SDK_INT < 29) return emptySet()
-        val roleManager = context.getSystemService(RoleManager::class.java) ?: return emptySet()
-        return runCatching {
-            if (roleManager.isRoleAvailable(RoleManager.ROLE_ASSISTANT)) {
-                roleManager.getRoleHolders(RoleManager.ROLE_ASSISTANT).toSet()
-            } else {
-                emptySet()
-            }
-        }.getOrDefault(emptySet())
+        }.sortedBy { it.label.lowercase(Locale.ROOT) }
     }
 
     private fun probableAiApps(apps: List<AppEntry>): List<AppEntry> {
@@ -148,6 +139,16 @@ object BardoDeviceInventory {
             @Suppress("DEPRECATION")
             pm.queryIntentActivities(intent, 0)
         }
+
+    private fun queryVoiceInteractionServices(pm: PackageManager): List<ResolveInfo> {
+        val intent = Intent(VoiceInteractionService.SERVICE_INTERFACE)
+        return if (Build.VERSION.SDK_INT >= 33) {
+            pm.queryIntentServices(intent, PackageManager.ResolveInfoFlags.of(0L))
+        } else {
+            @Suppress("DEPRECATION")
+            pm.queryIntentServices(intent, 0)
+        }
+    }
 
     private fun appEntry(pm: PackageManager, packageName: String, resolvedLabel: String? = null): AppEntry? {
         val packageInfo = runCatching { getPackageInfo(pm, packageName) }.getOrNull() ?: return null
