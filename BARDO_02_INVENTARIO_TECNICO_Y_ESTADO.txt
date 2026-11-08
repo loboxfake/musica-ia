@@ -1153,3 +1153,42 @@ Continuidad y límites:
 - Los paquetes OCR adicionales y el modelo local de etiquetas visuales aumentarán el tamaño de APK; revisar informe de empaquetado firmado del nuevo SHA.
 - No se envían imágenes, documentos u OCR a servicios externos; no se ejecutan instrucciones incrustadas en adjuntos.
 - Pruebas físicas de Xiaomi 11T Pro, latencia, temperatura y escucha de WAV siguen pendientes.
+
+
+54. REGRESIÓN DE CI Y PLAN DE CIERRE DE LA FASE VISUAL/MULTILINGÜE — 2026-11-08
+
+Base auditada: main f4de4f20279032deec2c7f20692cd8d59e1ca0c9. Solo existe rama main. Modo3MezclaVozUsuario.kt conserva blob SHA-256 git 8f2745fa841a06af43bf909732fba834474bf7dc en esta base.
+
+Alcance solicitado:
+- Chat, lectura de archivos y análisis de imágenes con contenido en cualquier idioma que puedan tratar los modelos/extractores instalados; conservar Unicode y no reducir la entrada a español/inglés.
+- Canciones y letras nuevas: por ahora solamente español e inglés, con validación central y UI que vuelva a preguntar ante otro idioma.
+- OCR y clasificación visual offline, con cobertura y límites expuestos; no confundir OCR, etiquetas generales y comprensión multimodal completa.
+- Crear y guardar portadas para canciones y discos. La salida procedural PNG existente es una primera herramienta gráfica, no equivale a generación IA. Investigar/integrar modelo local real solo si su licencia y perfil de RAM/temperatura son viables.
+- Mantener funcionamiento offline; ninguna imagen, documento, audio o texto de usuario debe enviarse automáticamente a la nube.
+
+Estado comprobado:
+- ASR Vosk offline en español e inglés estadounidense, seleccionados explícitamente; ambos modelos son opcionales y se verifican al instalar.
+- Adjuntos documentales conservan texto Unicode, dependiendo del extractor de cada formato.
+- OCR existente en esta base sigue usando reconocedor latino en imagen/vídeo/PDF; cualquier ampliación multiescritura debe compilar y probarse por script antes de declararse disponible.
+- BardoImageVision y BardoCoverArtGenerator ya aparecen en el árbol, pero el CI no ha validado todavía su integración.
+- BardoCoverArtGenerator intenta componer PNG 1024×1024 en cinco estilos procedural/offline. La generación artística con IA queda pendiente mientras no exista modelo local aceptado y probado.
+- Build previo completo: #241 en SHA 160a066, anterior a la serie de cambios visuales. No usarlo como prueba del HEAD actual.
+- Runs más recientes en SHA f4de4f: full-build #251 y validación #401, ambos FAILURE.
+- Error de compilación reproducido en BardoImageVision.kt: ImageLabelerOptions unresolved reference (import/API incorrecta).
+- Error de compilación reproducido en BardoCoverArtGenerator.kt: selección no válida de constructor LinearGradient por pasar colores incompatibles.
+- El job de full-build falló en testDebugUnitTest antes de compilar APK porque Gradle Wrapper recibió HTTP 504 desde la distribución Gradle alojada en GitHub. La ejecución de validación usa el wrapper del repo y sí llegó a compilar Kotlin, confirmando los dos errores de fuente anteriores.
+- Una modificación del repositorio del wrapper y del espejo Maven se ha hecho recientemente; hay que verificar que el wrapper use la URL esperada y que las dependencias se resuelvan de forma reproducible, sin secretos ni cambios de firma.
+
+Trabajo requerido para cerrar:
+1. Corregir los errores Kotlin de ImageLabelerOptions y LinearGradient y ejecutar los unit tests.
+2. Auditar API/imports ML Kit y comprobar que el modelo de clasificación sea bundled/offline, no descargado bajo la primera imagen.
+3. Implementar clasificación visual en la ruta real de adjuntos de imagen de MainActivity; mantener OCR conceptualmente separado y presentar confianza.
+4. Añadir OCR multiescritura solo con dependencias/artefactos oficiales y APIs comprobadas. No procesar cada fotograma con cinco modelos innecesariamente; limitar escrituras o seleccionar con seguridad por idioma/alfabeto cuando la API no permita auto-detección.
+5. Completar creación/preview/export PNG y tests de dimensiones/cabecera y preservación de archivo temporal al cancelar guardado.
+6. Hacer el chat verdaderamente bilingüe para el flujo guiado; el parser debe reconocer español e inglés. Rechazar francés/otros en la creación musical, sin limitar análisis de documentos.
+7. Actualizar catálogo y BardoCapabilityRegistry con estados exactos; no etiquetar disponible una capacidad no integrada y probada.
+8. Revisar tamaño de APK, bundles e integridad del APK final firmado.
+9. Preservar Modo3MezclaVozUsuario.kt, secretos y material de firma. No hacer reset, force-push ni crear ramas paralelas.
+10. Repetir validación y build completo para el SHA final, con logs de éxito verificables. La aceptación física y la escucha de WAV siguen pendientes.
+
+No declarar la fase cerrada solo por CI verde; la prueba física en Xiaomi 11T Pro corresponde al usuario cuando se entregue un APK auditado y listo para probar.
