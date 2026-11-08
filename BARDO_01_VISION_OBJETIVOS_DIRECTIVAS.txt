@@ -523,3 +523,9 @@ El ASR local soporta español e inglés estadounidense mediante modelos Vosk ind
 - Modelo y tokenizer se fijan a una revisión inmutable. SHA-256 verificado para los tres grafos LiteRT y los dos archivos tokenizer; pipeline_meta.json se valida por revisión, tamaño y estructura. Descargas reanudables y privadas.
 - La composición añade el título/artista después de generar el fondo, para evitar depender de que el modelo dibuje texto legible. La portada procedural sigue disponible como alternativa ligera.
 - No afirmar compatibilidad física con el Xiaomi hasta probar generación real, tiempo, RAM y temperatura en ese dispositivo.
+
+
+14.6 DIÁLOGO GUIADO MULTILINGÜE — 2026-11-08
+- Con Gemma local instalado, el orquestador puede interpretar respuestas de creación musical en cualquier idioma que el modelo soporte, extraer varios campos explícitos y formular la siguiente pregunta en el idioma del usuario. La canción final continúa limitada a español/inglés.
+- La extracción estructurada exige evidencia textual exacta del último mensaje y no reemplaza campos previos salvo que el usuario indique un cambio. Si el modelo no devuelve JSON válido, BARDO vuelve al paso guiado sin guardar inferencias no verificadas.
+- Sin Gemma, el modo guiado de reserva solo está localizado en español e inglés; no se simula soporte generativo en otros idiomas.

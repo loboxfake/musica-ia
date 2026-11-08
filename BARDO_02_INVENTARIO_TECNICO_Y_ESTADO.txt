@@ -1246,3 +1246,11 @@ No declarar la fase cerrada solo por CI verde; la prueba física en Xiaomi 11T P
 - Umbral preventivo 3,5 GiB RAM libre; se cierra Gemma antes de cargar el generador y se bloquea si el motor de audio está ocupado. El dispositivo de referencia Xiaomi 11T Pro (8 GB) está en el límite inferior publicado; no se afirma prueba física ni rendimiento garantizado.
 - Tests JVM para sigma schedule, posiciones, ruido determinista y unpatchify; tests del registro de capacidades para modelo ausente, RAM baja y listo. La inferencia real requiere modelo descargado y test de dispositivo.
 - Código Android portado bajo Apache-2.0 desde https://github.com/john-rocky/hf-to-litertlm/tree/main/bonsai_image_work/device/BonsaiAppAndroid. Modelo Apache-2.0: https://huggingface.co/litert-community/Bonsai-Image-ternary-4B.
+
+
+60. EXTRACCIÓN MULTILINGÜE DE CAMPOS GUIADOS CON EVIDENCIA
+- Añadido BardoGuidedResponseParser: consume JSON estructurado del Gemma local para theme/style/mood/rhythm/language/type/voice_source; normaliza los campos canónicos y requiere que evidence sea una cita exacta del último mensaje (coincidencia tras normalizar espacios/mayúsculas).
+- Los campos existentes solo se reemplazan si el modelo marca change=true por una petición explícita; idioma de canción acepta únicamente es/en; tipo y fuente de voz se normalizan a los valores que entiende BardoIntentRouter.
+- MainActivity pide al modelo responder en el idioma del último mensaje, saltar campos ya contestados y formular exactamente una pregunta siguiente. Se eliminó la instrucción contradictoria que prohibía terminar con una pregunta.
+- Si el JSON no valida, no se guardan campos del modelo; se mantiene el flujo anterior como fallback. Tests JVM cubren idioma no inglés, evidencia falsa, cambio explícito, límites de idioma de canción y tipo/fuente de voz.
+- Requiere Gemma local verificado para idiomas fuera del fallback español/inglés; la cobertura real depende del idioma que soporte el modelo instalado.
