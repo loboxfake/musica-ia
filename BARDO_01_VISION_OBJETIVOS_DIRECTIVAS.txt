@@ -703,3 +703,14 @@ Directiva visual:
 - Esta preferencia posterior sustituye únicamente el tratamiento visual descrito en las entradas 23 y 24 donde se mencionan anillo y punto; se conserva el historial y se mantienen los estados funcionales/accesibilidad.
 
 El usuario reitera que el asistente debe actualizar ambos maestros antes de iniciar cada ciclo y tras terminarlo. BARDO podrá, en el futuro, proponer variantes y mejoras visuales del avatar mediante su autoevolución segura, pero el icono oficial seguirá siendo la identidad de referencia y los cambios requerirán vista previa, pruebas y autorización de integración.
+
+
+26. IMPLEMENTACIÓN AJUSTADA A LA PREFERENCIA: EL ICONO COMPLETO COMO AVATAR — 2026-11-08
+
+- El avatar del chat utiliza directamente el recurso oficial completo de aplicación `R.mipmap.ic_launcher`. No dibuja una variante, personaje ni símbolo derivado.
+- Se eliminan el anillo exterior y el punto de estado añadidos en la primera propuesta. El icono, su composición, colores, marco y rótulo BARDO permanecen intactos.
+- La reacción se produce con una variación de escala máxima del 1,8 % sobre la imagen original, solo durante estados funcionales activos. En reposo, éxito y error el icono queda estático.
+- El pulso respeta la configuración de animaciones de Android y se detiene cuando el componente o la ventana no están visibles o la vista se desacopla. El texto accesible independiente describe el estado sin pintar nada sobre el icono.
+- Las burbujas de respuesta de BARDO reutilizan el icono completo y no el recorte foreground con un fondo añadido.
+- Se mantiene la misma máquina de estados/eventos funcionales. La preferencia visual del usuario se considera prevalente sobre las propuestas previas de aro/punto registradas en 23 y 24; esas entradas se conservan únicamente como historial.
+- La primera corrección ya está en el código en el commit registrado en BARDO_02. CI debe confirmar la compilación; no declarar prueba en Xiaomi hasta que el usuario instale y revise la APK.

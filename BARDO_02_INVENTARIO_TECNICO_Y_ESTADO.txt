@@ -1481,3 +1481,29 @@ ESTADO
 - Esta entrada se registra antes del cambio de código. Todavía no se ha implementado ni validado esta simplificación del icono.
 - La APK #309 es el último build integral publicado previo a la corrección visual, no se debe presentar como si contuviera el icono-avatar íntegro sin adorno.
 - Modo3 debe conservar su SHA protegido antes/después. Actualizar ambos maestros al finalizar el cambio y anotar nuevos resultados CI/Release por SHA exacto.
+
+
+73. AVATAR BARDO SIMPLIFICADO AL ICONO OFICIAL COMPLETO — 2026-11-08
+
+PETICIÓN Y DECISIÓN VISUAL
+- El usuario prefiere explícitamente el propio icono de la aplicación BARDO como avatar, no el diseño propuesto con anillo y punto añadidos.
+- Se consultó el artwork del launcher y se identifica como icono oficial la composición original de pluma, notas musicales, marco, colores y palabra BARDO.
+
+IMPLEMENTACIÓN
+- Código: commit ca7b7f649987fb2204c6bdc91c37d342f190c4a9 (rama main).
+- Se reescribe BardoAvatarView como ImageView que presenta directamente R.mipmap.ic_launcher: sin fondo de marca, padding, anillo exterior ni punto indicador.
+- Los estados funcionales se mantienen en BardoAvatarState; el contentDescription los anuncia accesiblemente y tvAvatarActivity muestra el texto por separado.
+- La animación se limita a un pulso de escala muy sutil, máximo 1,8 %, solo durante actividad; respeta ValueAnimator.areAnimatorsEnabled() y se detiene al ocultar/desacoplar la vista o al quedar la ventana no visible. Estados IDLE/SUCCESS/ERROR quedan estáticos.
+- Las burbujas del chat reutilizan BardoAvatarView, mostrando el mismo icono completo, no el recorte ic_launcher_foreground adornado.
+- Se añade BardoAvatarStateTest.kt para comprobar las etiquetas y que solo los estados de actividad animan.
+- Se actualiza docs/BARDO_UI_SYSTEM.md para prohibir nuevas decoraciones alrededor del icono original.
+
+VALIDACIÓN Y PROTECCIONES
+- Commit de código: ca7b7f649987fb2204c6bdc91c37d342f190c4a9.
+- Antes de la corrección, #461 y build integral #309 habían terminado SUCCESS sobre 8eae4f0ba81b6d76555c0c4732c53e0a452f959a. Release bardo-build-309: APK 976,967,428 bytes, SHA-256 2716c000a0b2e682a04405051ad591b7fe0a9e5bbf76f6757cce16c429b0d2c5. Esa APK contiene la primera versión con anillo/punto, no la presente corrección.
+- Tras registrar la preferencia, commit documental previo fbce817528e08028ace162e031b70c7cf9c97d69 inició #462 y #310; estaban en progreso al consultar (ambos sobre ese SHA anterior a la implementación sin adornos).
+- El commit de código ca7b7f649987fb2204c6bdc91c37d342f190c4a9 inició validación #463 (run ID 42498741347) y build integral #311 (run ID 42498741360); ambos estaban pending al consultar. No se consideran verdes ni existe APK con la corrección publicada al cerrar esta entrada.
+- Modo3MezclaVozUsuario.kt sigue intacto; blob SHA consultado: 8f2745fa841a06af43bf909732fba834474bf7dc.
+- La aceptación física del avatar en el Xiaomi 11T Pro está pendiente.
+
+Siguiente criterio: obtener la validación y build integral sobre un SHA que incluya esta versión del icono; si se actualizan los maestros después, confirmar también los workflows del SHA documental final. No presentar la APK #309 como la versión simplificada.
