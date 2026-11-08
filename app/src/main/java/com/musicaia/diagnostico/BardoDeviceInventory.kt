@@ -112,7 +112,9 @@ object BardoDeviceInventory {
         val voiceServices = voiceServiceInfos.mapNotNull { it.serviceInfo?.packageName }.toSet()
         val activeVoiceServices = voiceServiceInfos.filter { resolved ->
             val service = resolved.serviceInfo ?: return@filter false
-            VoiceInteractionService.isActiveService(context, ComponentName(service.packageName, service.name))
+            runCatching {
+                VoiceInteractionService.isActiveService(context, ComponentName(service.packageName, service.name))
+            }.getOrDefault(false)
         }.mapNotNull { it.serviceInfo?.packageName }.toSet()
 
         val speechServices = queryIntentServices(pm, Intent(RecognitionService.SERVICE_INTERFACE))
