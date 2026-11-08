@@ -593,3 +593,28 @@ DIRECTIVA OPERATIVA VIGENTE:
 - Modo3MezclaVozUsuario.kt y el material de firma permanecen protegidos; mantener sus huellas verificadas antes/después y no modificar workflows de seguridad, claves, secretos o controles críticos sin autorización expresa.
 
 La primera aplicación de esta directiva se registra en BARDO_02, entrada 66, con la validación #451 y la APK integral #299 del SHA 4855c3326a8459995576c187c50f02afcb45aa48.
+
+
+20. DIRECCIÓN DE DISEÑO Y ESTRUCTURA DE LA APLICACIÓN — 2026-11-08
+
+La interfaz debe evolucionar como un sistema personal de trabajo, no como un formulario musical ni un panel técnico saturado. Se fija esta arquitectura de experiencia, conservando el núcleo central y la navegación configurable:
+
+- Encabezado BARDO persistente con identidad de marca y acceso rápido al sistema.
+- Asistente: conversación general, intención, memoria aprobada, importación de referencias, actividad e historial. Es la puerta principal y el orquestador debe dirigir a módulos, no limitar la personalidad de BARDO a crear canciones.
+- Estudio: canción guiada, letra propia, instrumental y las herramientas reales de voz/audio disponibles. Cada herramienta debe distinguir entrada de usuario, procesamiento activo, resultado y capacidades aún no implementadas.
+- Biblioteca y proyectos: piezas generadas/importadas, reproducción, listas, favoritos, mezcla WAV básica y masterización básica, sin confundirlo con una DAW profesional ya terminada.
+- Imágenes: espacio separado para portada vinculada, imagen libre y render procedural. Bonsai se etiqueta como modelo local opcional; el render procedural no se presenta como IA.
+- Evolución: Gemma, motores y modelos, biblioteca de conocimiento, memoria, catálogo de capacidades y BARDO Developer. Los estados se calculan desde los módulos y no se simulan.
+- Sistema: espacio autorizado Descargas/BARDO, permisos, copias, preferencias, estado de capacidades y controles de seguridad.
+
+Sistema visual vigente:
+- Base oscura azul tinta y superficies de profundidad contenida; cian para actividad/local, violeta para creatividad/modelos y dorado solo como acento de identidad.
+- Gradientes discretos y bordes finos; evitar brillos permanentes, desenfoques, exceso de tarjetas y botones con apariencia idéntica.
+- Jerarquía tipográfica clara: título de espacio, descripción breve, módulos agrupados y acciones primarias/secundarias diferenciadas.
+- Navegación inferior persistente y accesible; mantener las seis áreas configurables por orden/visibilidad y conservar las preferencias del usuario.
+- Diseño adaptable a móviles, áreas táctiles cómodas, texto legible, estados visibles, scroll predecible y uso correcto con teclado.
+- Cada capacidad futura debe entrar como módulo con descripción, estado verificable, requisitos de modelo/recursos, permisos y criterio de aceptación. No reservar pantallas vacías ni representar mockups como funciones.
+
+Proyección de evolución, sin declararla implementada: orquestación transversal de proyectos, sesiones no destructivas, pistas/stems, edición vocal, mezcla/masterización avanzada, plugins, skills, actualizaciones verificadas y herramientas de creación visual. Su integración debe ampliar los espacios existentes sin romper la navegación ni el estado persistente.
+
+El usuario confirma el 2026-11-08 que la carpeta de BARDO está en Descargas y que Gemma ya está descargado dentro de Modelos. La aplicación debe reutilizar ese fichero existente, localizarlo mediante el permiso SAF persistente de Descargas/BARDO/Modelos, verificar tamaño y SHA-256, importar una copia privada solo cuando proceda y conservar el original. No iniciar otra descarga por defecto. Android puede exigir volver a autorizar el árbol si no conserva el permiso; el sistema no debe sortear las restricciones de almacenamiento.

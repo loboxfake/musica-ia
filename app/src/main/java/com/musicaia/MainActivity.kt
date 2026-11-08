@@ -851,9 +851,9 @@ class MainActivity : AppCompatActivity() {
  private fun actualizarEtiquetaCarpetaBardo() {
      val label = findViewById<TextView>(R.id.tvCarpetaBardo)
      label.text = when {
-         uriCarpetaBardo == null -> "Carpeta BARDO: no seleccionada. Elige Descargas o la carpeta BARDO."
-         bardoRootDocumentId != DocumentsContract.getTreeDocumentId(uriCarpetaBardo!!) -> "Carpeta BARDO configurada: Descargas/BARDO"
-         else -> "Carpeta BARDO configurada: carpeta seleccionada"
+         uriCarpetaBardo == null -> "Descargas/BARDO: permiso de carpeta pendiente. Conéctalo una vez para localizar tu Gemma y guardar el trabajo."
+         bardoRootDocumentId != DocumentsContract.getTreeDocumentId(uriCarpetaBardo!!) -> "Espacio de trabajo conectado: Descargas/BARDO · Modelos, Canciones, Proyectos y Copias."
+         else -> "Espacio de trabajo conectado: carpeta autorizada · acceso limitado a BARDO."
      }
  }
 
@@ -1406,11 +1406,11 @@ private fun crearEstructuraCarpetaBardo() {
          else -> visiblesLeidos
      }.toMutableSet()
      visibleTabs.add("orchestrator")
-     findViewById<TextView>(R.id.navOrquestador).text = navigation.optString("orchestrator", "✧\nIA").take(18)
-     findViewById<TextView>(R.id.navCrear).text = navigation.optString("create", "♫\nCrear").take(18)
-     findViewById<TextView>(R.id.navBiblioteca).text = navigation.optString("library", "▤\nArchivo").take(18)
-     findViewById<TextView>(R.id.navImagenes).text = navigation.optString("images", "▣\nImágenes").take(18)
-     findViewById<TextView>(R.id.navLaboratorio).text = navigation.optString("lab", "◇\nLab").take(18)
+     findViewById<TextView>(R.id.navOrquestador).text = navigation.optString("orchestrator", "✧\nAsistente").take(18)
+     findViewById<TextView>(R.id.navCrear).text = navigation.optString("create", "♫\nEstudio").take(18)
+     findViewById<TextView>(R.id.navBiblioteca).text = navigation.optString("library", "▣\nArchivo").take(18)
+     findViewById<TextView>(R.id.navImagenes).text = navigation.optString("images", "◈\nImagen").take(18)
+     findViewById<TextView>(R.id.navLaboratorio).text = navigation.optString("lab", "⌘\nEvolución").take(18)
      findViewById<TextView>(R.id.navSistema).text = navigation.optString("system", "⚙\nSistema").take(18)
      findViewById<TextView>(R.id.tvWelcomeTitle).setTextColor(android.graphics.Color.rgb(245, 248, 255))
      findViewById<TextView>(R.id.tvBrandName).setTextColor(android.graphics.Color.rgb(245, 248, 255))
@@ -3379,9 +3379,9 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
      val file = LiteRTLMModule.modelFile(this)
      val disponible = file.isFile && file.length() == LiteRTLMModule.EXPECTED_SIZE_BYTES
      estadoModelo.text = when {
-         disponible -> "Gemma está en la copia local de BARDO (tamaño esperado). El SHA-256 se verifica antes de cada uso."
-         uriCarpetaBardo != null -> "Buscando el Gemma que ya guardaste en Descargas/BARDO/Modelos. No se descargará otra copia."
-         else -> "Gemma aún no está importado. Configura una vez Descargas/BARDO con «Elegir carpeta BARDO» para que BARDO lo detecte, o selecciónalo manualmente."
+         disponible -> "Gemma ya está copiado en el espacio privado de BARDO. El SHA-256 se comprueba antes de activarlo; el original permanece en Descargas/BARDO/Modelos."
+         uriCarpetaBardo != null -> "Buscando tu Gemma existente en Descargas/BARDO/Modelos. Se reutilizará y verificará; no se descargará otra copia."
+         else -> "Gemma ya está descargado por ti. Conecta una vez Descargas/BARDO para localizarlo automáticamente en Modelos, o selecciónalo desde el selector Android. No vuelvas a descargarlo."
      }
  }
 

@@ -1357,3 +1357,17 @@ PENDIENTES DE ACEPTACIÓN FÍSICA
 - No se ha instalado ni ejecutado esta APK en el Xiaomi 11T Pro desde este proceso. Pendientes: instalar, abrir sin crash, revisar permisos y almacenamiento, cargar/ejecutar generación real de audio offline, exportar WAV real, escucharlo, comprobar OCR es/en y scripts adicionales con imágenes reales, y probar generación Bonsai con modelo instalado y memoria suficiente.
 - Tampoco se declara Gemma instalado/cargado ni conversación generativa local probada por la mera inclusión de fuentes y APK. Mantener los estados de modelo separado de la compilación.
 - La APK pesa aproximadamente 977 MB (976,946,948 bytes); requiere espacio libre suficiente para descarga/instalación y almacenamiento adicional de datos temporales/modelos. Evaluar capacidad y RAM reales antes de activar cargas pesadas.
+
+
+67. REDISEÑO DE EXPERIENCIA, USO DE GEMMA EXISTENTE Y ESTRUCTURA MODULAR — 2026-11-08
+
+- El usuario confirma que su espacio de trabajo está en Descargas/BARDO y que descargó Gemma en Descargas/BARDO/Modelos. No se debe iniciar otra descarga por defecto.
+- El código recupera el permiso SAF persistente y busca el nombre exacto gemma-4-E2B-it.litertlm dentro de Modelos. Si lo encuentra, importa una copia al almacenamiento privado tras comprobar tamaño y SHA-256; conserva el original. Si Android no conserva el permiso, se debe volver a conectar Descargas/BARDO mediante el selector del sistema; no se accede a almacenamiento externo con rutas absolutas ni se elude SAF.
+- Rediseño de activity_main.xml: encabezado de marca persistente fuera del scroll, asistente como espacio de entrada central, chips informativos de local-first/memoria/modularidad, navegación inferior con etiquetas coherentes y seis áreas: Asistente, Estudio, Archivo, Imagen, Evolución y Sistema.
+- El espacio Estudio se presenta como flujo creativo y producción; mantiene IDs y listeners existentes para canción guiada, Mi letra e instrumental. Biblioteca conserva playback, playlists, importación MP3/WAV, mezcla WAV y mastering básico. Imágenes sigue independiente. Evolución reúne modelos, memoria, conocimiento y BARDO Developer. Sistema presenta el espacio de trabajo, permisos y copias.
+- Se añade estado visible separado para Bonsai Image 4B: modelo opcional, disponibilidad condicionada a instalación, memoria y validación en dispositivo. El diseño procedural continúa identificado como salida sin IA.
+- Recursos visuales ajustados: paleta de azul tinta, cian, violeta y acento dorado; paneles más sobrios, mayor contraste en chat/entrada, botones secundarios homogéneos y navegación inferior diferenciada. Se evita mostrar capacidades futuras como terminadas.
+- Se mantienen los IDs de vistas existentes, la navegación configurable, los flujos de conversación y las acciones conectadas. El nuevo estilo no cambia el motor de audio ni los permisos, el estado de memoria o la lógica de creación.
+- Archivos modificados: activity_main.xml, styles.xml, etiquetas de navegación y estados de Gemma/carpeta en MainActivity.kt. Nuevo documento de diseño: docs/BARDO_UI_SYSTEM.md.
+- La validación CI y la instalación Xiaomi de esta revisión visual deben registrarse después de su resultado; no se consideran probadas por el historial anterior.
+- Modo3MezclaVozUsuario.kt sigue protegido y debe conservar SHA-1 8f2745fa841a06af43bf909732fba834474bf7dc.
