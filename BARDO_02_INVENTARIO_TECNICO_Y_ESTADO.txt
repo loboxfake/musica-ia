@@ -1107,3 +1107,11 @@ Continuidad y límites:
 - Se transcribe únicamente la pista de audio con el flujo ASR español ya descrito. El vídeo original permanece intacto. No hay comprensión semántica de escenas, música, emoción o elementos visuales; OCR y ASR son análisis separados.
 - Si el contenedor no ofrece una pista decodificable, BARDO lo comunica y conserva el vídeo sin inventar transcripción.
 - Este cambio requiere pasar los workflows de validación y build integral para considerarse integrado.
+
+49. RESOLUCIÓN MIME DE ADJUNTOS — 2026-11-08
+
+- La importación obtiene el formato de la extensión conocida y, cuando no existe o no está soportada, recurre al MIME proporcionado por el selector Android.
+- Reconoce MIME de imágenes raster, vídeos, audio y documentos soportados (PDF, Office Open XML, OpenDocument, EPUB, RTF, HTML, texto, JSON, CSV, XML, Markdown, SRT/VTT).
+- SVG permanece en la ruta de texto/XML, no se envía al decodificador raster OCR.
+- Los MIME genéricos o desconocidos no se interpretan arbitrariamente: se conserva el fichero y se informa de la limitación.
+- Incluye pruebas para nombres sin extensión, parámetros MIME y formatos no reconocidos. La ejecución CI sobre el commit final queda pendiente.

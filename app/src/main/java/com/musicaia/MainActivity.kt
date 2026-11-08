@@ -1762,8 +1762,9 @@ private fun crearEstructuraCarpetaBardo() {
  private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) {
      val taskIdAdjunto = java.util.UUID.randomUUID().toString()
      BardoActivityStore.record(this, taskIdAdjunto, "importacion", "stored", "archivo_copiado", "Adjunto recibido: $nombre ($mime, ${destino.length()} bytes).", null, destino.absolutePath)
-     val extension = nombre.substringAfterLast('.', "").lowercase()
-     if (extension in setOf("jpg", "jpeg", "png", "webp", "bmp")) {
+     val extension = com.musicaia.importacion.BardoMimeTypeResolver.resolveExtension(nombre, mime)
+     val mimeBase = mime.substringBefore(';').trim().lowercase()
+     if ((mimeBase.startsWith("image/") && mimeBase != "image/svg+xml") || extension in setOf("jpg", "jpeg", "png", "webp", "bmp")) {
          BardoActivityStore.record(this, taskIdAdjunto, "importacion", "running", "ocr_imagen", "BARDO está intentando extraer texto visible de la imagen mediante OCR local.", 10, destino.absolutePath)
          Thread({
              val extraccion = runCatching { com.musicaia.importacion.BardoOcrImporter.extractImage(destino) }
@@ -1798,7 +1799,7 @@ private fun crearEstructuraCarpetaBardo() {
          }, "BARDO-Image-OCR").start()
          return
      }
-     if (extension in setOf("mp4", "mkv", "mov", "3gp", "webm")) {
+     if (mimeBase.startsWith("video/") || extension in setOf("mp4", "mkv", "mov", "3gp", "webm")) {
          BardoActivityStore.record(this, taskIdAdjunto, "importacion", "running", "ocr_video", "BARDO está muestreando fotogramas y leyendo texto visible; no interpreta la escena ni el audio.", 10, destino.absolutePath)
          Thread({
              val extraccion = runCatching { com.musicaia.importacion.BardoOcrImporter.extractVideo(destino) }
