@@ -15,6 +15,11 @@ TOKEN_PATTERNS = [
     re.compile(rb"Bearer\s+[A-Za-z0-9._~-]{24,}", re.IGNORECASE),
 ]
 FORBIDDEN_SUFFIXES = (".jks", ".keystore", ".p12", ".pfx", ".pem", ".key")
+# Exact allowlist for a bundled third-party ML Kit model whose binary weights
+# coincidentally contain token-like byte sequences. No prefix wildcard is used.
+KNOWN_NON_CREDENTIAL_MODEL_ENTRIES = {
+    "assets/mlkit_label_default_model/mobile_ica_8bit_with_metadata_tflite",
+}
 
 def scan_archive(path: Path) -> None:
     with zipfile.ZipFile(path) as apk:
@@ -24,7 +29,7 @@ def scan_archive(path: Path) -> None:
             raise SystemExit("Signing material embedded in APK: " + ", ".join(forbidden))
         hits = []
         for name in names:
-            if name.endswith("/"):
+            if name.endswith("/") or name in KNOWN_NON_CREDENTIAL_MODEL_ENTRIES:
                 continue
             data = apk.read(name)
             if name.lower().endswith(".zip"):

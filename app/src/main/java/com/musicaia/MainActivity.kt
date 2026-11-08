@@ -2852,6 +2852,11 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
      val contextoPrompt = chatLog.text.toString().takeLast(5000)
      val conocimientoAntiguo = getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE)
          .getString("conocimiento_importado", "").orEmpty().takeLast(4000)
+     val instruccionIdioma = if (idiomaConversacionUi == "en") {
+         "Respond in natural English. Understand multilingual input when possible, but create new song lyrics only in Spanish or English. Be honest about unavailable capabilities."
+     } else {
+         "Responde en español natural. Comprende entradas multilingües cuando sea posible, pero crea letras de canciones nuevas solo en español o inglés. Sé transparente sobre capacidades no disponibles."
+     }
      btnEnviar.isEnabled = false
      gemmaInferenceEnCurso = true
      marcarInferenciaGemma(true)
@@ -2864,12 +2869,8 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
               }
               modeloChatVerificado = true
               EngineLiteRT.inicializar(modelo.absolutePath, File(cacheDir, "litert-cache").absolutePath)
-              val instruccionIdioma = if (idiomaConversacionUi == "en") {
-                  "Respond naturally and briefly in English to the latest user message. Explain that new songs are currently limited to Spanish or English."
-              } else {
-                  "Reacciona en español con naturalidad y brevedad al último mensaje del usuario. Explica que las canciones nuevas solo pueden escribirse en español o inglés."
-              }
               val prompt = """
+                  $instruccionIdioma
                   No inventes capacidades, resultados, modelos instalados ni tareas completadas.
                   No hagas preguntas ni solicites datos: el flujo guiado de la aplicación formulará el siguiente paso.
                   No afirmes que puedes generar voz cantada clonada: esa función todavía no está integrada.

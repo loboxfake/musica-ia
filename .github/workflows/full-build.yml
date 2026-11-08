@@ -283,6 +283,9 @@ jobs:
             printf '%s\n' "$VERIFY_OUTPUT" | grep -Ei 'Verified using v[123].*true' | sed 's/^/SIGNATURE_SCHEME: /'
           } | tee -a full-apk-audit.txt
 
+      - name: Test APK credential scanner
+        run: python3 -m unittest discover -s tools -p 'test_*.py' -v
+
       - name: Audit APK for embedded credentials and signing material
         run: |
           set -euo pipefail
