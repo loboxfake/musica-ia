@@ -130,14 +130,14 @@ object BardoArchiveDocumentImporter {
                             val word = source.substring(i + 1, endWord)
                             if (endWord < source.length && source[endWord] == '-') endWord++
                             while (endWord < source.length && source[endWord].isDigit()) endWord++
-                            if (skipDepth == 0 && (word == "par" || word == "line")) out.append('\\n')
-                            if (skipDepth == 0 && word == "tab") out.append('\\t')
+                            if (skipDepth == 0 && (word == "par" || word == "line")) out.append('\n')
+                            if (skipDepth == 0 && word == "tab") out.append('\t')
                             i = if (endWord < source.length && source[endWord] == ' ') endWord + 1 else endWord
                         }
                         else -> i += 2
                     }
                 }
-                c == '\\r' || c == '\\n' -> i++
+                c == '\r' || c == '\n' -> i++
                 depth > 0 && skipDepth == 0 -> {
                     if (c.code >= 32) out.append(c)
                     i++
@@ -187,10 +187,10 @@ object BardoArchiveDocumentImporter {
                     val name = node.localName ?: node.nodeName.substringAfter(':')
                     if (name.lowercase() in ignoredTags) return
                     val block = name.lowercase() in blockTags
-                    if (block && isNotEmpty() && last() != '\\n') append('\\n')
+                    if (block && isNotEmpty() && last() != '\n') append('\\n')
                     val children = node.childNodes
                     for (index in 0 until children.length) walk(children.item(index))
-                    if (block && isNotEmpty() && last() != '\\n') append('\\n')
+                    if (block && isNotEmpty() && last() != '\n') append('\\n')
                 } else if (node.nodeType == Node.TEXT_NODE || node.nodeType == Node.CDATA_SECTION_NODE) {
                     val value = node.nodeValue.orEmpty().replace(Regex("\\s+"), " ")
                     if (value.isNotBlank()) append(value)
