@@ -654,3 +654,25 @@ bardo/
 - La app puede crear además BARDO/Autoestudio para informes, propuestas e incidencias de su autonomía. Esta carpeta adicional no sustituye ni renombra las carpetas del usuario; sus informes también permanecen en almacenamiento privado si no hay permiso SAF.
 - El historial preexistente del usuario se conserva. La importación de los tres archivos de historial debe ser explícita y no sobrescribir ni borrar los originales.
 - Cada cambio de almacenamiento, permiso, importación o exportación debe ser verificable y registrar resultado/errores sin afirmar que el dispositivo lo ha probado antes de hacerlo.
+
+
+23. AVATAR VIVO DE BARDO Y MEJORA CONTINUA DE LA INTERFAZ — 2026-11-08
+
+DIRECTIVA DEL USUARIO
+- El usuario aprueba depurar, optimizar y mejorar continuamente la interfaz y su estructura, adaptándolas a las capacidades reales, a todo lo ya acordado y a la evolución prevista del sistema. El asistente debe participar activamente en este trabajo en cada ciclo, no limitarse a describir propuestas.
+- Se desarrollará un avatar visual de BARDO para el chat principal como primer ámbito de uso. La identidad visual debe tomar como referencia el icono real de la aplicación y su paleta; se inspeccionará el recurso de launcher vigente antes de diseñar el avatar. No sustituir el icono de aplicación ni inventar una marca distinta.
+- El avatar debe reaccionar a eventos reales y verificables: usuario escribiendo/entrada recibida, BARDO respondiendo, lectura de mensajes, lectura/importación de archivos, análisis/estudio, generación/procesamiento, espera, finalización y error. No animar estados de actividad si el trabajo no está ocurriendo. Los estados deben ser accesibles, discretos, eficientes y no bloquear el chat.
+- Primera entrega: avatar integrado únicamente en el chat principal, con estados y transiciones desacoplados de la lógica conversacional, sin animaciones pesadas ni consumo continuo de batería. Mantener compatibilidad con Android y fallback estático si una animación no puede ejecutarse.
+- El usuario autoriza que BARDO, en futuras fases y con sus controles de autoevolución, pueda analizar, proponer y validar mejoras de su avatar, interfaz, código, skills y habilidades. Las propuestas deben incluir motivo, diff/preview, impacto, recursos, permisos, pruebas y reversión; no autoaprobar cambios críticos ni modificar protecciones, firma, secretos o archivos protegidos.
+- El avatar no debe sugerir emociones humanas reales ni atribuir consciencia. Sus expresiones son señales visuales de estado funcional y personalidad gráfica de la interfaz.
+
+CRITERIOS DE DISEÑO Y ACEPTACIÓN
+- Usar el icono real y sus colores como fuente de identidad; conservar legibilidad a tamaños pequeños y contraste en tema oscuro.
+- Definir un conjunto pequeño y consistente de estados visuales (reposo, escucha/entrada, lectura, estudio, respuesta, éxito, advertencia/error) y mapear cada uno a eventos del chat/worker reales.
+- Reducir recomposiciones/redibujados; pausar animación cuando el chat no esté visible o la app pase a segundo plano; respetar accesibilidad y movimiento reducido cuando sea posible.
+- Probar transiciones, cancelación, errores, rotación/recreación de Activity y concurrencia; todas las actualizaciones de vistas se ejecutan en main thread y el trabajo pesado permanece fuera de él.
+- No declarar el avatar terminado hasta que CI pase y el usuario lo pruebe en el Xiaomi 11T Pro.
+
+GOBIERNO DE REPOSITORIO Y DOCUMENTOS
+- Este registro es la instrucción más reciente del usuario para reanudar el trabajo y mantener ambos maestros actualizados antes de comenzar cada ciclo y después de completarlo. Mantener la rama canónica main y no reescribir historia; si aparece una directiva histórica contradictoria, conservarla como antecedente y aplicar esta instrucción posterior hasta nueva indicación del usuario.
+- Mantener Modo3MezclaVozUsuario.kt y su SHA protegido sin cambios.
