@@ -92,6 +92,7 @@ class MainActivity : AppCompatActivity() {
  private var rutaMasterizadoPendiente: String? = null
  private var mezclaPistasPendiente: File? = null
  @Volatile private var mezclaPistasEnCurso = false
+ @Volatile private var transcripcionAudioEnCurso = false
  private var rutaExportacionTemporal = false
  private var rutaMp3Compartir: String? = null
  private var rutaVoz: String? = null
@@ -1768,6 +1769,10 @@ private fun crearEstructuraCarpetaBardo() {
  private fun iniciarTranscripcionAdjuntoAudio(
      nombre: String, mime: String, archivo: File, taskId: String, metadata: String
  ) {
+     if (mezclaPistasEnCurso || transcripcionAudioEnCurso) {
+         tvEstado.text = "Hay otro proceso de audio activo. La transcripción esperará a que termine."
+         return
+     }
      val estadoAudio = getSharedPreferences(BardoTaskService.PREFS, MODE_PRIVATE)
          .getString(BardoTaskService.KEY_STATE, "").orEmpty()
      if (estadoAudio == "running") {
@@ -1775,6 +1780,7 @@ private fun crearEstructuraCarpetaBardo() {
          anexarChat("\nBARDO: No he iniciado la transcripción mientras el motor musical está ocupado.")
          return
      }
+     transcripcionAudioEnCurso = true
      BardoActivityStore.record(this, taskId, "analisis_audio", "running", "transcripcion_offline_es",
          "Preparando el reconocimiento local en español; sin servicios en la nube.", 5, archivo.absolutePath)
      tvEstado.text = "Preparando transcripción offline en español..."
@@ -1802,6 +1808,7 @@ private fun crearEstructuraCarpetaBardo() {
                  }
              }
              runOnUiThread {
+                 transcripcionAudioEnCurso = false
                  if (isFinishing || isDestroyed) return@runOnUiThread
                  val transcripcion = resultado.getOrNull()
                  if (transcripcion == null) {
@@ -2164,6 +2171,10 @@ private fun crearEstructuraCarpetaBardo() {
  private fun prepararMezclaPistasWav(uris: List<Uri>) {
      if (uris.size !in 2..8) { tvEstado.text = "Selecciona entre 2 y 8 pistas WAV."; return }
      if (mezclaPistasEnCurso) return
+     if (transcripcionAudioEnCurso) {
+         tvEstado.text = "BARDO está transcribiendo audio. Espera a que termine antes de mezclar pistas."
+         return
+     }
      if (gemmaInferenceEnCurso || deteccionGemmaExternaEnCurso) {
          tvEstado.text = "Gemma está ocupado. Espera a que termine antes de iniciar una mezcla multipista."
          return
