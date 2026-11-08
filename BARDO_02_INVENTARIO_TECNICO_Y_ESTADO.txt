@@ -1380,3 +1380,32 @@ PENDIENTES DE ACEPTACIÓN FÍSICA
 - Se preservan seis áreas configurables, navegación persistente, IDs/listeners existentes, flujos de audio, memoria, permisos y preferencias. Modo3MezclaVozUsuario.kt no se modifica.
 - Gemma ya está descargado por el usuario en Descargas/BARDO/Modelos. La app reutiliza el fichero existente mediante SAF; el estado visual diferencia modelo por vincular/localizando, copia importada, SHA verificado y bloqueo por RAM. No se inicia una descarga nueva por defecto ni se elimina el original.
 - La aceptación de CI y la APK de esta revisión quedan pendientes hasta que finalicen los workflows del commit visual; la aceptación física en Xiaomi sigue separada.
+
+
+69. REFINAMIENTO VISUAL Y BUILD INTEGRAL #303 PUBLICADO — 2026-11-08
+
+Fuente de código de esta entrega: main commit abfd3135fafbd3cd4eb3046e2de67347621199a7 ("Refine BARDO workspaces, creative flow and visual system").
+
+Validación y distribución:
+- Validación BARDO #455: SUCCESS sobre abfd3135fafbd3cd4eb3046e2de67347621199a7. Gitleaks del historial, actionlint, tests unitarios y compilación debug superados.
+- Build integral #303: SUCCESS sobre el mismo SHA. Tests unitarios, compilación APK offline con motor de audio, firma, auditoría de contenido/integridad, escáner de credenciales, auditoría de secretos/material de firma, publicación de artefacto, publicación Release y comprobación de rama canónica superados.
+- Release: bardo-build-303 — https://github.com/loboxfake/musica-ia/releases/tag/bardo-build-303
+- APK: app-release.apk; tamaño 976.959.236 bytes; SHA-256 1e074d5f78e9d09510d6c05e61fdb45923e7915f58d78fbafba46d6f6e4306f5.
+- Auditoría: full-apk-audit.txt; SHA-256 eaa8b1c7dfc2158ff9ab9d4f37c6dd81cecd496051decb5f547275b0b903e74a.
+- Run integral: https://github.com/loboxfake/musica-ia/actions/runs/42492316530
+- Run de validación: https://github.com/loboxfake/musica-ia/actions/runs/42492316449
+- main continúa como única rama publicada; verificación posterior a release: SUCCESS.
+
+Contenido funcional/visual revisado:
+- Seis espacios: Asistente, Estudio, Archivo, Imágenes, Evolución y Sistema; accesos directos desde Asistente a Estudio, Archivo y Evolución.
+- Flujo de creación diferenciado (canción guiada, letra propia e instrumental); grabación/importación de voz no se describe como clonación ni síntesis cantada.
+- Evolución separa modelos locales, memoria/conocimiento y autonomía. Gemma, motor de audio y Bonsai conservan estados independientes y verificables.
+- Descargas/BARDO se integra mediante SAF. Se reconoce el Gemma existente en Modelos, se importa una copia privada con tamaño/SHA-256 oficial, y se conserva el original. No se fuerza una descarga duplicada.
+- La carpeta Autoestudio puede añadirse como destino de informes de BARDO Developer; las carpetas del usuario y los tres archivos de Historial se conservan.
+- Modo3MezclaVozUsuario.kt permanece intacto; SHA-1 protegido: 8f2745fa841a06af43bf909732fba834474bf7dc.
+
+AUTONOMÍA Y ACEPTACIÓN:
+- BARDO puede obtener snapshot de main, auditarlo sin ejecutar el código, estudiar hallazgos con Gemma local, preparar diff en copia aislada, validar en GitHub Actions, comprobar el hash del parche exacto y solicitar aprobación antes de integrar. La firma y las protecciones quedan fuera de su autoridad.
+- La APK #303 es una entrega CI firmada y auditada; no demuestra por sí sola que Gemma se haya importado/cargado en el Xiaomi ni que la generación musical, OCR, reproducción, imágenes o autoestudio hayan pasado pruebas físicas.
+- Pendiente aceptación física en Xiaomi 11T Pro: instalar APK #303, abrir y recorrer los seis espacios, autorizar Descargas/BARDO, localizar/importar/verificar Gemma, comprobar RAM/temperatura, probar conversación local, OCR es/en con imágenes reales, generación offline de audio, exportar y escuchar WAV, biblioteca/mezcla, imágenes Bonsai si el dispositivo cumple presupuesto de recursos y ciclo de autoestudio.
+- No declarar cierre funcional hasta registrar resultados reales del dispositivo. Los maestros se actualizan juntos tras cada ciclo de cambios y CI.

@@ -628,3 +628,29 @@ El usuario confirma el 2026-11-08 que la carpeta de BARDO está en Descargas y q
 - Se refinan las superficies oscuras, los bordes, los gradientes, el contraste de entrada, el estado de navegación y los objetivos táctiles. Se preservan IDs/listeners, preferencias de orden/visibilidad, memoria y módulos de audio.
 - Ubicación confirmada por el usuario: Descargas/BARDO/Modelos contiene el Gemma ya descargado. No iniciar descarga duplicada; vincular el árbol SAF, localizar el archivo existente, validar tamaño/SHA-256 e importar una copia privada cuando proceda. Conservar el original.
 - Esta revisión no altera Modo3MezclaVozUsuario.kt ni certifica funcionamiento en el Xiaomi; CI y aceptación física se registran por separado.
+
+
+22. ESTRUCTURA REAL DE DESCARGAS/BARDO Y REUTILIZACIÓN DEL MODELO EXISTENTE — 2026-11-08
+
+El usuario confirma la estructura real de trabajo en /Download/bardo (Android puede mostrarla como Descargas/BARDO):
+
+bardo/
+├── Canciones/
+├── Copias de seguridad/
+├── Historial/
+│   ├── bardo-historial-1793979333184.txt
+│   ├── bardo-historial-1793979340653.txt
+│   └── bardo-historial-1793979343122.json
+├── Instaladores/
+├── Instrumentales/
+├── Modelos/
+│   └── gemma-4-E2B-it.litertlm
+├── Proyectos/
+└── Voces/
+
+- Esta estructura facilitada por el usuario es la referencia de almacenamiento compartido. No inventar ubicaciones ni iniciar otra descarga de Gemma.
+- BARDO solicita autorización SAF persistente para el árbol Descargas/BARDO. Si el usuario selecciona Descargas como raíz, puede localizar/crear dentro la carpeta BARDO; si selecciona directamente BARDO, trabaja desde esa raíz. No usar rutas absolutas para eludir el almacenamiento protegido de Android.
+- Gemma existente se localiza en Modelos/gemma-4-E2B-it.litertlm. La app importa una copia privada, valida tamaño oficial (2.588.147.712 bytes) y SHA-256 oficial (181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c1), conserva el original y no descarga duplicados por defecto.
+- La app puede crear además BARDO/Autoestudio para informes, propuestas e incidencias de su autonomía. Esta carpeta adicional no sustituye ni renombra las carpetas del usuario; sus informes también permanecen en almacenamiento privado si no hay permiso SAF.
+- El historial preexistente del usuario se conserva. La importación de los tres archivos de historial debe ser explícita y no sobrescribir ni borrar los originales.
+- Cada cambio de almacenamiento, permiso, importación o exportación debe ser verificable y registrar resultado/errores sin afirmar que el dispositivo lo ha probado antes de hacerlo.
