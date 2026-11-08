@@ -2752,9 +2752,9 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
     if (campo == "vozFuente") {
         val fuenteIndicada = valor.lowercase(java.util.Locale.ROOT)
         valor = when {
-            fuenteIndicada.contains("ningun") || fuenteIndicada.contains("sin voz") || fuenteIndicada.contains("no quiero") || fuenteIndicada == "no" -> "ninguna"
-            fuenteIndicada.contains("archivo") || fuenteIndicada.contains("fichero") || fuenteIndicada.contains("importar") -> "archivo"
-            fuenteIndicada.contains("grabad") || fuenteIndicada.contains("grabar") || fuenteIndicada.contains("microfono") -> "grabada"
+             fuenteIndicada.contains("ningun") || fuenteIndicada.contains("sin voz") || fuenteIndicada.contains("no voice") || fuenteIndicada == "none" || fuenteIndicada == "no" -> "ninguna"
+             fuenteIndicada.contains("archivo") || fuenteIndicada.contains("fichero") || fuenteIndicada.contains("importar") || fuenteIndicada.contains("file") -> "archivo"
+             fuenteIndicada.contains("grabad") || fuenteIndicada.contains("grabar") || fuenteIndicada.contains("microfono") || fuenteIndicada.contains("record") || fuenteIndicada.contains("microphone") -> "grabada"
             else -> {
                 responderConOrquestador(texto, "No he identificado la fuente de voz. Indica: ninguna, archivo o grabada.")
                 return

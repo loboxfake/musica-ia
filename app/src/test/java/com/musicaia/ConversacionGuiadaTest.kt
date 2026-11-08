@@ -54,7 +54,7 @@ class ConversacionGuiadaTest {
         assertEquals("rock alternativo", parsed["estilo"])
         assertEquals("esperanzador", parsed["ambiente"])
         assertEquals("rápido", parsed["ritmo"])
-        assertEquals("español", parsed["idioma"])
+        assertEquals("Español", parsed["idioma"])
         assertEquals("solo instrumental", parsed["tipo"])
         assertEquals("ninguna", parsed["vozFuente"])
     }
@@ -69,7 +69,7 @@ class ConversacionGuiadaTest {
         assertEquals("pop", parsed["estilo"])
         assertEquals("optimista", parsed["ambiente"])
         assertEquals("medio", parsed["ritmo"])
-        assertEquals("español", parsed["idioma"])
+        assertEquals("Español", parsed["idioma"])
         assertEquals("ambas (voz e instrumental)", parsed["tipo"])
         assertEquals("grabada", parsed["vozFuente"])
     }
@@ -84,7 +84,7 @@ class ConversacionGuiadaTest {
         assertEquals("rock alternativo", parsed["estilo"])
         assertEquals("esperanzadora", parsed["ambiente"])
         assertEquals("rápido", parsed["ritmo"])
-        assertEquals("español", parsed["idioma"])
+        assertEquals("Español", parsed["idioma"])
         assertEquals("solo instrumental", parsed["tipo"])
         assertEquals("ninguna", parsed["vozFuente"])
     }
@@ -104,6 +104,17 @@ class ConversacionGuiadaTest {
             emptyMap<String, String>(),
             BardoIntentRouter.extractProvidedFields("He escuchado rock y me siento optimista.")
         )
+    }
+
+    @Test
+    fun extractsVoiceSourceFromAnEnglishLabelledBrief() {
+        val parsed = BardoIntentRouter.extractProvidedFields(
+            "Theme: resilience; style: rock; mood: hopeful; rhythm: medium; " +
+                "language: English; type: with vocals; voice source: recorded"
+        )
+        assertEquals("English", parsed["idioma"])
+        assertEquals("voz", parsed["tipo"])
+        assertEquals("grabada", parsed["vozFuente"])
     }
 
     @Test

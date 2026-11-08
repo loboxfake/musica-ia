@@ -60,7 +60,7 @@ object BardoIntentRouter {
             val language = Regex(
                 """(?i)\b(?:en|idioma\s*[:=]?)\s*(español|castellano|inglés|ingles|francés|frances|italiano|portugués|portugues|alemán|aleman)\b"""
             ).find(message)?.groupValues?.get(1)
-            if (!language.isNullOrBlank()) result["idioma"] = language
+            if (!language.isNullOrBlank()) result["idioma"] = normalizeFieldValue("idioma", language)
         }
 
         if ("estilo" !in result) {
@@ -111,7 +111,7 @@ object BardoIntentRouter {
             if (source != null) result["vozFuente"] = source
         }
         val englishLabels = Regex(
-            """(?i)\b(theme|style|genre|mood|rhythm|language|type)\s*[:=]\s*(.+?)(?=[,;.!?\n]|$)"""
+            """(?i)\b(theme|style|genre|mood|rhythm|language|type|voice source)\s*[:=]\s*(.+?)(?=[,;.!?\n]|$)"""
         )
         englishLabels.findAll(message).forEach { match ->
             val key = when (match.groupValues[1].lowercase(Locale.ROOT)) {
@@ -121,6 +121,7 @@ object BardoIntentRouter {
                 "rhythm" -> "ritmo"
                 "language" -> "idioma"
                 "type" -> "tipo"
+                "voice source" -> "vozFuente"
                 else -> return@forEach
             }
             if (key !in result) result[key] = normalizeFieldValue(key, match.groupValues[2].trim())
@@ -169,9 +170,9 @@ object BardoIntentRouter {
         if (key == "vozFuente") {
             val normalized = normalize(value)
             return when {
-                normalized.contains("ningun") || normalized.contains("sin voz") || normalized == "no" -> "ninguna"
-                normalized.contains("archivo") || normalized.contains("fichero") || normalized.contains("importar") -> "archivo"
-                normalized.contains("grabad") || normalized.contains("grabar") -> "grabada"
+                normalized.contains("ningun") || normalized.contains("sin voz") || normalized.contains("no voice") || normalized == "none" || normalized == "no" -> "ninguna"
+                normalized.contains("archivo") || normalized.contains("fichero") || normalized.contains("importar") || normalized.contains("file") -> "archivo"
+                normalized.contains("grabad") || normalized.contains("grabar") || normalized.contains("record") || normalized.contains("microphone") -> "grabada"
                 else -> value
             }
         }
