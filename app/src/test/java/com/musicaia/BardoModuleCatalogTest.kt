@@ -73,7 +73,7 @@ class BardoModuleCatalogTest {
     fun gemmaManifestContainsPinnedShaAndAttribution() {
         val gemma = BardoModuleCatalog.descriptors().first { it.id == "lyrics" }
         assertEquals("Apache-2.0", gemma.license)
-        assertEquals("181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c1", gemma.modelSha256)
+        assertEquals("181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c", gemma.modelSha256)
         assertEquals(true, gemma.attribution.contains("Google"))
     }
 
