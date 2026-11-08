@@ -59,7 +59,7 @@ object BardoModuleCatalog {
         Descriptor("stem_separation", "Separación de stems", "stem_separation", null, null, "En evaluación", "Demucs / UVR por investigar", true, false),
         Descriptor("mix_master", "Mezcla y masterización profesional", "mix_master", null, null, "Pendiente", "Procesamiento profesional no implementado", false, false),
         Descriptor("cover_art_procedural", "Portadas gráficas offline", "cover_art_procedural", null, null, "Incluido", "Renderizador PNG 1024×1024, cinco estilos locales", false, true),
-        Descriptor("cover_art", "Generación de portadas con IA", "cover_art", null, null, "Pendiente", "Modelo generativo local no integrado", true, false)
+        Descriptor("cover_art", "Generación de imágenes y portadas con IA", "cover_art", "Bonsai Image 4B LiteRT", null, "Apache-2.0", "Bonsai Image / LiteRT Community · generación local 512×512", true, true)
     )
 
     fun descriptors(): List<Descriptor> = entries.toList()

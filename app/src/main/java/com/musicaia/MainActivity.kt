@@ -671,6 +671,7 @@ class MainActivity : AppCompatActivity() {
  }
  findViewById<Button>(R.id.btnCrearPortada).setOnClickListener { mostrarGeneradorPortada() }
  findViewById<Button>(R.id.btnCrearPortadaIA).setOnClickListener { mostrarGeneradorPortadaIA() }
+ findViewById<Button>(R.id.btnCrearImagenIA).setOnClickListener { mostrarGeneradorImagenIA() }
  findViewById<Button>(R.id.btnMezclarPistasWav).setOnClickListener {
      if (mezclaPistasEnCurso) {
          tvEstado.text = "Ya hay una mezcla WAV en curso."
@@ -747,6 +748,7 @@ class MainActivity : AppCompatActivity() {
          R.id.navOrquestador to R.id.seccionOrquestador,
          R.id.navCrear to R.id.seccionCrear,
          R.id.navBiblioteca to R.id.seccionBiblioteca,
+         R.id.navImagenes to R.id.seccionImagenes,
          R.id.navLaboratorio to R.id.seccionLaboratorio,
          R.id.navSistema to R.id.seccionSistema
      )
@@ -2470,7 +2472,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
          .show()
  }
 
- private fun descargarModeloBonsai() {
+ private fun descargarModeloBonsai(standaloneImage: Boolean = false) {
      val cancelled = java.util.concurrent.atomic.AtomicBoolean(false)
      val progressText = TextView(this).apply {
          text = "Preparando descarga segura..."
@@ -2518,7 +2520,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
              dialog.dismiss()
              result.onSuccess {
                  tvEstado.text = "Modelo Bonsai instalado y verificado por SHA-256."
-                 mostrarFormularioPortadaIA()
+                 mostrarFormularioPortadaIA(standaloneImage)
              }.onFailure { error ->
                  tvEstado.text = "No se pudo instalar el modelo Bonsai: " + error.message
                  AlertDialog.Builder(this)
@@ -2530,7 +2532,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
      }, "BARDO-Bonsai-Download").start()
  }
 
- private fun mostrarFormularioPortadaIA() {
+ private fun mostrarFormularioPortadaIA(standaloneImage: Boolean = false) {
      val form = LinearLayout(this).apply {
          orientation = LinearLayout.VERTICAL
          setPadding(dp(20), dp(8), dp(20), dp(4))
@@ -2539,9 +2541,9 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
          this.hint = hint
          filters = arrayOf(android.text.InputFilter.LengthFilter(limit))
      }
-     val title = field("Título de canción o disco", 96)
+     val title = field(if (standaloneImage) "Título opcional para la imagen" else "Título de canción o disco", 96)
      val artist = field("Artista (opcional)", 100)
-     val concept = field("Concepto, escena o emoción que quieres representar", 500)
+     val concept = field(if (standaloneImage) "Describe la imagen que quieres que BARDO genere" else "Concepto, escena o emoción que quieres representar", 500)
      val style = android.widget.Spinner(this).apply {
          adapter = android.widget.ArrayAdapter(
              this@MainActivity, android.R.layout.simple_spinner_dropdown_item,
@@ -2554,8 +2556,8 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
      form.addView(TextView(this).apply { text = "Dirección artística"; setPadding(0, dp(10), 0, dp(3)) })
      form.addView(style)
      val dialog = AlertDialog.Builder(this)
-         .setTitle("Crear portada con IA local")
-         .setMessage("Bonsai genera una imagen original 512×512 en el teléfono. La tipografía del título y artista se superpone después para que quede legible. No se envía nada a la nube.")
+         .setTitle(if (standaloneImage) "Generar imagen con IA local" else "Crear portada con IA local")
+         .setMessage(if (standaloneImage) "Describe cualquier imagen que quieras crear. Bonsai genera una imagen original 512×512 en el teléfono, sin enviar el prompt a la nube." else "Bonsai genera una imagen original 512×512 en el teléfono. La tipografía del título y artista se superpone después para que quede legible. No se envía nada a la nube.")
          .setView(form)
          .setNegativeButton("Cancelar", null)
          .setPositiveButton("Generar", null)
@@ -2563,8 +2565,12 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
      dialog.setOnShowListener {
          dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
              val songTitle = title.text.toString().trim()
-             if (songTitle.isBlank()) {
+             if (!standaloneImage && songTitle.isBlank()) {
                  title.error = "El título es obligatorio."
+                 return@setOnClickListener
+             }
+             if (standaloneImage && concept.text.toString().isBlank()) {
+                 concept.error = "Describe la imagen que quieres generar."
                  return@setOnClickListener
              }
              if (gemmaInferenceEnCurso) {
@@ -2580,10 +2586,15 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
              val artistName = artist.text.toString().trim()
              val visualConcept = concept.text.toString().trim()
              val artStyle = style.selectedItem?.toString().orEmpty()
-             val prompt = "Create premium square 512x512 album cover artwork. No text, letters, typography, logos or watermark. " +
-                 "Strong clear visual composition, professional music-art direction. Style: " + artStyle +
-                 ". Visual concept: " + visualConcept + ". Title theme: " + songTitle +
-                 ". Artist theme: " + artistName + ". Keep the lower quarter visually calm and dark for title lettering."
+             val prompt = if (standaloneImage) {
+                 "Create an original high-quality square 512x512 standalone image. No text, letters, typography, logos or watermark. " +
+                     "Clear composition, professional visual direction. Style: " + artStyle + ". Description: " + visualConcept
+             } else {
+                 "Create premium square 512x512 album cover artwork. No text, letters, typography, logos or watermark. " +
+                     "Strong clear visual composition, professional music-art direction. Style: " + artStyle +
+                     ". Visual concept: " + visualConcept + ". Title theme: " + songTitle +
+                     ". Artist theme: " + artistName + ". Keep the lower quarter visually calm and dark for title lettering."
+             }
              val cancelled = java.util.concurrent.atomic.AtomicBoolean(false)
              val progressText = TextView(this).apply { text = "Cerrando otros modelos y preparando LiteRT..." }
              val progressBar = android.widget.ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
@@ -2621,7 +2632,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                      }
                      val target = File(
                          File(filesDir, "covers"),
-                         "bardo-ai-cover-" + System.currentTimeMillis().toString() + ".png"
+                         (if (standaloneImage) "bardo-ai-image-" else "bardo-ai-cover-") + System.currentTimeMillis().toString() + ".png"
                      )
                      com.musicaia.modulos.imagen.BardoBonsaiImageGenerator.generate(
                          this, prompt, songTitle, artistName, target, cancelled,
@@ -2646,9 +2657,9 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                      result.onSuccess { generated ->
                          portadaPendiente?.takeIf { it != generated.file }?.delete()
                          portadaPendiente = generated.file
-                         tvEstado.text = "Portada generada con Bonsai Image 4B local en " +
+                         tvEstado.text = (if (standaloneImage) "Imagen generada" else "Portada generada") + " con Bonsai Image 4B local en " +
                              String.format(java.util.Locale.ROOT, "%.1f", generated.seconds) + " s."
-                         mostrarVistaPortada(generated.file, songTitle)
+                         mostrarVistaPortada(generated.file, songTitle.ifBlank { "Imagen BARDO" })
                      }.onFailure { error ->
                          tvEstado.text = "No se pudo generar la portada IA: " + error.message
                          AlertDialog.Builder(this)

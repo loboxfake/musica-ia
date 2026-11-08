@@ -75,7 +75,7 @@ object BardoGuidedResponseParser {
             "type" -> when (lower) {
                 "instrumental", "instrumental only", "no vocals" -> "solo instrumental"
                 "voice", "vocals", "vocal", "singing", "voz", "con voz" -> "voz"
-                "both", "both vocals and instrumental", "ambas", "voz e instrumental" -> "ambas (voz e instrumental)"
+                "both", "both vocals and instrumental", "vocals and instrumental", "voice and instrumental", "singing and instrumental", "ambas", "voz e instrumental" -> "ambas (voz e instrumental)"
                 else -> null
             }
             "voice_source" -> when (lower) {
