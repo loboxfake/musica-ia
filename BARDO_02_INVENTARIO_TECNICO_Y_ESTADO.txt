@@ -1293,3 +1293,12 @@ Inspección sobre main, HEAD 635e8ad74a9645c1c52cb1c27b66b57a5895dc93:
 - Modo3MezclaVozUsuario.kt sigue intacto: blob SHA-1 8f2745fa841a06af43bf909732fba834474bf7dc.
 - CI del HEAD 154c4bfc: BARDO integration validation #434 / run 42481973474 y Build full offline APK #284 / run 42481973487 estaban PENDING. Las ejecuciones anteriores #431 y #281 sobre el commit documental 93376f1 seguían IN_PROGRESS en testDebugUnitTest; no constituyen validación del código nuevo. La ejecución #430 del SHA anterior pasó; #280 falló en Release Lint. No hay todavía APK firmada/publicada para el nuevo HEAD.
 - No declarar corrección Lint, OCR ni navegación como CI-validada hasta que los workflows sobre el SHA que contiene estos cambios terminen SUCCESS. La instalación y prueba física en Xiaomi 11T Pro siguen pendientes.
+
+
+64. MIGRACIÓN DE PREFERENCIAS DE LA PESTAÑA IMÁGENES — 2026-11-08
+
+- Commit 036a42fab99715501cbc1efcf56f707982d56ff5: la configuración visual exporta navigationVersion=2 y persiste también la etiqueta de «Imágenes».
+- Las configuraciones antiguas sin versión se migran mostrando «Imágenes» por defecto, incluso si su lista visibleTabs solo contenía las cinco pestañas anteriores. La navegación antigua se conserva y «Imágenes» se añade al final si no estaba ordenada.
+- Las configuraciones v2 sí pueden mantener «Imágenes» oculta si el usuario la desactiva explícitamente. La personalización de color también incluye su elemento de navegación.
+- Modo3 permanece protegido con SHA-1 8f2745fa841a06af43bf909732fba834474bf7dc.
+- CI del HEAD 036a42f: validación #437 / run 42482283572 y build integral #287 / run 42482283593 quedaron PENDING al consultar. Los runs anteriores #431 y #434 seguían IN_PROGRESS sobre SHA previos; no se atribuye su resultado al HEAD actual. Sin APK nueva ni validación de dispositivo.
