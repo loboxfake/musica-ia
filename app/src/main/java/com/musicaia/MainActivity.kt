@@ -1028,8 +1028,15 @@ private fun crearEstructuraCarpetaBardo() {
      texto.append("MÓDULOS Y HABILIDADES INTERNAS DE BARDO (").append(modulos.size).append(")\n")
      modulos.forEach { modulo ->
          texto.append("• ").append(modulo.name)
-             .append(" · ").append(if (modulo.implemented) "código registrado" else "no implementado")
+             .append(" · ").append(if (modulo.implemented) "registrado en código" else "no implementado")
              .append("\n  ID: ").append(modulo.id)
+         val estadoModulo = capacidades.firstOrNull { it.id == modulo.capabilityId }
+         if (estadoModulo != null) {
+             texto.append("\n  Disponibilidad actual: ").append(estadoModulo.status.name)
+             texto.append(" · ").append(estadoModulo.detail)
+         } else {
+             texto.append("\n  Disponibilidad actual: sin registro de capacidad runtime")
+         }
          modulo.modelId?.let { texto.append("\n  Modelo/runtime: ").append(it) }
          texto.append("\n  Licencia/procedencia: ").append(modulo.license)
              .append(" · ").append(modulo.attribution).append("\n\n")
@@ -1037,12 +1044,15 @@ private fun crearEstructuraCarpetaBardo() {
 
      texto.append("APPS CON FUNCIONES DE ASISTENTE DETECTADAS (").append(device.assistantApps.size).append(")\n")
      if (device.assistantApps.isEmpty()) {
-         texto.append("No hay apps visibles que declaren ACTION_ASSIST o un servicio VoiceInteractionService.\n")
+         texto.append("No se han encontrado apps visibles que declaren ACTION_ASSIST, VoiceInteractionService, reconocimiento de voz o TTS.\n")
      } else {
          device.assistantApps.forEach { assistant ->
              texto.append("• ").append(assistant.label).append(" · ").append(assistant.packageName)
+             if (assistant.activeVoiceInteractionService) texto.append(" · asistente de voz activo del sistema")
              if (assistant.handlesAssistAction) texto.append(" · gestiona ACTION_ASSIST")
              if (assistant.providesVoiceInteractionService) texto.append(" · servicio de interacción por voz")
+             if (assistant.providesSpeechRecognition) texto.append(" · reconocimiento de voz")
+             if (assistant.providesTextToSpeech) texto.append(" · síntesis de voz (TTS)")
              texto.append("\n")
          }
      }
