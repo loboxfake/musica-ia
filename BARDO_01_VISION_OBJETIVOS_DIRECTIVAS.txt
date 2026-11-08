@@ -676,3 +676,14 @@ CRITERIOS DE DISEÑO Y ACEPTACIÓN
 GOBIERNO DE REPOSITORIO Y DOCUMENTOS
 - Este registro es la instrucción más reciente del usuario para reanudar el trabajo y mantener ambos maestros actualizados antes de comenzar cada ciclo y después de completarlo. Mantener la rama canónica main y no reescribir historia; si aparece una directiva histórica contradictoria, conservarla como antecedente y aplicar esta instrucción posterior hasta nueva indicación del usuario.
 - Mantener Modo3MezclaVozUsuario.kt y su SHA protegido sin cambios.
+
+
+24. AVATAR DE CHAT: PRIMERA IMPLEMENTACIÓN Y EVOLUCIÓN CONTROLADA — 2026-11-08
+
+- La primera versión del avatar se integra en el encabezado del chat principal reutilizando el recurso gráfico real ic_launcher_foreground, que contiene la pluma, notas musicales y colores originales de BARDO. No se crea una identidad de marca paralela.
+- El avatar muestra estados funcionales, no emociones ni consciencia: reposo, recepción de texto, lectura de mensajes, lectura/estudio de archivos, pensamiento, respuesta, generación, espera, finalización y atención/error.
+- Las transiciones deben proceder de eventos reales del chat, importación, análisis, autoestudio y servicio de tareas. El texto de estado acompaña al anillo de color y al indicador de actividad.
+- La animación inicial se limita a un pulso de escala muy pequeño; se pausa cuando el componente se oculta, se desacopla o la ventana deja de estar visible. El chat debe seguir funcionando sin animación.
+- El estado «Completado» solo se muestra cuando existe un WAV fuente válido (>44 bytes); si el servicio declara fin pero no hay WAV válido, mostrar atención/error. No confundir finalización del worker con un resultado de audio aceptable.
+- La primera integración no cambia la lógica de conversación, los motores de audio ni la navegación. La prueba CI y la prueba física Xiaomi siguen siendo criterios independientes.
+- BARDO podrá proponer en el futuro skins, gestos, estados, animaciones y mejoras del avatar mediante su flujo seguro de autoevolución. Cada propuesta incluirá justificación, vista previa, recursos, accesibilidad, coste de CPU/batería, pruebas y reversión; la integración de código mantiene aprobación y protecciones vigentes.

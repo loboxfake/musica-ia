@@ -1433,3 +1433,28 @@ ESTADO DE ESTE REGISTRO
 - Esta actualización es previa al trabajo de implementación del avatar; no afirma que el avatar esté creado ni que el código haya cambiado.
 - Se reafirma el gobierno documental: actualizar ambos maestros antes de iniciar cada ciclo y al terminarlo; conservar trazabilidad y distinguir diseño, código, CI y prueba física.
 - No se modifica Modo3. La siguiente actividad es inspeccionar el icono launcher, el layout/chat, el tema y los puntos de eventos reales de lectura/procesamiento antes de preparar el diff.
+
+
+71. AVATAR REACTIVO DE BARDO INTEGRADO EN CHAT — 2026-11-08
+
+CAMBIOS DE CÓDIGO
+- Commit inicial de integración: 4ea4610d94d36cfa955f923f14bb130c4333832b.
+- Commit correctivo: 33bdba7c9b880fcafe9c0c34d08cf051632cf46d (HEAD main al registrar esta entrada).
+- Archivos: nuevo app/src/main/java/com/musicaia/ui/BardoAvatarView.kt; modificación de MainActivity.kt y activity_main.xml; documentación docs/BARDO_UI_SYSTEM.md.
+- El avatar utiliza el recurso launcher real ic_launcher_foreground.webp. El icono conserva la pluma musical y la identidad azul tinta/cian/violeta/dorado. Se añade un anillo, un punto de estado y texto accesible.
+- Estados conectados: escritura/recepción de texto, scroll/lectura del chat, lectura y estudio de adjuntos, pensamiento, respuesta, generación, finalización y error. La animación es un pulso pequeño, solo mientras el estado activo está visible; se detiene al ocultar/desacoplar la vista.
+- Se protege la veracidad: el estado Completado de audio solo aparece cuando el WAV fuente existe y supera 44 bytes; si no, el avatar muestra Atención.
+- La actividad de adjuntos marca lectura durante la copia y estudio durante el análisis. La actividad del chat distingue recepción de texto de escucha de micrófono.
+- No se ha modificado Modo3MezclaVozUsuario.kt. El SHA de blob consultado después de los commits es 8f2745fa841a06af43bf909732fba834474bf7dc, coincidente con la huella protegida.
+
+VALIDACIÓN GITHUB AL CIERRE DE CÓDIGO
+- Validación #460, run ID 42496140395, sobre 33bdba7c9b880fcafe9c0c34d08cf051632cf46d: PENDING al consultar.
+- Build integral #308, run ID 42496140419, sobre el mismo SHA: PENDING al consultar. No existe aún APK integral de este cambio ni Release #308 confirmada.
+- Los intentos #307/#459 del commit intermedio 4ea4610 fueron cancelados al entrar el commit correctivo; no se consideran fallos de código ni validaciones verdes.
+- Los workflows #305/#457 del commit documental f5631d5174e08074f2721b89504c036ba41bb031 seguían en ejecución en la última consulta. Son SHA anteriores y no sustituyen la validación del avatar.
+- La APK #304 sigue siendo la última Release integral completada antes del avatar; no contiene esta implementación.
+
+ACEPTACIÓN PENDIENTE
+- Esperar #460/#308 y corregir cualquier fallo real que aparezca.
+- Tras APK firmada y auditada, instalar en Xiaomi 11T Pro y probar cambios de estado al escribir, leer mensajes, importar/estudiar archivos, responder, generar audio, completar y fallar; comprobar que no hay crashes, consumo excesivo, animación en segundo plano ni actualizaciones de vistas fuera del hilo principal.
+- La integración visual y el código están realizados, pero no se declara validado en CI ni probado en dispositivo hasta tener los resultados correspondientes.
