@@ -234,6 +234,34 @@ class BardoSkillWorkflowExecutorTest {
         }
     }
 
+    @Test fun workflowIsBlockedWhenRegisteredActionSmokeTestStartsFailing() {
+        val fixture = fixture(validPackage())
+        try {
+            var calls = 0
+            val failingSearch = object : BardoToolHandler, BardoToolSmokeTestHandler {
+                override val descriptor = BardoToolDescriptor(
+                    "knowledge.search", "search with failing smoke-test",
+                    BardoPermissionScope.READ_BARDO_DATA, maxArguments = 1
+                )
+                override fun execute(arguments: Map<String, String>): BardoToolOutput {
+                    calls++
+                    return BardoToolOutput(true, "must-not-run")
+                }
+                override fun smokeTest() = BardoToolOutput(false, "", "regression")
+            }
+            val tools = BardoToolExecutor(listOf(failingSearch, fixture.inventory))
+            val report = BardoSkillWorkflowExecutor(fixture.manager, tools).execute(
+                "skill.local.research", "1.0.0", mapOf("query" to "test")
+            )
+            assertFalse(report.succeeded)
+            assertEquals(0, report.completedSteps)
+            assertEquals(0, calls)
+            assertTrue(report.error.orEmpty().contains("smoke-test de confianza"))
+        } finally {
+            fixture.root.deleteRecursively()
+        }
+    }
+
     @Test fun legacyWorkflowCannotRunHandlerThatNoLongerHasTrustedSmokeTest() {
         val fixture = fixture(validPackage())
         try {
