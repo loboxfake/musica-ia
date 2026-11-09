@@ -6,6 +6,7 @@ import com.musicaia.desarrollo.BardoDeveloperCore
 import com.musicaia.memoria.BardoKnowledgeStore
 import com.musicaia.seguridad.BardoPermissionScope
 import com.musicaia.storage.BardoSharedStorage
+import com.musicaia.storage.BardoMobileDeletionRequestArgumentsParser
 import java.io.File
 import java.nio.file.Files
 
@@ -192,11 +193,13 @@ object BardoCoreToolCatalog {
                     maxValueChars = 1000
                 )
                 override fun execute(arguments: Map<String, String>): BardoToolOutput {
-                    val path = arguments["path"].orEmpty()
-                    require(path.isNotBlank()) { "Falta path." }
-                    val permanent = arguments["permanent"].orEmpty().equals("true", ignoreCase = true)
-                    val reason = arguments["reason"].orEmpty()
-                    val request = BardoSharedStorage.requestDeletion(app, path, permanent, reason)
+                    val parsed = BardoMobileDeletionRequestArgumentsParser.parse(arguments)
+                    val request = BardoSharedStorage.requestDeletion(
+                        app,
+                        parsed.relativePath,
+                        parsed.permanent,
+                        parsed.reason
+                    )
                     val kind = if (request.permanent) "eliminación permanente" else "mover a papelera"
                     return BardoToolOutput(
                         true,
