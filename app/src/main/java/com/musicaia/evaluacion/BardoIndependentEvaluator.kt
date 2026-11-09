@@ -28,7 +28,7 @@ enum class BardoEvidenceOrigin {
     DEVICE_TEST
 }
 
-data class BardoCheckEvidence internal constructor(
+class BardoCheckEvidence internal constructor(
     val check: BardoCheck,
     val passed: Boolean,
     val detail: String,
