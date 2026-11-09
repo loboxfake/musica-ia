@@ -105,7 +105,7 @@ object BardoCapabilityRegistry {
             Capability("image_ocr_multiscript", "OCR local multiescritura", Status.AVAILABLE, "OCR bundled offline para scripts latino, chino, devanagari, japonés y coreano. No cubre todos los alfabetos ni garantiza reconocer todos los idiomas.", "Extraer solo texto reconocido de imagen/PDF escaneado/vídeo en scripts latino, chino, devanagari, japonés y coreano; cerrar los clientes y conservar el fichero original."),
             Capability("cover_art_procedural", "Creación gráfica de portadas PNG", Status.AVAILABLE, "Genera portadas PNG cuadradas 1024×1024 con cinco estilos gráficos, tipografía y concepto. Es diseño procedural offline, no IA generativa.", "Generar PNG real, comprobar tamaño, previsualizar y exportar mediante el selector de documentos Android."),
             Capability("user_authorized_learning", "Referencias aportadas para evolución futura", Status.AVAILABLE, "Solo se incorporan a la biblioteca cuando el usuario autoriza expresamente «Analizar y aprender». El autoestudio local puede consultarlas para diagnósticos y propuestas; no reentrena los pesos del modelo ni modifica el núcleo instalado.", "Verificar SHA-256 de cada referencia, conservar procedencia, tratar el contenido como datos no confiables y exigir aprobación separada para cualquier candidato y su integración."),
-            Capability("research", "Investigación web autorizada", Status.NOT_IMPLEMENTED, "La investigación local usa la biblioteca importada; el cliente web HTTPS con citas, límites de red y autorización por acción todavía no está integrado.", "Acción explícita del usuario o delegación firmada, fuentes fechadas/citadas, límites HTTPS y ninguna afirmación de investigación sin conexión."),
+            Capability("research", "Investigación web autorizada", Status.REQUIRES_USER_ACTION, "La investigación web HTTPS con citas aún no está integrada. Actualmente BARDO busca en la biblioteca local importada; el acceso de red permanece deshabilitado.", "Requiere autorización explícita y cliente HTTPS implementado; citar fuentes fechadas y no afirmar que se ha investigado en la web cuando solo se consultó la biblioteca local."),
             Capability(
                 "autonomous_loop", "Bucle autónomo local",
                 localModelStatus,
@@ -166,13 +166,13 @@ object BardoCapabilityRegistry {
             Capability(
                 "github_development",
                 "Propuestas autónomas mediante ramas y PR",
-                Status.REQUIRES_USER_ACTION,
+                if (facts.githubActionsConfigured) Status.AVAILABLE else Status.REQUIRES_USER_ACTION,
                 if (facts.githubActionsConfigured) {
                     "La conexión GitHub está configurada; BARDO valida el candidato y puede crear una rama bardo/* y PR borrador tras una aprobación explícita. No escribe ni fusiona main. La protección de rama debe comprobarse en GitHub."
                 } else {
                     "Requiere configurar la conexión GitHub. No se incrustan credenciales en la APK ni se realizan pushes directos a main."
                 },
-                "Validar el SHA base exacto, ejecutar tests y compilación en runner sin secretos, crear PR borrador tras autorización y no fusionar ni publicar APK automáticamente."
+                "Validar el SHA base exacto, ejecutar tests y compilación en runner sin secretos, exigir aprobación explícita para crear un PR borrador y no fusionar ni publicar APK automáticamente."
             ),
             Capability("voice_synthesis", "Generación de voz cantada", Status.NOT_IMPLEMENTED, "Todavía no está integrada; el antiguo módulo de tonos se ha desactivado para evitar simular voz.", "Modelo de voz legítimo, consentimiento, WAV real reproducible y pruebas de calidad; MiVoz sigue pendiente."),
             Capability("mix_master", "Mezcla multipista y masterización profesional", Status.NOT_IMPLEMENTED, "La mezcla multipista, automatización, ecualización avanzada y masterización profesional siguen pendientes. Existe por separado un procesador básico offline para un WAV mono PCM 16-bit; no se presenta como estudio profesional.", "Cadena multipista no destructiva, EQ dinámica, compresión, limitador true-peak, métricas, A/B, exportación validada y pruebas auditivas."),
