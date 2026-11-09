@@ -87,7 +87,7 @@ class BardoSkillWorkflowExecutor(
         }
 
         val ineligibleActions = steps.map { it.actionId }.distinct()
-            .filterNot { it in tools.registeredSkillToolIds() }
+            .filterNot { it in tools.verifiedSkillToolIds() }
             .sorted()
         val summary = buildString {
             append("Workflow estructuralmente válido: ").append(steps.size)
