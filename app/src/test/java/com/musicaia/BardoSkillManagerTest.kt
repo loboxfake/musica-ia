@@ -89,6 +89,9 @@ class BardoSkillManagerTest {
             assertEquals(BardoSkillLifecycle.ENABLED, enabled.record?.lifecycle)
             assertEquals("core-smoke-runner-v1", enabled.record?.lastTestVerifierId)
             assertEquals(listOf("test://skill/audio-mix/verified"), enabled.record?.lastTestEvidenceRefs)
+            val restored = manager(root)
+            assertEquals(1, restored.enabled().size)
+            assertEquals("core-smoke-runner-v1", restored.enabled().single().lastTestVerifierId)
         } finally {
             root.deleteRecursively()
         }
