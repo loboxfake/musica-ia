@@ -198,6 +198,44 @@ class BardoSkillExecutorTest {
         }
     }
 
+    @Test fun enabledSkillIsBlockedWhenTrustedSmokeTestStartsFailing() {
+        val root = createTempDir(prefix = "bardo-skill-run-smoke-failed")
+        try {
+            val (manager, _) = setup(root)
+            val manifest = installAndEnable(manager, setOf("knowledge.search"))
+            var calls = 0
+            val failingSmokeTool = object : BardoToolHandler, BardoToolSmokeTestHandler {
+                override val descriptor = BardoToolDescriptor(
+                    "knowledge.search", "search with failing smoke test",
+                    BardoPermissionScope.READ_BARDO_DATA, maxArguments = 1
+                )
+                override fun execute(arguments: Map<String, String>): BardoToolOutput {
+                    calls++
+                    return BardoToolOutput(true, "must-not-run")
+                }
+                override fun smokeTest() = BardoToolOutput(false, "", "regression")
+            }
+            val trustedInventory = object : BardoToolHandler, BardoToolSmokeTestHandler {
+                override val descriptor = BardoToolDescriptor(
+                    "self_inventory.read", "trusted inventory",
+                    BardoPermissionScope.READ_BARDO_DATA, 0
+                )
+                override fun execute(arguments: Map<String, String>) = BardoToolOutput(true, "inventory")
+                override fun smokeTest() = BardoToolOutput(true, "trusted")
+            }
+            val runtimeTools = BardoToolExecutor(listOf(failingSmokeTool, trustedInventory))
+            val report = BardoSkillExecutor(manager, runtimeTools).execute(
+                manifest.id, manifest.version,
+                listOf(BardoSkillActionInvocation("knowledge.search", mapOf("query" to "test")))
+            )
+            assertEquals(BardoSkillExecutionStatus.REJECTED, report.status)
+            assertEquals(0, calls)
+            assertTrue(report.summary.contains("no están verificadas"))
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
     @Test fun globalBardoAuthorityStillBlocksToolScopesOutsideAutonomousSafeSet() {
         val root = createTempDir(prefix = "bardo-skill-run-scope")
         try {
