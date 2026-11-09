@@ -77,7 +77,7 @@ object BardoCiEvidenceAdapter {
         if (!branch.startsWith("bardo/")) {
             return invalid("La rama de origen no pertenece al espacio bardo/.", runId, headSha)
         }
-        if (event !in setOf("push", "pull_request")) {
+        if (event !in setOf("push", "pull_request", "workflow_dispatch")) {
             return invalid("El evento de GitHub no está permitido para esta evidencia.", runId, headSha)
         }
         if (htmlUrl != expectedUrl) {
