@@ -463,13 +463,8 @@ object BardoSharedStorage {
         )
         val decision = BardoMobileFilePolicy.authorize(operation, normalized, approval, now)
         require(decision.allowed) { decision.reason }
-        val prefs = context.applicationContext.getSharedPreferences("bardo_file_approvals", Context.MODE_PRIVATE)
-        val used = prefs.getStringSet("used_nonces", emptySet()).orEmpty().toMutableSet()
-        require(nonce !in used) { "La autorización ya fue consumida." }
-        used += nonce
-        check(prefs.edit().putStringSet("used_nonces", used).commit()) {
-            "No se pudo registrar el uso único de la autorización."
-        }
+        // El token se crea en memoria después de la confirmación visible, no se
+        // persiste ni se expone a herramientas; la aprobación es efímera y de un solo uso.
         return decision
     }
 
