@@ -71,6 +71,23 @@ class BardoProtectedPathPolicyTest {
         }
     }
 
+    @Test fun protectsMobileStorageAndSkillLifecycleSecurityPaths() {
+        val protected = listOf(
+            "app/src/main/java/com/musicaia/storage/BardoMobileFilePolicy.kt",
+            "app/src/main/java/com/musicaia/storage/BardoSharedStorage.kt",
+            "app/src/main/java/com/musicaia/skills/BardoSkillManager.kt",
+            "app/src/main/java/com/musicaia/skills/BardoSkillWorkflowExecutor.kt",
+            "app/src/main/java/com/musicaia/skills/BardoSkillMaintenancePlanner.kt",
+            "app/src/main/java/com/musicaia/skills/BardoCoreSkillSmokeTestRunner.kt"
+        )
+        protected.forEach { path ->
+            assertEquals(
+                BardoProtectedPathPolicy.PathClass.HUMAN_REVIEW_REQUIRED,
+                BardoProtectedPathPolicy.classify(path)
+            )
+        }
+    }
+
     @Test fun rejectsTraversalAndAmbiguousPaths() {
         listOf(
             "../MainActivity.kt",
