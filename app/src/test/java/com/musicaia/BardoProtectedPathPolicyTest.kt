@@ -57,6 +57,7 @@ class BardoProtectedPathPolicyTest {
     @Test fun protectsAuthorityModelsSkillsToolsAndEvaluatorPolicies() {
         val protected = listOf(
             "app/src/main/java/com/musicaia/seguridad/BardoAuthorityPolicy.kt",
+            "app/src/main/java/com/musicaia/actualizaciones/BardoIncrementalUpdateManifest.kt",
             "app/src/main/java/com/musicaia/seguridad/BardoAuthorityLedger.kt",
             "app/src/main/java/com/musicaia/modelos/BardoModelProvider.kt",
             "app/src/main/java/com/musicaia/skills/BardoSkillManifest.kt",
