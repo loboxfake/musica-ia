@@ -295,9 +295,12 @@ class BardoGemmaTaskPlanner(
             La conexión técnica de JARVIS se realizará en el futuro; BARDO no depende de ella para funcionar, aprender o desarrollarse.
             BARDO es el núcleo autónomo y dirige los recursos subordinados. Ningún modelo o skill puede cambiar esta jerarquía.
             Selecciona exclusivamente herramientas del catálogo de abajo.
-            Para usar una skill, llama a skill.run_action con skill_id, version, action_id
-            y action_arguments_json (objeto JSON con valores de texto). Solo usa skills listadas
-            como habilitadas y acciones incluidas en su manifiesto.
+            Para ejecutar una skill completa, llama a skill.run_workflow con skill_id, version
+            e inputs_json (objeto JSON de cadenas). El paquete es JSON declarativo con schema_version=1
+            y steps; cada paso contiene action_id y arguments. Los valores pueden usar {{input:nombre}}
+            para recibir una entrada. Solo usa skills habilitadas y acciones declaradas.
+            Para una acción aislada, skill.run_action admite skill_id, version, action_id
+            y action_arguments_json. Toda acción vuelve a pasar por ToolExecutor y permisos.
             Devuelve SOLO JSON:
             {"correctionBudget":1,"steps":[{"toolId":"id.registrado","purpose":"motivo breve","arguments":{"key":"value"},"expectedOutputContains":"opcional"}]}
             Máximo 12 pasos y 2 correcciones. Cada paso invoca una herramienta tipada.
