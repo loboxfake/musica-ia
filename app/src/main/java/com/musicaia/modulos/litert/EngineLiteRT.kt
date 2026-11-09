@@ -114,6 +114,9 @@ object EngineLiteRT {
             val path = modelPath ?: throw error
             val cache = cachePath ?: throw error
             cerrarInterno()
+            // cerrarInterno limpia referencias; restaurarlas al crear el backend CPU.
+            modelPath = path
+            cachePath = cache
             val cpu = Engine(EngineConfig(modelPath = path, backend = Backend.CPU(), cacheDir = cache))
             var inicializado = false
             try {
