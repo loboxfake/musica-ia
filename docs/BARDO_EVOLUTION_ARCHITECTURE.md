@@ -286,3 +286,15 @@ La revisión de PR #3 confirma que el workflow de candidatos crea una rama bardo
 ### Criterio de aceptación
 
 La candidata 21 es una compilación auditada de un SHA anterior, no la candidata final con avatar. El cambio de avatar y su test no se aceptarán hasta que Actions vuelva a ejecutar correctamente. La exportación por fragmentos debe finalizar, reconstruirse y verificarse por SHA-256 antes de entregar un APK descargable. Ningún estado de CI sustituye la instalación, inferencia Gemma, operación sin red, generación y escucha WAV ni pruebas de mezcla en el Xiaomi 11T Pro.
+
+
+## 17. Verificación determinista de pasos autónomos
+
+El bucle de autonomía ya no acepta como completado un paso únicamente porque el handler devuelva `succeeded=true`. `BardoTaskStepVerifier` es un contrato separado del planificador y `BardoDeterministicTaskStepVerifier` exige:
+- resultado satisfactorio del handler;
+- salida observable no vacía;
+- coincidencia del marcador objetivo cuando el plan lo declara.
+
+El worker registra `step_verified` en el diario sin guardar argumentos ni contenido privado. Un resultado vacío se clasifica como fallo verificable y puede activar el presupuesto limitado de corrección. Se añadió una prueba de regresión para el caso en que una herramienta declara éxito sin aportar salida.
+
+Este verificador es determinista y local; no equivale todavía a una revisión semántica independiente de calidad ni a evidencia de que una tarea del mundo real se completó correctamente. Los handlers deben aportar resultados observables y específicos, y las operaciones sensibles requieren pruebas propias y autorización. La suite de CI debe validar este cambio antes de aceptarlo.
