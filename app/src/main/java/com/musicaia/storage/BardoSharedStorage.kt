@@ -45,6 +45,10 @@ object BardoSharedStorage {
         }
         if (!permission) return null
         val root = DocumentsContract.buildDocumentUriUsingTree(tree, rootId)
+        val rootInfo = runCatching { metadata(app, root) }.getOrNull() ?: return null
+        if (!rootInfo.isDirectory || !rootInfo.name.equals("BARDO", ignoreCase = true)) {
+            return null
+        }
         return Location(tree, root)
     }
 
