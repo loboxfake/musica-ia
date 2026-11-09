@@ -249,7 +249,7 @@ class BardoCiEvidenceAdapterTest {
 
     @Test
     fun pipelineRejectsCallerSuppliedCiEvidence() {
-        val fakeCi = BardoIndependentEvaluator.mandatoryCiChecks().first()
+        val fakeCi = BardoCheck.GITLEAKS
         val fake = com.musicaia.evaluacion.BardoCheckEvidence(
             fakeCi,
             true,
