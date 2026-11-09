@@ -3,6 +3,10 @@ package com.musicaia.skills
 import android.content.Context
 import com.musicaia.herramientas.BardoCoreToolCatalog
 import com.musicaia.herramientas.BardoToolExecutor
+import com.musicaia.herramientas.BardoToolDescriptor
+import com.musicaia.herramientas.BardoToolHandler
+import com.musicaia.herramientas.BardoToolOutput
+import com.musicaia.seguridad.BardoPermissionScope
 import java.io.File
 import java.security.MessageDigest
 
@@ -78,6 +82,49 @@ class BardoCoreSkillSmokeTestRunner(
     }
 }
 
+/**
+ * Informe de mantenimiento consumible por el planificador. Es estrictamente
+ * de lectura: nunca deshabilita ni elimina skills por decisión del modelo.
+ */
+class BardoSkillMaintenanceToolHandler(
+    private val manager: BardoSkillManager,
+    private val registeredActionIds: () -> Set<String>
+) : BardoToolHandler {
+    override val descriptor = BardoToolDescriptor(
+        id = TOOL_ID,
+        description = "Analiza las skills instaladas y propone conservar, revisar, volver a probar, deshabilitar o retirar versiones obsoletas. Solo informa; no modifica el registro.",
+        requiredScope = BardoPermissionScope.READ_BARDO_DATA,
+        maxArguments = 0
+    )
+
+    override fun execute(arguments: Map<String, String>): BardoToolOutput {
+        if (arguments.isNotEmpty()) {
+            return BardoToolOutput(false, "", "El informe de mantenimiento no admite argumentos.")
+        }
+        val records = manager.list()
+        if (records.isEmpty()) {
+            return BardoToolOutput(true, "No hay skills instaladas. No se ha propuesto ninguna modificación.")
+        }
+        val findings = BardoSkillMaintenancePlanner.evaluate(records, registeredActionIds())
+        val body = findings.joinToString("\n") { finding ->
+            val reasons = if (finding.reasons.isEmpty()) "sin incidencias detectadas"
+                else finding.reasons.joinToString("; ")
+            finding.skillId + "@" + finding.version + " → " + finding.action.name +
+                " · " + reasons
+        }
+        return BardoToolOutput(
+            true,
+            "INFORME DE MANTENIMIENTO DE SKILLS (solo recomendaciones)\n" +
+                "Versiones revisadas: " + records.size + "\n" + body +
+                "\n\nNinguna skill ha sido modificada ni eliminada."
+        )
+    }
+
+    companion object {
+        const val TOOL_ID = "skills.maintenance_report"
+    }
+}
+
 data class BardoSkillRuntime(
     val manager: BardoSkillManager,
     val tools: BardoToolExecutor,
@@ -105,8 +152,10 @@ object BardoSkillRuntimeFactory {
         // Bridges are excluded from registeredActions so a downloaded skill cannot
         // recursively invoke another skill bridge.
         val plannerTools = BardoToolExecutor(
-            coreHandlers + BardoSkillToolHandler(skillExecutor) +
-                BardoSkillWorkflowToolHandler(workflowExecutor)
+            coreHandlers +
+                BardoSkillToolHandler(skillExecutor) +
+                BardoSkillWorkflowToolHandler(workflowExecutor) +
+                BardoSkillMaintenanceToolHandler(manager) { registeredActions }
         )
         return BardoSkillRuntime(
             manager = manager,
