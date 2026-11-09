@@ -157,7 +157,12 @@ class BardoDeveloperWorker(
             val autonomyResult = runCatching {
                 val modelRegistry = BardoModelRegistry(listOf(BardoGemmaLiteRtProvider()))
                 val autonomy = BardoAutonomyEngine(
-                    planner = BardoGemmaTaskPlanner(applicationContext, modelRegistry),
+                    planner = BardoGemmaTaskPlanner(
+                        applicationContext,
+                        modelRegistry,
+                        toolExecutor = toolExecutor,
+                        skillManager = skillRuntime.manager
+                    ),
                     tools = toolExecutor,
                     journal = BardoTaskJournal(File(workspace, "diario-autonomia"))
                 )
