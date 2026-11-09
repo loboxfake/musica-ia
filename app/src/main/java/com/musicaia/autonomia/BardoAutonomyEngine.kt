@@ -6,6 +6,7 @@ import com.musicaia.herramientas.BardoToolRequest
 import com.musicaia.modelos.BardoModelRegistry
 import com.musicaia.modelos.BardoModelRequest
 import com.musicaia.seguridad.BardoPrincipal
+import com.musicaia.skills.BardoSkillManager
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -260,7 +261,9 @@ class BardoTaskJournal(private val directory: File) {
 /** Planificador que solicita JSON tipado a un proveedor local; nunca ejecuta herramientas. */
 class BardoGemmaTaskPlanner(
     private val context: Context,
-    private val models: BardoModelRegistry
+    private val models: BardoModelRegistry,
+    private val toolExecutor: BardoToolExecutor? = null,
+    private val skillManager: BardoSkillManager? = null
 ) : BardoTaskPlanner {
     override fun createPlan(
         goal: String,
@@ -276,13 +279,34 @@ class BardoGemmaTaskPlanner(
                     .put("error", observation.error))
             }
         }
+        val availableTools = toolExecutor?.registeredTools()?.joinToString("\n") { descriptor ->
+            "- " + descriptor.id + ": " + descriptor.description +
+                " (permiso=" + descriptor.requiredScope.name + ")"
+        } ?: "El catálogo de herramientas no fue inyectado."
+        val enabledSkills = skillManager?.enabled()?.joinToString("\n") { record ->
+            "- " + record.manifest.id + "@" + record.manifest.version +
+                " acciones=" + record.manifest.actions.sorted().joinToString(",") +
+                " verificador=" + record.lastTestVerifierId
+        } ?: "No hay catálogo de skills habilitadas."
+
         val prompt = """
             Eres el planificador local de BARDO. No ejecutas herramientas.
+            BARDO es el núcleo autónomo; los modelos y skills son recursos subordinados.
+            Selecciona exclusivamente herramientas del catálogo de abajo.
+            Para usar una skill, llama a skill.run_action con skill_id, version, action_id
+            y action_arguments_json (objeto JSON con valores de texto). Solo usa skills listadas
+            como habilitadas y acciones incluidas en su manifiesto.
             Devuelve SOLO JSON:
             {"correctionBudget":1,"steps":[{"toolId":"id.registrado","purpose":"motivo breve","arguments":{"key":"value"},"expectedOutputContains":"opcional"}]}
             Máximo 12 pasos y 2 correcciones. Cada paso invoca una herramienta tipada.
             No propongas shell, comandos, código, URL arbitrarias, permisos, GitHub write,
             merge, instalación, borrado, cambios a main ni acceso fuera de BARDO.
+            Herramientas registradas:
+            $availableTools
+
+            Skills habilitadas y verificadas:
+            $enabledSkills
+
             Objetivo:
             $goal
             Motivo de corrección:
