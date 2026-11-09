@@ -238,6 +238,15 @@ class BardoSkillManager(
         if (!approvedPermissions.containsAll(validation.requiredPermissions)) {
             return@synchronized BardoSkillOperationResult(false, record, "Faltan permisos aprobados por el usuario.")
         }
+        val missingDependencies = missingDependencies(record.manifest, key)
+        if (missingDependencies.isNotEmpty()) {
+            return@synchronized BardoSkillOperationResult(
+                false, record,
+                "Faltan dependencias habilitadas: " + missingDependencies.joinToString {
+                    it.skillId + ">=" + it.minimumVersion
+                }
+            )
+        }
         val file = safePackageFile(record.installedPath)
         if (!verifyPackage(file, record.manifest)) {
             return@synchronized BardoSkillOperationResult(false, record, "La skill instalada no supera la verificación de integridad.")
@@ -357,6 +366,23 @@ class BardoSkillManager(
         if (!explicitUserApproval) {
             return@synchronized BardoSkillOperationResult(false, record, "Eliminar una skill requiere aprobación explícita.")
         }
+        val blockingDependents = records.values.filter { dependent ->
+            val dependentKey = recordKey(dependent.manifest.id, dependent.manifest.version)
+            dependentKey != key &&
+                dependent.lifecycle != BardoSkillLifecycle.REJECTED &&
+                dependent.manifest.dependencies.any { dependency ->
+                    dependency.skillId == skillId &&
+                        BardoSkillManifestValidator.compareVersions(version, dependency.minimumVersion) >= 0 &&
+                        missingDependencyHasNoAlternative(dependency, key)
+                }
+        }
+        if (blockingDependents.isNotEmpty()) {
+            return@synchronized BardoSkillOperationResult(
+                false, record,
+                "No se puede retirar: otras skills dependen de esta versión y no hay otra versión habilitada suficiente: " +
+                    blockingDependents.joinToString { it.manifest.id + "@" + it.manifest.version }
+            )
+        }
         val file = safePackageFile(record.installedPath)
         if (file.exists() && !file.delete()) {
             return@synchronized BardoSkillOperationResult(false, record, "No se pudo eliminar el paquete de skill.")
@@ -395,6 +421,20 @@ class BardoSkillManager(
                 lastTestVerifierId = null,
                 lastTestEvidenceRefs = emptyList(),
                 lastTestNote = "Paquete alterado o inaccesible tras la activación."
+            )
+            saveRegistry()
+            return@synchronized null
+        }
+        val missing = missingDependencies(record.manifest, key)
+        if (missing.isNotEmpty()) {
+            records[key] = record.copy(
+                lifecycle = BardoSkillLifecycle.DISABLED,
+                lastTestPassed = false,
+                lastUpdatedAtMillis = System.currentTimeMillis(),
+                lastTestVerifierId = null,
+                lastTestEvidenceRefs = emptyList(),
+                lastTestNote = "Dependencia retirada o deshabilitada: " +
+                    missing.joinToString { it.skillId + ">=" + it.minimumVersion }
             )
             saveRegistry()
             return@synchronized null
@@ -444,6 +484,26 @@ class BardoSkillManager(
         if (!child.exists()) check(child.mkdirs()) { "No se pudo crear $name." }
         require(child.isDirectory && !Files.isSymbolicLink(child.toPath()))
         return child
+    }
+
+    private fun missingDependencies(
+        manifest: BardoSkillManifest,
+        excludingRecordKey: String? = null
+    ): List<BardoSkillDependency> = manifest.dependencies.filter { dependency ->
+        missingDependencyHasNoAlternative(dependency, excludingRecordKey)
+    }
+
+    private fun missingDependencyHasNoAlternative(
+        dependency: BardoSkillDependency,
+        excludingRecordKey: String? = null
+    ): Boolean = records.values.none { candidate ->
+        val candidateKey = recordKey(candidate.manifest.id, candidate.manifest.version)
+        candidateKey != excludingRecordKey &&
+            candidate.manifest.id == dependency.skillId &&
+            candidate.lifecycle == BardoSkillLifecycle.ENABLED &&
+            BardoSkillManifestValidator.compareVersions(
+                candidate.manifest.version, dependency.minimumVersion
+            ) >= 0
     }
 
     private fun recordKey(id: String, version: String): String {
