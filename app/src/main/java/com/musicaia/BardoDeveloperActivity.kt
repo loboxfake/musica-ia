@@ -292,8 +292,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
         worker.execute {
             val result = runCatching {
                 val runtime = BardoSkillRuntimeFactory.create(applicationContext)
-                val registered = BardoCoreToolCatalog.create(applicationContext)
-                    .map { it.descriptor.id }.toSet()
+                val registered = runtime.registeredActionIds
                 val archive = openInput()?.use { input ->
                     BardoSkillArchiveReader.read(input, registered)
                 } ?: throw IllegalStateException("No se pudo abrir el paquete .bskill seleccionado.")
