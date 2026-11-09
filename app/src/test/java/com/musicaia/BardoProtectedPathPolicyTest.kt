@@ -61,7 +61,11 @@ class BardoProtectedPathPolicyTest {
             "app/src/main/java/com/musicaia/modelos/BardoModelProvider.kt",
             "app/src/main/java/com/musicaia/skills/BardoSkillManifest.kt",
             "app/src/main/java/com/musicaia/herramientas/BardoToolExecutor.kt",
-            "app/src/main/java/com/musicaia/evaluacion/BardoIndependentEvaluator.kt"
+            "app/src/main/java/com/musicaia/evaluacion/BardoIndependentEvaluator.kt",
+            "app/src/main/java/com/musicaia/evaluacion/BardoLocalCandidateEvidenceCollector.kt",
+            "app/src/main/java/com/musicaia/evaluacion/BardoCiEvidenceAdapter.kt",
+            "app/src/main/java/com/musicaia/skills/BardoSkillActivationGate.kt",
+            "app/src/main/java/com/musicaia/storage/BardoExportSourcePolicy.kt"
         )
         protected.forEach { path ->
             assertEquals(
