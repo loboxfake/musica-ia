@@ -38,7 +38,8 @@ class BardoIncrementalUpdatePolicyTest {
     @Test fun acceptsSmallModuleUpdateAndRequiresApkRebuild() {
         val result = BardoIncrementalUpdatePolicy.validate(validManifest())
         assertTrue(result.accepted)
-        assertFalse(result.requiresHumanReview)
+        assertTrue(result.requiresHumanReview)
+        assertFalse(result.requiresArchitectureReview)
         assertTrue(result.requiresFullApk)
         assertTrue(result.errors.isEmpty())
     }
@@ -73,6 +74,7 @@ class BardoIncrementalUpdatePolicyTest {
         )
         assertTrue(result.accepted)
         assertTrue(result.requiresHumanReview)
+        assertTrue(result.requiresArchitectureReview)
         assertTrue(result.requiresFullApk)
     }
 
@@ -93,5 +95,30 @@ class BardoIncrementalUpdatePolicyTest {
         assertFalse(result.accepted)
         assertTrue(result.errors.contains("CONFIGURATION_LEVEL_CONTAINS_CODE"))
         assertTrue(result.errors.contains("EVIDENCE_REFERENCE_INVALID"))
+    }
+    @Test fun blocksCrossPackageModuleChangesAndProtectedCoreFiles() {
+        val crossPackage = validManifest().copy(files = validManifest().files + BardoUpdateFile(
+            path = "app/src/main/java/com/musicaia/audio/Other.kt",
+            operation = BardoUpdateOperation.ADD,
+            previousSha256 = null,
+            targetSha256 = "e".repeat(64),
+            sizeBytes = 512
+        ))
+        val crossResult = BardoIncrementalUpdatePolicy.validate(crossPackage)
+        assertFalse(crossResult.accepted)
+        assertTrue(crossResult.errors.contains("MODULE_UPDATE_CROSSES_PACKAGES"))
+        val coreResult = BardoIncrementalUpdatePolicy.validate(
+            validManifest(path = "app/src/main/java/com/musicaia/seguridad/BardoAuthorityPolicy.kt")
+        )
+        assertFalse(coreResult.accepted)
+        assertTrue(coreResult.errors.any { it.startsWith("PROTECTED_PATH:") })
+    }
+
+    @Test fun rollbackReferenceMustUseTheInternalScheme() {
+        val result = BardoIncrementalUpdatePolicy.validate(
+            validManifest().copy(rollbackPlanRef = "https://example.invalid/rollback")
+        )
+        assertFalse(result.accepted)
+        assertTrue(result.errors.contains("ROLLBACK_PLAN_REFERENCE_INVALID"))
     }
 }
