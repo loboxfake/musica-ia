@@ -2,6 +2,7 @@ package com.musicaia.skills
 
 enum class BardoSkillPermission {
     READ_BARDO_DATA,
+    STUDY_LOCAL,
     WRITE_BARDO_WORKSPACE,
     NETWORK_ACCESS,
     GITHUB_ACTIONS,
@@ -57,7 +58,7 @@ object BardoSkillManifestValidator {
     private val actionPermissions = mapOf(
         "self_inventory.read" to setOf(BardoSkillPermission.READ_BARDO_DATA),
         "knowledge.search" to setOf(BardoSkillPermission.READ_BARDO_DATA),
-        "developer.audit_snapshot" to setOf(BardoSkillPermission.READ_BARDO_DATA),
+        "developer.audit_snapshot" to setOf(BardoSkillPermission.STUDY_LOCAL),
         "developer.ci_diagnostics" to setOf(BardoSkillPermission.READ_BARDO_DATA),
         "documents.read_imported" to setOf(BardoSkillPermission.READ_BARDO_DATA),
         "music.create_plan" to setOf(BardoSkillPermission.READ_BARDO_DATA),
