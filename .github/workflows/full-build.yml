@@ -9,6 +9,12 @@ concurrency:
 
 on:
   workflow_dispatch:
+    inputs:
+      publish_release:
+        description: Explicitly authorize publishing the signed APK as a GitHub Release
+        required: true
+        default: false
+        type: boolean
   push:
     branches:
       - main
@@ -360,8 +366,8 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Publish signed APK as a GitHub Release
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+      - name: Publish signed APK as a GitHub Release (explicit opt-in only)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.publish_release == true
         id: release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -408,7 +414,7 @@ jobs:
           echo "Verified: main is the only active branch. No legacy refs are deleted."
           
       - name: Report full offline APK release status
-        if: always() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        if: always() && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.publish_release == true
         uses: actions/github-script@v7
         with:
           script: |
