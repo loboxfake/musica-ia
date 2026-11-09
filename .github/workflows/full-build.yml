@@ -15,11 +15,6 @@ on:
         required: true
         default: false
         type: boolean
-  push:
-    branches:
-      - bardo/integral-autonomy-20261109
-    paths:
-      - .github/workflows/full-build.yml
 
 permissions:
   actions: write
@@ -28,13 +23,7 @@ permissions:
 
 jobs:
   full-build:
-    if: |
-      (github.event_name == 'workflow_dispatch' &&
-       github.ref == 'refs/heads/main' &&
-       inputs.publish_release == true) ||
-      (github.event_name == 'push' &&
-       github.ref == 'refs/heads/bardo/integral-autonomy-20261109' &&
-       contains(github.event.head_commit.message, '[build-unified-candidate]'))
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.publish_release == true
     runs-on: ubuntu-22.04
     timeout-minutes: 240
     steps:
