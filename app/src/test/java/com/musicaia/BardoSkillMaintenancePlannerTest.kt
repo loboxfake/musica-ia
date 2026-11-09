@@ -2,6 +2,7 @@ package com.musicaia
 
 import com.musicaia.skills.*
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BardoSkillMaintenancePlannerTest {
