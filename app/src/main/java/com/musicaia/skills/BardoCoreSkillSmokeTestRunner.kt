@@ -155,7 +155,13 @@ object BardoSkillRuntimeFactory {
             coreHandlers +
                 BardoSkillToolHandler(skillExecutor) +
                 BardoSkillWorkflowToolHandler(workflowExecutor) +
-                BardoSkillMaintenanceToolHandler(manager) { registeredActions }
+                BardoSkillMaintenanceToolHandler(manager) { registeredActions } +
+                BardoSkillDraftToolHandler(
+                    BardoSkillDraftBuilder(
+                        File(app.filesDir, "bardo_skill_drafts"),
+                        registeredActionIds = { registeredActions }
+                    )
+                )
         )
         return BardoSkillRuntime(
             manager = manager,
