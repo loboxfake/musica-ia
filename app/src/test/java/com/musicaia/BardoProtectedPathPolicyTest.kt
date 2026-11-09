@@ -79,6 +79,13 @@ class BardoProtectedPathPolicyTest {
         val protected = listOf(
             "app/src/main/java/com/musicaia/storage/BardoMobileFilePolicy.kt",
             "app/src/main/java/com/musicaia/storage/BardoSharedStorage.kt",
+            "app/src/main/java/com/musicaia/modelo/BardoModuleCatalog.kt",
+            "app/src/main/java/com/musicaia/modulos/DescargadorModelos.kt",
+            "app/src/main/java/com/musicaia/servicios/BardoTaskService.kt",
+            "app/src/main/java/com/musicaia/memoria/BardoActivityStore.kt",
+            "app/src/main/java/com/musicaia/memoria/BardoBackupManager.kt",
+            "app/src/main/java/com/musicaia/memoria/BardoKnowledgeStore.kt",
+            "app/src/main/java/com/musicaia/memoria/BardoConversationStore.kt",
             "app/src/main/java/com/musicaia/skills/BardoSkillManager.kt",
             "app/src/main/java/com/musicaia/skills/BardoSkillWorkflowExecutor.kt",
             "app/src/main/java/com/musicaia/skills/BardoSkillMaintenancePlanner.kt",
