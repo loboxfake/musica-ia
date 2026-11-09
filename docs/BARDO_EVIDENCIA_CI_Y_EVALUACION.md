@@ -45,9 +45,16 @@ El adaptador no emite ningún check de dispositivo. El pipeline solo devuelve `R
 
 ## Estado de integración
 
-La clase adaptadora y el pipeline tienen tests unitarios. En esta revisión todavía no se ha conectado su invocación al ciclo de `BardoDeveloperWorker` ni a una pantalla de promoción. No se presenta por tanto como un gate operativo automático ni como aprobación de candidaturas. Esa integración requiere revisar el flujo de desarrollo protegido y validar el consumo de la API con la credencial de repositorio del usuario.
+El productor de auditoría local ya se invoca en las dos rutas que preparan candidaturas:
 
-La creación del PR, su fusión y la publicación Release siguen siendo acciones separadas; este código no las ejecuta.
+- `BardoDeveloperWorker`, para propuestas creadas por el autoestudio en segundo plano.
+- `BardoDeveloperActivity.aplicarPropuesta()`, para propuestas aplicadas manualmente desde BARDO Developer.
+
+Ambas rutas mantienen el candidato en el workspace privado aunque falle la auditoría, pero solo guardan los datos habilitantes para GitHub cuando los cuatro checks locales están presentes exactamente una vez, todos pasan y sus referencias tienen formato/origen local válido. La pantalla vuelve a exigir el indicador persistido de auditoría superada antes de abrir la integración GitHub. La ausencia de evidencia o un error del productor bloquean el envío.
+
+El adaptador de CI y `BardoCandidateEvaluationPipeline` siguen teniendo tests unitarios, pero **su consulta API todavía no está conectada a la pantalla de promoción**. Tampoco hay todavía un productor operativo de evidencias físicas ni un gate que pueda declarar el dispositivo verificado. El gate local no se confunde con CI ni sustituye la revisión humana.
+
+La creación del PR, su fusión y la publicación Release siguen siendo acciones separadas. BARDO puede preparar una rama y un PR borrador, pero no fusiona ni publica una Release.
 
 
 ## Productor local de evidencias (código en revisión)
@@ -63,7 +70,7 @@ La creación del PR, su fusión y la publicación Release siguen siendo acciones
 
 Los tests usan un Modo3 sintético y un SHA de fixture; no alteran ni dependen del contenido privado real de Modo3. La prueba real de la huella fijada sigue dependiendo del snapshot íntegro que BARDO recibe del proyecto.
 
-El productor local también es un helper aditivo: todavía no está conectado al worker protegido ni a una UI de aprobación/promoción. Hasta que exista esa conexión, su implementación y tests no se presentan como un gate operativo del ciclo completo.
+El productor local está conectado a los dos flujos de preparación de candidaturas. El gate `isReadyForCiSubmission` exige exactamente los cuatro controles locales obligatorios, sin duplicados, todos superados y con procedencia local válida. La auditoría se refleja en el informe; un candidato que no pase se conserva para inspección privada, pero se borran los datos de envío y el botón GitHub permanece deshabilitado. Este gate habilita únicamente la petición de CI, no aprueba el parche ni demuestra compilación o funcionamiento en dispositivo.
 
 
 ## Integración de candidaturas y publicación
