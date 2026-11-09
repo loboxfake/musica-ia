@@ -67,12 +67,14 @@ object BardoLocalCandidateEvidenceCollector {
                     marker.readText(Charsets.UTF_8).trim().equals(baseSha, ignoreCase = true)
             }.getOrDefault(false)
 
-        val candidateInventory = if (candidateSafe) {
-            runCatching { listRegularFiles(input.candidateDirectory) }.getOrDefault(emptyList())
+        val candidateInventoryResult = if (candidateSafe) {
+            runCatching { listRegularFiles(input.candidateDirectory) }
         } else {
-            emptyList()
+            Result.failure(IllegalArgumentException("La carpeta candidata no es segura."))
         }
-        val pathsMatchCandidate = candidateSafe &&
+        val candidateInventoryValid = candidateInventoryResult.isSuccess
+        val candidateInventory = candidateInventoryResult.getOrDefault(emptyList())
+        val pathsMatchCandidate = candidateSafe && candidateInventoryValid &&
             candidateInventory.sorted() == input.changedFiles.sorted()
 
         val protectedPathsValid = runCatching {
@@ -102,7 +104,7 @@ object BardoLocalCandidateEvidenceCollector {
             it.substringAfterLast('/').equals("Modo3MezclaVozUsuario.kt", ignoreCase = true)
         }
         val modo3Unchanged = runCatching {
-            if (!snapshotSafe || !candidateSafe || modo3PathChanged ||
+            if (!snapshotSafe || !candidateSafe || !candidateInventoryValid || modo3PathChanged ||
                 !shaPattern.matches(expectedModo3BlobSha1)
             ) {
                 false
