@@ -124,8 +124,9 @@ object BardoSkillManifestValidator {
             errors += "Descripción ausente o demasiado larga."
         }
         val sourceUri = runCatching { URI(manifest.source) }.getOrNull()
-        val sourceIsHttps = sourceUri?.scheme.equals("https", ignoreCase = true) &&
-            sourceUri?.host?.isNotBlank() == true && sourceUri.rawUserInfo == null
+        val sourceIsHttps = sourceUri != null &&
+            sourceUri.scheme.equals("https", ignoreCase = true) &&
+            !sourceUri.host.isNullOrBlank() && sourceUri.rawUserInfo == null
         val sourceIsLocal = manifest.source.matches(Regex("^local://[A-Za-z0-9._/-]{1,160}$")) &&
             !manifest.source.contains("../") && !manifest.source.contains("/..")
         if ((!sourceIsHttps && !sourceIsLocal) || manifest.source.length > 1000) {
