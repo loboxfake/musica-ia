@@ -51,7 +51,7 @@ class BardoLocalCandidateEvidenceCollectorTest {
         check(source.parentFile!!.mkdirs())
         source.writeText("val value = 1\n")
         val modo3 = File(snapshot, modo3Path)
-        check(modo3.parentFile!!.mkdirs())
+        check(modo3.parentFile!!.isDirectory || modo3.parentFile!!.mkdirs())
         modo3.writeText("protected Modo3 fixture\n")
         val candidateResult = BardoPatchApplier.aplicar(snapshot, patch, workspace)
         val modo3Hash = gitBlobSha1(modo3)
