@@ -27,12 +27,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          artifact_id="13704884761"
-          source_run_id="42686779588"
-          source_head_sha="5d1ef445719732af0029df24d374558932e967e5"
-          expected_digest="sha256:004c964b8b2e3983a0b6c3a87d8ce6ef96e25125fa93632fdd6bc99ce63cfd3f"
+          artifact_id="13714846410"
+          source_run_id="42706354491"
+          source_head_sha="2d7bb4233675ea7f764f7ec199f06e568f3fb2be"
+          expected_digest="sha256:c8e561d5bb81896bd05324dcd091d33c31226e9615b71e8c1c81d384b9ecf547"
           metadata="$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id")"
-          test "$(printf '%s' "$metadata" | jq -r '.name')" = "bardo-unified-offline-arm64-candidate-2"
+          test "$(printf '%s' "$metadata" | jq -r '.name')" = "bardo-unified-offline-arm64-candidate-3"
           test "$(printf '%s' "$metadata" | jq -r '.expired')" = "false"
           test "$(printf '%s' "$metadata" | jq -r '.digest')" = "$expected_digest"
           test "$(printf '%s' "$metadata" | jq -r '.workflow_run.id')" = "$source_run_id"
@@ -48,7 +48,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p source
-          gh run download 42686779588 --repo "$GITHUB_REPOSITORY" --name bardo-unified-offline-arm64-candidate-2 --dir source
+          gh run download 42706354491 --repo "$GITHUB_REPOSITORY" --name bardo-unified-offline-arm64-candidate-3 --dir source
           python3 - source <<'PY'
           import hashlib, json, pathlib, sys
           root = pathlib.Path(sys.argv[1])
@@ -99,11 +99,11 @@ jobs:
           if not 1 <= len(chunks) <= 4 or any(item["size_bytes"] > chunk_bytes for item in chunks):
               raise SystemExit(f"UNSUPPORTED_APK_CHUNK_COUNT_OR_SIZE: {chunks}")
           manifest = {
-              "source_run_id": 42686779588,
-              "source_head_sha": "5d1ef445719732af0029df24d374558932e967e5",
-              "source_artifact_id": 13704884761,
-              "source_artifact_digest": "sha256:004c964b8b2e3983a0b6c3a87d8ce6ef96e25125fa93632fdd6bc99ce63cfd3f",
-              "apk_file_name": "BARDO-unified-offline-ARM64.apk",
+              "source_run_id": 42706354491,
+              "source_head_sha": "2d7bb4233675ea7f764f7ec199f06e568f3fb2be",
+              "source_artifact_id": 13714846410,
+              "source_artifact_digest": "sha256:c8e561d5bb81896bd05324dcd091d33c31226e9615b71e8c1c81d384b9ecf547",
+              "apk_file_name": "BARDO-unified-offline-ARM64-candidate-3.apk",
               "apk_size_bytes": apk.stat().st_size,
               "apk_sha256": actual,
               "chunks": chunks
