@@ -35,7 +35,8 @@ class BardoCiEvidenceAdapterTest {
         workflowPath: String = ".github/workflows/bardo-validation.yml@refs/pull/3/merge",
         repository: String = BardoCiEvidenceAdapter.REPOSITORY,
         headRepository: String = BardoCiEvidenceAdapter.REPOSITORY,
-        branch: String = "bardo/integral-autonomy-20261109"
+        branch: String = "bardo/integral-autonomy-20261109",
+        event: String = "pull_request"
     ) = JSONObject()
         .put("id", runId)
         .put("run_number", runNumber)
@@ -44,7 +45,7 @@ class BardoCiEvidenceAdapterTest {
         .put("conclusion", conclusion)
         .put("path", workflowPath)
         .put("head_branch", branch)
-        .put("event", "pull_request")
+        .put("event", event)
         .put("html_url", "https://github.com/" + BardoCiEvidenceAdapter.REPOSITORY + "/actions/runs/" + runId)
         .put("repository", JSONObject().put("full_name", repository))
         .put("head_repository", JSONObject().put("full_name", headRepository))
@@ -113,6 +114,16 @@ class BardoCiEvidenceAdapterTest {
             evidenceRef = "bardo-audit://test/session/" + check.name.lowercase().replace('_', '-'),
             origin = BardoEvidenceOrigin.LOCAL_AUDIT
         )
+    }
+
+    @Test
+    fun acceptsSuccessfulCandidateBranchValidationDispatchedByTheTrustedPrWorkflow() {
+        val result = collect(run = run(event = "workflow_dispatch"))
+        assertEquals(BardoCiEvidenceState.CI_PASSED, result.state)
+        assertTrue(result.evidence.all { it.passed })
+        assertTrue(result.evidence.all {
+            it.evidenceRef == "https://github.com/loboxfake/musica-ia/actions/runs/" + runId
+        })
     }
 
     @Test
