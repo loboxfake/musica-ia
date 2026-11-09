@@ -1,6 +1,7 @@
 package com.musicaia
 
 import com.musicaia.evaluacion.BardoCheck
+import com.musicaia.evaluacion.BardoCheckEvidence
 import com.musicaia.evaluacion.BardoCiEvidenceAdapter
 import com.musicaia.evaluacion.BardoCiEvidenceState
 import com.musicaia.evaluacion.BardoIndependentEvaluator
@@ -94,6 +95,21 @@ class BardoCiEvidenceAdapterTest {
         artifacts: JSONObject = artifacts(),
         expectedSha: String = sha
     ) = BardoCiEvidenceAdapter.collect(run, jobs, artifacts, expectedSha)
+
+    private fun localAuditEvidence() = listOf(
+        BardoCheck.SOURCE_BASE_CURRENT,
+        BardoCheck.PATCH_INTEGRITY,
+        BardoCheck.PROTECTED_PATHS,
+        BardoCheck.MODO3_HASH_UNCHANGED
+    ).map { check ->
+        BardoCheckEvidence(
+            check = check,
+            passed = true,
+            detail = "local audit verified " + check.name,
+            evidenceRef = "bardo-audit://test/session/" + check.name.lowercase().replace('_', '-'),
+            origin = BardoEvidenceOrigin.LOCAL_AUDIT
+        )
+    }
 
     @Test
     fun acceptsOnlyTheExactSuccessfulWorkflowAndArtifactForTheCommit() {
@@ -193,7 +209,7 @@ class BardoCiEvidenceAdapterTest {
     @Test
     fun successfulCiIsOnlyReadyForHumanReviewAndNeverDeviceVerified() {
         val result = BardoCandidateEvaluationPipeline.evaluate(
-            run(), jobs(), artifacts(), sha, emptyList()
+            run(), jobs(), artifacts(), sha, localAuditEvidence()
         )
         assertEquals(BardoCiEvidenceState.CI_PASSED, result.ci.state)
         assertEquals(BardoEvaluationStatus.READY_FOR_HUMAN_REVIEW, result.report?.status)
