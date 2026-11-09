@@ -543,10 +543,20 @@ class BardoDeveloperActivity : AppCompatActivity() {
                 } else {
                     "\n\nBARDO intentará mover el elemento a su carpeta Papelera. Si el proveedor SAF no permite moverlo, no lo eliminará."
                 }
-                AlertDialog.Builder(this)
+                val identitySummary = buildString {
+                    append("Elemento: ").append(request.name ?: "no disponible")
+                    append("\nTipo: ").append(request.mimeType ?: "desconocido")
+                    request.sizeBytes?.let { append("\nTamaño: ").append(it).append(" bytes") }
+                    if (request.documentId.isNullOrBlank()) {
+                        append("\n\nEsta solicitud antigua no conserva la identidad SAF del documento. ")
+                        append("No puede aprobarse; recházala y crea una nueva solicitud si sigue siendo necesaria.")
+                    }
+                }
+                val confirmation = AlertDialog.Builder(this)
                     .setTitle("Confirmación del usuario")
                     .setMessage(
                         action + "\n\nRuta: Descargas/BARDO/" + request.relativePath +
+                            "\n\n" + identitySummary +
                             "\n\nMotivo indicado por BARDO: " + request.reason + warning
                     )
                     .setPositiveButton(if (request.permanent) "Eliminar permanentemente" else "Mover a Papelera") { _, _ ->
@@ -572,7 +582,12 @@ class BardoDeveloperActivity : AppCompatActivity() {
                         }
                     }
                     .setNeutralButton("Cancelar", null)
-                    .show()
+                    .create()
+                confirmation.setOnShowListener {
+                    confirmation.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled =
+                        !request.documentId.isNullOrBlank()
+                }
+                confirmation.show()
             }
             .setNegativeButton("Cerrar", null)
             .show()
