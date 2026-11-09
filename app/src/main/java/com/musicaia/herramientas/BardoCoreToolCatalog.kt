@@ -135,15 +135,19 @@ object BardoCoreToolCatalog {
             object : BardoToolHandler {
                 override val descriptor = BardoToolDescriptor(
                     "mobile_files.read",
-                    "Lee texto UTF-8 de un archivo pequeño dentro de Descargas/BARDO; nunca lee modelos ni audio binario.",
+                    "Lee un tramo UTF-8 de un archivo de texto en Descargas/BARDO. Argumentos: path, offset_chars opcional, max_chars opcional (máximo 24000). No carga el archivo completo ni lee modelos/audio binario.",
                     BardoPermissionScope.READ_BARDO_DATA,
-                    maxArguments = 1,
+                    maxArguments = 3,
                     maxValueChars = 512
                 )
                 override fun execute(arguments: Map<String, String>): BardoToolOutput {
                     val path = arguments["path"].orEmpty()
                     require(path.isNotBlank()) { "Falta path." }
-                    return BardoToolOutput(true, BardoSharedStorage.readText(app, path))
+                    val offset = arguments["offset_chars"]?.toIntOrNull() ?: 0
+                    val maxChars = arguments["max_chars"]?.toIntOrNull()
+                        ?: BardoSharedStorage.MAX_READ_CHUNK_CHARS
+                    val content = BardoSharedStorage.readTextRange(app, path, offset, maxChars)
+                    return BardoToolOutput(true, content)
                 }
             },
             object : BardoToolHandler {
@@ -208,7 +212,7 @@ object BardoCoreToolCatalog {
                     "Crea un archivo de texto UTF-8 dentro de Descargas/BARDO y verifica su lectura tras escribirlo.",
                     BardoPermissionScope.MANAGE_BARDO_WORKSPACE,
                     maxArguments = 2,
-                    maxValueChars = 30_000
+                    maxValueChars = BardoSharedStorage.MAX_WRITE_TEXT_CHARS + 512
                 )
                 override fun execute(arguments: Map<String, String>): BardoToolOutput {
                     val path = arguments["path"].orEmpty()
