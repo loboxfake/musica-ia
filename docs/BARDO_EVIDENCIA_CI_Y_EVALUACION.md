@@ -48,3 +48,19 @@ El adaptador no emite ningún check de dispositivo. El pipeline solo devuelve `R
 La clase adaptadora y el pipeline tienen tests unitarios. En esta revisión todavía no se ha conectado su invocación al ciclo de `BardoDeveloperWorker` ni a una pantalla de promoción. No se presenta por tanto como un gate operativo automático ni como aprobación de candidaturas. Esa integración requiere revisar el flujo de desarrollo protegido y validar el consumo de la API con la credencial de repositorio del usuario.
 
 La creación del PR, su fusión y la publicación Release siguen siendo acciones separadas; este código no las ejecuta.
+
+
+## Productor local de evidencias (código en revisión)
+
+`BardoLocalCandidateEvidenceCollector` añade una verificación local de solo lectura sobre el snapshot y el candidato:
+
+- Comprueba que snapshot y candidato son carpetas directas del workspace privado y rechaza enlaces simbólicos.
+- Contrasta `BARDO_SOURCE_COMMIT.txt` con el SHA de base proporcionado.
+- Comprueba que el inventario exacto del candidato coincide con las rutas declaradas y con la política de edición autónoma.
+- Reaplica el diff a un segundo candidato temporal y compara SHA-256 de los ficheros afectados con el candidato original.
+- Calcula el Git-blob SHA-1 real de Modo3 desde el snapshot y comprueba que esa ruta no está en el candidato ni en el diff.
+- Limita recorrido, profundidad, número/tamaño de archivos y elimina la copia temporal tras la comparación.
+
+Los tests usan un Modo3 sintético y un SHA de fixture; no alteran ni dependen del contenido privado real de Modo3. La prueba real de la huella fijada sigue dependiendo del snapshot íntegro que BARDO recibe del proyecto.
+
+El productor local también es un helper aditivo: todavía no está conectado al worker protegido ni a una UI de aprobación/promoción. Hasta que exista esa conexión, su implementación y tests no se presentan como un gate operativo del ciclo completo.
