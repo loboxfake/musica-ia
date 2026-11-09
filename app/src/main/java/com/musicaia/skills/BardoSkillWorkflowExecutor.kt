@@ -22,6 +22,19 @@ data class BardoSkillWorkflowReport(
     val summary: String
 )
 
+/** Resultado de una inspección estática. No ejecuta acciones del catálogo. */
+data class BardoSkillWorkflowInspection(
+    val skillId: String,
+    val version: String,
+    val succeeded: Boolean,
+    val stepCount: Int,
+    val actionIds: List<String>,
+    val requiredInputs: Set<String>,
+    val packageSha256: String?,
+    val error: String?,
+    val summary: String
+)
+
 /**
  * Interpreta paquetes JSON declarativos como secuencias de acciones ya registradas.
  * No carga scripts, bytecode, bibliotecas ni comandos del paquete.
@@ -31,6 +44,62 @@ class BardoSkillWorkflowExecutor(
     private val tools: BardoToolExecutor,
     private val nowMillis: () -> Long = System::currentTimeMillis
 ) {
+    /**
+     * Valida el paquete habilitado y describe lo que haría, sin invocar ninguna herramienta.
+     * findEnabled vuelve a comprobar el tamaño y SHA-256 del paquete persistido.
+     */
+    fun inspect(skillId: String, version: String): BardoSkillWorkflowInspection {
+        val enabled = try {
+            manager.findEnabled(skillId, version)
+        } catch (error: Exception) {
+            return inspectionFailure(
+                skillId, version,
+                error.message ?: "No se pudo recuperar la skill."
+            )
+        } ?: return inspectionFailure(
+            skillId, version,
+            "La skill no está habilitada o su integridad no es válida."
+        )
+
+        val packageFile = enabled.installedPath?.let(::File)
+            ?: return inspectionFailure(skillId, version, "La skill no tiene paquete instalado.")
+
+        val steps = try {
+            parseWorkflow(packageFile, enabled.manifest.actions)
+        } catch (error: Exception) {
+            return inspectionFailure(
+                skillId, version,
+                "El paquete no supera la inspección: " +
+                    (error.message ?: error.javaClass.simpleName).take(MAX_ERROR_CHARS)
+            )
+        }
+
+        val requiredInputs = try {
+            collectRequiredInputs(steps)
+        } catch (error: Exception) {
+            return inspectionFailure(
+                skillId, version,
+                "Las entradas del workflow no son válidas: " +
+                    (error.message ?: error.javaClass.simpleName).take(MAX_ERROR_CHARS)
+            )
+        }
+
+        return BardoSkillWorkflowInspection(
+            skillId = skillId,
+            version = version,
+            succeeded = true,
+            stepCount = steps.size,
+            actionIds = steps.map { it.actionId }.distinct(),
+            requiredInputs = requiredInputs,
+            packageSha256 = enabled.manifest.packageSha256,
+            error = null,
+            summary = "Workflow válido: ${steps.size} pasos; acciones=" +
+                steps.map { it.actionId }.distinct().joinToString() +
+                "; entradas requeridas=" + requiredInputs.sorted().joinToString() +
+                ". No se ejecutó ninguna acción."
+        )
+    }
+
     fun execute(
         skillId: String,
         version: String,
@@ -55,11 +124,15 @@ class BardoSkillWorkflowExecutor(
                     (error.message ?: error.javaClass.simpleName).take(MAX_ERROR_CHARS)
             )
         }
-        val requiredInputs = steps.flatMap { step ->
-            step.arguments.values.mapNotNull { value ->
-                INPUT_TOKEN.matchEntire(value)?.groupValues?.get(1)
-            }
-        }.toSet()
+        val requiredInputs = try {
+            collectRequiredInputs(steps)
+        } catch (error: Exception) {
+            return failure(
+                skillId, version, 0, emptyList(),
+                "Las entradas del workflow no son válidas: " +
+                    (error.message ?: error.javaClass.simpleName).take(MAX_ERROR_CHARS)
+            )
+        }
         if (inputs.keys != requiredInputs) {
             val missing = requiredInputs - inputs.keys
             val unused = inputs.keys - requiredInputs
@@ -172,6 +245,49 @@ class BardoSkillWorkflowExecutor(
         }
         return result
     }
+
+    /**
+     * Prevalida los marcadores de todos los pasos antes de ejecutar el primero.
+     * Así, un error en un paso posterior no deja acciones anteriores ejecutadas parcialmente.
+     */
+    private fun collectRequiredInputs(steps: List<BardoSkillWorkflowStep>): Set<String> {
+        val required = linkedSetOf<String>()
+        for (step in steps) {
+            for (value in step.arguments.values) {
+                val matches = INPUT_TOKEN.findAll(value).toList()
+                if (matches.isEmpty()) {
+                    require(!value.contains("{{") && !value.contains("}}")) {
+                        "Marcador de entrada mal formado."
+                    }
+                } else {
+                    require(matches.size == 1 && matches.single().value == value) {
+                        "Solo se permite un marcador de entrada completo por valor."
+                    }
+                    required += matches.single().groupValues[1]
+                }
+            }
+        }
+        require(required.size <= MAX_INPUTS) {
+            "El workflow declara demasiadas entradas."
+        }
+        return required
+    }
+
+    private fun inspectionFailure(
+        skillId: String,
+        version: String,
+        error: String
+    ) = BardoSkillWorkflowInspection(
+        skillId = skillId,
+        version = version,
+        succeeded = false,
+        stepCount = 0,
+        actionIds = emptyList(),
+        requiredInputs = emptySet(),
+        packageSha256 = null,
+        error = error.take(MAX_ERROR_CHARS),
+        summary = "Inspección rechazada; no se ejecutó ninguna acción."
+    )
 
     private fun resolveInput(value: String, inputs: Map<String, String>): String {
         val matcher = INPUT_TOKEN.findAll(value).toList()
