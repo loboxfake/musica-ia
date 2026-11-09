@@ -45,7 +45,7 @@ class BardoFileAuthorityLedger(private val directory: File) :
             if (expiry > nowMillis) fields[0] to expiry else null
         }.toMutableList()
 
-        if (entries.any { it.first == requestId }) return@synchronized false
+        if (entries.any { it.first == requestId }) return@withLock false
         entries += requestId to expiresAtMillis
         require(entries.size <= MAX_ACTIVE_NONCES) {
             "El ledger alcanzó el límite de peticiones activas; se bloquea por seguridad."
@@ -54,14 +54,14 @@ class BardoFileAuthorityLedger(private val directory: File) :
         true
     }
 
-    override fun isRevoked(grantId: String): Boolean = synchronized(processLock) {
+    override fun isRevoked(grantId: String): Boolean = processLock.withLock {
         require(grantId.matches(Regex("^[A-Za-z0-9_-]{16,80}$"))) {
             "Identificador de delegación no válido."
         }
         readLinesStrict(safeFile(REVOCATION_FILE)).contains(grantId)
     }
 
-    fun revokeGrant(grantId: String) = synchronized(processLock) {
+    fun revokeGrant(grantId: String) = processLock.withLock {
         require(grantId.matches(Regex("^[A-Za-z0-9_-]{16,80}$"))) {
             "Identificador de delegación no válido."
         }
