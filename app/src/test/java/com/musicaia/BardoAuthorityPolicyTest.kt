@@ -114,6 +114,26 @@ class BardoAuthorityPolicyTest {
         ).allowed)
     }
 
+    @Test fun highImpactGovernanceScopesCannotBeDelegatedToJarvis() {
+        val protectedScopes = listOf(
+            BardoPermissionScope.MERGE_MAIN,
+            BardoPermissionScope.MODIFY_MODO3,
+            BardoPermissionScope.MODIFY_PROTECTED_CORE,
+            BardoPermissionScope.CHANGE_AUTHORITY_POLICY,
+            BardoPermissionScope.MANAGE_DELEGATIONS
+        )
+        protectedScopes.forEach { scope ->
+            val decision = BardoAuthorityPolicy.authorize(
+                principal = BardoPrincipal.JARVIS,
+                scope = scope,
+                payload = "explicitly delegated but disallowed",
+                nowMillis = System.currentTimeMillis()
+            )
+            assertFalse(decision.allowed)
+            assertTrue(decision.reason.contains("directa del usuario"))
+        }
+    }
+
     @Test fun bardoCanOnlyPerformItsSmallAutonomousSafeSet() {
         assertTrue(BardoAuthorityPolicy.authorize(
             BardoPrincipal.BARDO,

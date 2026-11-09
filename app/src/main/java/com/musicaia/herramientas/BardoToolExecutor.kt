@@ -82,6 +82,12 @@ class BardoToolExecutor(
     }
 
     fun execute(request: BardoToolRequest, nowMillis: Long): BardoToolOutput {
+        if (request.principal == BardoPrincipal.USER) {
+            return blocked(
+                "Una confirmación directa del usuario debe originarse en la interfaz; " +
+                    "no se acepta como identidad dentro de una solicitud de herramienta."
+            )
+        }
         val handler = handlersById[request.toolId]
             ?: return blocked("La herramienta no está registrada: " + request.toolId)
         val descriptor = handler.descriptor

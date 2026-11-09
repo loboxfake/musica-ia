@@ -53,6 +53,21 @@ class BardoToolExecutorTest {
         assertFalse(result.succeeded)
     }
 
+    @Test fun toolRequestCannotSpoofDirectUserConfirmation() {
+        val executor = BardoToolExecutor(listOf(EchoTool()))
+        val result = executor.execute(
+            BardoToolRequest(
+                "test.echo",
+                mapOf("value" to "must-not-run"),
+                BardoPrincipal.USER,
+                explicitUserConfirmation = true
+            ),
+            100L
+        )
+        assertFalse(result.succeeded)
+        assertTrue(result.error.orEmpty().contains("interfaz"))
+    }
+
     @Test fun bardoCannotRunPrivilegedGithubAction() {
         val executor = BardoToolExecutor(listOf(
             EchoTool(scope = BardoPermissionScope.CREATE_PULL_REQUEST)

@@ -161,6 +161,17 @@ object BardoAuthorityPolicy {
             )
         }
 
+        val userOnlyScopes = setOf(
+            BardoPermissionScope.MERGE_MAIN,
+            BardoPermissionScope.MODIFY_PROTECTED_CORE,
+            BardoPermissionScope.MODIFY_MODO3,
+            BardoPermissionScope.CHANGE_AUTHORITY_POLICY,
+            BardoPermissionScope.MANAGE_DELEGATIONS
+        )
+        if (scope in userOnlyScopes) {
+            return denied("Esta operación exige una acción directa del usuario y no puede delegarse a JARVIS.")
+        }
+
         val g = grant ?: return denied("Falta la delegación firmada por el usuario.")
         val r = request ?: return denied("Falta la petición firmada de JARVIS.")
         val userKey = pairedUserPublicKeyX509 ?: return denied("No hay clave pública de usuario emparejada.")
