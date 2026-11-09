@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
 import java.io.File
+import java.io.InputStreamReader
 import java.util.UUID
 import org.json.JSONArray
 import org.json.JSONObject
@@ -190,50 +191,96 @@ object BardoSharedStorage {
         return result.sortedWith(compareBy<BardoMobileFileEntry> { !it.isDirectory }.thenBy { it.name.lowercase() })
     }
 
-    /** Lee solo texto acotado; nunca carga WAV, MP3, modelos ni binarios en memoria. */
-    fun readText(context: Context, relativePath: String): String {
+    /** Lectura UTF-8 por tramos; los archivos grandes no se cargan completos en RAM. */
+    fun readText(
+        context: Context,
+        relativePath: String
+    ): String = readTextRange(context, relativePath, 0, MAX_READ_CHUNK_CHARS)
+
+    fun readTextRange(
+        context: Context,
+        relativePath: String,
+        offsetChars: Int = 0,
+        maxChars: Int = MAX_READ_CHUNK_CHARS
+    ): String {
+        require(offsetChars in 0..MAX_READ_OFFSET_CHARS) { "El desplazamiento supera el límite permitido." }
+        require(maxChars in 1..MAX_READ_CHUNK_CHARS) { "El tramo debe contener entre 1 y $MAX_READ_CHUNK_CHARS caracteres." }
         val decision = BardoMobileFilePolicy.authorize(BardoMobileFileOperation.READ, relativePath)
         require(decision.allowed) { decision.reason }
         val loc = location(context) ?: throw IllegalStateException("No existe permiso SAF para BARDO.")
         val (uri, _) = resolveEntry(context, loc, decision.normalizedPath!!)
         val info = metadata(context, uri) ?: throw IllegalStateException("No se pudo consultar el archivo.")
         require(!info.isDirectory) { "La ruta apunta a una carpeta, no a un archivo." }
-        require(info.sizeBytes == null || info.sizeBytes in 0L..BardoMobileFilePolicy.MAX_TEXT_READ_BYTES) {
-            "El archivo supera el máximo de 48 KiB para lectura de texto."
-        }
         require(isTextMime(info.mimeType, info.name)) { "BARDO solo lee texto UTF-8 desde esta herramienta." }
-        val bytes = context.contentResolver.openInputStream(uri)?.use { input ->
-            val output = java.io.ByteArrayOutputStream()
-            val buffer = ByteArray(8192)
-            var total = 0L
-            while (true) {
-                val count = input.read(buffer)
-                if (count < 0) break
-                total += count
-                require(total <= BardoMobileFilePolicy.MAX_TEXT_READ_BYTES) {
-                    "El archivo supera el máximo de 48 KiB para lectura de texto."
+        val input = context.contentResolver.openInputStream(uri)
+            ?: throw IllegalStateException("No se pudo abrir el documento SAF.")
+        return input.use { stream ->
+            InputStreamReader(stream, Charsets.UTF_8).buffered().use { reader ->
+                var remaining = offsetChars.toLong()
+                while (remaining > 0L) {
+                    val skipped = reader.skip(remaining)
+                    if (skipped > 0L) {
+                        remaining -= skipped
+                    } else {
+                        if (reader.read() < 0) return@use ""
+                        remaining--
+                    }
                 }
-                output.write(buffer, 0, count)
+                val result = StringBuilder(minOf(maxChars, 4096))
+                val buffer = CharArray(minOf(maxChars, 4096))
+                var total = 0
+                while (total < maxChars) {
+                    val count = reader.read(buffer, 0, minOf(buffer.size, maxChars - total))
+                    if (count < 0) break
+                    if (count == 0) continue
+                    result.append(buffer, 0, count)
+                    total += count
+                }
+                result.toString()
             }
-            output.toByteArray()
-        } ?: throw IllegalStateException("No se pudo abrir el documento SAF.")
-        return bytes.toString(Charsets.UTF_8)
+        }
     }
 
+    /** Crea toda la ruta anidada; reutiliza solo los directorios ya existentes. */
     fun createDirectory(context: Context, relativePath: String): String {
         val decision = BardoMobileFilePolicy.authorize(BardoMobileFileOperation.CREATE_DIRECTORY, relativePath)
         require(decision.allowed) { decision.reason }
         val loc = location(context) ?: throw IllegalStateException("No existe permiso SAF para BARDO.")
         val normalized = decision.normalizedPath!!
         val segments = normalized.split('/')
-        val parentPath = segments.dropLast(1).joinToString("/")
-        val name = validateName(segments.last(), allowExtension = true)
-        val parent = resolveDirectory(context, loc, parentPath)
-        require(findChild(context, loc, parent, name, null) == null) { "Ya existe BARDO/$normalized." }
-        DocumentsContract.createDocument(
-            context.contentResolver, parent, DocumentsContract.Document.MIME_TYPE_DIR, name
-        ) ?: throw IllegalStateException("El proveedor SAF no pudo crear la carpeta.")
-        recordAudit(context, "CREATE_DIRECTORY", normalized, "SUCCESS")
+        var parent = loc.root
+        var traversed = ""
+        segments.forEachIndexed { index, rawName ->
+            val name = validateName(rawName, allowExtension = true)
+            traversed = if (traversed.isEmpty()) name else "$traversed/$name"
+            val existing = findChild(context, loc, parent, name, null)
+            if (index < segments.lastIndex) {
+                if (existing != null) {
+                    val info = metadata(context, existing)
+                    require(info?.isDirectory == true) {
+                        "La ruta BARDO/$traversed ya existe como archivo."
+                    }
+                    parent = existing
+                } else {
+                    parent = DocumentsContract.createDocument(
+                        context.contentResolver,
+                        parent,
+                        DocumentsContract.Document.MIME_TYPE_DIR,
+                        name
+                    ) ?: throw IllegalStateException("El proveedor SAF no pudo crear BARDO/$traversed.")
+                    recordAudit(context, "CREATE_DIRECTORY", traversed, "SUCCESS")
+                }
+            } else {
+                require(existing == null) { "Ya existe BARDO/$traversed." }
+                DocumentsContract.createDocument(
+                    context.contentResolver,
+                    parent,
+                    DocumentsContract.Document.MIME_TYPE_DIR,
+                    name
+                ) ?: throw IllegalStateException("El proveedor SAF no pudo crear BARDO/$traversed.")
+                recordAudit(context, "CREATE_DIRECTORY", traversed, "SUCCESS")
+            }
+        }
         return normalized
     }
 
@@ -578,7 +625,9 @@ object BardoSharedStorage {
     }
 
     const val MAX_LIST_ENTRIES = 1000
-    const val MAX_WRITE_TEXT_CHARS = 28_000
+    const val MAX_WRITE_TEXT_CHARS = 24_000
+    const val MAX_READ_CHUNK_CHARS = 24_000
+    const val MAX_READ_OFFSET_CHARS = 10_000_000
     const val MAX_PENDING_DELETE_REQUESTS = 100
     const val MAX_DELETE_REASON_CHARS = 500
     const val TRASH_DIRECTORY = "Papelera"
