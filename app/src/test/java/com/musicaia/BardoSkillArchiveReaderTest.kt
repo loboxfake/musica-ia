@@ -33,7 +33,13 @@ class BardoSkillArchiveReaderTest {
     private fun archive(
         workflow: ByteArray = workflow(),
         extraEntry: Pair<String, ByteArray>? = null,
-        declaredHash: String = sha256(workflow)
+        declaredHash: String = sha256(workflow),
+        declaredSize: Int = workflow.size,
+        manifestEntryName: String = "manifest.json",
+        workflowEntryName: String = "workflow.json",
+        packageKind: String = "DECLARATIVE_TOOLCHAIN",
+        includeManifest: Boolean = true,
+        includeWorkflow: Boolean = true
     ): ByteArray {
         val manifest = JSONObject()
             .put("id", "skill.example")
@@ -45,19 +51,20 @@ class BardoSkillArchiveReaderTest {
             .put("source", "local://unit-test")
             .put("license", "Apache-2.0")
             .put("package_sha256", declaredHash)
-            .put("package_size_bytes", workflow.size)
-            .put("kind", "DECLARATIVE_TOOLCHAIN")
+            .put("package_size_bytes", declaredSize)
+            .put("kind", packageKind)
             .put("actions", JSONArray().put("knowledge.search"))
             .put("permissions", JSONArray().put("READ_BARDO_DATA"))
+        val entries = buildList {
+            if (includeManifest) {
+                add(manifestEntryName to manifest.toString().toByteArray(Charsets.UTF_8))
+            }
+            if (includeWorkflow) add(workflowEntryName to workflow)
+            extraEntry?.let { add(it) }
+        }
         val output = ByteArrayOutputStream()
         ZipOutputStream(output).use { zip ->
-            zip.putNextEntry(ZipEntry("manifest.json"))
-            zip.write(manifest.toString().toByteArray(Charsets.UTF_8))
-            zip.closeEntry()
-            zip.putNextEntry(ZipEntry("workflow.json"))
-            zip.write(workflow)
-            zip.closeEntry()
-            extraEntry?.let { (name, bytes) ->
+            entries.forEach { (name, bytes) ->
                 zip.putNextEntry(ZipEntry(name))
                 zip.write(bytes)
                 zip.closeEntry()
@@ -101,6 +108,58 @@ class BardoSkillArchiveReaderTest {
             BardoSkillArchiveReader.read(ByteArrayInputStream(bytes), actions)
         }
         assertTrue(result.isFailure)
+    }
+
+    @Test fun rejectsPathTraversalEntryNames() {
+        val bytes = archive(manifestEntryName = "../manifest.json")
+        val result = runCatching {
+            BardoSkillArchiveReader.read(ByteArrayInputStream(bytes), actions)
+        }
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull()?.message.orEmpty().contains("Entrada no permitida"))
+    }
+
+    @Test fun rejectsDirectoryEntriesInsteadOfTreatingThemAsPackageFiles() {
+        val bytes = archive(workflowEntryName = "workflow.json/")
+        val result = runCatching {
+            BardoSkillArchiveReader.read(ByteArrayInputStream(bytes), actions)
+        }
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull()?.message.orEmpty().contains("directorios"))
+    }
+
+    @Test fun rejectsArchivesMissingEitherRequiredEntry() {
+        val withoutManifest = archive(includeManifest = false)
+        val withoutWorkflow = archive(includeWorkflow = false)
+
+        val manifestResult = runCatching {
+            BardoSkillArchiveReader.read(ByteArrayInputStream(withoutManifest), actions)
+        }
+        val workflowResult = runCatching {
+            BardoSkillArchiveReader.read(ByteArrayInputStream(withoutWorkflow), actions)
+        }
+
+        assertTrue(manifestResult.isFailure)
+        assertTrue(manifestResult.exceptionOrNull()?.message.orEmpty().contains("Falta manifest.json"))
+        assertTrue(workflowResult.isFailure)
+        assertTrue(workflowResult.exceptionOrNull()?.message.orEmpty().contains("Falta workflow.json"))
+    }
+
+    @Test fun rejectsDeclaredWorkflowSizeMismatchAndExecutablePackageKind() {
+        val wrongSize = archive(declaredSize = workflow().size + 1)
+        val executable = archive(packageKind = "EXECUTABLE_CODE")
+
+        val sizeResult = runCatching {
+            BardoSkillArchiveReader.read(ByteArrayInputStream(wrongSize), actions)
+        }
+        val executableResult = runCatching {
+            BardoSkillArchiveReader.read(ByteArrayInputStream(executable), actions)
+        }
+
+        assertTrue(sizeResult.isFailure)
+        assertTrue(sizeResult.exceptionOrNull()?.message.orEmpty().contains("package_size_bytes"))
+        assertTrue(executableResult.isFailure)
+        assertTrue(executableResult.exceptionOrNull()?.message.orEmpty().contains("código ejecutable"))
     }
 
     @Test fun validatorRejectsActionsNotDeclaredAndUnregistered() {
