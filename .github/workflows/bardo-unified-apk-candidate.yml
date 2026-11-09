@@ -97,10 +97,10 @@ jobs:
         run: |
           set -euo pipefail
           artifact_name="stable-audio-open-small-executorch"
-          export_run_id="42479433866"
-          export_head_sha="f1d3f8074691023b2c4526c895afab9f11e35260"
-          artifact_id="13616388944"
-          expected_digest="sha256:79b9edd3b130d4dc03167f99bac53edbada52c5081e249ef69286fbc66354e64"
+          export_run_id="42700052867"
+          export_head_sha="b0c9fc6998594b2f58cd8392dd65d8d4a593d4bb"
+          artifact_id="13713725273"
+          expected_digest="sha256:c0e6773df66ceedca06dc694239a79ad559ff372a3193e05e063f9a6d11d9c1a"
           metadata="$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id")"
           test "$(printf '%s' "$metadata" | jq -r '.name')" = "$artifact_name"
           test "$(printf '%s' "$metadata" | jq -r '.expired')" = "false"
