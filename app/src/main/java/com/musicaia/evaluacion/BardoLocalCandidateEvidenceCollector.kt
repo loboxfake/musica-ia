@@ -231,6 +231,35 @@ object BardoLocalCandidateEvidenceCollector {
         return result
     }
 
+    private val requiredLocalChecks = setOf(
+        BardoCheck.SOURCE_BASE_CURRENT,
+        BardoCheck.PATCH_INTEGRITY,
+        BardoCheck.PROTECTED_PATHS,
+        BardoCheck.MODO3_HASH_UNCHANGED
+    )
+
+    /**
+     * Único gate local que habilita el envío de un candidato a CI.
+     * Exige exactamente los cuatro checks locales, todos superados y con
+     * procedencia local válida. No acepta checks adicionales, duplicados
+     * ni evidencia aportada por un modelo o por GitHub.
+     */
+    fun isReadyForCiSubmission(evidence: List<BardoCheckEvidence>): Boolean {
+        if (evidence.size != requiredLocalChecks.size) return false
+        if (evidence.map { it.check }.toSet() != requiredLocalChecks) return false
+        val validRef = Regex("^bardo-audit://[A-Za-z0-9._/-]{3,200}$")
+        return evidence.all { item ->
+            item.passed &&
+                item.check in requiredLocalChecks &&
+                item.origin == BardoEvidenceOrigin.LOCAL_AUDIT &&
+                item.detail.isNotBlank() &&
+                item.detail.length <= 2_000 &&
+                item.evidenceRef.length <= 1_000 &&
+                !item.evidenceRef.any { it.isWhitespace() } &&
+                validRef.matches(item.evidenceRef)
+        }
+    }
+
     private fun isRealDirectory(file: File): Boolean =
         file.isDirectory && !Files.isSymbolicLink(file.toPath())
 
