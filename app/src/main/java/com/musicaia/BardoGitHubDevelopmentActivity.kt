@@ -196,6 +196,7 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
         setBusy(true, "Enviando candidato a un runner efímero. main no se modifica.")
         executor.execute {
             val result = runCatching {
+                collectLocalCandidateEvidence()
                 val client = BardoGitHubActionsClient(token)
                 client.dispatchValidation(baseSha, candidateId, payload)
                 var found: BardoGitHubRun? = null
@@ -314,6 +315,7 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
                 check(validation.succeeded && validation.headSha.equals(baseSha, true)) {
                     "La validación no corresponde a este commit o no terminó en SUCCESS."
                 }
+                collectLocalCandidateEvidence()
                 client.dispatchPullRequest(baseSha, candidateId, payload, validationRunId)
                 var found: BardoGitHubRun? = null
                 repeat(20) {
