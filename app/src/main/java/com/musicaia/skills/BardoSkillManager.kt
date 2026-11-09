@@ -175,16 +175,6 @@ class BardoSkillManager(
             saveRegistry()
             return@synchronized BardoSkillOperationResult(false, records[key], "La integridad de la skill ha cambiado.")
         }
-        val workflowValidation = BardoSkillWorkflowPackageValidator.validate(
-            source, record.manifest.actions, registeredActionIds()
-        )
-        if (!workflowValidation.accepted) {
-            return@synchronized BardoSkillOperationResult(
-                false, record,
-                "Workflow rechazado antes de instalar: " + workflowValidation.errors.joinToString(" ")
-            )
-        }
-
         val destination = File(installed, "$key.bskill")
         if (destination.exists()) {
             return@synchronized BardoSkillOperationResult(false, record, "Ya existe un paquete instalado con esa versión.")
@@ -250,16 +240,6 @@ class BardoSkillManager(
         val file = safePackageFile(record.installedPath)
         if (!verifyPackage(file, record.manifest)) {
             return@synchronized BardoSkillOperationResult(false, record, "La skill instalada no supera la verificación de integridad.")
-        }
-        val workflowValidation = BardoSkillWorkflowPackageValidator.validate(
-            file, record.manifest.actions, registeredActionIds()
-        )
-        if (!workflowValidation.accepted) {
-            return@synchronized BardoSkillOperationResult(
-                false, record,
-                "La activación está bloqueada: workflow no válido. " +
-                    workflowValidation.errors.joinToString(" ")
-            )
         }
         val runner = smokeTestRunner
             ?: return@synchronized BardoSkillOperationResult(
