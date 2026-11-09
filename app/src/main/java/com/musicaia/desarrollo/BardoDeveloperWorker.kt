@@ -375,6 +375,7 @@ a pasar validación en otro runner.
                         appendLine("SHA-256 del diff: " + it.targetFingerprintSha256)
                         appendLine("Requiere APK completa: " + BardoIncrementalUpdatePolicy.validate(it).requiresFullApk)
                         appendLine("Reversión: " + it.rollbackPlanRef)
+                        appendLine("Manifiesto JSON: " + it.toJson())
                     }
                     localAuditAttempt.exceptionOrNull()?.let {
                         appendLine("Error del productor: " + (it.message ?: it.javaClass.simpleName).take(500))
