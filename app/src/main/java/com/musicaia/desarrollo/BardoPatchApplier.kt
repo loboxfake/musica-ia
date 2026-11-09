@@ -6,53 +6,15 @@ import java.io.File
 object BardoPatchApplier {
     data class Result(val directory: File, val changedFiles: List<String>)
 
-    // Protección aplicada por código: no depende de que Gemma siga instrucciones en el prompt.
-    private val protectedPaths = setOf(
-        "app/src/main/java/com/musicaia/MainActivity.kt",
-        "app/src/main/java/com/musicaia/BardoDeveloperActivity.kt",
-        "app/src/main/java/com/musicaia/BardoGitHubDevelopmentActivity.kt",
-        "app/src/main/java/com/musicaia/desarrollo/BardoGitHubAutomation.kt",
-        "app/src/main/java/com/musicaia/desarrollo/BardoPatchApplier.kt",
-        "app/src/main/java/com/musicaia/desarrollo/BardoDeveloperCore.kt",
-        "app/src/main/java/com/musicaia/desarrollo/BardoDeveloperWorker.kt",
-        "app/src/main/java/com/musicaia/modulos/litert/EngineLiteRT.kt",
-        "app/src/main/java/com/musicaia/modulos/litert/LiteRTLMModule.kt",
-        "app/src/main/java/com/musicaia/modelo/BardoCapabilityRegistry.kt",
-        "app/src/main/java/com/musicaia/modelo/BardoIntentRouter.kt",
-        "app/src/main/java/com/musicaia/modelo/BardoResourceBudget.kt",
-        "app/src/main/java/com/musicaia/modelo/Orquestador.kt",
-        "app/src/main/java/com/musicaia/modelo/Catalogo.kt",
-        "app/src/main/java/com/musicaia/modelo/ManifiestoModelo.kt",
-        "app/src/main/java/com/musicaia/modulos/DescargadorModelos.kt",
-        "app/src/main/java/com/musicaia/servicios/BardoTaskService.kt",
-        "app/src/main/java/com/musicaia/memoria/BardoActivityStore.kt",
-        "app/src/main/java/com/musicaia/memoria/BardoBackupManager.kt",
-        "app/src/main/java/com/musicaia/memoria/BardoKnowledgeStore.kt",
-        "app/src/main/java/com/musicaia/memoria/BardoConversationStore.kt",
-        "tools/audit_apk_secrets.py",
-        "app/src/main/java/com/musicaia/modulos/Modo3MezclaVozUsuario.kt",
-        "app/src/main/AndroidManifest.xml",
-        "app/build.gradle.kts",
-        "build.gradle.kts",
-        "settings.gradle.kts",
-        "gradle/wrapper/gradle-wrapper.properties"
-    )
-    private val protectedPrefixes = listOf(".github/workflows/", "gradle/wrapper/")
-
-    private fun isProtected(path: String): Boolean =
-        path in protectedPaths ||
-            path.endsWith("Modo3MezclaVozUsuario.kt", ignoreCase = true) ||
-            protectedPrefixes.any { path.startsWith(it) }
-
     fun aplicar(root: File, patchText: String, workspace: File): Result {
         require(root.isDirectory) { "No existe el snapshot de origen." }
         val lines = patchText.lines()
         val first = lines.indexOfFirst { it.startsWith("--- a/") }
         require(first >= 0) { "No se encontró un diff unificado." }
-        val candidate = File(workspace, "candidate-" + System.currentTimeMillis())
+        val workspaceManager = BardoWorkspaceManager(workspace)
+        val candidate = workspaceManager.createCandidateCopy(root)
         val changed = mutableListOf<String>()
         try {
-            root.copyRecursively(candidate, overwrite = false)
             var i = first
             while (i < lines.size) {
                 if (!lines[i].startsWith("--- a/")) {
@@ -68,12 +30,13 @@ object BardoPatchApplier {
                     !oldPath.contains(':') && oldPath.split('/').none { it.isBlank() || it == "." || it == ".." }) {
                     "Solo se permiten cambios en archivos existentes con rutas seguras."
                 }
-                require(!isProtected(oldPath)) {
-                    "Protección activa: el archivo pertenece al núcleo protegido, a Modo3 o a la configuración de build/workflows: " + oldPath
+                require(BardoProtectedPathPolicy.canModifyExisting(oldPath)) {
+                    "Protección activa: la política central bloquea la modificación automática de " +
+                        oldPath + " (" + BardoProtectedPathPolicy.classify(oldPath) + ")."
                 }
                 require(oldPath !in changed) { "El diff repite una ruta de archivo: " + oldPath }
-                val sourceFile = File(root, oldPath).canonicalFile
-                require(sourceFile.path.startsWith(root.canonicalPath + File.separator) && sourceFile.isFile) {
+                val sourceFile = workspaceManager.resolveInside(root, oldPath)
+                require(sourceFile.isFile) {
                     "El archivo no existe en el snapshot: " + oldPath
                 }
                 val source = sourceFile.readLines(Charsets.UTF_8)
@@ -127,8 +90,7 @@ object BardoPatchApplier {
                 }
                 require(hunks > 0) { "El archivo no contiene bloques de cambios: " + oldPath }
                 while (cursor < source.size) output += source[cursor++]
-                val destination = File(candidate, oldPath).canonicalFile
-                require(destination.path.startsWith(candidate.canonicalPath + File.separator))
+                val destination = workspaceManager.resolveInside(candidate, oldPath)
                 destination.parentFile?.mkdirs()
                 destination.writeText(output.joinToString("\n", postfix = if (output.isEmpty()) "" else "\n"), Charsets.UTF_8)
                 changed += oldPath
@@ -136,7 +98,7 @@ object BardoPatchApplier {
             require(changed.isNotEmpty()) { "No se aplicó ningún cambio." }
             return Result(candidate, changed)
         } catch (error: Throwable) {
-            candidate.deleteRecursively()
+            workspaceManager.deleteCandidate(candidate)
             throw error
         }
     }
