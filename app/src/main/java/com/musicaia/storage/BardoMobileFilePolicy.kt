@@ -40,7 +40,8 @@ object BardoMobileFilePolicy {
     )
 
     fun normalizeRelativePath(rawPath: String): String? {
-        if (rawPath.isBlank() || rawPath.length > MAX_RELATIVE_PATH_CHARS ||
+        if (rawPath == "" || rawPath == ".") return ""
+        if (rawPath.length > MAX_RELATIVE_PATH_CHARS ||
             rawPath != rawPath.trim() || rawPath.startsWith("/") ||
             rawPath.contains('\\') || rawPath.contains(':') ||
             rawPath.any { it.isISOControl() }
@@ -60,7 +61,9 @@ object BardoMobileFilePolicy {
         val path = normalizeRelativePath(rawPath)
             ?: return denied("Ruta relativa no válida; se rechazan traversal, rutas absolutas y separadores alternativos.")
 
-        if (path == ".") return denied("No se permite operar sobre la raíz completa.")
+        if (path.isEmpty() && operation != BardoMobileFileOperation.LIST) {
+            return denied("La raíz BARDO solo puede listarse; indica una ruta relativa para modificar archivos.")
+        }
         if (operation == BardoMobileFileOperation.READ && path.length > MAX_RELATIVE_PATH_CHARS) {
             return denied("Ruta demasiado larga.")
         }
