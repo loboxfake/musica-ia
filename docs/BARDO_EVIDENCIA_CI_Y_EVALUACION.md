@@ -11,7 +11,7 @@ El adaptador no interpreta explicaciones del modelo ni acepta un simple texto qu
 Antes de crear evidencia, el adaptador exige:
 
 - Repositorio base y repositorio de origen iguales a `loboxfake/musica-ia`.
-- Rama `bardo/*` y evento `push` o `pull_request`.
+- Rama `bardo/*` y evento `push`, `pull_request` o `workflow_dispatch`. Este último se admite porque `bardo-commit-candidate.yml` dispara deliberadamente `bardo-validation.yml` sobre la rama candidata; no se aceptan otras ramas ni workflows.
 - Workflow exacto `.github/workflows/bardo-validation.yml`.
 - SHA-1 Git de 40 caracteres coincidente con el commit que se quiere evaluar.
 - Ejecución completada, job único `validate` y pasos identificados por sus nombres exactos.
@@ -52,7 +52,9 @@ El productor de auditoría local ya se invoca en las dos rutas que preparan cand
 
 Ambas rutas mantienen el candidato en el workspace privado aunque falle la auditoría, pero solo guardan los datos habilitantes para GitHub cuando los cuatro checks locales están presentes exactamente una vez, todos pasan y sus referencias tienen formato/origen local válido. La pantalla vuelve a exigir el indicador persistido de auditoría superada antes de abrir la integración GitHub. La ausencia de evidencia o un error del productor bloquean el envío.
 
-El adaptador de CI y `BardoCandidateEvaluationPipeline` siguen teniendo tests unitarios, pero **su consulta API todavía no está conectada a la pantalla de promoción**. Tampoco hay todavía un productor operativo de evidencias físicas ni un gate que pueda declarar el dispositivo verificado. El gate local no se confunde con CI ni sustituye la revisión humana.
+El adaptador y `BardoCandidateEvaluationPipeline` están conectados a `BardoGitHubDevelopmentActivity`. Tras la creación del PR borrador, la pantalla consulta el SHA actual de su rama, localiza exclusivamente la ejecución `workflow_dispatch` de `bardo-validation.yml` para esa rama y ese mismo SHA, descarga run/jobs/artifacts desde la API y recalcula la auditoría local desde el workspace privado. La evaluación solo puede alcanzar `READY_FOR_HUMAN_REVIEW`; nunca marca el dispositivo como verificado por CI.
+
+La consulta se limita al repositorio autorizado y al token fine-grained guardado en Android Keystore. Si no aparece el run, el SHA ha cambiado, el artefacto no coincide, la evidencia local ha sido alterada o la API no es concluyente, la pantalla informa de pendiente/error y no declara aprobación. Tampoco hay todavía un productor operativo de evidencias físicas ni un gate que pueda declarar el dispositivo verificado. El gate local no se confunde con CI ni sustituye la revisión humana.
 
 La creación del PR, su fusión y la publicación Release siguen siendo acciones separadas. BARDO puede preparar una rama y un PR borrador, pero no fusiona ni publica una Release.
 
