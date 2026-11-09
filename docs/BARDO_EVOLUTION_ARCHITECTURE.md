@@ -158,39 +158,53 @@ La creación musical, voz, mezcla, portadas, visión, OCR, transcripción, lectu
 
 Las capacidades musicales actuales se mantienen como especialidades. La generación instrumental, creación de letras, mezclas y exportaciones deben seguir superando pruebas reales de WAV/MP3 y escucha. La presencia de modelos/assets no demuestra calidad ni funcionamiento.
 
-## 12. Estado de implementación al 9 de noviembre de 2026 (revisión actualizada)
+## 12. Auditoría consolidada de autonomía — 9 de noviembre de 2026
 
-### Base que ya existía antes de esta rama
+### Reconciliación de PR #2 y PR #3
 
-Conversación e historial local, biblioteca de conocimiento, inventario de capacidades, catálogo de módulos, integración LiteRT-LM/Gemma, autoestudio estático con propuesta de diff, puente GitHub y módulos musicales/documentales. Cada capacidad conserva el nivel de evidencia declarado en el inventario técnico; no se infiere funcionamiento físico por la presencia de código.
+- PR #2 modifica 34 rutas; las 34 están presentes en PR #3, que contiene 83 rutas modificadas frente a main.
+- En la comparación de blobs, 10/34 archivos son idénticos y 24/34 tienen contenido diferente. Los 24 parches de PR #3 son iguales o más extensos que los de PR #2. Se revisaron las diferencias funcionales principales en workflows, UI de integración, motor/worker, patcher, política de rutas, workspace, evaluador, herramientas, registro de capacidades, proveedores LiteRT, autoridad y skills. Las diferencias observadas son versiones posteriores/ampliadas o cambios de contrato, no una pérdida de las capacidades de PR #2.
+- No se realiza cherry-pick/merge ciego de los 29 commits divergentes de PR #2 porque ambos historiales modifican los mismos archivos y PR #3 contiene implementaciones posteriores. PR #2 se conserva como referencia abierta; su cierre queda sujeto a revisión humana.
+- PR #3 está 294 commits por delante y 0 por detrás de main; respecto a PR #2, está 294 por delante y 29 por detrás. El diff actual contiene 83 rutas.
+- main permanece en `386dc7fd23629b5620b6907272ca7d0fc19c6404`. No se ha modificado.
+- Modo3 conserva el blob SHA-1 `8f2745fa841a06af43bf909732fba834474bf7dc`, idéntico en main y PR #3, y no aparece entre las rutas modificadas.
 
-### Implementación actual — rama bardo/integral-autonomy-20261109, PR borrador #3
+### Capacidades de BARDO que están en el código
 
-La rama contiene código y pruebas para los subsistemas descritos. El nivel de validación de cada capa se declara por separado:
+- **Motor/worker local:** ciclo planificar → actuar → observar → evaluar → corregir; Gemma/LiteRT como único proveedor conectado al autoestudio; flota capaz de registrar perfiles pero sin otros proveedores operativos. Los modelos remotos se rechazan por defecto.
+- **Herramientas:** catálogo cerrado, acciones tipadas y permisos acotados. No hay shell genérico ni ejecución de código arbitrario descargado.
+- **Candidatos de código:** snapshot original, workspace aislado, diff de archivos existentes, política de rutas protegidas y evaluación con evidencias tipadas. El worker no modifica el proyecto original.
+- **Skills:** manifiestos declarativos, cuarentena, SHA-256, permisos, instalación deshabilitada, activación aprobada, desactivación y rollback lógico. BardoCoreSkillSmokeTestRunner está conectado al runtime y prueba handlers escritos en el APK; actualmente hay cuatro acciones locales de lectura/estudio. La UI de catálogo/importación guiada y el descubrimiento/descarga automática siguen pendientes.
+- **Autoridad:** política ECDSA, delegaciones, nonces y revocaciones. JARVIS es opcional y no condiciona BARDO; emparejamiento y transporte real de JARVIS aún no están implementados.
+- **Aprendizaje:** BardoLearningJournal conserva respuestas como candidatos con procedencia y SHA-256. No existe todavía un verificador independiente de producción conectado que pueda promoverlos a conocimiento fiable.
+- **Modelos musicales:** Stable Audio Open Small/ExecuTorch está incluido en la APK candidata. Gemma E2B no está embebido: se importa por separado y se debe comprobar su SHA-256 antes de cargarlo.
+- **Almacenamiento móvil:** herramientas SAF acotadas, cola de solicitudes y aprobación de la UI antes de acciones destructivas; faltan pruebas instrumentadas y físicas.
 
-- **Autoridad:** BardoAuthorityPolicy y ledger local ECDSA para delegaciones, nonces y revocaciones. No hay todavía emparejamiento real, interfaz ni canal de JARVIS; la conexión es futura y no condiciona la autonomía de BARDO.
-- **Núcleo autónomo:** ciclo planificar → actuar → observar → evaluar → corregir, límites de tarea, diario privado y catálogo cerrado de herramientas. No existe shell genérico.
-- **Modelos:** contrato BardoModelProvider y registro local-first con Gemma/LiteRT como adaptador inicial.
-- **Flota multi-IA:** BardoAgentFleet admite proveedores y perfiles especializados, selecciona por capacidad, registra proveedor/versión y consulta modelos secuencialmente. El autoestudio actual conecta solo Gemma; no se afirma que haya varios modelos operativos.
-- **Aprendizaje:** BardoLearningJournal guarda respuestas como candidatos no verificados con SHA-256 y procedencia. Hace falta conectar un verificador independiente de producción; ningún candidato se promueve a conocimiento fiable automáticamente.
-- **Skills:** BardoSkillManager y BardoSkillManifest soportan paquetes declarativos, cuarentena, integridad, permisos, instalación deshabilitada, activación con smoke-test de confianza, desactivación y rollback. La UI importa .bskill, permite revisar/aceptar licencia y ponerlos en cuarentena. BARDO puede crear borradores declarativos privados. La elegibilidad de acciones se limita ahora a handlers que implementan smoke-test escrito en el APK; actualmente cuatro acciones de lectura/estudio. No se ejecuta código descargado. Faltan descubrimiento y descarga HTTPS segura automática.
-- **Almacenamiento móvil:** BardoSharedStorage y BardoMobileFilePolicy implementan acceso SAF acotado al árbol concedido, lectura UTF-8 por tramos, creación de archivos/carpetas y cola de solicitudes de retirada. La herramienta de BARDO solo propone; la UI requiere aprobación antes de mover o borrar. El parser SAF rechaza elección de operación ambigua. Falta prueba instrumentada y en el Xiaomi.
-- **Seguridad y autoevolución:** BardoProtectedPathPolicy, BardoWorkspaceManager y BardoPatchApplier aíslan las propuestas. BardoIndependentEvaluator ahora exige origen y referencia tipados y rechaza procedencia incoherente; sin adaptadores de evidencia verificable y sin integración como gate del worker, no se considera todavía gate de promoción completo.
-- **Sesiones LiteRT:** EngineLiteRT.withSession reserva el executor para una operación completa; chat, letras y BARDO Developer se han migrado en la propuesta para reducir carreras entre carga/inferencia/cierre. Falta prueba de concurrencia y runtime en dispositivo.
-- **Puente GitHub:** puede validar candidatos en runner efímero; la integración/creación de PR queda deshabilitada porque el workflow disponible en main escribe directamente en main. No se ejecuta ese workflow.
-- **Documentación:** se mantienen la jerarquía Usuario > JARVIS > BARDO, la conexión JARVIS futura y la independencia de conversaciones externas.
+### Actualizaciones incrementales
 
-### Estado de validación y límites pendientes
+- BardoIncrementalUpdateManifest, factory y política fail-closed están integrados en BardoDeveloperWorker.
+- El worker calcula hashes SHA-256 reales de los archivos del snapshot y del candidato, huella del diff, nivel de cambio, referencias de evidencia y rollback; valida contra BardoProtectedPathPolicy y persiste el JSON con el candidato. Si falla la auditoría o el manifiesto, el candidato no se envía.
+- Las pruebas cubren hash real de archivos, rutas inseguras/protegidas, Modo3, permisos, evidencia, rollback, migraciones irreversibles y alcance por paquete.
+- Cada actualización exige aprobación humana. Los cambios de código/recursos requieren APK completa; cambios de contrato/estructurales requieren revisión arquitectónica. La política no instala nada.
+- **Pendiente:** instalador transaccional de paquetes, backup/restauración de datos realmente probado, UI de aprobación/instalación y reversión ejecutable. No hay autoactualización silenciosa ni hot-swap de código.
 
-- PR #3 permanece abierto en borrador y sin fusionar. Rama `bardo/integral-autonomy-20261109`; HEAD actual: `0222a7db6c867806a364c947fe95226e1b94887f`. La comparación con `main` muestra 274 commits por delante y 0 por detrás; `main` no se ha modificado y permanece en `386dc7fd23629b5620b6907272ca7d0fc19c6404`.
-- El blob SHA-1 de Modo3 permanece `8f2745fa841a06af43bf909732fba834474bf7dc`; el path no aparece entre los 81 archivos modificados frente a `main`.
-- La ejecución de candidato `42706354491`, sobre el HEAD `2d7bb4233675ea7f764f7ec199f06e568f3fb2be`, terminó correctamente: Gitleaks, actionlint, snapshot, descarga/verificación del modelo Stable Audio, tests unitarios, compilación ARM64, auditoría ZIP/JNI/modelos y firma Debug. Artefacto `bardo-unified-offline-arm64-candidate-3`, ID `13714846410`, 1.001.705.430 bytes, digest de artefacto `sha256:c8e561d5bb81896bd05324dcd091d33c31226e9615b71e8c1c81d384b9ecf547`.
-- La descarga directa del artefacto desde la integración disponible fue rechazada por superar su límite de 512 MiB. Por tanto, aún no se ha reconstruido localmente el APK ni se ha verificado su hash interno, instalación o ejecución.
-- El workflow de exportación por fragmentos se ha actualizado en el HEAD `3b9bb763f88b1cd22534f75ae854dac5807a7e08` para apuntar a ese artefacto exacto. La ejecución de exportación y la reconstrucción/validación de fragmentos siguen pendientes de confirmación.
-- No hay pruebas físicas de instalación, inferencia Gemma, operación sin red, SAF, generación/escucha WAV ni mezcla de voz en el Xiaomi 11T Pro.
-- Faltan productores que consulten realmente Actions/dispositivo y creen evidencias verificadas para el evaluador; integrar el gate al worker; auto-compilación y pruebas de candidatos en entorno local confiable; catálogo/adquisición segura de skills/modelos; proveedor adicional a Gemma; emparejamiento/transporte JARVIS; pruebas instrumentadas SAF y pruebas físicas.
-- La comparación de PR #2 y PR #3 confirma que los 34 paths de PR #2 están presentes en PR #3, que añade otros 47 paths. La comparación de ramas indica divergencia histórica (272 commits en PR #3 por delante y 29 por detrás de PR #2). La cobertura de rutas no demuestra equivalencia semántica: los contenidos de varios archivos difieren y cada cambio exclusivo de PR #2 debe revisarse antes de declarar reconciliación.
-- `main` no debe considerarse protegido automáticamente. GitHub debe configurarse para exigir PR y checks; no se presume que esa protección esté activa.
+### Evidencia CI y APK
+
+- Validación push #943, run `42714580951`, sobre commit `712ee97c16576f9fd10e216512025d7ff3804c24`: SUCCESS en Gitleaks, actionlint, tests unitarios, compilación Debug ARM64, firma v2, certificado Android Debug, verificación de bibliotecas ARM64 y subida de artefacto.
+- Candidata unificada #18, run `42714581001`, sobre el mismo commit: SUCCESS en tests, build ARM64, auditoría del paquete completo de modelos, JNI, integridad ZIP y firma v2. Artefacto `bardo-unified-offline-arm64-candidate-18`, ID `13717164778`, 1.001.731.518 bytes, digest del artefacto `sha256:9d2b6d919406a98eaa683f2b8a5660c97324a20b95fb5eeac16ebdcf63f5256e`.
+- Datos del APK contenido en ese artefacto: 1.001.723.247 bytes; SHA-256 `3de1fda9ba5870da77947cb17dc97f4f67f5fd7b4b045c82ef3aa2db5a4b25de`; paquete `com.musicaia.debug`; versionCode 1018; versionName `1.0.1018-debug`; compileSdk 35; minSdk 26; targetSdk 34; 10 bibliotecas nativas ARM64; firma Debug v2, certificado SHA-256 `8ed9171a32c1126af0bf232511455d651b7b45a16459be5ce34819efcbed481f`.
+- El snapshot incrustado de esa candidata contiene 211 archivos, 1.662.530 bytes descomprimidos. Incluye los modelos Stable Audio: conditioners `415fa3a6e5e235f6b37045de1655272deec5af80a155cb70d9c90e9e82b4440f`, DiT `3ad4bd2aac6b8705e86886e1d4d2b6f2647f9abd806267e86146dfdaff8de19d`, autoencoder `8cf1d70f3c6442c25adb8c9ca9d037d7c6d4c3aec970cfefcb82a35ca61b7069` y SentencePiece `d60acb128cf7b7f2536e8f38a5b18a05535c9e14c7a355904270e15b0945ea86`.
+- La candidata #18 corresponde al commit de aplicación 712ee. Después se actualizó el pin de Stable Audio de full-build al artefacto verificado run #5 (ID `13713725273`, digest `sha256:c0e6773df66ceedca06dc694239a79ad559ff372a3193e05e063f9a6d11d9c1a`) y se amplió el disparador de snapshot para cambios de workflows/documentación.
+- Por ello, la candidata #19, run `42716313686`, se está construyendo sobre el HEAD más reciente `d9262c716d9e71959734dbaff0a7308dae9c8745`; la validación push #947 también está en curso. Se usará #19 si termina correctamente, ya que incorpora el snapshot de workflows actualizado.
+- El exportador por fragmentos todavía está fijado a la candidata anterior; se actualizará al artefacto de #19 solo tras comprobar éxito y digest. No se declara APK final descargable hasta reconstruirla y verificar localmente todos los fragmentos y el SHA-256 interno.
+
+### Lo que esta fase no puede certificar
+
+No se ha instalado ni ejecutado BARDO en el Xiaomi 11T Pro. Quedan para la fase de instalación y pruebas: arranque, permisos, importación/hash/carga/inferencia Gemma offline, modo avión, memoria/temperatura, SAF, generación WAV real y escucha, mezcla de voz y pruebas de rollback. La compilación CI no demuestra estas capacidades físicas.
+
+### Gobernanza
+
+PR #2 y PR #3 permanecen abiertos en borrador; no se ha fusionado ninguno, no se ha publicado Release y main sigue intacta. No se encontraron rulesets de repositorio; la integración no tiene permiso para consultar la protección de rama clásica, así que su estado no se presume. Los workflows auditados preparan ramas bardo/* y PR borrador y no escriben directamente en main.
 
 ## 13. Criterio final de aceptación
 
