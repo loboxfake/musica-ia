@@ -24,8 +24,23 @@ data class BardoSkillRecord(
     val lifecycle: BardoSkillLifecycle,
     val installedPath: String?,
     val lastTestPassed: Boolean,
-    val lastUpdatedAtMillis: Long
+    val lastUpdatedAtMillis: Long,
+    val lastTestVerifierId: String? = null,
+    val lastTestEvidenceRefs: List<String> = emptyList(),
+    val lastTestNote: String? = null
 )
+
+data class BardoSkillSmokeTestReport(
+    val passed: Boolean,
+    val verifierId: String,
+    val evidenceRefs: List<String>,
+    val note: String
+)
+
+fun interface BardoSkillSmokeTestRunner {
+    /** Ejecuta pruebas reales sobre acciones tipadas registradas; nunca sobre código descargado. */
+    fun run(manifest: BardoSkillManifest, requiredPermissions: Set<BardoSkillPermission>): BardoSkillSmokeTestReport
+}
 
 data class BardoSkillOperationResult(
     val succeeded: Boolean,
@@ -42,7 +57,8 @@ data class BardoSkillOperationResult(
  */
 class BardoSkillManager(
     private val rootDirectory: File,
-    private val registeredActionIds: () -> Set<String>
+    private val registeredActionIds: () -> Set<String>,
+    private val smokeTestRunner: BardoSkillSmokeTestRunner? = null
 ) {
     private val lock = Any()
     private val quarantine: File
@@ -151,7 +167,10 @@ class BardoSkillManager(
             records[key] = record.copy(
                 lifecycle = BardoSkillLifecycle.REJECTED,
                 lastTestPassed = false,
-                lastUpdatedAtMillis = nowMillis
+                lastUpdatedAtMillis = nowMillis,
+                lastTestVerifierId = null,
+                lastTestEvidenceRefs = emptyList(),
+                lastTestNote = null
             )
             saveRegistry()
             return@synchronized BardoSkillOperationResult(false, records[key], "La integridad de la skill ha cambiado.")
@@ -192,7 +211,6 @@ class BardoSkillManager(
         version: String,
         explicitlyApproved: Boolean,
         approvedPermissions: Set<BardoSkillPermission>,
-        smokeTestPassed: Boolean,
         nowMillis: Long = System.currentTimeMillis()
     ): BardoSkillOperationResult = synchronized(lock) {
         val key = recordKey(skillId, version)
@@ -203,9 +221,6 @@ class BardoSkillManager(
         }
         if (!explicitlyApproved) {
             return@synchronized BardoSkillOperationResult(false, record, "La activación requiere aprobación explícita.")
-        }
-        if (!smokeTestPassed) {
-            return@synchronized BardoSkillOperationResult(false, record, "El smoke-test de acciones registradas no ha pasado.")
         }
         val validation = BardoSkillManifestValidator.validate(record.manifest, registeredActionIds())
         if (!validation.accepted) {
@@ -218,10 +233,38 @@ class BardoSkillManager(
         if (!verifyPackage(file, record.manifest)) {
             return@synchronized BardoSkillOperationResult(false, record, "La skill instalada no supera la verificación de integridad.")
         }
+        val runner = smokeTestRunner
+            ?: return@synchronized BardoSkillOperationResult(
+                false, record,
+                "No hay un ejecutor de pruebas independiente conectado; la activación queda bloqueada."
+            )
+        val testReport = try {
+            runner.run(record.manifest, validation.requiredPermissions)
+        } catch (error: Exception) {
+            return@synchronized BardoSkillOperationResult(
+                false, record,
+                "El smoke-test de confianza falló: " + (error.message ?: error.javaClass.simpleName)
+            )
+        }
+        val validTestEvidence = testReport.verifierId.matches(Regex("^[A-Za-z0-9._:-]{3,100}$")) &&
+            testReport.evidenceRefs.isNotEmpty() &&
+            testReport.evidenceRefs.size <= MAX_TEST_EVIDENCE_REFS &&
+            testReport.evidenceRefs.distinct().size == testReport.evidenceRefs.size &&
+            testReport.evidenceRefs.all { it.isNotBlank() && it.length <= 1000 } &&
+            testReport.note.isNotBlank() && testReport.note.length <= 2000
+        if (!testReport.passed || !validTestEvidence) {
+            return@synchronized BardoSkillOperationResult(
+                false, record,
+                "El smoke-test no aportó una prueba independiente válida; la skill permanece deshabilitada."
+            )
+        }
         val updated = record.copy(
             lifecycle = BardoSkillLifecycle.ENABLED,
             lastTestPassed = true,
-            lastUpdatedAtMillis = nowMillis
+            lastUpdatedAtMillis = nowMillis,
+            lastTestVerifierId = testReport.verifierId,
+            lastTestEvidenceRefs = testReport.evidenceRefs,
+            lastTestNote = testReport.note.take(2000)
         )
         records[key] = updated
         saveRegistry()
@@ -258,7 +301,8 @@ class BardoSkillManager(
         val target = records[toKey]
             ?: return@synchronized BardoSkillOperationResult(false, current, "No se encuentra la versión anterior.")
         if (target.lifecycle !in setOf(BardoSkillLifecycle.DISABLED, BardoSkillLifecycle.INSTALLED_DISABLED) ||
-            !target.lastTestPassed
+            !target.lastTestPassed || target.lastTestVerifierId.isNullOrBlank() ||
+            target.lastTestEvidenceRefs.isEmpty()
         ) {
             return@synchronized BardoSkillOperationResult(false, current, "La versión destino no está deshabilitada y probada.")
         }
@@ -308,7 +352,10 @@ class BardoSkillManager(
     }
 
     fun enabled(): List<BardoSkillRecord> = list().filter {
-        it.lifecycle == BardoSkillLifecycle.ENABLED && it.lastTestPassed
+        it.lifecycle == BardoSkillLifecycle.ENABLED &&
+            it.lastTestPassed &&
+            !it.lastTestVerifierId.isNullOrBlank() &&
+            it.lastTestEvidenceRefs.isNotEmpty()
     }
 
     private fun verifyPackage(file: File, manifest: BardoSkillManifest): Boolean {
@@ -397,8 +444,15 @@ class BardoSkillManager(
                 manifest,
                 lifecycle,
                 record.optString("installedPath").takeIf { it.isNotBlank() && it != "null" },
-                record.optBoolean("lastTestPassed", false),
-                record.optLong("lastUpdatedAtMillis", 0L)
+                record.optBoolean("lastTestPassed", false) &&
+                    record.optJSONArray("lastTestEvidenceRefs")?.length()?.let { it > 0 } == true &&
+                    record.optString("lastTestVerifierId").isNotBlank(),
+                record.optLong("lastUpdatedAtMillis", 0L),
+                record.optString("lastTestVerifierId").takeIf { it.isNotBlank() && it != "null" },
+                record.optJSONArray("lastTestEvidenceRefs")?.let { refs ->
+                    (0 until refs.length()).map { refs.getString(it) }
+                }.orEmpty(),
+                record.optString("lastTestNote").takeIf { it.isNotBlank() && it != "null" }
             )
         }
     }
@@ -411,7 +465,10 @@ class BardoSkillManager(
                     .put("lifecycle", record.lifecycle.name)
                     .put("installedPath", record.installedPath)
                     .put("lastTestPassed", record.lastTestPassed)
-                    .put("lastUpdatedAtMillis", record.lastUpdatedAtMillis))
+                    .put("lastUpdatedAtMillis", record.lastUpdatedAtMillis)
+                    .put("lastTestVerifierId", record.lastTestVerifierId)
+                    .put("lastTestEvidenceRefs", JSONArray(record.lastTestEvidenceRefs))
+                    .put("lastTestNote", record.lastTestNote))
             }
         })
         val temporary = File(rootDirectory, "registry." + UUID.randomUUID() + ".tmp")
