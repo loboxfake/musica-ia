@@ -23,8 +23,6 @@ on:
       - catalogo/**
       - tools/**
       - docs/**
-      - BARDO_01_VISION_OBJETIVOS_DIRECTIVAS.txt
-      - BARDO_02_INVENTARIO_TECNICO_Y_ESTADO.txt
       - ESPECIFICACION.md
       - README.md
 
@@ -59,8 +57,7 @@ jobs:
           git archive --format=zip --output="$RUNNER_TEMP/bardo-source-snapshot.zip" HEAD \
             app/src/main app/src/test app/build.gradle.kts build.gradle.kts settings.gradle.kts \
             gradle.properties gradle/wrapper .github/workflows catalogo tools docs \
-            ESPECIFICACION.md BARDO_01_VISION_OBJETIVOS_DIRECTIVAS.txt \
-            BARDO_02_INVENTARIO_TECNICO_Y_ESTADO.txt README.md
+            ESPECIFICACION.md README.md
           test -s "$RUNNER_TEMP/bardo-source-snapshot.zip"
           python3 - "$RUNNER_TEMP/bardo-source-snapshot.zip" "$GITHUB_SHA" <<'PY'
           import sys, zipfile
@@ -69,8 +66,6 @@ jobs:
           PY
           unzip -l "$RUNNER_TEMP/bardo-source-snapshot.zip" | grep -q 'BARDO_SOURCE_COMMIT.txt'
           unzip -l "$RUNNER_TEMP/bardo-source-snapshot.zip" | grep -q 'app/src/test/'
-          unzip -l "$RUNNER_TEMP/bardo-source-snapshot.zip" | grep -q 'BARDO_01_VISION_OBJETIVOS_DIRECTIVAS.txt'
-          unzip -l "$RUNNER_TEMP/bardo-source-snapshot.zip" | grep -q 'BARDO_02_INVENTARIO_TECNICO_Y_ESTADO.txt'
           unzip -l "$RUNNER_TEMP/bardo-source-snapshot.zip" | grep -q 'ESPECIFICACION.md'
           unzip -l "$RUNNER_TEMP/bardo-source-snapshot.zip" | grep -q 'docs/BARDO_EVOLUTION_ARCHITECTURE.md'
           python3 - "$RUNNER_TEMP/bardo-source-snapshot.zip" <<'PY'
@@ -366,6 +361,7 @@ jobs:
           retention-days: 30
 
       - name: Publish signed APK as a GitHub Release
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         id: release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -412,7 +408,7 @@ jobs:
           echo "Verified: main is the only active branch. No legacy refs are deleted."
           
       - name: Report full offline APK release status
-        if: always()
+        if: always() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
