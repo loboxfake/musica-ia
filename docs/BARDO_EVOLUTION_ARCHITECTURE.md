@@ -73,7 +73,7 @@ El SkillManager debe poder descubrir, proponer, crear, importar, adaptar, valida
 
 Descargar o copiar un paquete no equivale a instalarlo. Instalarlo no equivale a activarlo. Activarlo no equivale a demostrar que funciona.
 
-La primera vía segura son skills declarativas compuestas por acciones tipadas del ToolExecutor. No se carga código ejecutable arbitrario en el proceso principal ni se interpreta una receta como permiso. Todo paquete nuevo se pone en cuarentena y se verifica. La activación exige aprobación explícita, permisos mínimos y un smoke-test ejecutado por un BardoSkillSmokeTestRunner de confianza que emita identificador y referencias de evidencia; la interfaz no puede suministrar un booleano de prueba. El runner de producción aún no está conectado, por lo que la activación permanece bloqueada hasta que exista y supere sus pruebas.
+La primera vía segura son skills declarativas compuestas por acciones tipadas del ToolExecutor. No se carga código ejecutable arbitrario en el proceso principal ni se interpreta una receta como permiso. Todo paquete nuevo se pone en cuarentena y se verifica. La activación exige aprobación explícita, permisos mínimos y un smoke-test ejecutado por BardoCoreSkillSmokeTestRunner, que usa pruebas escritas en handlers Kotlin del APK y emite identificador y referencias de evidencia; la interfaz no puede suministrar un booleano de prueba. BardoSkillExecutor revalida el paquete antes de cada uso y ejecuta solo acciones declaradas a través del ToolExecutor; BardoSkillToolHandler expone esa vía al planificador. El runtime está conectado al worker, pero el catálogo solo ofrece cuatro acciones de lectura/estudio y la UI de importación/gestión aún está pendiente.
 
 ## 6. Aprendizaje e investigación
 
