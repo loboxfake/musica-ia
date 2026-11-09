@@ -150,9 +150,10 @@ object BardoCiEvidenceAdapter {
         val artifact = matchingArtifacts.singleOrNull()
         val artifactRun = artifact?.optJSONObject("workflow_run")
         val artifactVerified = artifact != null &&
+            artifactRun != null &&
             !artifact.optBoolean("expired", true) &&
             artifact.optLong("size_in_bytes", 0L) > 0L &&
-            artifactRun?.optLong("id", 0L) == runId &&
+            artifactRun.optLong("id", 0L) == runId &&
             artifactRun.optString("head_sha", "").equals(expectedSha, ignoreCase = true)
 
         val reference = expectedUrl
