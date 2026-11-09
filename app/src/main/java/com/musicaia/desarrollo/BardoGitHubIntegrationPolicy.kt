@@ -15,4 +15,8 @@ object BardoGitHubIntegrationPolicy {
         "hace push directo a main. BARDO no lo ejecutará. La integración solo se " +
         "habilitará cuando exista un workflow auditado que cree una rama bardo/* y " +
         "un PR borrador sin escribir en main."
+
+    fun requireDraftPrWorkflowAvailable() {
+        check(DRAFT_PR_WORKFLOW_ENABLED) { BLOCK_REASON }
+    }
 }
