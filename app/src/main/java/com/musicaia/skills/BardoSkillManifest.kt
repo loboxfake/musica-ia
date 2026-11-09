@@ -7,7 +7,8 @@ enum class BardoSkillPermission {
     NETWORK_ACCESS,
     GITHUB_ACTIONS,
     AUDIO_RECORDING,
-    AUDIO_FILE_ACCESS
+    AUDIO_FILE_ACCESS,
+    MANAGE_BARDO_WORKSPACE
 }
 
 enum class BardoSkillPackageKind {
@@ -74,7 +75,13 @@ object BardoSkillManifestValidator {
         ),
         "github.validate_candidate" to setOf(BardoSkillPermission.GITHUB_ACTIONS),
         "github.create_draft_pr" to setOf(BardoSkillPermission.GITHUB_ACTIONS),
-        "web.research" to setOf(BardoSkillPermission.NETWORK_ACCESS)
+        "web.research" to setOf(BardoSkillPermission.NETWORK_ACCESS),
+        "mobile_files.list" to setOf(BardoSkillPermission.READ_BARDO_DATA),
+        "mobile_files.read" to setOf(BardoSkillPermission.READ_BARDO_DATA),
+        "mobile_files.create_directory" to setOf(BardoSkillPermission.MANAGE_BARDO_WORKSPACE),
+        "mobile_files.create_text_file" to setOf(BardoSkillPermission.MANAGE_BARDO_WORKSPACE),
+        "mobile_files.request_delete" to setOf(BardoSkillPermission.MANAGE_BARDO_WORKSPACE),
+        "mobile_files.pending_deletions" to setOf(BardoSkillPermission.READ_BARDO_DATA)
     )
 
     fun supportedActionIds(): Set<String> = actionPermissions.keys.toSet()
