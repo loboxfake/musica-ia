@@ -52,7 +52,7 @@ jobs:
         run: ./gradlew testDebugUnitTest assembleDebug -PbardoTargetAbi=arm64-v8a --no-daemon --stacktrace
       - name: Verify candidate APK exists
         run: test -s app/build/outputs/apk/debug/app-debug.apk
-      - name: Verify APK v2/v3 signature with Android apksigner
+      - name: Verify APK v2 signature and Android Debug certificate
         run: |
           set -euo pipefail
           BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
@@ -61,6 +61,7 @@ jobs:
           "$BUILD_TOOLS/apksigner" verify --verbose "$APK"
           "$BUILD_TOOLS/apksigner" verify --print-certs --verbose "$APK" | tee bardo-debug-signature.txt
           grep -Eiq 'Verified using v2 scheme.*true' bardo-debug-signature.txt
+          grep -Eiq 'certificate DN: .*CN=Android Debug' bardo-debug-signature.txt
       - name: Verify APK contains only ARM64 native libraries
         run: |
           python3 - <<'PY'
