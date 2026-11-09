@@ -58,7 +58,14 @@ class BardoSkillWorkflowExecutorTest {
             ),
             "inventory:"
         )
-        val tools = BardoToolExecutor(listOf(search, inventory))
+        val audit = EchoTool(
+            BardoToolDescriptor(
+                "developer.audit_snapshot", "Audita un snapshot propio.",
+                BardoPermissionScope.STUDY_LOCAL, maxArguments = 0
+            ),
+            "audit:"
+        )
+        val tools = BardoToolExecutor(listOf(search, inventory, audit))
         val runner = com.musicaia.skills.BardoSkillSmokeTestRunner { _, _ ->
             BardoSkillSmokeTestReport(
                 true, "workflow-smoke-v1",
