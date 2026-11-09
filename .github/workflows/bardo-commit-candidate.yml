@@ -232,6 +232,7 @@ jobs:
           gh workflow run bardo-validation.yml --ref "$candidate_branch"
           branch_validation_run_id=""
           for ((attempt = 1; attempt <= 15; attempt++)); do
+            printf 'Looking for branch validation run (%s/15)\n' "$attempt" >&2
             branch_validation_run_id="$(gh run list --workflow bardo-validation.yml --branch "$candidate_branch" --event workflow_dispatch --limit 10 --json databaseId,headSha --jq ".[] | select(.headSha == \"$candidate_sha\") | .databaseId" | head -n 1)"
             [ -n "$branch_validation_run_id" ] && break
             sleep 2
