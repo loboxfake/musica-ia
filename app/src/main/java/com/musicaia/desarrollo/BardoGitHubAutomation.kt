@@ -324,12 +324,18 @@ class BardoGitHubActionsClient(private val token: String) {
         for (index in 0 until pulls.length()) {
             val item = pulls.optJSONObject(index) ?: continue
             val headObject = item.optJSONObject("head")
+            val baseObject = item.optJSONObject("base")
             val headRef = headObject?.optString("ref").orEmpty()
-            val baseRef = item.optJSONObject("base")?.optString("ref").orEmpty()
+            val baseRef = baseObject?.optString("ref").orEmpty()
+            val headRepository = headObject?.optJSONObject("repo")?.optString("full_name").orEmpty()
+            val baseRepository = baseObject?.optJSONObject("repo")?.optString("full_name").orEmpty()
             val number = item.optInt("number")
             val url = item.optString("html_url")
             val headSha = headObject?.optString("sha").orEmpty()
-            if (headRef == branch && baseRef == "main" && number > 0 &&
+            if (headRef == branch && baseRef == "main" &&
+                headRepository == BardoGitHubPolicy.REPOSITORY &&
+                baseRepository == BardoGitHubPolicy.REPOSITORY &&
+                number > 0 &&
                 url == "https://github.com/loboxfake/musica-ia/pull/$number" &&
                 Regex("^[0-9a-f]{40}$").matches(headSha)
             ) {
