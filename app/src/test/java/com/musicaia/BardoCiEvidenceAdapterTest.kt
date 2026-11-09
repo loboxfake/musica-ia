@@ -34,6 +34,7 @@ class BardoCiEvidenceAdapterTest {
         headSha: String = sha,
         workflowPath: String = ".github/workflows/bardo-validation.yml@refs/pull/3/merge",
         repository: String = BardoCiEvidenceAdapter.REPOSITORY,
+        headRepository: String = BardoCiEvidenceAdapter.REPOSITORY,
         branch: String = "bardo/integral-autonomy-20261109"
     ) = JSONObject()
         .put("id", runId)
@@ -46,6 +47,7 @@ class BardoCiEvidenceAdapterTest {
         .put("event", "pull_request")
         .put("html_url", "https://github.com/" + BardoCiEvidenceAdapter.REPOSITORY + "/actions/runs/" + runId)
         .put("repository", JSONObject().put("full_name", repository))
+        .put("head_repository", JSONObject().put("full_name", headRepository))
 
     private fun jobs(
         conclusion: String = "success",
@@ -73,13 +75,15 @@ class BardoCiEvidenceAdapterTest {
     private fun artifacts(
         artifactRunId: Long = runId,
         artifactSha: String = sha,
-        expired: Boolean = false
+        expired: Boolean = false,
+        digest: String = "sha256:" + "a".repeat(64)
     ): JSONObject {
         val artifact = JSONObject()
             .put("id", 13683878079L)
             .put("name", "bardo-debug-candidate-" + runNumber)
             .put("size_in_bytes", 107829709L)
             .put("expired", expired)
+            .put("digest", digest)
             .put(
                 "workflow_run",
                 JSONObject()
@@ -158,6 +162,9 @@ class BardoCiEvidenceAdapterTest {
 
         val wrongWorkflow = collect(run = run(workflowPath = ".github/workflows/full-build.yml@refs/heads/main"))
         assertEquals(BardoCiEvidenceState.INVALID, wrongWorkflow.state)
+
+        val forkOrigin = collect(run = run(headRepository = "untrusted/fork"))
+        assertEquals(BardoCiEvidenceState.INVALID, forkOrigin.state)
     }
 
     @Test
@@ -197,6 +204,9 @@ class BardoCiEvidenceAdapterTest {
 
         val expired = collect(artifacts = artifacts(expired = true))
         assertEquals(BardoCiEvidenceState.CI_FAILED, expired.state)
+
+        val invalidDigest = collect(artifacts = artifacts(digest = "sha256:bad"))
+        assertEquals(BardoCiEvidenceState.CI_FAILED, invalidDigest.state)
     }
 
     @Test
