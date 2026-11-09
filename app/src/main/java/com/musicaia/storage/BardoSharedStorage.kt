@@ -564,7 +564,7 @@ object BardoSharedStorage {
     private fun isTextMime(mime: String, name: String): Boolean {
         val extension = name.substringAfterLast('.', "").lowercase()
         return mime.startsWith("text/") || mime in setOf("application/json", "application/xml") ||
-            extension in setOf("txt", "md", "json", "xml", "csv", "log")
+            extension in setOf("txt", "md", "json", "xml", "csv", "log", "kt", "java", "kts", "gradle", "yml", "yaml", "properties", "toml", "ini", "py", "sh", "html", "css", "js", "ts", "sql", "diff", "patch")
     }
 
     private fun mimeForName(name: String): String = when (name.substringAfterLast('.', "").lowercase()) {
@@ -577,7 +577,7 @@ object BardoSharedStorage {
 
     companion object {
         const val MAX_LIST_ENTRIES = 1000
-        const val MAX_WRITE_TEXT_CHARS = 256 * 1024
+        const val MAX_WRITE_TEXT_CHARS = 28_000
         const val MAX_PENDING_DELETE_REQUESTS = 100
         const val MAX_DELETE_REASON_CHARS = 500
         const val TRASH_DIRECTORY = "Papelera"
