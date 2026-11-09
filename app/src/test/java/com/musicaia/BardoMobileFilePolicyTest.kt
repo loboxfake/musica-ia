@@ -80,6 +80,27 @@ class BardoMobileFilePolicyTest {
         assertTrue(decision.requiresUserApproval)
     }
 
+    @Test fun rootMayBeListedButCannotBeModifiedAsAnUnnamedTarget() {
+        assertTrue(BardoMobileFilePolicy.authorize(
+            BardoMobileFileOperation.LIST, "", nowMillis = 10_000
+        ).allowed)
+        assertFalse(BardoMobileFilePolicy.authorize(
+            BardoMobileFileOperation.CREATE_DIRECTORY, "", nowMillis = 10_000
+        ).allowed)
+        assertFalse(BardoMobileFilePolicy.authorize(
+            BardoMobileFileOperation.CREATE_FILE, ".", nowMillis = 10_000
+        ).allowed)
+    }
+
+    @Test fun nestedTraversalAndHiddenDotSegmentsAreRejected() {
+        assertFalse(BardoMobileFilePolicy.authorize(
+            BardoMobileFileOperation.READ, "Proyectos/../privado.txt"
+        ).allowed)
+        assertFalse(BardoMobileFilePolicy.authorize(
+            BardoMobileFileOperation.CREATE_DIRECTORY, "Proyectos//otra"
+        ).allowed)
+    }
+
     @Test fun originalGemmaModelCannotBeDeletedByMobileFileManager() {
         val decision = BardoMobileFilePolicy.authorize(
             BardoMobileFileOperation.MOVE_TO_TRASH,
