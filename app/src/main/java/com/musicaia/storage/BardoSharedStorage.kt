@@ -195,7 +195,7 @@ object BardoSharedStorage {
         val info = metadata(context, uri) ?: throw IllegalStateException("No se pudo consultar el archivo.")
         require(!info.isDirectory) { "La ruta apunta a una carpeta, no a un archivo." }
         require(info.sizeBytes == null || info.sizeBytes in 0..BardoMobileFilePolicy.MAX_TEXT_READ_BYTES) {
-            "El archivo supera el máximo de 1 MiB para lectura de texto."
+            "El archivo supera el máximo de 48 KiB para lectura de texto."
         }
         require(isTextMime(info.mimeType, info.name)) { "BARDO solo lee texto UTF-8 desde esta herramienta." }
         val bytes = context.contentResolver.openInputStream(uri)?.use { input ->
@@ -207,7 +207,7 @@ object BardoSharedStorage {
                 if (count < 0) break
                 total += count
                 require(total <= BardoMobileFilePolicy.MAX_TEXT_READ_BYTES) {
-                    "El archivo supera el máximo de 1 MiB para lectura de texto."
+                    "El archivo supera el máximo de 48 KiB para lectura de texto."
                 }
                 output.write(buffer, 0, count)
             }
