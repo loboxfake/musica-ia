@@ -28,13 +28,18 @@ class BardoCoreSkillSmokeTestRunner(
             return failed("El manifiesto no declara todos los permisos requeridos.")
         }
 
-        val skillEligibleIds = tools.registeredSkillToolIds()
-        val registered = tools.registeredTools()
-            .filter { it.id in skillEligibleIds }
-            .associateBy { it.id }
+        val registered = tools.registeredTools().associateBy { it.id }
         val unknown = manifest.actions - registered.keys
         if (unknown.isNotEmpty()) {
             return failed("Acciones no registradas en el catálogo seguro: " + unknown.sorted().joinToString())
+        }
+        val skillEligibleIds = tools.registeredSkillToolIds()
+        val untested = manifest.actions - skillEligibleIds
+        if (untested.isNotEmpty()) {
+            return failed(
+                "Acciones sin smoke-test de confianza escrito en el APK: " +
+                    untested.sorted().joinToString()
+            )
         }
 
         val evidence = mutableListOf<String>()
