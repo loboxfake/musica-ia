@@ -135,7 +135,7 @@ object BardoCapabilityRegistry {
             Capability(
                 "skill_lifecycle", "Gestor de skills declarativas",
                 Status.REQUIRES_USER_ACTION,
-                "API local para cuarentena, SHA-256, instalación deshabilitada, activación aprobada, deshabilitación y rollback. UI de catálogo y descubrimiento/descarga aún pendiente.",
+                "API local para cuarentena, SHA-256, instalación deshabilitada, activación aprobada, deshabilitación y rollback. La activación exige un ejecutor de smoke-test de confianza con evidencias; no hay uno conectado en el worker actual, por lo que de momento la activación queda bloqueada. UI de catálogo y descubrimiento/descarga pendiente.",
                 "Importar un paquete, probarlo aislado, exigir permisos mínimos y aprobación del usuario, activar solo acciones tipadas registradas."
             ),
             Capability(
