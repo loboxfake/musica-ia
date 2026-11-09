@@ -117,13 +117,15 @@ Flujo acordado:
 5. Rechazar Modo3, núcleo protegido, workflows, configuración, firma y secretos.
 6. No modificar ni borrar pruebas existentes; las pruebas nuevas se añaden, nunca sustituyen las antiguas.
 7. Validar en runner efímero: análisis, tests y compilación.
-8. Tras autorización explícita, crear rama `bardo/<id>` y PR borrador contra `main`.
+8. Tras autorización explícita, crear rama `bardo/<id>` y PR borrador contra `main`, pero solo mediante un workflow auditado que no escriba directamente en `main`.
 9. Revisar diff y resultados de CI. BARDO no fusiona el PR.
 10. La APK integral solo se genera tras una fusión separada y autorizada a `main`; su instalación corresponde al usuario y Android.
 
 Nunca se hace push automático a `main`, force-push, reset destructivo ni borrado de ramas/remotos. Un candidato obsoleto se rechaza y debe regenerarse desde el nuevo commit base.
 
-El workflow que valida candidatos usa un runner efímero y no recibe el PAT del dispositivo. La rama y el PR se crean con el token efímero de GitHub Actions. El PAT guardado en el teléfono sirve para consultar/encolar workflows y se cifra con Android Keystore.
+**Bloqueo de seguridad vigente (9-11-2026):** la auditoría del workflow heredado `.github/workflows/bardo-commit-candidate.yml` encontró que ejecuta `git push origin HEAD:refs/heads/main`. Esto contradice el flujo de rama + PR. La app añade una política que bloquea la llamada de integración antes de cualquier petición de red y deshabilita el botón de PR. La validación aislada del candidato permanece permitida. El workflow heredado no se ha ejecutado desde esta corrección. La integración seguirá cerrada hasta disponer de un workflow auditado que cree una rama y un PR borrador sin escribir en `main`.
+
+El workflow de validación usa un runner efímero y no recibe el PAT del dispositivo. El PAT guardado en el teléfono se cifra con Android Keystore y permite iniciar/consultar validaciones; la integración no se habilita mientras el flujo de PR sea inseguro.
 
 La protección de rama de GitHub debe configurarse en el propio repositorio para exigir PR y checks. El estado de configuración debe comprobarse; no se presume activada.
 
@@ -162,31 +164,32 @@ Las capacidades musicales actuales se mantienen como especialidades. La generaci
 
 Conversación e historial local, biblioteca de conocimiento, inventario de capacidades, catálogo de módulos, integración LiteRT-LM/Gemma, autoestudio estático con propuesta de diff, puente GitHub y módulos musicales/documentales. Cada capacidad conserva el nivel de evidencia declarado en el inventario técnico; no se infiere funcionamiento físico por la presencia de código.
 
-### Propuesta de implementación actual — rama bardo/integral-autonomy-20261109, PR borrador #3
+### Implementación actual — rama bardo/integral-autonomy-20261109, PR borrador #3
 
-La propuesta de código contiene estos subsistemas, aún pendientes de CI propio, revisión e integración:
+La rama contiene código y pruebas para los subsistemas descritos. El nivel de validación de cada capa se declara por separado:
 
-- **Autoridad:** BardoAuthorityPolicy y ledger local ECDSA de delegaciones, nonces y revocaciones. No hay todavía emparejamiento real, interfaz ni canal de JARVIS; la conexión es futura y no condiciona la autonomía de BARDO.
-- **Núcleo autónomo:** ciclo planificar → actuar → observar → evaluar → corregir, límites de tarea y diario privado. El catálogo de herramientas es cerrado y no existe shell genérico.
+- **Autoridad:** BardoAuthorityPolicy y ledger local ECDSA para delegaciones, nonces y revocaciones. No hay todavía emparejamiento real, interfaz ni canal de JARVIS; la conexión es futura y no condiciona la autonomía de BARDO.
+- **Núcleo autónomo:** ciclo planificar → actuar → observar → evaluar → corregir, límites de tarea, diario privado y catálogo cerrado de herramientas. No existe shell genérico.
 - **Modelos:** contrato BardoModelProvider y registro local-first con Gemma/LiteRT como adaptador inicial.
-- **Flota multi-IA:** BardoAgentFleet admite proveedores y perfiles especializados, selecciona por capacidad, registra proveedor/versión y consulta modelos secuencialmente. El autoestudio actual conecta solo Gemma; no se afirma que haya una flota de modelos adicionales operativa.
-- **Aprendizaje:** BardoLearningJournal guarda respuestas de agentes como candidatos no verificados con SHA-256 y procedencia. Hace falta conectar un verificador independiente de producción; sin él no se promueve ningún candidato a conocimiento fiable.
-- **Skills:** BardoSkillManager y BardoSkillManifest admiten paquetes declarativos, cuarentena, integridad, permisos, instalación deshabilitada, aprobación, desactivación y rollback. No ejecutan código descargado.
-- **Seguridad y autoevolución:** BardoProtectedPathPolicy, BardoWorkspaceManager, BardoPatchApplier y BardoIndependentEvaluator con pruebas añadidas de forma monotónica.
-- **Sesiones LiteRT:** EngineLiteRT.withSession reserva el executor para una operación completa; chat, letras y BARDO Developer se han migrado en la propuesta para evitar que otro módulo cierre el runtime entre carga e inferencia.
-- **Documentación:** se actualizan los documentos de arquitectura y evolución con la jerarquía Usuario > JARVIS > BARDO, conexión JARVIS futura e independencia de conversaciones externas.
+- **Flota multi-IA:** BardoAgentFleet admite proveedores y perfiles especializados, selecciona por capacidad, registra proveedor/versión y consulta modelos secuencialmente. El autoestudio actual conecta solo Gemma; no se afirma que haya varios modelos operativos.
+- **Aprendizaje:** BardoLearningJournal guarda respuestas como candidatos no verificados con SHA-256 y procedencia. Hace falta conectar un verificador independiente de producción; ningún candidato se promueve a conocimiento fiable automáticamente.
+- **Skills:** BardoSkillManager y BardoSkillManifest soportan paquetes declarativos, cuarentena, integridad, permisos, instalación deshabilitada, activación con smoke-test de confianza, desactivación y rollback. La UI importa .bskill, permite revisar/aceptar licencia y ponerlos en cuarentena. BARDO puede crear borradores declarativos privados. La elegibilidad de acciones se limita ahora a handlers que implementan smoke-test escrito en el APK; actualmente cuatro acciones de lectura/estudio. No se ejecuta código descargado. Faltan descubrimiento y descarga HTTPS segura automática.
+- **Almacenamiento móvil:** BardoSharedStorage y BardoMobileFilePolicy implementan acceso SAF acotado al árbol concedido, lectura UTF-8 por tramos, creación de archivos/carpetas y cola de solicitudes de retirada. La herramienta de BARDO solo propone; la UI requiere aprobación antes de mover o borrar. El parser SAF rechaza elección de operación ambigua. Falta prueba instrumentada y en el Xiaomi.
+- **Seguridad y autoevolución:** BardoProtectedPathPolicy, BardoWorkspaceManager y BardoPatchApplier aíslan las propuestas. BardoIndependentEvaluator ahora exige origen y referencia tipados y rechaza procedencia incoherente; sin adaptadores de evidencia verificable y sin integración como gate del worker, no se considera todavía gate de promoción completo.
+- **Sesiones LiteRT:** EngineLiteRT.withSession reserva el executor para una operación completa; chat, letras y BARDO Developer se han migrado en la propuesta para reducir carreras entre carga/inferencia/cierre. Falta prueba de concurrencia y runtime en dispositivo.
+- **Puente GitHub:** puede validar candidatos en runner efímero; la integración/creación de PR queda deshabilitada porque el workflow disponible en main escribe directamente en main. No se ejecuta ese workflow.
+- **Documentación:** se mantienen la jerarquía Usuario > JARVIS > BARDO, la conexión JARVIS futura y la independencia de conversaciones externas.
 
-### Límites y pruebas pendientes
+### Estado de validación y límites pendientes
 
-- El PR no modifica workflows, Gradle, firma, secretos ni Modo3; tampoco modifica main ni publica APK.
-- El PR #3 todavía no tiene una ejecución de CI propia visible sobre su último SHA. El CI anterior de otra rama no valida esta propuesta.
-- No hay aún proveedor adicional a Gemma conectado al worker, ni catálogo completo de adquisición automática de modelos.
-- El diario de aprendizaje conserva candidatos, pero no existe aún verificador de aprendizaje de producción.
-- Skills instalables siguen restringidas a acciones declarativas ya registradas; falta interfaz, descubrimiento/adquisición y evaluación independiente real de cada nueva skill.
-- El evaluador necesita evidencias enlazadas a resultados auténticos de Actions y pruebas físicas; un llamador no debe poder declarar un control como superado sin evidencia.
-- La conexión JARVIS es futura y opcional desde el punto de vista operativo; el orden de autoridad sí queda definido desde ahora.
-- No hay APK nueva, inferencia comprobada, funcionamiento offline ni pruebas auditivas en Xiaomi 11T Pro asociadas a este PR.
-- main sigue sin protección efectiva en GitHub. Deben configurarse las reglas de PR/checks en el repositorio.
+- PR #3 está abierto en borrador, no fusionado. Rama `bardo/integral-autonomy-20261109`; HEAD al registrar este inventario: `491e7018dc0dc371cf6b5f16a55792b39ca1381e`; 148 commits por delante y 0 por detrás de `main`. `main` permanece en `386dc7fd23629b5620b6907272ca7d0fc19c6404`.
+- El blob SHA-1 de Modo3 permanece `8f2745fa841a06af43bf909732fba834474bf7dc`.
+- Actions #645 y #646 pasaron Gitleaks, actionlint, tests unitarios, compilación debug, existencia del APK y subida de artefactos en el HEAD anterior `5d50e45`.
+- Actions #670 y #671, correspondientes al HEAD `491e701`, estaban pendientes cuando se actualizó este documento. No se declara que esa revisión haya compilado o generado APK.
+- Los artefactos #645/#646 son APK debug candidatas de una revisión anterior; no validan los commits posteriores.
+- No hay pruebas físicas de instalación, inferencia Gemma, operación sin red, SAF, generación/escucha WAV ni mezcla de voz en el Xiaomi 11T Pro.
+- Faltan productores que consulten realmente Actions/dispositivo y creen evidencias verificadas para el evaluador; integrar el gate al worker; auto-compilación y pruebas de candidatos en entorno local confiable; catálogo/adquisición segura de skills/modelos; proveedor adicional a Gemma; emparejamiento/transporte JARVIS; pruebas instrumentadas SAF y pruebas físicas.
+- `main` no debe considerarse protegido automáticamente. GitHub debe configurarse para exigir PR y checks; no se presume que esa protección esté activa.
 
 ## 13. Criterio final de aceptación
 
