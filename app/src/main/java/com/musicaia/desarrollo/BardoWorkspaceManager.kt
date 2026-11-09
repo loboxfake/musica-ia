@@ -127,6 +127,88 @@ class BardoWorkspaceManager(workspaceDirectory: File) {
         }
     }
 
+    /**
+     * Crea una copia candidata dispersa que contiene solo los archivos del diff.
+     * Evita copiar modelos, assets y binarios que no participan en el cambio.
+     */
+    fun createCandidateFromFiles(
+        sourceDirectory: File,
+        relativePaths: List<String>
+    ): File = synchronized(lock) {
+        require(sourceDirectory.isDirectory &&
+            !Files.isSymbolicLink(sourceDirectory.toPath())) {
+            "El snapshot de origen no es una carpeta normal."
+        }
+        require(relativePaths.isNotEmpty() && relativePaths.size <= 30 &&
+            relativePaths.distinct().size == relativePaths.size) {
+            "La copia dispersa debe contener entre 1 y 30 rutas distintas."
+        }
+        relativePaths.forEach { path ->
+            require(BardoProtectedPathPolicy.canModifyExisting(path)) {
+                "La copia candidata no admite esta ruta: $path."
+            }
+        }
+
+        val sourceRoot = sourceDirectory.canonicalFile
+        require(sourceRoot != workspaceRoot && !isSameOrChild(sourceRoot, workspaceRoot)) {
+            "El origen no puede contener la carpeta raíz del workspace."
+        }
+        val candidate = File(
+            workspaceRoot,
+            "candidate-" + UUID.randomUUID().toString()
+        )
+        check(candidate.mkdir()) { "No se pudo crear la copia candidata aislada." }
+
+        try {
+            var totalBytes = 0L
+            relativePaths.sorted().forEach { relative ->
+                val source = resolveInside(sourceRoot, relative)
+                require(source.isFile && source.length() <= MAX_FILE_BYTES) {
+                    "El archivo no existe, no es regular o supera 2 MiB: $relative"
+                }
+                val expectedLength = source.length()
+                totalBytes += expectedLength
+                require(totalBytes <= MAX_TOTAL_BYTES) {
+                    "Los archivos del candidato superan el límite total."
+                }
+
+                var destination = resolveInside(candidate, relative)
+                val parent = destination.parentFile
+                    ?: throw IllegalArgumentException("La ruta candidata no tiene carpeta padre.")
+                if (!parent.exists()) {
+                    check(parent.mkdirs()) { "No se pudo crear una carpeta candidata." }
+                }
+                require(parent.isDirectory && !Files.isSymbolicLink(parent.toPath())) {
+                    "La carpeta destino no es una carpeta normal: $relative"
+                }
+                destination = resolveInside(candidate, relative)
+                FileInputStream(source).use { input ->
+                    FileOutputStream(destination, false).use { output ->
+                        val buffer = ByteArray(8192)
+                        var copied = 0L
+                        while (true) {
+                            val count = input.read(buffer)
+                            if (count < 0) break
+                            copied += count
+                            require(copied <= MAX_FILE_BYTES && copied <= expectedLength) {
+                                "El archivo cambió o supera el límite durante la copia: $relative"
+                            }
+                            output.write(buffer, 0, count)
+                        }
+                        require(copied == expectedLength) {
+                            "La copia del archivo quedó incompleta: $relative"
+                        }
+                        output.fd.sync()
+                    }
+                }
+            }
+            candidate
+        } catch (error: Throwable) {
+            candidate.deleteRecursively()
+            throw error
+        }
+    }
+
     /** Resuelve una ruta relativa y verifica que no atraviese enlaces ni salga de la base. */
     fun resolveInside(baseDirectory: File, relativePath: String): File {
         val normalized = BardoProtectedPathPolicy.normalize(relativePath)

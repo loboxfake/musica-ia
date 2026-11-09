@@ -12,7 +12,29 @@ object BardoPatchApplier {
         val first = lines.indexOfFirst { it.startsWith("--- a/") }
         require(first >= 0) { "No se encontró un diff unificado." }
         val workspaceManager = BardoWorkspaceManager(workspace)
-        val candidate = workspaceManager.createCandidateCopy(root)
+        val changedPaths = mutableListOf<String>()
+        var scan = first
+        while (scan < lines.size) {
+            if (!lines[scan].startsWith("--- a/")) {
+                scan++
+                continue
+            }
+            val oldPath = lines[scan].removePrefix("--- a/").substringBefore("\t")
+            scan++
+            require(scan < lines.size && lines[scan].startsWith("+++ b/")) {
+                "Falta la cabecera de destino del diff."
+            }
+            val newPath = lines[scan].removePrefix("+++ b/").substringBefore("\t")
+            scan++
+            require(oldPath == newPath && BardoProtectedPathPolicy.canModifyExisting(oldPath)) {
+                "La política de rutas bloquea la copia candidata: $oldPath."
+            }
+            require(oldPath !in changedPaths) {
+                "El diff repite una ruta de archivo: $oldPath"
+            }
+            changedPaths += oldPath
+        }
+        val candidate = workspaceManager.createCandidateFromFiles(root, changedPaths)
         val changed = mutableListOf<String>()
         try {
             var i = first
@@ -21,10 +43,10 @@ object BardoPatchApplier {
                     i++
                     continue
                 }
-                val oldPath = lines[i].removePrefix("--- a/").substringBefore("\t").trim()
+                val oldPath = lines[i].removePrefix("--- a/").substringBefore("\t")
                 i++
                 require(i < lines.size && lines[i].startsWith("+++ b/")) { "Falta la cabecera de destino del diff." }
-                val newPath = lines[i].removePrefix("+++ b/").substringBefore("\t").trim()
+                val newPath = lines[i].removePrefix("+++ b/").substringBefore("\t")
                 i++
                 require(oldPath == newPath && oldPath.isNotBlank() && !oldPath.startsWith("/") &&
                     !oldPath.contains(':') && oldPath.split('/').none { it.isBlank() || it == "." || it == ".." }) {

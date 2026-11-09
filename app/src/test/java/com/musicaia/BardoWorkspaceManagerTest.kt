@@ -35,6 +35,30 @@ class BardoWorkspaceManagerTest {
         }
     }
 
+    @Test fun sparseCandidateCopiesOnlySelectedFiles() {
+        val base = createTempDir(prefix = "bardo-workspace-sparse")
+        try {
+            val workspace = File(base, "workspace").apply { mkdirs() }
+            val source = File(base, "snapshot").apply { mkdirs() }
+            val selected = File(source, "docs/notes.md").apply {
+                parentFile?.mkdirs()
+                writeText("selected")
+            }
+            File(source, "large/unrelated.bin").apply {
+                parentFile?.mkdirs()
+                writeBytes(ByteArray(4096) { 7 })
+            }
+            val manager = BardoWorkspaceManager(workspace)
+            val candidate = manager.createCandidateFromFiles(source, listOf("docs/notes.md"))
+
+            assertEquals("selected", manager.resolveInside(candidate, "docs/notes.md").readText())
+            assertTrue(!File(candidate, "large/unrelated.bin").exists())
+            assertEquals("selected", selected.readText())
+        } finally {
+            base.deleteRecursively()
+        }
+    }
+
     @Test fun refusesTraversalAndAbsoluteCandidatePaths() {
         val base = createTempDir(prefix = "bardo-workspace-path")
         try {
