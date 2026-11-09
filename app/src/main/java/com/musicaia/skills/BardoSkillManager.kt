@@ -60,6 +60,12 @@ class BardoSkillManager(
     private val registeredActionIds: () -> Set<String>,
     private val smokeTestRunner: BardoSkillSmokeTestRunner? = null
 ) {
+    /** Compatibilidad con llamadas históricas que proporcionan solo el catálogo de acciones. */
+    constructor(
+        rootDirectory: File,
+        registeredActionIds: () -> Set<String>
+    ) : this(rootDirectory, registeredActionIds, null)
+
     private val lock = Any()
     private val quarantine: File
     private val installed: File
