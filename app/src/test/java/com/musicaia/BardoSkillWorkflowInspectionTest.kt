@@ -13,6 +13,7 @@ import com.musicaia.skills.BardoSkillPermission
 import com.musicaia.skills.BardoSkillSmokeTestReport
 import com.musicaia.skills.BardoSkillSmokeTestRunner
 import com.musicaia.skills.BardoSkillWorkflowExecutor
+import com.musicaia.skills.BardoSkillWorkflowToolHandler
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -176,6 +177,27 @@ class BardoSkillWorkflowInspectionTest {
             assertTrue(report.error.orEmpty().contains("no declarada"))
             assertEquals(0, fixture.search.calls)
             assertEquals(BardoSkillLifecycle.ENABLED, fixture.manager.list().single().lifecycle)
+        } finally {
+            fixture.root.deleteRecursively()
+        }
+    }
+
+    @Test fun plannerBridgeCanInspectWithoutExecutingWorkflow() {
+        val fixture = fixture(validWorkflow())
+        try {
+            val handler = BardoSkillWorkflowToolHandler(fixture.executor)
+            val result = handler.execute(
+                mapOf(
+                    "skill_id" to "skill.local.inspect",
+                    "version" to "1.0.0",
+                    "operation" to "inspect"
+                )
+            )
+
+            assertTrue(result.error.orEmpty(), result.succeeded)
+            assertTrue(result.content.contains("Entradas requeridas: query"))
+            assertTrue(result.content.contains("SHA-256:"))
+            assertEquals(0, fixture.search.calls)
         } finally {
             fixture.root.deleteRecursively()
         }
