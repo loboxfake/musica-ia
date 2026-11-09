@@ -54,7 +54,7 @@ class BardoSkillExecutor(
         }
 
         val declaredActions = record.manifest.actions
-        val skillEligibleIds = tools.registeredSkillToolIds()
+        val skillEligibleIds = tools.verifiedSkillToolIds()
         val undeclared = invocations.map { it.toolId }.toSet() - declaredActions
         if (undeclared.isNotEmpty()) {
             return report(
