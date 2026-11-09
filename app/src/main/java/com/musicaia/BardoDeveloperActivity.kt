@@ -38,6 +38,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.musicaia.desarrollo.BardoDeveloperWorker
 import com.musicaia.desarrollo.BardoGitHubPolicy
+import com.musicaia.storage.BardoSharedStorage
 
 /** Entorno local de investigación y auditoría. Nunca ejecuta código importado ni modifica el APK instalado. */
 class BardoDeveloperActivity : AppCompatActivity() {
@@ -130,6 +131,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
         addButton(root, "Iniciar autoestudio ahora (Gemma local)") { ejecutarAutoestudioAhora() }
         addButton(root, "Activar autoestudio en segundo plano (cada 6 h, al cargar)") { activarAutoestudio() }
         addButton(root, "Pausar autoestudio automático") { pausarAutoestudio() }
+        addButton(root, "Revisar solicitudes de eliminación de BARDO") { revisarSolicitudesEliminacion() }
         urlInput = EditText(this).apply {
             hint = "URL HTTPS de documentación oficial"
             setHintTextColor(android.graphics.Color.LTGRAY); setTextColor(blanco)
@@ -154,6 +156,69 @@ class BardoDeveloperActivity : AppCompatActivity() {
         val button = Button(this).apply { text = label; isAllCaps = false; isEnabled = enabled; setOnClickListener { action() } }
         parent.addView(button, LinearLayout.LayoutParams(-1, 48).apply { topMargin = 5 })
         return button
+    }
+
+    private fun revisarSolicitudesEliminacion() {
+        val pending = runCatching { BardoSharedStorage.pendingDeletionRequests(this) }
+            .getOrElse {
+                output.text = "No se pudieron leer las solicitudes pendientes: " + (it.message ?: it.javaClass.simpleName)
+                return
+            }
+        if (pending.isEmpty()) {
+            AlertDialog.Builder(this)
+                .setTitle("Solicitudes de eliminación")
+                .setMessage("No hay solicitudes pendientes. BARDO no ha movido ni eliminado ningún archivo.")
+                .setPositiveButton("Aceptar", null)
+                .show()
+            return
+        }
+        val labels = pending.map { request ->
+            val action = if (request.permanent) "ELIMINAR PERMANENTEMENTE" else "Mover a Papelera"
+            action + "\n" + request.relativePath + "\nMotivo: " + request.reason
+        }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("BARDO solicita revisar " + pending.size + " elemento(s)")
+            .setItems(labels) { _, index ->
+                val request = pending[index]
+                val action = if (request.permanent) "ELIMINACIÓN PERMANENTE" else "MOVER A LA PAPELERA"
+                val warning = if (request.permanent) {
+                    "\n\nEsta acción no tiene deshacer. Solo se permiten archivos o carpetas vacías."
+                } else {
+                    "\n\nBARDO intentará mover el elemento a su carpeta Papelera. Si el proveedor SAF no permite moverlo, no lo eliminará."
+                }
+                AlertDialog.Builder(this)
+                    .setTitle("Confirmación del usuario")
+                    .setMessage(
+                        action + "\n\nRuta: Descargas/BARDO/" + request.relativePath +
+                            "\n\nMotivo indicado por BARDO: " + request.reason + warning
+                    )
+                    .setPositiveButton(if (request.permanent) "Eliminar permanentemente" else "Mover a Papelera") { _, _ ->
+                        worker.execute {
+                            val result = runCatching {
+                                BardoSharedStorage.approveDeletionRequest(this, request.id)
+                            }
+                            runOnUiThread {
+                                if (isFinishing || isDestroyed) return@runOnUiThread
+                                output.text = result.fold(
+                                    { it + "\n\nSolicitud revisada y cerrada." },
+                                    { "No se completó la operación: " + (it.message ?: it.javaClass.simpleName) }
+                                )
+                            }
+                        }
+                    }
+                    .setNegativeButton("Rechazar") { _, _ ->
+                        val removed = BardoSharedStorage.rejectDeletionRequest(this, request.id)
+                        output.text = if (removed) {
+                            "Solicitud rechazada. No se ha movido ni eliminado el archivo."
+                        } else {
+                            "La solicitud ya no estaba pendiente. No se ha ejecutado ninguna acción."
+                        }
+                    }
+                    .setNeutralButton("Cancelar", null)
+                    .show()
+            }
+            .setNegativeButton("Cerrar", null)
+            .show()
     }
 
     private fun activarAutoestudio() {
