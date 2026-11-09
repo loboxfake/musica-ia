@@ -5,6 +5,7 @@ import com.musicaia.skills.BardoSkillManager
 import com.musicaia.skills.BardoSkillManifest
 import com.musicaia.skills.BardoSkillPackageKind
 import com.musicaia.skills.BardoSkillPermission
+import com.musicaia.skills.BardoSkillManifestValidator
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.security.MessageDigest

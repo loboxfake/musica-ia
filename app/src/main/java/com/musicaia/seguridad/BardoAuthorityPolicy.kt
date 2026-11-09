@@ -12,6 +12,7 @@ enum class BardoPrincipal {
 
 enum class BardoPermissionScope {
     READ_OWN_PROJECT,
+    READ_BARDO_DATA,
     STUDY_LOCAL,
     PROPOSE_CHANGE,
     CREATE_LOCAL_CANDIDATE,
