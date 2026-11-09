@@ -255,7 +255,7 @@ class BardoSkillWorkflowExecutorTest {
             assertFalse(report.succeeded)
             assertEquals(0, report.completedSteps)
             assertEquals(0, calls)
-            assertTrue(report.error.orEmpty().contains("no registrada"))
+            assertTrue(report.error.orEmpty().contains("smoke-test de confianza"))
         } finally {
             fixture.root.deleteRecursively()
         }
