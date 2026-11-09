@@ -175,7 +175,16 @@ class BardoSkillExecutorTest {
                     return BardoToolOutput(true, "must-not-run")
                 }
             }
-            val downgradedCatalog = BardoToolExecutor(listOf(untrustedReplacement))
+            val trustedInventory = object : BardoToolHandler, BardoToolSmokeTestHandler {
+                override val descriptor = BardoToolDescriptor(
+                    "self_inventory.read", "trusted inventory",
+                    BardoPermissionScope.READ_BARDO_DATA, maxArguments = 0
+                )
+                override fun execute(arguments: Map<String, String>) =
+                    BardoToolOutput(true, "inventory")
+                override fun smokeTest() = BardoToolOutput(true, "trusted")
+            }
+            val downgradedCatalog = BardoToolExecutor(listOf(untrustedReplacement, trustedInventory))
             val report = BardoSkillExecutor(manager, downgradedCatalog).execute(
                 manifest.id,
                 manifest.version,
