@@ -194,7 +194,7 @@ object BardoSharedStorage {
         val (uri, _) = resolveEntry(context, loc, decision.normalizedPath!!)
         val info = metadata(context, uri) ?: throw IllegalStateException("No se pudo consultar el archivo.")
         require(!info.isDirectory) { "La ruta apunta a una carpeta, no a un archivo." }
-        require(info.sizeBytes == null || info.sizeBytes in 0..BardoMobileFilePolicy.MAX_TEXT_READ_BYTES) {
+        require(info.sizeBytes == null || info.sizeBytes in 0L..BardoMobileFilePolicy.MAX_TEXT_READ_BYTES) {
             "El archivo supera el máximo de 48 KiB para lectura de texto."
         }
         require(isTextMime(info.mimeType, info.name)) { "BARDO solo lee texto UTF-8 desde esta herramienta." }
@@ -536,7 +536,7 @@ object BardoSharedStorage {
     private fun recordAudit(context: Context, operation: String, path: String, outcome: String) {
         val file = File(context.applicationContext.filesDir, "bardo_mobile_file_operations.log")
         val line = System.currentTimeMillis().toString() + "\t" +
-            operation.take(40) + "\t" + path.take(MAX_RELATIVE_PATH_CHARS) + "\t" +
+            operation.take(40) + "\t" + path.take(BardoMobileFilePolicy.MAX_RELATIVE_PATH_CHARS) + "\t" +
             outcome.take(120) + "\n"
         synchronized(auditLock) {
             runCatching {
@@ -570,14 +570,12 @@ object BardoSharedStorage {
         else -> "application/octet-stream"
     }
 
-    companion object {
-        const val MAX_LIST_ENTRIES = 1000
-        const val MAX_WRITE_TEXT_CHARS = 28_000
-        const val MAX_PENDING_DELETE_REQUESTS = 100
-        const val MAX_DELETE_REASON_CHARS = 500
-        const val TRASH_DIRECTORY = "Papelera"
-        private val auditLock = Any()
-        private const val DELETE_REQUESTS_PREFS = "bardo_mobile_file_requests"
-        private const val DELETE_REQUESTS_KEY = "pending"
-    }
+    const val MAX_LIST_ENTRIES = 1000
+    const val MAX_WRITE_TEXT_CHARS = 28_000
+    const val MAX_PENDING_DELETE_REQUESTS = 100
+    const val MAX_DELETE_REASON_CHARS = 500
+    const val TRASH_DIRECTORY = "Papelera"
+    private val auditLock = Any()
+    private const val DELETE_REQUESTS_PREFS = "bardo_mobile_file_requests"
+    private const val DELETE_REQUESTS_KEY = "pending"
 }
