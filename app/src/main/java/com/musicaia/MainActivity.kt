@@ -408,6 +408,9 @@ class MainActivity : AppCompatActivity() {
                  rootName.equals("Downloads", true) || rootName.equals("Descargas", true)) {
                  "Por seguridad, selecciona la carpeta Descargas/Download. BARDO creará y usará únicamente Descargas/BARDO."
              }
+             // La creación SAF usa la URI temporal devuelta por el selector.
+             // La concesión persistente se guarda solo tras verificar el árbol elegido.
+             uriCarpetaBardo = uri
              val bardoFolder = buscarOCrearSubcarpetaBardo(treeRootUri, "BARDO")
              bardoRootDocumentId = DocumentsContract.getDocumentId(bardoFolder)
              contentResolver.takePersistableUriPermission(
