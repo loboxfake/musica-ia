@@ -120,6 +120,8 @@ class BardoSkillWorkflowInspectionTest {
             assertEquals(setOf("query"), report.requiredInputs)
             assertTrue(report.packageSha256.orEmpty().matches(Regex("^[0-9a-f]{64}$")))
             assertTrue(report.summary.contains("No se ejecutó"))
+            assertFalse(report.executionEligible)
+            assertEquals(listOf("knowledge.search"), report.ineligibleActionIds)
             assertEquals(0, fixture.search.calls)
         } finally {
             fixture.root.deleteRecursively()
