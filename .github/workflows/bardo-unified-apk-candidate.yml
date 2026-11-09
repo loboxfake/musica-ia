@@ -5,7 +5,7 @@ on:
     branches:
       - bardo/integral-autonomy-20261109
     paths:
-      - .github/workflows/bardo-unified-apk-candidate.yml
+      - .github/workflows/**
       - app/**
       - build.gradle.kts
       - settings.gradle.kts
@@ -13,6 +13,7 @@ on:
       - gradle.properties
       - tools/**
       - catalogo/**
+      - docs/**
       - README.md
       - ESPECIFICACION.md
   workflow_dispatch:
