@@ -156,6 +156,18 @@ class BardoToolExecutor(
             .toSortedSet()
 
     /**
+     * Acciones cuyas pruebas de confianza pasan ahora mismo.
+     * Se consulta justo antes de ejecutar una skill, no solo al importarla.
+     * Los smoke-tests son código APK, acotado y no reciben argumentos externos.
+     */
+    fun verifiedSkillToolIds(): Set<String> =
+        handlersById.values
+            .filter { it is BardoToolSmokeTestHandler }
+            .filter { runTrustedSmokeTest(it.descriptor.id).succeeded }
+            .map { it.descriptor.id }
+            .toSortedSet()
+
+    /**
      * Ejecuta únicamente una prueba interna escrita en el código del handler.
      * No acepta argumentos ni código de la skill. Si el handler no declara
      * explícitamente un smoke-test, la acción no puede habilitarse como skill.
