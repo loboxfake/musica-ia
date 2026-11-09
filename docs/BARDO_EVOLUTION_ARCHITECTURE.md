@@ -1,165 +1,168 @@
-# BARDO — Arquitectura del asistente personal evolutivo
+# BARDO — Arquitectura general de autonomía, aprendizaje y evolución
 
-Estado: especificación inicial de implementación  
-Rama de trabajo actual: `main` (única rama activa; verificación final no destructiva en CI)  
-Base histórica de diseño: `a97866a` (`ruta-a-compile`), incorporada como uno de los seis padres del commit de consolidación `28332da4`.
+Estado: arquitectura objetivo y registro de implementación. Este documento no convierte una función pendiente en una función disponible.
 
-## Objetivo del producto
+## 1. Identidad y jerarquía de autoridad
 
-BARDO es un asistente personal general, local-first y extensible. La creación musical es una capacidad especializada, no el propósito exclusivo de la aplicación. Una sola identidad conversacional y un único orquestador coordinan memoria, modelos, herramientas y módulos.
+BARDO es un asistente personal generalista, local-first, modular y evolutivo. La creación musical es una especialidad del sistema, no su propósito exclusivo. Existe una identidad conversacional de BARDO; Gemma, otros modelos y los agentes especializados son recursos intercambiables subordinados.
 
-## Principios no negociables
+Jerarquía normativa:
 
-1. **Honestidad de capacidades:** distinguir entre conocimiento, capacidad disponible y tarea realmente ejecutada. No simular razonamiento, descargas, investigación, generación ni pruebas.
-2. **Local-first:** inferencia y memoria en el dispositivo siempre que el hardware y los modelos lo permitan. Internet permanece desactivado para investigación y acciones externas hasta autorización explícita.
-3. **Una sola conversación:** todos los módulos reciben contexto autorizado mediante contratos comunes; no crear asistentes aislados por pestaña.
-4. **Memoria bajo control del usuario:** historial íntegro con marcas temporales, búsqueda, exportación e importación explícita. Memoria resumida y recuerdos derivados no sustituyen al historial original.
-5. **Aprendizaje verificable:** estudiar documentación, modelos, repositorios y técnicas de otras IA no equivale a adquirir sus pesos, datos privados ni capacidades. Cada nueva capacidad requiere fuente/licencia compatible, implementación, pruebas y declaración de límites.
-6. **Autoevolución segura:** BARDO puede analizar su proyecto, proponer y preparar parches, módulos, recursos y paquetes de actualización. No puede sustituir su núcleo en ejecución ni instalar código por sí solo sin aprobación.
-7. **Integridad y reversión:** cambios atómicos, hashes, pruebas, registro de versiones y posibilidad de volver a una versión conocida.
-8. **Preservación de Modo3:** `app/src/main/java/com/musicaia/modulos/Modo3MezclaVozUsuario.kt` es zona protegida y no se modifica en esta línea de trabajo sin autorización explícita independiente.
+1. **Usuario:** autoridad final. Puede autorizar, limitar, detener, corregir y revocar cualquier delegación.
+2. **JARVIS:** supervisor de confianza que opera en el ordenador del usuario. Solo dispone de las facultades concretas que el usuario le delega. No puede ampliar sus propios permisos ni anular una instrucción directa del usuario.
+3. **BARDO:** núcleo autónomo que planifica, investiga, coordina recursos y ejecuta tareas dentro de las facultades concedidas.
+4. **Modelos, agentes, skills y herramientas:** componentes subordinados. No conceden permisos, no cambian políticas y no pueden declarar válida su propia salida.
 
-## Arquitectura lógica
+Una orden recibida no demuestra por sí sola la identidad de quien la envía. La futura conexión JARVIS–BARDO debe emparejar claves públicas mediante aprobación del usuario y autenticar cada petición con firma, nonce, caducidad y alcance. Las delegaciones deben tener permisos mínimos, caducidad, revocación y registro auditable. Hasta que ese protocolo esté integrado y probado, JARVIS no debe presentarse en la app como autenticado ni disponer de acceso remoto implícito.
 
-### 1. BardoCore / Orquestador único
-Responsabilidades:
-- Mantener identidad, sesión activa y contexto conversacional.
-- Clasificar la intención: conversación, pregunta, memoria, herramienta, música, aprendizaje o evolución.
-- Planificar pasos y seleccionar capacidades registradas.
-- Solicitar confirmación antes de permisos, red, cambios de código, instalación o acciones destructivas.
-- Devolver resultados con estado: completado, parcial, bloqueado o fallido.
+Una instrucción directa del usuario prevalece sobre una delegación previa a JARVIS. Una delegación a JARVIS nunca concede autoridad a Gemma, agentes o skills.
 
-El orquestador no contiene implementaciones específicas de cada herramienta. Invoca contratos tipados y registra resultados.
+## 2. Principios permanentes
 
-### 2. ConversationEngine
-- Interfaz de proveedor de modelo independiente del motor concreto.
-- Proveedor local LiteRT-LM/Gemma cuando esté instalado y sea compatible.
-- Preparación de prompts con contexto limitado y fuentes identificadas.
-- Manejo de cancelación, errores, tiempos de espera y respuestas vacías.
-- No afirmar que el modelo está disponible si no pasa verificación de tamaño, hash, runtime y prueba mínima.
-- Si el modelo local no puede responder, explicar la limitación; no presentar el flujo guiado como conversación general.
+- Local-first: inferencia, archivos y memoria permanecen en el dispositivo cuando sea viable.
+- Modelo independiente: el núcleo no debe depender de una familia, proveedor o formato de modelo concreto.
+- Una sola identidad y un contexto común, con aislamiento por tarea y permisos.
+- Evidencia antes que afirmaciones: código, instalación, carga, ejecución y prueba física son estados distintos.
+- Seguridad aplicada por código: los prompts no son controles de acceso.
+- Aprendizaje verificable: estudiar una fuente no significa haber adquirido una capacidad ejecutable.
+- Evolución reversible: cada cambio tiene origen, diff, pruebas, hash, estado y ruta de rollback.
+- Protección de datos y privacidad: acceso mínimo a los archivos/carpetas expresamente autorizados.
 
-### 3. MemoryStore
-Separar cuatro almacenes:
-- **ConversationLog:** mensajes originales, rol, texto, fecha UTC, zona/offset local, conversación e identificador estable.
-- **UserMemory:** preferencias y datos persistentes autorizados, con procedencia y fecha.
-- **KnowledgeBase:** documentos y referencias importados, fragmentos, fuente, licencia, fecha y hash.
-- **TaskJournal:** peticiones, planes, aprobaciones, acciones y resultados.
+## 3. Núcleo BARDO
 
-Reglas:
-- Persistencia transaccional; no guardar el chat como un único TextView o string concatenado.
-- Fechas por mensaje; nunca reconstruir fechas históricas con la hora actual.
-- Búsqueda por conversación, fecha y texto.
-- Exportación a JSON completo y TXT legible; incluir metadatos y zona horaria.
-- Importación en cuarentena: previsualizar, deduplicar y pedir autorización antes de incorporar a memoria.
-- Exportar no significa compartir con terceros.
-- Borrar memoria debe ser explícito y separado de borrar archivos musicales.
+El núcleo debe coordinar componentes a través de contratos, no contener toda la lógica de cada especialidad.
 
-### 4. LearningEngine
-Ciclo de aprendizaje:
-1. Detectar una carencia o recibir un objetivo.
-2. Formular una pregunta de investigación concreta.
-3. Obtener fuentes solo mediante conectividad autorizada o material local.
-4. Evaluar procedencia, actualidad, licencia, seguridad y fiabilidad.
-5. Extraer conocimiento y registrar citas/fuentes.
-6. Proponer una capacidad implementable.
-7. Crear prototipo en entorno aislado.
-8. Ejecutar pruebas funcionales, rendimiento y consumo.
-9. Presentar informe y solicitar aprobación para integrar.
-10. Medir el resultado y mantener rollback.
+- **BardoCore:** identidad, sesión, políticas, estado, objetivos y coordinación.
+- **ConversationEngine:** construye el contexto autorizado y llama al proveedor de modelo elegido.
+- **ModelProvider:** adaptador independiente de Gemma/LiteRT, otros modelos locales y proveedores remotos autorizados.
+- **Orchestrator:** descompone objetivos, selecciona skills y coordina pasos y recursos.
+- **ToolExecutor:** ejecuta herramientas tipadas con permisos declarados, límites y cancelación. No ejecuta comandos arbitrarios dictados por un modelo.
+- **MemoryStore:** historial, memoria del usuario, biblioteca de conocimiento y diario de tareas separados.
+- **LearningEngine:** investigación, evaluación de fuentes, extracción y seguimiento de aprendizajes.
+- **SkillManager:** catálogo, instalación, pruebas, versiones, activación y reversión de skills.
+- **EvolutionEngine:** workspace aislado, propuestas, validación, PR y seguimiento del resultado.
+- **IndependentEvaluator:** evalúa resultados usando criterios y pruebas que el modelo que propone el cambio no puede modificar.
 
-Aprendizaje de otras IA:
-- Se permite estudiar documentación pública, artículos, benchmarks, APIs, modelos con licencia compatible y código abierto.
-- No se permite eludir controles, extraer pesos propietarios, copiar datos privados, credenciales o prompts internos.
-- No se afirma que BARDO ha aprendido una capacidad hasta que la implementación local o herramienta correspondiente haya pasado pruebas.
-- Diferenciar memoria/RAG, ajuste fino, destilación y cambio de modelo; no confundirlos.
+El registro actual de módulos y capacidades ya ofrece una base para la orquestación, pero aún no equivale a un sistema completo de providers, herramientas dinámicas o skills instalables.
 
-### 5. CapabilityRegistry / Skills
-Cada capacidad declara:
-- ID y versión.
+## 4. Modelos y equipo multi-IA
+
+Cada proveedor debe declarar identidad, versión, licencia, formato, huella, capacidades, tamaño, requisitos de memoria/CPU/GPU, contexto máximo, límites y estado real.
+
+Un adaptador traduce el contrato común de BARDO al runtime del modelo. La salida incluye proveedor/modelo, tiempo, estado, errores y uso de recursos cuando esté disponible.
+
+BARDO puede repartir tareas entre modelos/agentes especializados, por ejemplo: planificación, programación, revisión de seguridad, pruebas, documentación, audio, visión y voz. El agente revisor no debe ser el mismo proceso ni la misma instancia que generó el cambio cuando se necesite independencia. Los modelos pueden discrepar; BARDO conserva las evidencias y aplica criterios, no autoridad del modelo.
+
+Un modelo remoto solo puede usarse con una autorización que cubra el envío de esos datos. La opción local debe seguir disponible en modo degradado.
+
+## 5. Skills y herramientas
+
+Una skill es un paquete identificable y versionado que declara:
+
+- ID, nombre, versión y compatibilidad de API.
 - Descripción y esquema de entrada/salida.
-- Permisos necesarios (local, archivos, red, micrófono, GitHub, etc.).
-- Límites, dependencias, modelo requerido y coste estimado.
-- Pruebas y hash del paquete.
-- Estado: disponible, no instalada, incompatible, bloqueada o experimental.
+- Capacidades y permisos solicitados.
+- Dependencias, modelo requerido, coste y límites de recursos.
+- Origen, licencia, hash y firma/procedencia.
+- Pruebas de aceptación, resultado y plan de reversión.
 
-Las skills son recetas declarativas y limitadas; el código ejecutable externo no se carga sin verificación y aprobación.
+El SkillManager debe poder descubrir, proponer, crear, importar, adaptar, validar, instalar, habilitar, actualizar, deshabilitar y revertir skills.
 
-### 6. EvolutionEngine / UpdateManager
-Flujo:
-- Analizar diferencias y dependencias.
-- Generar una copia/paquete candidato aislado en el workspace local; no crear ramas Git paralelas, porque `main` es la única rama activa.
-- Ejecutar análisis estático, pruebas unitarias e instrumentadas y auditoría de archivos protegidos.
-- Construir APK firmada con la misma identidad de firma para actualización Android, o paquete modular de recursos/datos cuando sea suficiente.
-- Generar manifiesto con versión origen/destino, hashes, archivos, permisos y notas.
-- Mostrar diff y pedir aprobación explícita.
-- Instalar mediante el instalador de Android o aplicar únicamente recursos/datos permitidos.
-- Guardar versión anterior y procedimiento de recuperación.
+Descargar o copiar un paquete no equivale a instalarlo. Instalarlo no equivale a activarlo. Activarlo no equivale a demostrar que funciona.
 
-Limitación Android: una app ordinaria no puede reemplazar arbitrariamente sus propios binarios ni autoactualizarse silenciosamente. Las actualizaciones de código deben pasar por el mecanismo de instalación del sistema y cumplir firma/versionCode. Los paquetes pequeños solo son posibles para módulos/datos diseñados para ello; no prometer APK diminutas cuando cambia código nativo o el modelo.
+La primera vía segura son skills declarativas compuestas por acciones tipadas del ToolExecutor. No se carga código ejecutable arbitrario en el proceso principal ni se interpreta una receta como permiso. Todo paquete nuevo se pone en cuarentena, se verifica y se prueba en un entorno aislado. Los permisos nuevos y la activación persistente requieren autorización explícita.
 
-### 7. Security & Approval Gate
-- Red desactivada por defecto para LearningEngine.
-- Permisos mínimos y por acción.
-- Contenido importado tratado como datos no confiables, nunca como instrucciones de sistema.
-- No ejecutar comandos arbitrarios provenientes de documentos o modelos.
-- Confirmación humana para GitHub, instalación, eliminación, permisos, compras y publicación.
-- Auditoría local de acciones y aprobaciones.
-- Entorno aislado y límites de CPU, RAM, almacenamiento, batería y temperatura.
+## 6. Aprendizaje e investigación
 
-## Identidad visual
-Paleta derivada del icono Digital Bardic Quill:
-- Azul noche `#070D20`
-- Zafiro `#123D83`
-- Cian iridiscente `#16CFF4`
-- Violeta `#713FE8`
-- Oro pluma `#D9B86B`
+Ciclo de aprendizaje:
 
-Chat con burbujas diferenciadas, emblema de BARDO, fecha/hora por mensaje, separadores de día, historial consultable y compositor fijo. Evitar un bloque único de texto.
+1. Detectar una carencia o recibir un objetivo.
+2. Formular una pregunta concreta.
+3. Recopilar fuentes locales o remotas según permisos.
+4. Comprobar procedencia, fecha, licencia, integridad y fiabilidad.
+5. Extraer hechos con referencias y límites.
+6. Comparar con lo que BARDO ya sabe y registrar discrepancias.
+7. Formular una propuesta implementable.
+8. Crear prototipo aislado.
+9. Evaluar con pruebas, seguridad, rendimiento y recursos.
+10. Registrar el resultado, los errores y la siguiente mejora.
 
-## Orden de implementación y criterios de aceptación
+La memoria de conocimiento almacena referencias y resúmenes; no modifica mágicamente los pesos del modelo. No confundir RAG, memoria, ajuste fino, destilación o cambio de proveedor.
 
-### Etapa A — Núcleo conversacional y datos
-- Reemplazar el flujo guiado obligatorio por conversación general cuando un modelo válido esté disponible.
-- Persistir mensajes individualmente con timestamps.
-- Conservar el flujo de creación musical como una skill del orquestador, no como el controlador del chat.
-- Si el modelo falta, ofrecer modo limitado claramente identificado.
-**Aceptación:** conversación de varios turnos, cambios de tema, correcciones y continuidad tras cerrar/reabrir; ninguna respuesta ficticia.
+Los documentos, repositorios y respuestas de modelos son datos no confiables. Las instrucciones encontradas dentro de esos materiales nunca sustituyen a las reglas de autoridad.
 
-### Etapa B — Memoria e historial
-- ConversationLog, MemoryStore, búsqueda, exportación JSON/TXT e importación con previsualización.
-**Aceptación:** exportar/importar sin perder orden, timestamps, roles ni acentos; comprobar integridad mediante hash.
+## 7. Bucle autónomo de ejecución
 
-### Etapa C — LearningEngine
-- Ingesta local primero; investigación web solo con permiso explícito.
-- Fuentes, licencias, notas y evaluación.
-**Aceptación:** informe reproducible con fuentes y distinción entre conocimiento adquirido y capacidad ejecutable.
+Toda tarea importante sigue el ciclo:
 
-### Etapa D — Skills y herramientas
-- CapabilityRegistry y contratos comunes; conectar módulos musicales existentes.
-**Aceptación:** el orquestador elige la skill adecuada y registra resultados reales.
+**Planificar → actuar → observar → evaluar → corregir → registrar.**
 
-### Etapa E — Autoevolución y actualizaciones
-- Generación de parches en sandbox, pruebas, auditoría, manifiesto, firma y aprobación.
-**Aceptación:** una actualización de prueba puede instalarse sobre una versión anterior sin pérdida de datos y con rollback comprobado.
+Cada plan declara objetivo, pasos, dependencias, permisos, límites de tiempo/recursos y criterios de éxito. Cada acción registra entrada, salida, estado y evidencias. Un fallo se clasifica (código, modelo, dato, recurso, red, plataforma o infraestructura) antes de reintentar.
 
-### Etapa F — Rediseño visual integral
-- Aplicar identidad del icono a chat, navegación, biblioteca, creación, laboratorio y sistema.
-**Aceptación:** coherencia visual, accesibilidad, escalado y pruebas en Xiaomi 11T Pro.
+El evaluador debe comparar la salida con criterios objetivos y pruebas independientes. Una respuesta convincente del modelo no es una medición de éxito. Las pruebas y políticas protegidas no se pueden borrar o relajar para que un candidato aparezca aprobado.
 
-## Pruebas obligatorias
-- Unitarias y de integración.
-- Persistencia tras cierre forzado/reinicio.
-- Exportación/importación y recuperación de backup.
-- Pruebas de memoria y consumo del modelo en el dispositivo objetivo.
-- Verificación de hashes y archivos protegidos.
-- Auditoría de APK (package, minSdk, firma, ABI, assets y bibliotecas).
-- Instalación y prueba física en Xiaomi 11T Pro antes de declarar la entrega terminada.
+## 8. Autoevolución y GitHub
 
-## Estado real al iniciar
-La versión probada dispone de UI musical, reproductor WAV y un flujo conversacional parcialmente guiado con integración LiteRT-LM condicionada a que el modelo local exista y pase verificación. No se considera todavía un asistente general, una memoria estructurada completa ni un sistema de autoevolución. Esta especificación define el destino; cada función se marcará como implementada solo tras código, pruebas y verificación.
+BARDO estudia su propio código como texto, prepara cambios en una copia aislada y los somete a validación. El código importado no se ejecuta durante el análisis local.
 
+Flujo acordado:
 
-## Puente de validación e integración de candidatos
+1. Obtener un snapshot inmutable de un commit exacto de `main`.
+2. Revisar diagnóstico, memoria técnica y referencias autorizadas.
+3. Generar un cambio pequeño, acotado y reproducible.
+4. Aplicar el diff solo en una copia candidata, con rutas seguras.
+5. Rechazar Modo3, núcleo protegido, workflows, configuración, firma y secretos.
+6. No modificar ni borrar pruebas existentes; las pruebas nuevas se añaden, nunca sustituyen las antiguas.
+7. Validar en runner efímero: análisis, tests y compilación.
+8. Tras autorización explícita, crear rama `bardo/<id>` y PR borrador contra `main`.
+9. Revisar diff y resultados de CI. BARDO no fusiona el PR.
+10. La APK integral solo se genera tras una fusión separada y autorizada a `main`; su instalación corresponde al usuario y Android.
 
-La app puede usar opcionalmente un fine-grained PAT limitado al repositorio para iniciar workflows. El PAT se guarda cifrado con Android Keystore y se limita a Actions read/write y Contents read. El runner nunca recibe ese PAT ni otros secrets. El workflow de validación aplica un diff a un checkout efímero, revisa allowlist/protecciones y ejecuta tests/assembleDebug. Otro workflow, únicamente después de validación SUCCESS y aprobación explícita dentro de BARDO, repite pruebas, confirma que main no cambió, crea un commit fast-forward y solicita la APK integral. main sigue siendo la única rama. Sin token/red, el modo local conserva auditoría y propuestas aisladas, pero no puede compilar remotamente.
+Nunca se hace push automático a `main`, force-push, reset destructivo ni borrado de ramas/remotos. Un candidato obsoleto se rechaza y debe regenerarse desde el nuevo commit base.
+
+El workflow que valida candidatos usa un runner efímero y no recibe el PAT del dispositivo. La rama y el PR se crean con el token efímero de GitHub Actions. El PAT guardado en el teléfono sirve para consultar/encolar workflows y se cifra con Android Keystore.
+
+La protección de rama de GitHub debe configurarse en el propio repositorio para exigir PR y checks. El estado de configuración debe comprobarse; no se presume activada.
+
+## 9. Aislamiento, datos y reversión
+
+- Workspace privado distinto del snapshot original.
+- Rechazo de rutas absolutas, traversal, enlaces simbólicos y entradas no regulares.
+- Límites explícitos de ficheros, tamaños, tiempo, RAM, batería y temperatura.
+- Ninguna skill/modelo recibe permisos de archivos o red por estar registrado.
+- Hashes para modelos, referencias, artefactos y salidas verificables.
+- Registro de propuestas, aprobaciones, pruebas, PR y rollback.
+- La reversión restaura una versión conocida sin borrar el historial ni los originales del usuario.
+
+## 10. Memoria y datos
+
+Separar:
+
+- ConversationLog: mensajes originales y fechas por mensaje.
+- UserMemory: preferencias/datos persistentes autorizados y su procedencia.
+- KnowledgeBase: documentos y referencias con licencia, fuente y hash.
+- TaskJournal: objetivos, planes, permisos, acciones, evaluaciones y resultados.
+- SkillRegistry: manifiestos, versiones, permisos y pruebas.
+- ModelRegistry: modelos/proveedores, huellas y estados verificados.
+
+No escanear otras aplicaciones ni paquetes externos. Los permisos SAF quedan restringidos a la ubicación BARDO seleccionada por el usuario.
+
+## 11. Especialidades
+
+La creación musical, voz, mezcla, portadas, visión, OCR, transcripción, lectura documental, programación, investigación y automatización son skills especializadas que comparten la misma identidad, memoria autorizada, contratos y política de seguridad.
+
+Las capacidades musicales actuales se mantienen como especialidades. La generación instrumental, creación de letras, mezclas y exportaciones deben seguir superando pruebas reales de WAV/MP3 y escucha. La presencia de modelos/assets no demuestra calidad ni funcionamiento.
+
+## 12. Estado de implementación al 9 de noviembre de 2026
+
+**Integrado en la línea de trabajo antes de esta fase:** conversación/historial local, biblioteca de conocimiento, inventario propio, catálogo de capacidades/módulos, integración LiteRT-LM/Gemma, autoestudio estático con propuesta de diff, puente GitHub y herramientas musicales/documentales descritas en el inventario técnico.
+
+**Iniciado en la rama `bardo/autonomy-foundation-20261109`:** política central de rutas protegidas, workspace de candidatos con controles de ruta/enlaces/tamaño, adopción por el aplicador de parches, nuevas pruebas, corrección del empaquetado de snapshot al retirar los maestros del repositorio, validación para PR, y preparación de PR borrador en vez de escritura directa en `main`.
+
+**Aún no demostrado o pendiente de integración completa:** emparejamiento criptográfico JARVIS–BARDO y delegaciones firmadas; contrato de proveedores de modelos múltiples y selección dinámica; SkillManager instalable completo; ToolExecutor general; evaluador independiente y bucle de autocorrección end-to-end; protección real de `main` configurada en GitHub; ejecución de tests de esta rama; APK de esta rama; instalación, inferencia Gemma, audio y pruebas físicas en Xiaomi 11T Pro.
+
+No declarar ningún elemento de esta última lista como terminado sin código, prueba y evidencia.
+
+## 13. Criterio final de aceptación
+
+BARDO se considerará capaz de una función cuando: el código exista; la política permita la acción; las dependencias/versiones/huellas sean correctas; las pruebas objetivas pasen; el runtime se cargue; la tarea real complete; el resultado sea verificable; y, cuando corresponda, el dispositivo objetivo supere la prueba. Cada nivel debe quedar anotado por separado.

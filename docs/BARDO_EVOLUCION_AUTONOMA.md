@@ -1,51 +1,52 @@
-# BARDO — Arquitectura de evolución autónoma gobernada
+# BARDO — Evolución autónoma gobernada
 
-Estado: especificación de diseño; no representa funciones ya implementadas.
+Estado: especificación operativa. Los controles que no estén implementados y probados se marcan como pendientes.
 
-## Objetivo
+## Autoridad
 
-BARDO debe poder detectar problemas y oportunidades, formular propuestas de mejora, preparar cambios, ejecutar pruebas y presentar resultados. La iniciativa de analizar y proponer es autónoma; la autorización para aplicar cambios que alteren el comportamiento, los datos o la instalación corresponde siempre al usuario.
+El usuario es la autoridad final. JARVIS, que opera en el ordenador del usuario, es supervisor de confianza únicamente dentro de la delegación explícita que reciba. El usuario puede anular una orden de JARVIS. BARDO, Gemma, otros modelos, agentes, skills y herramientas no pueden concederse permisos ni cambiar la jerarquía.
+
+La futura conexión JARVIS–BARDO debe emparejar claves públicas con aprobación del usuario y autenticar cada orden firmada con nonce, caducidad, alcance y registro. La delegación debe poder revocarse. Mientras ese protocolo no esté implementado y probado, BARDO no debe fingir que JARVIS está autenticado ni obedecer una orden externa solo porque diga proceder de JARVIS.
 
 ## Ciclo de evolución
 
-1. **Observar:** recopilar diagnósticos locales explícitamente permitidos: errores, tiempos, uso de memoria, resultados de pruebas y comentarios del usuario. No recopilar contenido privado ajeno al ámbito autorizado.
-2. **Diagnosticar:** separar hechos medidos, hipótesis y limitaciones. No presentar una hipótesis como un fallo confirmado.
-3. **Proponer:** cada propuesta incluye identificador, objetivo, problema, beneficio esperado, impacto, riesgos, permisos solicitados, archivos/áreas afectadas, pruebas y plan de reversión.
-4. **Esperar autorización:** estados válidos: borrador, pendiente, autorizada, rechazada, aplicada, verificada, revertida. El silencio nunca autoriza.
-5. **Preparar:** crear un cambio aislado y reproducible, sin tocar componentes protegidos ni datos del usuario.
-6. **Validar:** ejecutar pruebas unitarias, análisis estático, compilación, auditoría de dependencias, integridad y pruebas de regresión.
-7. **Presentar:** mostrar diff, resultados reales, limitaciones y artefactos. Una compilación verde no equivale a validación en dispositivo.
-8. **Activar:** las actualizaciones de APK requieren firma compatible y consentimiento/acción de instalación del sistema Android.
-9. **Revertir:** conservar versión anterior y datos; si falla una comprobación, no activar el cambio y ofrecer reversión.
+1. **Observar:** recopilar solo diagnósticos locales permitidos.
+2. **Diagnosticar:** separar datos medidos, hipótesis y limitaciones.
+3. **Proponer:** identificar el problema, beneficio, riesgo, permisos, ficheros y pruebas.
+4. **Preparar:** trabajar en copia aislada; nunca modificar el original ni la APK instalada.
+5. **Validar:** ejecutar pruebas y compilación reproducibles en un runner efímero.
+6. **Solicitar aprobación:** mostrar diff, checks y riesgos antes de crear la rama/PR.
+7. **Abrir PR:** crear rama `bardo/<id>` y PR borrador. No escribir ni fusionar `main`.
+8. **Evaluar:** revisar CI y resultados; corregir fallos en candidato nuevo.
+9. **Publicar:** APK integral solo después de una fusión separada y autorizada a `main`.
+10. **Revertir:** conservar versión conocida y ruta de recuperación.
 
-## Separación de permisos
+## Estados válidos
 
-- **Autónomo sin aprobación:** inspección local autorizada, análisis, diagnóstico, ideas, borradores y propuestas.
-- **Autorización expresa por cambio:** edición de código, incorporación o actualización de módulos, migraciones, cambios de configuración persistente y uso de permisos nuevos.
-- **Confirmación reforzada:** borrar datos, sustituir modelos, cambiar identidad/firma, exportar datos privados, modificar protecciones o instalar una APK.
-- La autorización para una propuesta no concede permisos distintos de los descritos en ella.
+`draft`, `proposed`, `authorised`, `candidate`, `validated`, `pull_request_open`, `merged`, `device_verified`, `rejected`, `failed`, `reverted`.
 
-## Seguridad de módulos
+No saltar de propuesta a función disponible. La ausencia de respuesta no autoriza. Una autorización cubre solo el candidato, ficheros, operaciones y alcance mostrados.
 
-- Manifiesto versionado con identificador, versión, API mínima/máxima, capacidades solicitadas, origen, licencia y SHA-256.
-- Verificar integridad y firma antes de aceptar un paquete.
-- Rechazar módulos incompatibles, no firmados o con permisos superiores a los autorizados.
-- No ejecutar código descargado arbitrario dentro del proceso principal. Preferir APIs declarativas y módulos compilados/firmados.
-- Mantener registro local append-only de propuestas, autorizaciones, pruebas, activaciones y reversiones.
-- Mantener una copia recuperable de la última versión funcional y migraciones de datos reversibles.
+## Seguridad del candidato
 
-## Límites técnicos y de plataforma
+- Rutas absolutas, traversal y enlaces simbólicos se rechazan.
+- El workspace tiene límites de cantidad y tamaño.
+- Modo3 y el núcleo protegido requieren una autorización humana independiente; Modo3 se mantiene bloqueado en esta línea.
+- Las pruebas existentes son inmutables; las nuevas se añaden, nunca sustituyen las antiguas.
+- Workflows, scripts de CI, build, firma, secretos y protecciones no son editables por el ciclo autónomo.
+- No ejecutar código importado ni ejecutar scripts proporcionados por modelos.
+- El runner de validación no recibe el PAT del teléfono ni secretos privados.
+- El token del dispositivo se guarda con Android Keystore y permisos mínimos para Actions.
+- No force-push, reset destructivo ni borrado remoto.
 
-- Un proceso Android no puede sustituir silenciosamente la APK instalada ni eludir el mecanismo de firma/instalación del sistema.
-- La generación de parches en el teléfono no implica que BARDO pueda compilar una APK: eso requiere una toolchain disponible y recursos suficientes. Si se usa un entorno externo de compilación, se declarará como dependencia y se verificará el artefacto.
-- La autonomía no implica acceso irrestricto a archivos, red, micrófono, cuentas ni credenciales.
-- BARDO debe funcionar en modo degradado y explicar qué capacidades no están disponibles si falta un modelo o una herramienta.
+## Seguridad de skills
 
-## Criterios de aceptación
+Cada skill debe declarar ID/versiones/API, capacidades, permisos, origen, licencia, SHA-256, dependencias, límites y pruebas. Los paquetes descargados entran en cuarentena. Se comprueba integridad y compatibilidad antes de instalar; se prueba aislada; la activación persistente requiere autorización. La primera implementación debe preferir skills declarativas de acciones tipadas; no cargar código externo arbitrario en el proceso principal.
 
-- Ningún cambio se aplica sin autorización explícita asociada a un diff identificable.
-- Ningún módulo se activa sin validación de manifiesto, integridad y permisos.
-- Fallos de pruebas bloquean la activación.
-- Cada cambio tiene evidencia reproducible y ruta de reversión.
-- No se declara validado en Xiaomi 11T Pro hasta instalarlo y probarlo físicamente.
-- Las funciones musicales, MP3, voz e IA se describen según pruebas reales, nunca por el mero hecho de existir código o un artefacto.
+## Evaluador independiente
+
+El modelo que propone no puede modificar las pruebas, el evaluador ni la política que juzga su propuesta. El evaluador comprobará tests, compilación, rutas, huellas, dependencias, permisos y criterios objetivos. La puntuación del propio modelo es solo una opinión, no evidencia de éxito.
+
+## Límites de Android
+
+Una aplicación Android ordinaria no puede sustituir silenciosamente su APK instalada ni eludir la firma y el instalador del sistema. Una compilación verde no equivale a prueba física. La instalación y la escucha de WAV deben realizarse en el Xiaomi 11T Pro antes de declarar el funcionamiento validado.
