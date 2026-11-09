@@ -43,11 +43,11 @@ data class BardoUpdateValidation(
 object BardoIncrementalUpdatePolicy {
     const val MAX_FILES = 30
     const val MAX_TOTAL_BYTES = 100L * 1024L * 1024L
-    private val versionPattern = Regex("^[0-9]+\\\\.[0-9]+\\\\.[0-9]+(?:[-+][A-Za-z0-9.-]+)?$")
+    private val versionPattern = Regex("^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][A-Za-z0-9.-]+)?$")
     private val idPattern = Regex("^[A-Za-z0-9._-]{8,80}$")
     private val sha256Pattern = Regex("^[a-fA-F0-9]{64}$")
     private val commitPattern = Regex("^(?:[a-fA-F0-9]{40}|[a-fA-F0-9]{64})$")
-    private val githubEvidencePattern = Regex("^https://github\\\\.com/loboxfake/musica-ia/actions/runs/[0-9]{6,20}$")
+    private val githubEvidencePattern = Regex("^https://github\\.com/loboxfake/musica-ia/actions/runs/[0-9]{6,20}$")
     private val localEvidencePattern = Regex("^bardo-audit://[A-Za-z0-9._/-]{3,200}$")
 
     private val forbiddenExact = setOf(
@@ -98,7 +98,7 @@ object BardoIncrementalUpdatePolicy {
     }
 
     private fun normalizePath(raw: String): String? {
-        if (raw.isBlank() || raw != raw.trim() || raw.startsWith("/") || raw.contains('\\\\') || raw.contains(':') || raw.startsWith("~") || raw.any { it.isISOControl() }) return null
+        if (raw.isBlank() || raw != raw.trim() || raw.startsWith("/") || raw.contains('\\') || raw.contains(':') || raw.startsWith("~") || raw.any { it.isISOControl() }) return null
         val parts = raw.split('/')
         if (parts.any { it.isBlank() || it == "." || it == ".." }) return null
         return raw
