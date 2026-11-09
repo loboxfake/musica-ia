@@ -1,5 +1,5 @@
 name: Export unified BARDO APK for verified download
-# Candidate 3 is pinned to immutable run 42706354491 / artifact 13714846410; do not retarget without a successful audited build.
+# Candidate 21 is pinned to immutable run 42716917671 / artifact 13719172906; do not retarget without a successful audited build.
 
 on:
   push:
@@ -28,12 +28,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          artifact_id="13714846410"
-          source_run_id="42706354491"
-          source_head_sha="2d7bb4233675ea7f764f7ec199f06e568f3fb2be"
-          expected_digest="sha256:c8e561d5bb81896bd05324dcd091d33c31226e9615b71e8c1c81d384b9ecf547"
+          artifact_id="13719172906"
+          source_run_id="42716917671"
+          source_head_sha="96498e5acdb998cbe8ca4c93dbc5c03d19b758ce"
+          expected_digest="sha256:cd5248f108c52d825123fbb173062508d3dc66080b690c554d315fb2c2a33078"
           metadata="$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id")"
-          test "$(printf '%s' "$metadata" | jq -r '.name')" = "bardo-unified-offline-arm64-candidate-3"
+          test "$(printf '%s' "$metadata" | jq -r '.name')" = "bardo-unified-offline-arm64-candidate-21"
           test "$(printf '%s' "$metadata" | jq -r '.expired')" = "false"
           test "$(printf '%s' "$metadata" | jq -r '.digest')" = "$expected_digest"
           test "$(printf '%s' "$metadata" | jq -r '.workflow_run.id')" = "$source_run_id"
@@ -49,7 +49,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p source
-          gh run download 42706354491 --repo "$GITHUB_REPOSITORY" --name bardo-unified-offline-arm64-candidate-3 --dir source
+          gh run download 42716917671 --repo "$GITHUB_REPOSITORY" --name bardo-unified-offline-arm64-candidate-21 --dir source
           python3 - source <<'PY'
           import hashlib, json, pathlib, sys
           root = pathlib.Path(sys.argv[1])
@@ -100,11 +100,11 @@ jobs:
           if not 1 <= len(chunks) <= 4 or any(item["size_bytes"] > chunk_bytes for item in chunks):
               raise SystemExit(f"UNSUPPORTED_APK_CHUNK_COUNT_OR_SIZE: {chunks}")
           manifest = {
-              "source_run_id": 42706354491,
-              "source_head_sha": "2d7bb4233675ea7f764f7ec199f06e568f3fb2be",
-              "source_artifact_id": 13714846410,
-              "source_artifact_digest": "sha256:c8e561d5bb81896bd05324dcd091d33c31226e9615b71e8c1c81d384b9ecf547",
-              "apk_file_name": "BARDO-unified-offline-ARM64-candidate-3.apk",
+              "source_run_id": 42716917671,
+              "source_head_sha": "96498e5acdb998cbe8ca4c93dbc5c03d19b758ce",
+              "source_artifact_id": 13719172906,
+              "source_artifact_digest": "sha256:cd5248f108c52d825123fbb173062508d3dc66080b690c554d315fb2c2a33078",
+              "apk_file_name": "BARDO-unified-offline-ARM64-candidate-21.apk",
               "apk_size_bytes": apk.stat().st_size,
               "apk_sha256": actual,
               "chunks": chunks
