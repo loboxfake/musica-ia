@@ -28,6 +28,7 @@ object BardoProtectedPathPolicy {
         "app/src/main/java/com/musicaia/desarrollo/BardoPatchApplier.kt",
         "app/src/main/java/com/musicaia/desarrollo/BardoProtectedPathPolicy.kt",
         "app/src/main/java/com/musicaia/desarrollo/BardoWorkspaceManager.kt",
+        "app/src/main/java/com/musicaia/actualizaciones/BardoIncrementalUpdateManifest.kt",
         "app/src/main/java/com/musicaia/seguridad/BardoAuthorityPolicy.kt",
         "app/src/main/java/com/musicaia/seguridad/BardoAuthorityLedger.kt",
         "app/src/main/java/com/musicaia/modelos/BardoModelProvider.kt",
