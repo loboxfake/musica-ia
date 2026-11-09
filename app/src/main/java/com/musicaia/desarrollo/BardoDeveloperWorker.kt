@@ -24,8 +24,6 @@ import com.musicaia.storage.BardoSharedStorage
 import com.musicaia.autonomia.BardoAutonomyEngine
 import com.musicaia.autonomia.BardoGemmaTaskPlanner
 import com.musicaia.autonomia.BardoTaskJournal
-import com.musicaia.herramientas.BardoCoreToolCatalog
-import com.musicaia.herramientas.BardoToolExecutor
 import com.musicaia.modelos.BardoModelRegistry
 import com.musicaia.modelos.BardoGemmaLiteRtProvider
 import com.musicaia.modelos.BardoAgentFleet
@@ -33,6 +31,7 @@ import com.musicaia.modelos.BardoAgentProfile
 import com.musicaia.modelos.BardoAgentRole
 import com.musicaia.modelos.BardoAgentTask
 import com.musicaia.modelos.BardoProviderAgentInvoker
+import com.musicaia.skills.BardoSkillRuntimeFactory
 import java.io.File
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -155,7 +154,8 @@ class BardoDeveloperWorker(
             )
             val autonomyResult = runCatching {
                 val modelRegistry = BardoModelRegistry(listOf(BardoGemmaLiteRtProvider()))
-                val toolExecutor = BardoToolExecutor(BardoCoreToolCatalog.create(applicationContext))
+                val skillRuntime = BardoSkillRuntimeFactory.create(applicationContext)
+                val toolExecutor = skillRuntime.tools
                 val autonomy = BardoAutonomyEngine(
                     planner = BardoGemmaTaskPlanner(applicationContext, modelRegistry),
                     tools = toolExecutor,
@@ -182,6 +182,16 @@ class BardoDeveloperWorker(
                 applicationContext, taskId, "autoestudio",
                 if (autonomyResult.isSuccess) "completed" else "partial",
                 "bucle_autonomo", autonomySummary, 52
+            )
+            val skillRecords = skillRuntime.manager.list()
+            val skillSummary = "Skills instaladas=" +
+                skillRecords.count { it.lifecycle.name in setOf("INSTALLED_DISABLED", "ENABLED", "DISABLED") } +
+                "; habilitadas=" + skillRuntime.manager.enabled().size +
+                "; cuarentena=" + skillRecords.count { it.lifecycle.name == "QUARANTINED" } +
+                ". Runner de pruebas de confianza conectado al catálogo local."
+            BardoActivityStore.record(
+                applicationContext, taskId, "autoestudio", "completed",
+                "inventario_skills", skillSummary, 53
             )
 
             BardoActivityStore.record(applicationContext, taskId, "autoestudio", "running", "inferencia_local", "Gemma local está analizando el snapshot; el código no se ejecuta.", 55)
