@@ -1,6 +1,6 @@
 name: BARDO approved candidate draft PR preparation
 
-run-name: BARDO approved PR preparation · \${{ inputs.candidate_id }}
+run-name: BARDO approved PR preparation · ${{ inputs.candidate_id }}
 
 on:
   workflow_dispatch:
@@ -28,7 +28,7 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: bardo-approved-pr-\${{ inputs.candidate_id }}
+  group: bardo-approved-pr-${{ inputs.candidate_id }}
   cancel-in-progress: false
 
 jobs:
@@ -38,10 +38,10 @@ jobs:
     steps:
       - name: Validate the candidate identity and prior validation run
         env:
-          GH_TOKEN: \${{ github.token }}
-          VALIDATION_RUN_ID: \${{ inputs.validation_run_id }}
-          BASE_SHA: \${{ inputs.base_sha }}
-          CANDIDATE_ID: \${{ inputs.candidate_id }}
+          GH_TOKEN: ${{ github.token }}
+          VALIDATION_RUN_ID: ${{ inputs.validation_run_id }}
+          BASE_SHA: ${{ inputs.base_sha }}
+          CANDIDATE_ID: ${{ inputs.candidate_id }}
         run: |
           set -euo pipefail
           if ! printf '%s' "$VALIDATION_RUN_ID" | grep -Eq '^[0-9]{6,20}$'; then
@@ -70,24 +70,24 @@ jobs:
       - name: Download validation report from the exact successful run
         uses: actions/download-artifact@v4
         with:
-          name: bardo-candidate-validation-\${{ inputs.candidate_id }}
-          path: \${{ runner.temp }}/bardo-validation
-          github-token: \${{ github.token }}
-          repository: \${{ github.repository }}
-          run-id: \${{ inputs.validation_run_id }}
+          name: bardo-candidate-validation-${{ inputs.candidate_id }}
+          path: ${{ runner.temp }}/bardo-validation
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.validation_run_id }}
 
       - name: Checkout the exact main commit without persisting credentials
         uses: actions/checkout@v4
         with:
-          ref: \${{ inputs.base_sha }}
+          ref: ${{ inputs.base_sha }}
           fetch-depth: 0
           persist-credentials: false
 
       - name: Refuse stale candidates and verify the immutable patch digest
         env:
-          BASE_SHA: \${{ inputs.base_sha }}
-          CANDIDATE_ID: \${{ inputs.candidate_id }}
-          PATCH_GZIP_B64: \${{ inputs.patch_gzip_b64 }}
+          BASE_SHA: ${{ inputs.base_sha }}
+          CANDIDATE_ID: ${{ inputs.candidate_id }}
+          PATCH_GZIP_B64: ${{ inputs.patch_gzip_b64 }}
         run: |
           set -euo pipefail
           current_main="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
@@ -173,10 +173,10 @@ jobs:
 
       - name: Create a dedicated bardo branch and draft pull request
         env:
-          GH_TOKEN: \${{ github.token }}
-          BASE_SHA: \${{ inputs.base_sha }}
-          CANDIDATE_ID: \${{ inputs.candidate_id }}
-          VALIDATION_RUN_ID: \${{ inputs.validation_run_id }}
+          GH_TOKEN: ${{ github.token }}
+          BASE_SHA: ${{ inputs.base_sha }}
+          CANDIDATE_ID: ${{ inputs.candidate_id }}
+          VALIDATION_RUN_ID: ${{ inputs.validation_run_id }}
         run: |
           set -euo pipefail
           candidate_branch="bardo/$CANDIDATE_ID"
