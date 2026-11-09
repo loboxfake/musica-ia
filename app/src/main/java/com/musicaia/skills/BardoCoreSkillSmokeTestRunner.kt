@@ -28,7 +28,10 @@ class BardoCoreSkillSmokeTestRunner(
             return failed("El manifiesto no declara todos los permisos requeridos.")
         }
 
-        val registered = tools.registeredTools().associateBy { it.id }
+        val skillEligibleIds = tools.registeredSkillToolIds()
+        val registered = tools.registeredTools()
+            .filter { it.id in skillEligibleIds }
+            .associateBy { it.id }
         val unknown = manifest.actions - registered.keys
         if (unknown.isNotEmpty()) {
             return failed("Acciones no registradas en el catálogo seguro: " + unknown.sorted().joinToString())
@@ -129,7 +132,8 @@ data class BardoSkillRuntime(
     val manager: BardoSkillManager,
     val tools: BardoToolExecutor,
     val executor: BardoSkillExecutor,
-    val workflowExecutor: BardoSkillWorkflowExecutor
+    val workflowExecutor: BardoSkillWorkflowExecutor,
+    val registeredActionIds: Set<String>
 )
 
 /**
