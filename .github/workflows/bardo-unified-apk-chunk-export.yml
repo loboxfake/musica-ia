@@ -37,10 +37,10 @@ jobs:
           test "$(printf '%s' "$metadata" | jq -r '.digest')" = "$expected_digest"
           test "$(printf '%s' "$metadata" | jq -r '.workflow_run.id')" = "$source_run_id"
           test "$(printf '%s' "$metadata" | jq -r '.workflow_run.head_sha')" = "$source_head_sha"
-          run_info="$(gh run view "$source_run_id" --json status,conclusion,headSha)"
+          run_info="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$source_run_id")"
           test "$(printf '%s' "$run_info" | jq -r '.status')" = "completed"
           test "$(printf '%s' "$run_info" | jq -r '.conclusion')" = "success"
-          test "$(printf '%s' "$run_info" | jq -r '.headSha')" = "$source_head_sha"
+          test "$(printf '%s' "$run_info" | jq -r '.head_sha')" = "$source_head_sha"
 
       - name: Download and independently verify the unified APK
         env:
@@ -48,7 +48,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p source
-          gh run download 42686779588 --name bardo-unified-offline-arm64-candidate-2 --dir source
+          gh run download 42686779588 --repo "$GITHUB_REPOSITORY" --name bardo-unified-offline-arm64-candidate-2 --dir source
           python3 - source <<'PY'
           import hashlib, json, pathlib, sys
           root = pathlib.Path(sys.argv[1])
@@ -108,7 +108,7 @@ jobs:
               "apk_sha256": actual,
               "chunks": chunks
           }
-          (out / "chunk-manifest.json").write_text(json.dumps(manifest, indent=2) + "\\n")
+          (out / "chunk-manifest.json").write_text(json.dumps(manifest, indent=2))
           print(json.dumps(manifest, indent=2))
           PY
 
