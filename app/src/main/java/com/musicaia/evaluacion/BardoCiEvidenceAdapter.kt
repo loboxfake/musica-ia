@@ -60,14 +60,16 @@ object BardoCiEvidenceAdapter {
 
         val repository = runJson.optJSONObject("repository")
             ?.optString("full_name", "").orEmpty()
+        val headRepository = runJson.optJSONObject("head_repository")
+            ?.optString("full_name", "").orEmpty()
         val workflowPath = runJson.optString("path", "").substringBefore("@")
         val branch = runJson.optString("head_branch", "")
         val event = runJson.optString("event", "")
         val expectedUrl = "https://github.com/" + REPOSITORY + "/actions/runs/" + runId
         val htmlUrl = runJson.optString("html_url", "")
 
-        if (repository != REPOSITORY) {
-            return invalid("El repositorio de la ejecución no es el repositorio BARDO autorizado.", runId, headSha)
+        if (repository != REPOSITORY || headRepository != REPOSITORY) {
+            return invalid("El repositorio base y el origen de la rama deben ser el repositorio BARDO autorizado.", runId, headSha)
         }
         if (workflowPath != WORKFLOW_PATH) {
             return invalid("La ejecución no procede del workflow BARDO de validación esperado.", runId, headSha)
@@ -149,12 +151,15 @@ object BardoCiEvidenceAdapter {
 
         val artifact = matchingArtifacts.singleOrNull()
         val artifactRun = artifact?.optJSONObject("workflow_run")
+        val artifactDigest = artifact?.optString("digest", "").orEmpty()
+        val artifactDigestVerified = Regex("^sha256:[0-9a-f]{64}$").matches(artifactDigest)
         val artifactVerified = artifact != null &&
             artifactRun != null &&
             !artifact.optBoolean("expired", true) &&
             artifact.optLong("size_in_bytes", 0L) > 0L &&
             artifactRun.optLong("id", 0L) == runId &&
-            artifactRun.optString("head_sha", "").equals(expectedSha, ignoreCase = true)
+            artifactRun.optString("head_sha", "").equals(expectedSha, ignoreCase = true) &&
+            artifactDigestVerified
 
         val reference = expectedUrl
         val allGood = pipelineSucceeded &&
@@ -232,7 +237,8 @@ object BardoCiEvidenceAdapter {
                     artifactVerified,
                 "verify_apk=" + stepSucceeded(VERIFY_APK_STEP) +
                     "; artifact=" + artifactName +
-                    "; artifact_verified=" + artifactVerified
+                    "; artifact_verified=" + artifactVerified +
+                    "; artifact_digest_verified=" + artifactDigestVerified
             )
         )
 
@@ -243,7 +249,7 @@ object BardoCiEvidenceAdapter {
             if (!stepSucceeded(GRADLE_STEP)) add("Los tests unitarios y/o la compilación debug no terminaron en SUCCESS.")
             if (!stepSucceeded(VERIFY_APK_STEP)) add("La verificación de existencia del APK no terminó en SUCCESS.")
             if (!stepSucceeded(UPLOAD_APK_STEP)) add("La subida del artefacto debug no terminó en SUCCESS.")
-            if (!artifactVerified) add("No se ha verificado el artefacto no expirado asociado al mismo run y commit.")
+            if (!artifactVerified) add("No se ha verificado el artefacto no expirado, su digest SHA-256 y su asociación al mismo run y commit.")
         }
 
         return BardoCiEvidenceCollection(
