@@ -3218,7 +3218,15 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                   In "reply", briefly acknowledge the latest message in the same language, skip every field already answered, and ask exactly ONE next missing question in that same language. Ask in this order: theme, style, mood, rhythm, song language, vocal/instrumental type, voice source. If all required fields are complete, give a concise summary and ask for confirmation before creating anything. Always end with the next question or confirmation question; do not omit it.
                   Do not claim cloned/sung voice generation is available; that capability is not implemented.
               """.trimIndent()
-              val generated = EngineLiteRT.generar(prompt, reiniciarConversacion = true)
+              val generated = EngineLiteRT.withSession {
+                  if (!estaCargado(modelo.absolutePath)) {
+                      check(inicializar(
+                          modelo.absolutePath,
+                          File(cacheDir, "litert-cache").absolutePath
+                      )) { "LiteRT-LM no pudo cargar Gemma para esta petición." }
+                  }
+                  generar(prompt, reiniciarConversacion = true)
+              }
                   .substringAfter("</think>").trim().takeIf { it.isNotBlank() }
                   ?: throw IllegalStateException("El modelo local devolvió una respuesta vacía.")
               generated to com.musicaia.modelo.BardoGuidedResponseParser.parse(
@@ -3356,7 +3364,15 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                  $contexto
                  Responde al último mensaje del usuario.
              """.trimIndent()
-             EngineLiteRT.generar(prompt, reiniciarConversacion = true).substringAfter("</think>").trim()
+             EngineLiteRT.withSession {
+                  if (!estaCargado(modelo.absolutePath)) {
+                      check(inicializar(
+                          modelo.absolutePath,
+                          File(cacheDir, "litert-cache").absolutePath
+                      )) { "LiteRT-LM no pudo cargar Gemma para esta petición." }
+                  }
+                  generar(prompt, reiniciarConversacion = true)
+              }.substringAfter("</think>").trim()
                  .takeIf { it.isNotBlank() }
                  ?: throw IllegalStateException("El modelo local devolvió una respuesta vacía.")
          }
