@@ -1104,31 +1104,64 @@ class BardoDeveloperActivity : AppCompatActivity() {
     }
 
     private fun abrirDesarrolloGitHub() {
+        if (isBusy) return
         val prefs = getSharedPreferences("bardo_developer", MODE_PRIVATE)
         val baseSha = prefs.getString("candidate_base_sha", "").orEmpty()
         val candidateId = prefs.getString("candidate_id", "").orEmpty()
         val patch = prefs.getString("candidate_patch", "").orEmpty()
         val paths = prefs.getString("candidate_files", "").orEmpty().lines().filter { it.isNotBlank() }
-        runCatching {
-            check(prefs.getBoolean("candidate_local_audit_passed", false)) {
-                "La auditoría local independiente no está superada. El candidato no se enviará a GitHub."
+        setBusy(true, "Recalculando la auditoría local antes de habilitar la consulta a GitHub…")
+        worker.execute {
+            val validation = runCatching {
+                check(prefs.getBoolean("candidate_local_audit_passed", false)) {
+                    "La auditoría local anterior no está superada."
+                }
+                BardoGitHubPolicy.validateBaseSha(baseSha)
+                BardoGitHubPolicy.validateCandidateId(candidateId)
+                BardoGitHubPolicy.validatePatch(patch)
+                BardoGitHubPolicy.validateAutonomousChangedPaths(paths)
+
+                val snapshotPath = prefs.getString("source_snapshot_path", "").orEmpty()
+                val candidatePath = prefs.getString("candidate_path", "").orEmpty()
+                check(snapshotPath.isNotBlank() && candidatePath.isNotBlank()) {
+                    "Falta el snapshot o la carpeta candidata privada."
+                }
+                val evidence = BardoLocalCandidateEvidenceCollector.collect(
+                    BardoLocalCandidateAuditInput(
+                        workspaceRoot = workspace,
+                        snapshotDirectory = File(snapshotPath),
+                        candidateDirectory = File(candidatePath),
+                        expectedBaseSha = baseSha,
+                        patchText = patch,
+                        changedFiles = paths,
+                        auditId = "candidate-" + candidateId
+                    )
+                )
+                check(BardoLocalCandidateEvidenceCollector.isReadyForCiSubmission(evidence)) {
+                    "La auditoría local recalculada no ha superado todos los controles. Se bloquea el envío."
+                }
             }
-            BardoGitHubPolicy.validateBaseSha(baseSha)
-            BardoGitHubPolicy.validateCandidateId(candidateId)
-            BardoGitHubPolicy.validatePatch(patch)
-            BardoGitHubPolicy.validateChangedPaths(paths)
-        }.onFailure {
-            output.text = "Este candidato no puede enviarse a GitHub: ${it.message}"
-            actualizarBotonGithub()
-            return
+            runOnUiThread {
+                validation.onSuccess {
+                    setBusy(false)
+                    if (!isFinishing && !isDestroyed) {
+                        startActivity(
+                            Intent(this, BardoGitHubDevelopmentActivity::class.java)
+                                .putExtra(BardoGitHubDevelopmentActivity.EXTRA_BASE_SHA, baseSha)
+                                .putExtra(BardoGitHubDevelopmentActivity.EXTRA_CANDIDATE_ID, candidateId)
+                                .putExtra(BardoGitHubDevelopmentActivity.EXTRA_PATCH, patch)
+                                .putStringArrayListExtra(
+                                    BardoGitHubDevelopmentActivity.EXTRA_CHANGED_FILES,
+                                    ArrayList(paths)
+                                )
+                        )
+                    }
+                }.onFailure {
+                    output.text = "Este candidato no puede enviarse a GitHub: ${it.message}"
+                    setBusy(false)
+                }
+            }
         }
-        startActivity(
-            Intent(this, BardoGitHubDevelopmentActivity::class.java)
-                .putExtra(BardoGitHubDevelopmentActivity.EXTRA_BASE_SHA, baseSha)
-                .putExtra(BardoGitHubDevelopmentActivity.EXTRA_CANDIDATE_ID, candidateId)
-                .putExtra(BardoGitHubDevelopmentActivity.EXTRA_PATCH, patch)
-                .putStringArrayListExtra(BardoGitHubDevelopmentActivity.EXTRA_CHANGED_FILES, ArrayList(paths))
-        )
     }
 
     override fun onResume() {
