@@ -25,7 +25,7 @@ object BardoSkillWorkflowPackageValidator {
 
     private val actionIdPattern = Regex("^[a-z][a-z0-9._-]{2,63}$")
     private val argumentKeyPattern = Regex("^[A-Za-z][A-Za-z0-9_.-]{0,63}$")
-    private val inputTokenPattern = Regex("^\\{\\{input:([A-Za-z][A-Za-z0-9_.-]{0,63})}}$")
+    private val inputTokenPattern = Regex("^\\{\\{input[.:]([A-Za-z][A-Za-z0-9_.-]{0,63})}}$")
 
     fun validate(
         file: File,
@@ -43,6 +43,16 @@ object BardoSkillWorkflowPackageValidator {
     }
 
     fun validate(
+        input: InputStream,
+        declaredActions: Set<String>,
+        registeredActions: Set<String>
+    ): BardoSkillWorkflowPackageValidation = runCatching {
+        validateInternal(input, declaredActions, registeredActions)
+    }.getOrElse {
+        rejected(it.message ?: "El workflow no supera la validación.")
+    }
+
+    private fun validateInternal(
         input: InputStream,
         declaredActions: Set<String>,
         registeredActions: Set<String>
