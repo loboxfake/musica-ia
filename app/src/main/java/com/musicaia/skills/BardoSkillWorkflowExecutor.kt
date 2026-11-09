@@ -212,7 +212,10 @@ class BardoSkillWorkflowExecutor(
         require(array.length() in 1..MAX_STEPS) { "El workflow debe contener entre 1 y " + MAX_STEPS + " pasos." }
 
         val result = mutableListOf<BardoSkillWorkflowStep>()
-        val registered = tools.registeredTools().associateBy { it.id }
+        val skillEligibleIds = tools.registeredSkillToolIds()
+        val registered = tools.registeredTools()
+            .filter { it.id in skillEligibleIds }
+            .associateBy { it.id }
         for (index in 0 until array.length()) {
             val row = array.optJSONObject(index)
                 ?: throw IllegalArgumentException("El paso " + index + " no es un objeto.")
