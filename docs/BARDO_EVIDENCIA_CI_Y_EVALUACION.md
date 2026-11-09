@@ -64,3 +64,12 @@ La creación del PR, su fusión y la publicación Release siguen siendo acciones
 Los tests usan un Modo3 sintético y un SHA de fixture; no alteran ni dependen del contenido privado real de Modo3. La prueba real de la huella fijada sigue dependiendo del snapshot íntegro que BARDO recibe del proyecto.
 
 El productor local también es un helper aditivo: todavía no está conectado al worker protegido ni a una UI de aprobación/promoción. Hasta que exista esa conexión, su implementación y tests no se presentan como un gate operativo del ciclo completo.
+
+
+## Integración de candidaturas y publicación
+
+El workflow `bardo-commit-candidate.yml` ya no escribe en `main`. Después de verificar una ejecución de validación satisfactoria, su reporte y el SHA-256 del diff, comprueba de nuevo que `main` sigue en el mismo commit, aplica el parche en un runner efímero, repite `testDebugUnitTest assembleDebug`, publica únicamente una rama `bardo/<candidate-id>` y crea un PR borrador. A continuación solicita una ejecución de validación sobre esa rama. No fusiona el PR ni publica una Release.
+
+La pantalla Android conserva una confirmación explícita antes de despachar el workflow. El Fine-grained PAT del usuario solo se usa desde el dispositivo para consultar/activar Actions y revisar el PR; el workflow utiliza el `GITHUB_TOKEN` de ejecución con permisos declarados.
+
+`full-build.yml` puede compilar y subir su artefacto de Actions, pero la publicación GitHub Release exige una ejecución manual `workflow_dispatch` con `publish_release=true`. El valor por defecto es `false` y un push a `main` no publica una Release.
