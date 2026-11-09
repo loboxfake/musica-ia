@@ -91,17 +91,22 @@ data class BardoSkillRuntime(
 object BardoSkillRuntimeFactory {
     fun create(context: Context): BardoSkillRuntime {
         val app = context.applicationContext
-        val tools = BardoToolExecutor(BardoCoreToolCatalog.create(app))
-        val registeredActions = tools.registeredTools().map { it.id }.toSet()
+        val coreHandlers = BardoCoreToolCatalog.create(app)
+        val coreTools = BardoToolExecutor(coreHandlers)
+        val registeredActions = coreTools.registeredTools().map { it.id }.toSet()
         val manager = BardoSkillManager(
             rootDirectory = File(app.filesDir, "bardo_skills"),
             registeredActionIds = { registeredActions },
-            smokeTestRunner = BardoCoreSkillSmokeTestRunner(tools)
+            smokeTestRunner = BardoCoreSkillSmokeTestRunner(coreTools)
         )
+        val skillExecutor = BardoSkillExecutor(manager, coreTools)
+        // The skill bridge is deliberately excluded from registeredActions so
+        // a downloaded skill cannot recursively invoke the bridge or itself.
+        val plannerTools = BardoToolExecutor(coreHandlers + BardoSkillToolHandler(skillExecutor))
         return BardoSkillRuntime(
             manager = manager,
-            tools = tools,
-            executor = BardoSkillExecutor(manager, tools)
+            tools = plannerTools,
+            executor = skillExecutor
         )
     }
 }
