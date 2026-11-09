@@ -38,6 +38,7 @@ object BardoProtectedPathPolicy {
         "app/src/main/java/com/musicaia/autonomia/BardoAutonomyEngine.kt",
         "app/src/main/java/com/musicaia/evaluacion/BardoIndependentEvaluator.kt",
         "app/src/main/java/com/musicaia/modelo/BardoCapabilityRegistry.kt",
+        "app/src/main/java/com/musicaia/diagnostico/BardoSelfInventory.kt",
         "app/src/main/java/com/musicaia/modelo/BardoIntentRouter.kt",
         "app/src/main/java/com/musicaia/modelo/BardoResourceBudget.kt",
         "app/src/main/java/com/musicaia/modelo/BardoModuleCatalog.kt",
