@@ -418,7 +418,15 @@ class BardoDeveloperActivity : AppCompatActivity() {
                     una corrección respaldada por evidencia. No afirmes que el arreglo está probado
                     hasta que el siguiente workflow termine correctamente.
                 """.trimIndent()
-                EngineLiteRT.generar(prompt, reiniciarConversacion = true).substringAfter("</think>").trim()
+                EngineLiteRT.withSession {
+                    if (!estaCargado(model.absolutePath)) {
+                        check(inicializar(
+                            model.absolutePath,
+                            File(cacheDir, "litert-cache").absolutePath
+                        )) { "LiteRT-LM no pudo cargar Gemma para BARDO Developer." }
+                    }
+                    generar(prompt, reiniciarConversacion = true)
+                }.substringAfter("</think>").trim()
                     .ifBlank { throw IllegalStateException("Gemma devolvió una propuesta vacía.") }
             }
             runOnUiThread {
