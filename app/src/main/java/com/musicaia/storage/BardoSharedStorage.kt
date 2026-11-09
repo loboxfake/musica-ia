@@ -1,11 +1,9 @@
 package com.musicaia.storage
 
 import android.content.Context
-import android.database.Cursor
 import android.net.Uri
 import android.provider.DocumentsContract
 import java.io.File
-import java.security.MessageDigest
 import java.util.UUID
 import org.json.JSONArray
 import org.json.JSONObject
@@ -231,6 +229,7 @@ object BardoSharedStorage {
         DocumentsContract.createDocument(
             context.contentResolver, parent, DocumentsContract.Document.MIME_TYPE_DIR, name
         ) ?: throw IllegalStateException("El proveedor SAF no pudo crear la carpeta.")
+        recordAudit(context, "CREATE_DIRECTORY", normalized, "SUCCESS")
         return normalized
     }
 
@@ -255,6 +254,7 @@ object BardoSharedStorage {
             } ?: throw IllegalStateException("No se pudo abrir el archivo creado.")
             val saved = readText(context, normalized)
             check(saved == content) { "La verificación de lectura tras la escritura no coincide." }
+            recordAudit(context, "CREATE_TEXT_FILE", normalized, "SUCCESS")
             return normalized
         } catch (error: Exception) {
             runCatching { DocumentsContract.deleteDocument(context.contentResolver, target) }
@@ -266,7 +266,7 @@ object BardoSharedStorage {
      * Mueve un elemento a BARDO/Papelera usando la operación MOVE nativa del proveedor.
      * Si el proveedor no admite movimientos, falla sin borrar ni copiar el original.
      */
-    fun moveToTrash(
+    private fun moveToTrash(
         context: Context,
         relativePath: String,
         explicitUserConfirmation: Boolean
@@ -284,11 +284,12 @@ object BardoSharedStorage {
         val moved = DocumentsContract.moveDocument(context.contentResolver, source, sourceParent, trash)
             ?: throw IllegalStateException("El proveedor SAF no admite mover elementos; no se borró el original.")
         val name = metadata(context, moved)?.name ?: approval.normalizedPath.substringAfterLast('/')
+        recordAudit(context, "MOVE_TO_TRASH", approval.normalizedPath, "SUCCESS")
         return "$TRASH_DIRECTORY/$name"
     }
 
     /** Eliminación permanente limitada a archivos o carpetas vacías y confirmación de una sola operación. */
-    fun deletePermanently(
+    private fun deletePermanently(
         context: Context,
         relativePath: String,
         explicitUserConfirmation: Boolean
@@ -308,7 +309,14 @@ object BardoSharedStorage {
             )?.use { it.count } ?: throw IllegalStateException("No se pudo verificar si la carpeta está vacía.")
             require(count == 0) { "Por seguridad solo se eliminan carpetas vacías." }
         }
-        return DocumentsContract.deleteDocument(context.contentResolver, target)
+        val deleted = DocumentsContract.deleteDocument(context.contentResolver, target)
+        recordAudit(
+            context,
+            "PERMANENT_DELETE",
+            approval.normalizedPath!!,
+            if (deleted) "SUCCESS" else "PROVIDER_RETURNED_FALSE"
+        )
+        return deleted
     }
 
     /**
@@ -350,6 +358,7 @@ object BardoSharedStorage {
         check(prefs.edit().putString(DELETE_REQUESTS_KEY, requestsJson(updated).toString()).commit()) {
             "No se pudo guardar la solicitud; no se ha eliminado nada."
         }
+        recordAudit(context, "REQUEST_DELETE", request.relativePath, if (permanent) "PENDING_PERMANENT" else "PENDING_TRASH")
         return request
     }
 
@@ -364,7 +373,10 @@ object BardoSharedStorage {
         val current = readRequests(prefs.getString(DELETE_REQUESTS_KEY, "[]").orEmpty())
         val updated = current.filterNot { it.id == requestId }
         if (updated.size == current.size) return false
-        return prefs.edit().putString(DELETE_REQUESTS_KEY, requestsJson(updated).toString()).commit()
+        val request = current.firstOrNull { it.id == requestId }
+        val saved = prefs.edit().putString(DELETE_REQUESTS_KEY, requestsJson(updated).toString()).commit()
+        if (saved && request != null) recordAudit(context, "REJECT_DELETE_REQUEST", request.relativePath, "REJECTED_BY_USER")
+        return saved
     }
 
     /**
@@ -526,6 +538,19 @@ object BardoSharedStorage {
         }
     }
 
+    private fun recordAudit(context: Context, operation: String, path: String, outcome: String) {
+        val file = File(context.applicationContext.filesDir, "bardo_mobile_file_operations.log")
+        val line = System.currentTimeMillis().toString() + "\t" +
+            operation.take(40) + "\t" + path.take(MAX_RELATIVE_PATH_CHARS) + "\t" +
+            outcome.take(120) + "\n"
+        synchronized(auditLock) {
+            runCatching {
+                file.parentFile?.mkdirs()
+                file.appendText(line, Charsets.UTF_8)
+            }
+        }
+    }
+
     private fun validateName(name: String, allowExtension: Boolean): String {
         require(name.length in 1..180 && name == name.trim() &&
             name !in setOf(".", "..") && !name.startsWith(".") &&
@@ -556,6 +581,7 @@ object BardoSharedStorage {
         const val MAX_PENDING_DELETE_REQUESTS = 100
         const val MAX_DELETE_REASON_CHARS = 500
         const val TRASH_DIRECTORY = "Papelera"
+        private val auditLock = Any()
         private const val DELETE_REQUESTS_PREFS = "bardo_mobile_file_requests"
         private const val DELETE_REQUESTS_KEY = "pending"
     }
