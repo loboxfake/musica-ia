@@ -248,7 +248,7 @@ class BardoSkillWorkflowExecutorTest {
                     return BardoToolOutput(true, "must-not-run")
                 }
             }
-            val downgradedTools = BardoToolExecutor(listOf(untrustedSearch, fixture.inventory))
+            val downgradedTools = BardoToolExecutor(listOf(untrustedSearch))
             val report = BardoSkillWorkflowExecutor(fixture.manager, downgradedTools).execute(
                 "skill.local.research", "1.0.0", mapOf("query" to "legacy")
             )
