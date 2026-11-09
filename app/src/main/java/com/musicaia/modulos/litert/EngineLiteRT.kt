@@ -54,6 +54,11 @@ object EngineLiteRT {
             throw IllegalStateException("LiteRT-LM no pudo iniciar ni con GPU ni con CPU.", ultimoError)
         }.get()
 
+    /** Comprueba el estado nativo en el mismo executor que posee Engine/Conversation. */
+    fun estaCargado(path: String): Boolean = executor.submit<Boolean> {
+        engine != null && conversation != null && modelPath == path
+    }.get()
+
     fun generar(prompt: String, reiniciarConversacion: Boolean = false): String =
         executor.submit<String> {
             if (reiniciarConversacion) {

@@ -20,6 +20,13 @@ import com.musicaia.modelo.BardoResourceBudget
 import com.musicaia.modulos.litert.EngineLiteRT
 import com.musicaia.modulos.litert.LiteRTLMModule
 import com.musicaia.storage.BardoSharedStorage
+import com.musicaia.autonomia.BardoAutonomyEngine
+import com.musicaia.autonomia.BardoGemmaTaskPlanner
+import com.musicaia.autonomia.BardoTaskJournal
+import com.musicaia.herramientas.BardoCoreToolCatalog
+import com.musicaia.herramientas.BardoToolExecutor
+import com.musicaia.modelos.BardoModelRegistry
+import com.musicaia.modelos.BardoGemmaLiteRtProvider
 import java.io.File
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -136,6 +143,41 @@ class BardoDeveloperWorker(
             )) { "LiteRT-LM no pudo inicializar el modelo local." }
             modelStarted = true
 
+            BardoActivityStore.record(
+                applicationContext, taskId, "autoestudio", "running",
+                "bucle_autonomo", "BARDO inicia planificar→actuar→observar→evaluar→corregir con herramientas locales tipadas.", 42
+            )
+            val autonomyResult = runCatching {
+                val modelRegistry = BardoModelRegistry(listOf(BardoGemmaLiteRtProvider()))
+                val toolExecutor = BardoToolExecutor(BardoCoreToolCatalog.create(applicationContext))
+                val autonomy = BardoAutonomyEngine(
+                    planner = BardoGemmaTaskPlanner(applicationContext, modelRegistry),
+                    tools = toolExecutor,
+                    journal = BardoTaskJournal(File(workspace, "diario-autonomia"))
+                )
+                autonomy.run(
+                    "Estudia el estado real de BARDO. Consulta el inventario propio, revisa estáticamente " +
+                        "el snapshot autorizado y busca referencias locales relevantes. No inventes datos, " +
+                        "no ejecutes código, no modifiques archivos y no solicites permisos. Devuelve un plan " +
+                        "pequeño con criterios verificables y registra qué evidencia falta."
+                )
+            }
+            val autonomySummary = autonomyResult.fold(
+                onSuccess = { result ->
+                    "Bucle autónomo: ${result.status}; pasos observados=${result.observations.size}; " +
+                        "correcciones=${result.correctionsUsed}; duración=${result.elapsedMillis}ms. " +
+                        result.summary
+                },
+                onFailure = { error ->
+                    "Bucle autónomo no completado: ${error.message ?: error.javaClass.simpleName}"
+                }
+            )
+            BardoActivityStore.record(
+                applicationContext, taskId, "autoestudio",
+                if (autonomyResult.isSuccess) "completed" else "partial",
+                "bucle_autonomo", autonomySummary, 52
+            )
+
             BardoActivityStore.record(applicationContext, taskId, "autoestudio", "running", "inferencia_local", "Gemma local está analizando el snapshot; el código no se ejecuta.", 55)
             val audit = BardoDeveloperCore.analizar(snapshot)
             val auditText = audit.render()
@@ -202,7 +244,7 @@ a pasar validación en otro runner.
                 Charsets.UTF_8
             )
 
-            var summary = "AUTOESTUDIO COMPLETADO\n\n" + auditText +
+            var summary = "AUTOESTUDIO COMPLETADO\n\n" + autonomySummary + "\n\n" + auditText +
                 "\n\nRespuesta local guardada: " + proposalFile.name
 
             val patchStart = response.indexOf("--- a/")
