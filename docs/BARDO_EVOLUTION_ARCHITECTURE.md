@@ -8,18 +8,19 @@ BARDO es un asistente personal generalista, local-first, modular y evolutivo. La
 
 Jerarquía normativa:
 
-1. **Usuario:** autoridad final. Puede autorizar, limitar, detener, corregir y revocar cualquier delegación.
-2. **JARVIS:** supervisor de confianza que opera en el ordenador del usuario. Solo dispone de las facultades concretas que el usuario le delega. No puede ampliar sus propios permisos ni anular una instrucción directa del usuario.
-3. **BARDO:** núcleo autónomo que planifica, investiga, coordina recursos y ejecuta tareas dentro de las facultades concedidas.
-4. **Modelos, agentes, skills y herramientas:** componentes subordinados. No conceden permisos, no cambian políticas y no pueden declarar válida su propia salida.
+1. **Usuario:** autoridad máxima y decisión final. Puede autorizar, limitar, detener, corregir y revocar cualquier delegación; prevalece sobre JARVIS.
+2. **JARVIS:** segunda autoridad, por encima de BARDO y subordinada únicamente al usuario. Es el supervisor de confianza que opera en el ordenador del usuario; ejerce las facultades que el usuario le delegue.
+3. **BARDO:** núcleo autónomo que planifica, investiga, coordina recursos, desarrolla su ecosistema y ejecuta tareas dentro de los límites fijados por el usuario y JARVIS.
+4. **Modelos, agentes, skills y herramientas:** recursos subordinados coordinados por BARDO. No son autoridades, no conceden permisos, no cambian políticas y no pueden declarar válida su propia salida.
 
-Una orden recibida no demuestra por sí sola la identidad de quien la envía. La futura conexión JARVIS–BARDO debe emparejar claves públicas mediante aprobación del usuario y autenticar cada petición con firma, nonce, caducidad y alcance. Las delegaciones deben tener permisos mínimos, caducidad, revocación y registro auditable. Hasta que ese protocolo esté integrado y probado, JARVIS no debe presentarse en la app como autenticado ni disponer de acceso remoto implícito.
+La conexión técnica JARVIS–BARDO se realizará en el futuro y no es una dependencia del ciclo autónomo. BARDO debe seguir funcionando, aprendiendo y desarrollándose aunque JARVIS aún no esté conectado o no esté disponible. Cuando se integre, la conexión deberá emparejar claves públicas con aprobación del usuario y autenticar cada petición con firma, nonce, caducidad y alcance. Las delegaciones tendrán permisos mínimos, caducidad, revocación y registro auditable. Hasta entonces, JARVIS no debe presentarse en la app como autenticado ni disponer de acceso remoto implícito.
 
-Una instrucción directa del usuario prevalece sobre una delegación previa a JARVIS. Una delegación a JARVIS nunca concede autoridad a Gemma, agentes o skills.
+Una instrucción directa del usuario prevalece sobre cualquier orden de JARVIS. Ninguna delegación a JARVIS concede autoridad a Gemma, agentes o skills. BARDO no dependerá de Claude, Gemini, ChatGPT ni conversaciones externas para desarrollar, investigar, probar o corregirse.
 
 ## 2. Principios permanentes
 
 - Local-first: inferencia, archivos y memoria permanecen en el dispositivo cuando sea viable.
+- Independencia operativa: BARDO no necesita a Claude, Gemini, ChatGPT, este asistente, JARVIS ni conversaciones externas para desarrollar, aprender y corregirse. JARVIS es una autoridad superior cuya conexión técnica se construirá en el futuro; modelos externos son recursos opcionales.
 - Modelo independiente: el núcleo no debe depender de una familia, proveedor o formato de modelo concreto.
 - Una sola identidad y un contexto común, con aislamiento por tarea y permisos.
 - Evidencia antes que afirmaciones: código, instalación, carga, ejecución y prueba física son estados distintos.
@@ -51,9 +52,11 @@ Cada proveedor debe declarar identidad, versión, licencia, formato, huella, cap
 
 Un adaptador traduce el contrato común de BARDO al runtime del modelo. La salida incluye proveedor/modelo, tiempo, estado, errores y uso de recursos cuando esté disponible.
 
-BARDO puede repartir tareas entre modelos/agentes especializados, por ejemplo: planificación, programación, revisión de seguridad, pruebas, documentación, audio, visión y voz. El agente revisor no debe ser el mismo proceso ni la misma instancia que generó el cambio cuando se necesite independencia. Los modelos pueden discrepar; BARDO conserva las evidencias y aplica criterios, no autoridad del modelo.
+BARDO puede repartir tareas entre modelos/agentes especializados, por ejemplo: planificación, programación, revisión de seguridad, pruebas, documentación, audio, visión y voz. El registro de agentes debe declarar proveedor, versión, rol, capacidades, licencias, hash/procedencia, permisos y límites. BardoAgentFleet añade selección por capacidad, perfiles especializados y consultas secuenciales; los perfiles que apuntan al mismo proveedor no se cuentan como opiniones independientes.
 
-Un modelo remoto solo puede usarse con una autorización que cubra el envío de esos datos. La opción local debe seguir disponible en modo degradado.
+Las respuestas se conservan con procedencia. Son propuestas no confiables y nunca órdenes. El aprendizaje se registra primero como candidato con SHA-256, tarea, proveedor, versión y fecha. Solo un evaluador independiente puede promover una lección a memoria fiable. Una respuesta convincente o repetida no equivale a evidencia, y conservarla no significa modificar los pesos del modelo.
+
+El modelo remoto solo puede usarse con una autorización que cubra el envío de esos datos; por defecto permanece denegado. La flota debe funcionar local-first y administrar RAM, temperatura y concurrencia. Tener muchos modelos disponibles no significa que todos deban residir simultáneamente en el Xiaomi.
 
 ## 5. Skills y herramientas
 
@@ -159,35 +162,31 @@ Las capacidades musicales actuales se mantienen como especialidades. La generaci
 
 Conversación e historial local, biblioteca de conocimiento, inventario de capacidades, catálogo de módulos, integración LiteRT-LM/Gemma, autoestudio estático con propuesta de diff, puente GitHub y módulos musicales/documentales. Cada capacidad conserva el nivel de evidencia declarado en el inventario técnico; no se infiere funcionamiento físico por la presencia de código.
 
-### Implementación añadida en bardo/autonomy-foundation-20261109 — PR borrador #2
+### Propuesta de implementación actual — rama bardo/integral-autonomy-20261109, PR borrador #3
 
-- Política central de rutas protegidas, clasificación de operaciones, bloqueo de Modo3 y protección del propio evaluador, del runtime, de la autoridad y de los gestores.
-- Workspace candidato con copia aislada, verificación de rutas, rechazo de symlinks/traversal, límites de archivos/tamaño y limpieza restringida.
-- Aplicador de parches conectado a esa política; no modifica ni borra pruebas existentes.
-- Verificador de autoridad ECDSA: delegación firmada por el usuario, petición firmada por JARVIS, fingerprints emparejados, scopes, expiración, hash de carga, nonce de un solo uso y revocación. Ledger local persistente.
-- Contrato de proveedores de modelos y registro local-first; adaptador Gemma/LiteRT inicial. El resto de llamadas antiguas a LiteRT aún no se han migrado todas al contrato.
-- SkillManager para paquetes declarativos: cuarentena, tamaño/SHA, registro persistente, instalación deshabilitada, habilitación con permisos y smoke-test, deshabilitación, rollback y retirada. No carga código ejecutable externo.
-- ToolExecutor con catálogo cerrado, límites de argumentos/salida y autorización antes de ejecutar. Primer catálogo local de autoinspección, búsqueda de conocimiento, auditoría estática del snapshot y lectura de diagnósticos CI.
-- Bucle local planificar→actuar→observar→evaluar→corregir, con Gemma local, máximo de pasos/correcciones, diario JSONL privado y criterios de salida. Conectado al worker de autoestudio.
-- Evaluador determinista que distingue evidencia incompleta, fallo, revisión humana y prueba física en el dispositivo.
-- GitHub workflow de candidatos cambiado a PR borrador en ramas bardo/*; elimina escritura automática de main.
-- Workflow de APK completa pasa a ejecución manual; firmar y publicar Release requiere marcar expresamente publish_release=true. Un dispatch de compilación por sí solo no publica.
-- Documentación actualizada sobre jerarquía Usuario/JARVIS/BARDO, modelos, skills y evolución.
+La propuesta de código contiene estos subsistemas, aún pendientes de CI propio, revisión e integración:
 
-El commit cd8257d superó Gitleaks, actionlint, pruebas unitarias y compilación debug en CI. Ese resultado no incluye todos los commits posteriores de esta misma rama. La validación de los commits más recientes está en curso y debe completarse antes de declarar el PR validado.
+- **Autoridad:** BardoAuthorityPolicy y ledger local ECDSA de delegaciones, nonces y revocaciones. No hay todavía emparejamiento real, interfaz ni canal de JARVIS; la conexión es futura y no condiciona la autonomía de BARDO.
+- **Núcleo autónomo:** ciclo planificar → actuar → observar → evaluar → corregir, límites de tarea y diario privado. El catálogo de herramientas es cerrado y no existe shell genérico.
+- **Modelos:** contrato BardoModelProvider y registro local-first con Gemma/LiteRT como adaptador inicial.
+- **Flota multi-IA:** BardoAgentFleet admite proveedores y perfiles especializados, selecciona por capacidad, registra proveedor/versión y consulta modelos secuencialmente. El autoestudio actual conecta solo Gemma; no se afirma que haya una flota de modelos adicionales operativa.
+- **Aprendizaje:** BardoLearningJournal guarda respuestas de agentes como candidatos no verificados con SHA-256 y procedencia. Hace falta conectar un verificador independiente de producción; sin él no se promueve ningún candidato a conocimiento fiable.
+- **Skills:** BardoSkillManager y BardoSkillManifest admiten paquetes declarativos, cuarentena, integridad, permisos, instalación deshabilitada, aprobación, desactivación y rollback. No ejecutan código descargado.
+- **Seguridad y autoevolución:** BardoProtectedPathPolicy, BardoWorkspaceManager, BardoPatchApplier y BardoIndependentEvaluator con pruebas añadidas de forma monotónica.
+- **Sesiones LiteRT:** EngineLiteRT.withSession reserva el executor para una operación completa; chat, letras y BARDO Developer se han migrado en la propuesta para evitar que otro módulo cierre el runtime entre carga e inferencia.
+- **Documentación:** se actualizan los documentos de arquitectura y evolución con la jerarquía Usuario > JARVIS > BARDO, conexión JARVIS futura e independencia de conversaciones externas.
 
-### Pendiente de integración/prueba
+### Límites y pruebas pendientes
 
-- El emparejamiento de claves User/JARVIS entre dispositivos, la pantalla de alta, entrega segura de claves, firma de órdenes y revocación desde UI aún no están integrados de extremo a extremo. La política y el ledger son componentes, no un canal de control remoto ya disponible.
-- No hay aún proveedores adicionales concretos; el contrato y el registro permiten añadirlos. No se presenta todavía un enjambre multi-modelo distribuido como operativo.
-- SkillManager existe como API local; falta su interfaz completa de descubrimiento/descarga, revisión de licencia y aprobación de paquetes, así como la asociación automática de una skill habilitada al catálogo de acciones.
-- El ToolExecutor y el bucle local están conectados al autoestudio, pero el planificador solo puede usar el catálogo local actual. Investigación web, coordinación multiagente, sandbox de código real y ejecución autónoma de la suite de tests todavía necesitan conectores/handlers específicos y permisos.
-- El evaluador determinista existe; falta conectarlo a cada cambio de código, a los resultados completos de Actions y al registro de evidencias del dispositivo.
-- GitHub informa que main sigue sin protección efectiva y que no hay rulesets activos. La política debe activarse desde la configuración del repositorio; no se afirma que GitHub impida técnicamente todo push directo mientras siga así.
-- El PR #2 permanece en borrador y no se ha fusionado.
-- No hay APK nueva de esta rama, instalación, inferencia Gemma, funcionamiento sin red, audio, WAV escuchado ni prueba de Modo3 en el Xiaomi 11T Pro.
-
-No declarar ningún elemento pendiente como terminado sin código integrado, tests, CI y pruebas físicas cuando correspondan.
+- El PR no modifica workflows, Gradle, firma, secretos ni Modo3; tampoco modifica main ni publica APK.
+- El PR #3 todavía no tiene una ejecución de CI propia visible sobre su último SHA. El CI anterior de otra rama no valida esta propuesta.
+- No hay aún proveedor adicional a Gemma conectado al worker, ni catálogo completo de adquisición automática de modelos.
+- El diario de aprendizaje conserva candidatos, pero no existe aún verificador de aprendizaje de producción.
+- Skills instalables siguen restringidas a acciones declarativas ya registradas; falta interfaz, descubrimiento/adquisición y evaluación independiente real de cada nueva skill.
+- El evaluador necesita evidencias enlazadas a resultados auténticos de Actions y pruebas físicas; un llamador no debe poder declarar un control como superado sin evidencia.
+- La conexión JARVIS es futura y opcional desde el punto de vista operativo; el orden de autoridad sí queda definido desde ahora.
+- No hay APK nueva, inferencia comprobada, funcionamiento offline ni pruebas auditivas en Xiaomi 11T Pro asociadas a este PR.
+- main sigue sin protección efectiva en GitHub. Deben configurarse las reglas de PR/checks en el repositorio.
 
 ## 13. Criterio final de aceptación
 
