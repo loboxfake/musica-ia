@@ -81,7 +81,8 @@ class BardoCoreSkillSmokeTestRunner(
 data class BardoSkillRuntime(
     val manager: BardoSkillManager,
     val tools: BardoToolExecutor,
-    val executor: BardoSkillExecutor
+    val executor: BardoSkillExecutor,
+    val workflowExecutor: BardoSkillWorkflowExecutor
 )
 
 /**
@@ -100,13 +101,18 @@ object BardoSkillRuntimeFactory {
             smokeTestRunner = BardoCoreSkillSmokeTestRunner(coreTools)
         )
         val skillExecutor = BardoSkillExecutor(manager, coreTools)
-        // The skill bridge is deliberately excluded from registeredActions so
-        // a downloaded skill cannot recursively invoke the bridge or itself.
-        val plannerTools = BardoToolExecutor(coreHandlers + BardoSkillToolHandler(skillExecutor))
+        val workflowExecutor = BardoSkillWorkflowExecutor(manager, coreTools)
+        // Bridges are excluded from registeredActions so a downloaded skill cannot
+        // recursively invoke another skill bridge.
+        val plannerTools = BardoToolExecutor(
+            coreHandlers + BardoSkillToolHandler(skillExecutor) +
+                BardoSkillWorkflowToolHandler(workflowExecutor)
+        )
         return BardoSkillRuntime(
             manager = manager,
             tools = plannerTools,
-            executor = skillExecutor
+            executor = skillExecutor,
+            workflowExecutor = workflowExecutor
         )
     }
 }
