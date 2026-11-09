@@ -123,7 +123,7 @@ object BardoSkillManifestValidator {
         }
         val sourceUri = runCatching { URI(manifest.source) }.getOrNull()
         val sourceIsHttps = sourceUri?.scheme.equals("https", ignoreCase = true) &&
-            !sourceUri?.host.isNullOrBlank() && sourceUri?.rawUserInfo == null
+            sourceUri?.host?.isNotBlank() == true && sourceUri.rawUserInfo == null
         val sourceIsLocal = manifest.source.matches(Regex("^local://[A-Za-z0-9._/-]{1,160}$")) &&
             !manifest.source.contains("../") && !manifest.source.contains("/..")
         if ((!sourceIsHttps && !sourceIsLocal) || manifest.source.length > 1000) {
@@ -146,6 +146,9 @@ object BardoSkillManifestValidator {
         if (manifest.dependencies.size > 20) errors += "Demasiadas dependencias."
         if (manifest.dependencies.map { it.skillId }.distinct().size != manifest.dependencies.size) {
             errors += "La lista de dependencias contiene IDs duplicados."
+        }
+        if (manifest.dependencies.any { it.skillId == manifest.id }) {
+            errors += "Una skill no puede depender de sí misma."
         }
         manifest.dependencies.forEach { dependency ->
             if (!idPattern.matches(dependency.skillId)) {
