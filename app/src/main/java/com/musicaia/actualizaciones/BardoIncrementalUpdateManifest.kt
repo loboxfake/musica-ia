@@ -1,5 +1,7 @@
 package com.musicaia.actualizaciones
 
+import com.musicaia.desarrollo.BardoProtectedPathPolicy
+
 /**
  * Contrato de validación para actualizaciones incrementales de BARDO.
  * Valida metadatos y límites; no instala código, no cambia permisos y no ejecuta migraciones.
@@ -35,6 +37,7 @@ data class BardoIncrementalUpdateManifest(
 data class BardoUpdateValidation(
     val accepted: Boolean,
     val requiresHumanReview: Boolean,
+    val requiresArchitectureReview: Boolean,
     val requiresFullApk: Boolean,
     val errors: List<String>
 )
@@ -75,7 +78,7 @@ object BardoIncrementalUpdatePolicy {
         manifest.files.forEach { item ->
             val path = normalizePath(item.path)
             if (path == null) { errors += "UNSAFE_PATH:" + item.path; return@forEach }
-            if (path in forbiddenExact || forbiddenPrefixes.any { path.startsWith(it) } || path.endsWith("Modo3MezclaVozUsuario.kt", true)) errors += "PROTECTED_PATH:" + path
+            if (path in forbiddenExact || forbiddenPrefixes.any { path.startsWith(it) } || path.endsWith("Modo3MezclaVozUsuario.kt", true) || !BardoProtectedPathPolicy.canModifyExisting(path)) errors += "PROTECTED_PATH:" + path
             if (!isAllowedPath(path)) errors += "PATH_OUTSIDE_UPDATE_ALLOWLIST:" + path
             if (!sha256Pattern.matches(item.targetSha256)) errors += "TARGET_HASH_INVALID:" + path
             when (item.operation) {
@@ -93,8 +96,13 @@ object BardoIncrementalUpdatePolicy {
         val humanReview = manifest.level == BardoUpdateLevel.SHARED_CONTRACT || manifest.level == BardoUpdateLevel.STRUCTURAL
         val fullApk = manifest.files.any { it.path.startsWith("app/src/main/java/") || it.path.startsWith("app/src/main/res/") } || manifest.level == BardoUpdateLevel.STRUCTURAL
         if (manifest.level == BardoUpdateLevel.CONFIGURATION && manifest.files.any { it.path.startsWith("app/src/main/java/") }) errors += "CONFIGURATION_LEVEL_CONTAINS_CODE"
-        if (manifest.level == BardoUpdateLevel.MODULE && manifest.files.any { it.path.startsWith("app/src/main/res/") }) errors += "MODULE_LEVEL_CONTAINS_SHARED_RESOURCES"
-        return BardoUpdateValidation(errors.isEmpty(), humanReview, fullApk, errors.distinct())
+        if (manifest.level == BardoUpdateLevel.MODULE) {
+            if (manifest.files.any { it.path.startsWith("app/src/main/res/") }) errors += "MODULE_LEVEL_CONTAINS_SHARED_RESOURCES"
+            val packages = manifest.files.map { it.path.substringBeforeLast('/') }.distinct()
+            if (packages.size > 1) errors += "MODULE_UPDATE_CROSSES_PACKAGES"
+        }
+        if (manifest.rollbackPlanRef.isNotBlank() && !manifest.rollbackPlanRef.startsWith("bardo-rollback://")) errors += "ROLLBACK_PLAN_REFERENCE_INVALID"
+        return BardoUpdateValidation(errors.isEmpty(), true, humanReview, fullApk, errors.distinct())
     }
 
     private fun normalizePath(raw: String): String? {
