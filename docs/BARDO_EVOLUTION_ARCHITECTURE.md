@@ -224,3 +224,23 @@ Después de la primera instalación y validación física, las mejoras ordinaria
 BARDO debe mostrar al usuario el nivel, el motivo, los archivos afectados, los riesgos, el tamaño, la evidencia de pruebas y la opción de aplazar o rechazar la actualización. No debe instalar silenciosamente cambios de código ni conceder permisos nuevos por sí mismo.
 
 Este protocolo describe el comportamiento exigido; su inclusión en documentación no demuestra que la interfaz ni el actualizador estén implementados. Esa implementación deberá auditarse y probarse antes de habilitar autoactualizaciones.
+
+## 15. Reconciliación de PR #2 y PR #3 y estado del actualizador incremental
+
+### Reconciliación de contenido
+
+La comparación de las ramas bardo/autonomy-foundation-20261109 (PR #2) y bardo/integral-autonomy-20261109 (PR #3) encontró los 34 paths de PR #2 dentro de PR #3. De esos 34 archivos, 10 conservan el mismo blob; los otros 24 tienen una versión distinta en PR #3. Los 34 paths también aparecen en el diff de PR #3 contra main; en los 24 distintos, el parche de PR #3 tiene el mismo o mayor tamaño que el parche de PR #2. Esto es una comprobación de cobertura y evolución del diff, no una prueba matemática de equivalencia semántica línea por línea.
+
+La decisión de reconciliación es conservar PR #3 como rama integral y no hacer cherry-pick/merge ciego de los 29 commits divergentes de PR #2: ambos cambios se solapan en los mismos archivos, y el contenido actual de PR #3 incorpora versiones posteriores de los componentes de autonomía. PR #2 permanece como referencia abierta; no se fusiona ni se borra. Antes de cerrar PR #2 definitivamente, un revisor humano debe poder comparar el diff final y decidir su cierre. main sigue sin cambios.
+
+### Manifiesto incremental conectado al worker local
+
+Se añade BardoIncrementalUpdateManifest, BardoIncrementalUpdateManifestFactory y BardoIncrementalUpdatePolicy. El worker de desarrollo local crea el manifiesto a partir de los archivos reales del snapshot y del candidato, calcula SHA-256 anterior/nuevo y huella del diff, exige evidencia de auditoría local, valida rutas contra BardoProtectedPathPolicy y conserva el manifiesto JSON en las preferencias del candidato. Si la auditoría o el manifiesto fallan, el candidato no se habilita para envío a GitHub.
+
+La política bloquea rutas protegidas, Modo3, archivos de build, workflows, assets/modelos y rutas inseguras; limita el tamaño y número de archivos; exige hashes, versión, commit base, evidencia, permisos aprobados y referencia de rollback; impide migraciones irreversibles y cambios de módulo que cruzan paquetes. Toda actualización requiere aprobación humana; los cambios de contrato/estructurales además quedan marcados para revisión arquitectónica. Los cambios de código o recursos requieren APK completa; la documentación puede tratarse como actualización de configuración.
+
+**Límite explícito:** esto prepara y valida la propuesta incremental, pero no instala módulos en caliente, no aplica actualizaciones binarias por sí solo y no prueba restauración real de datos. El actualizador transaccional/rollback ejecutable y la interfaz de aprobación/instalación siguen pendientes. Android debe instalar cualquier APK de código mediante su mecanismo normal y con identidad de firma compatible. No se habilita autoactualización silenciosa.
+
+### Evidencia de validación
+
+La revisión de PR #3 confirma que el workflow de candidatos crea una rama bardo/* y PR borrador, no un push a main; full-build.yml exige dispatch manual y publish_release=true para firmar/publicar. Los workflows y la política de rutas protegen Modo3 y los archivos críticos. La rama integral permanece abierta en borrador y no está fusionada. Los nuevos tests del manifiesto deben pasar en CI antes de considerar este código aceptado.
