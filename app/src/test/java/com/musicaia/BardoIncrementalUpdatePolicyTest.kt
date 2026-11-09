@@ -20,7 +20,7 @@ class BardoIncrementalUpdatePolicyTest {
         fromVersion = "1.0.3",
         toVersion = "1.0.4",
         baseCommit = "a".repeat(40),
-        targetCommit = "b".repeat(40),
+        targetFingerprintSha256 = "b".repeat(64),
         level = level,
         files = listOf(BardoUpdateFile(
             path = path,
