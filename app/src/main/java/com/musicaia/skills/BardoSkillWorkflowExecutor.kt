@@ -55,6 +55,20 @@ class BardoSkillWorkflowExecutor(
                     (error.message ?: error.javaClass.simpleName).take(MAX_ERROR_CHARS)
             )
         }
+        val requiredInputs = steps.flatMap { step ->
+            step.arguments.values.mapNotNull { value ->
+                INPUT_TOKEN.matchEntire(value)?.groupValues?.get(1)
+            }
+        }.toSet()
+        if (inputs.keys != requiredInputs) {
+            val missing = requiredInputs - inputs.keys
+            val unused = inputs.keys - requiredInputs
+            return failure(
+                skillId, version, 0, emptyList(),
+                "Los parámetros no coinciden con el workflow. Faltan=" +
+                    missing.sorted().joinToString() + "; no utilizados=" + unused.sorted().joinToString()
+            )
+        }
 
         val outputs = mutableListOf<String>()
         var totalOutput = 0
