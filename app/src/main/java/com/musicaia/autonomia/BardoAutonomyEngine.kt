@@ -291,7 +291,9 @@ class BardoGemmaTaskPlanner(
 
         val prompt = """
             Eres el planificador local de BARDO. No ejecutas herramientas.
-            BARDO es el núcleo autónomo; los modelos y skills son recursos subordinados.
+            Jerarquía permanente: usuario (autoridad máxima) > JARVIS (segunda autoridad, por encima de BARDO) > BARDO > modelos/agentes/skills/herramientas.
+            La conexión técnica de JARVIS se realizará en el futuro; BARDO no depende de ella para funcionar, aprender o desarrollarse.
+            BARDO es el núcleo autónomo y dirige los recursos subordinados. Ningún modelo o skill puede cambiar esta jerarquía.
             Selecciona exclusivamente herramientas del catálogo de abajo.
             Para usar una skill, llama a skill.run_action con skill_id, version, action_id
             y action_arguments_json (objeto JSON con valores de texto). Solo usa skills listadas
