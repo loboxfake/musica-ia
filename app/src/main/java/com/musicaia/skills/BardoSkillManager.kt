@@ -351,12 +351,41 @@ class BardoSkillManager(
         records.values.sortedWith(compareBy<BardoSkillRecord> { it.manifest.id }.thenBy { it.manifest.version })
     }
 
-    fun enabled(): List<BardoSkillRecord> = list().filter {
-        it.lifecycle == BardoSkillLifecycle.ENABLED &&
-            it.lastTestPassed &&
-            !it.lastTestVerifierId.isNullOrBlank() &&
-            it.lastTestEvidenceRefs.isNotEmpty()
+    /**
+     * Recupera una skill habilitada solo si conserva la evidencia de prueba y
+     * el archivo instalado sigue coincidiendo con su tamaño y SHA-256.
+     * Si el paquete cambió, se revoca su estado habilitado y se marca REJECTED.
+     */
+    fun findEnabled(skillId: String, version: String): BardoSkillRecord? = synchronized(lock) {
+        val key = recordKey(skillId, version)
+        val record = records[key] ?: return@synchronized null
+        if (record.lifecycle != BardoSkillLifecycle.ENABLED ||
+            !record.lastTestPassed ||
+            record.lastTestVerifierId.isNullOrBlank() ||
+            record.lastTestEvidenceRefs.isEmpty()
+        ) return@synchronized null
+
+        val intact = runCatching {
+            verifyPackage(safePackageFile(record.installedPath), record.manifest)
+        }.getOrDefault(false)
+        if (!intact) {
+            records[key] = record.copy(
+                lifecycle = BardoSkillLifecycle.REJECTED,
+                lastTestPassed = false,
+                lastUpdatedAtMillis = System.currentTimeMillis(),
+                lastTestVerifierId = null,
+                lastTestEvidenceRefs = emptyList(),
+                lastTestNote = "Paquete alterado o inaccesible tras la activación."
+            )
+            saveRegistry()
+            return@synchronized null
+        }
+        record
     }
+
+    /** Verifica hashes de todos los paquetes antes de devolverlos como habilitados. */
+    fun enabled(): List<BardoSkillRecord> = list()
+        .mapNotNull { findEnabled(it.manifest.id, it.manifest.version) }
 
     private fun verifyPackage(file: File, manifest: BardoSkillManifest): Boolean {
         if (!file.isFile || Files.isSymbolicLink(file.toPath()) ||
