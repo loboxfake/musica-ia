@@ -374,55 +374,55 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
                     val pullRequest = status.pullRequest
                     if (pullRequest == null) {
                         output.append(
-                            "\\n\\nEl workflow terminó, pero la PR aún no aparece en GitHub. Pulsa «Consultar CI y resultado» de nuevo. main no se ha modificado."
+                            "\n\nEl workflow terminó, pero la PR aún no aparece en GitHub. Pulsa «Consultar CI y resultado» de nuevo. main no se ha modificado."
                         )
                     } else {
                         prCreated = true
                         state.edit().putBoolean(key("pr_created"), true).apply()
                         output.append(
-                            "\\n\\nPR BORRADOR CREADA\\nNúmero: #${pullRequest.number}\\n${pullRequest.url}" +
-                                "\\nSHA de la rama: ${pullRequest.headSha}" +
-                                "\\n\\nmain sigue sin cambios. BARDO no fusiona el PR ni publica una Release."
+                            "\n\nPR BORRADOR CREADA\nNúmero: #${pullRequest.number}\n${pullRequest.url}" +
+                                "\nSHA de la rama: ${pullRequest.headSha}" +
+                                "\n\nmain sigue sin cambios. BARDO no fusiona el PR ni publica una Release."
                         )
                         val evaluation = status.evaluation
                         when {
                             status.evaluationError != null -> output.append(
-                                "\\n\\nEVALUACIÓN AUTOMÁTICA NO DISPONIBLE\\n" + status.evaluationError.take(1200) +
-                                    "\\nLa PR puede revisarse, pero no se declara CI aprobado por esta pantalla."
+                                "\n\nEVALUACIÓN AUTOMÁTICA NO DISPONIBLE\n" + status.evaluationError.take(1200) +
+                                    "\nLa PR puede revisarse, pero no se declara CI aprobado por esta pantalla."
                             )
                             evaluation == null || evaluation.validationRun == null -> output.append(
-                                "\\n\\nVALIDACIÓN DE LA RAMA PENDIENTE\\nAún no aparece una ejecución bardo-validation.yml workflow_dispatch asociada al SHA actual del PR."
+                                "\n\nVALIDACIÓN DE LA RAMA PENDIENTE\nAún no aparece una ejecución bardo-validation.yml workflow_dispatch asociada al SHA actual del PR."
                             )
                             else -> {
                                 val ci = evaluation.evaluation?.ci
                                 val report = evaluation.evaluation?.report
                                 output.append(
-                                    "\\n\\nVALIDACIÓN DE RAMA\\nRun: ${evaluation.validationRun.id}" +
-                                        "\\nEstado: ${evaluation.validationRun.status}" +
-                                        "\\nConclusión: ${evaluation.validationRun.conclusion ?: "pendiente"}" +
-                                        "\\n${evaluation.validationRun.url}"
+                                    "\n\nVALIDACIÓN DE RAMA\nRun: ${evaluation.validationRun.id}" +
+                                        "\nEstado: ${evaluation.validationRun.status}" +
+                                        "\nConclusión: ${evaluation.validationRun.conclusion ?: "pendiente"}" +
+                                        "\n${evaluation.validationRun.url}"
                                 )
                                 when {
                                     ci == null || ci.state == com.musicaia.evaluacion.BardoCiEvidenceState.PENDING ->
-                                        output.append("\\nCI pendiente; todavía no se emite un informe de evaluación.")
+                                        output.append("\nCI pendiente; todavía no se emite un informe de evaluación.")
                                     ci.state == com.musicaia.evaluacion.BardoCiEvidenceState.INVALID ->
-                                        output.append("\\nEVIDENCIA CI INVÁLIDA\\n" + ci.problems.joinToString("\\n"))
+                                        output.append("\nEVIDENCIA CI INVÁLIDA\n" + ci.problems.joinToString("\n"))
                                     else -> {
                                         output.append(
-                                            "\\nResultado del evaluador independiente: " +
+                                            "\nResultado del evaluador independiente: " +
                                                 (report?.status?.name ?: "INCOMPLETE") +
-                                                "\\n" + (report?.summary ?: "Faltan evidencias obligatorias.")
+                                                "\n" + (report?.summary ?: "Faltan evidencias obligatorias.")
                                         )
                                         if (report != null) {
                                             if (report.failedChecks.isNotEmpty()) {
-                                                output.append("\\nChecks fallidos: " + report.failedChecks.joinToString())
+                                                output.append("\nChecks fallidos: " + report.failedChecks.joinToString())
                                             }
                                             if (report.missingChecks.isNotEmpty()) {
-                                                output.append("\\nChecks pendientes: " + report.missingChecks.joinToString())
+                                                output.append("\nChecks pendientes: " + report.missingChecks.joinToString())
                                             }
                                         }
                                         output.append(
-                                            "\\n\\nEsta evaluación no acredita instalación, inferencia Gemma, modo offline ni pruebas de audio en el Xiaomi."
+                                            "\n\nEsta evaluación no acredita instalación, inferencia Gemma, modo offline ni pruebas de audio en el Xiaomi."
                                         )
                                     }
                                 }
@@ -432,7 +432,7 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
                     }
                     renderButtons()
                 }.onFailure {
-                    output.append("\\nNo se pudo consultar la PR: ${it.message}")
+                    output.append("\nNo se pudo consultar la PR: ${it.message}")
                 }
             }
         }
@@ -455,10 +455,10 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
 
         val workspace = java.io.File(filesDir, "bardo_developer")
         val snapshot = prefs.getString("source_snapshot_path", "").orEmpty()
-            .takeIf { it.isNotBlank() }?.let(::java.io.File)
+            .takeIf { it.isNotBlank() }?.let { java.io.File(it) }
             ?: throw IllegalStateException("No está disponible el snapshot base local.")
         val candidate = prefs.getString("candidate_path", "").orEmpty()
-            .takeIf { it.isNotBlank() }?.let(::java.io.File)
+            .takeIf { it.isNotBlank() }?.let { java.io.File(it) }
             ?: throw IllegalStateException("No está disponible la copia candidata local.")
         val evidence = BardoLocalCandidateEvidenceCollector.collect(
             BardoLocalCandidateAuditInput(
