@@ -66,7 +66,7 @@ Se añade EngineLiteRT.withSession para reservar el executor durante una secuenc
 
 El ToolExecutor usa un catálogo cerrado. Los planes del modelo son propuestas de datos: IDs de herramientas desconocidos, scopes no autorizados y argumentos fuera de límite se rechazan antes de ejecutar. No hay shell genérico.
 
-El SkillManager permite cuarentena, comprobación de tamaño/SHA-256, instalación deshabilitada y activación con aprobación, permisos y smoke-test declarado. También permite deshabilitar, rollback y retirada. Sigue limitado a paquetes declarativos y acciones registradas; no ejecuta código descargado ni elimina originales del usuario.
+El SkillManager permite cuarentena, comprobación de tamaño/SHA-256 e instalación deshabilitada. La activación requiere un BardoSkillSmokeTestRunner de confianza con identificador y evidencias; BardoCoreSkillSmokeTestRunner ejecuta pruebas escritas en el APK para las acciones registradas. BardoSkillExecutor revalida el paquete y ejecuta únicamente acciones declaradas mediante ToolExecutor; BardoSkillToolHandler permite al planificador invocar una acción aprobada. El runtime está conectado al worker. Actualmente solo hay cuatro acciones locales de lectura/estudio registradas; la UI de importación/gestión y descubrimiento de fuentes sigue pendiente. No se ejecuta código descargado ni se eliminan originales del usuario.
 
 El PR no modifica workflows, configuración de build, firma ni secretos; no toca Modo3 y no cambia main. No hay APK nueva ni pruebas físicas asociadas a esta revisión.
 
@@ -78,7 +78,7 @@ La flota puede recibir varios proveedores y perfiles, pero el autoestudio solo r
 
 El diario de aprendizaje guarda propuestas no verificadas. Falta conectar un verificador independiente real a resultados CI, benchmarks y evidencias reproducibles para promover lecciones a memoria fiable.
 
-El gestor de skills no descarga paquetes por sí solo ni crea automáticamente handlers: solo admite acciones ya registradas. La UI para explorar fuentes, importar paquetes, revisar licencias y conceder permisos queda pendiente. No hay un BardoSkillSmokeTestRunner de producción conectado, por lo que activar skills está bloqueado hasta implementar y probar ese verificador. Las skills ejecutables siguen bloqueadas.
+El gestor de skills no descarga paquetes por sí solo ni crea automáticamente handlers: solo admite acciones ya registradas. El runner de pruebas y la ejecución de acciones de skills están conectados al worker y al planificador; la UI para explorar fuentes, importar paquetes, revisar licencias y conceder permisos queda pendiente. Por ahora el catálogo solo registra cuatro acciones locales de lectura/estudio. Las skills ejecutables siguen bloqueadas.
 
 El evaluador puede clasificar evidencias, pero aún falta garantizar que cada evidencia proviene de resultados verificables y enlazarlo al proceso de integración end-to-end. La autonomía de código no está aún probada como ciclo completo que identifica, desarrolla, ejecuta tests, corrige y vuelve a validar sin ayuda de una conversación externa.
 
