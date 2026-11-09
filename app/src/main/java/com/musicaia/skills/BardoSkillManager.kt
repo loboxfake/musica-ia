@@ -335,10 +335,34 @@ class BardoSkillManager(
             return@synchronized BardoSkillOperationResult(false, current, "La versión destino no está deshabilitada y probada.")
         }
         val validation = BardoSkillManifestValidator.validate(target.manifest, registeredActionIds())
+        val targetFile = safePackageFile(target.installedPath)
+        val workflowValidation = BardoSkillWorkflowPackageValidator.validate(
+            targetFile, target.manifest.actions, registeredActionIds()
+        )
+        val missingDependencies = missingDependencies(target.manifest, toKey)
         if (!validation.accepted || !approvedPermissions.containsAll(validation.requiredPermissions) ||
-            !verifyPackage(safePackageFile(target.installedPath), target.manifest)
+            !verifyPackage(targetFile, target.manifest) || !workflowValidation.accepted ||
+            missingDependencies.isNotEmpty()
         ) {
-            return@synchronized BardoSkillOperationResult(false, current, "La versión anterior no supera manifiesto, permisos o integridad.")
+            return@synchronized BardoSkillOperationResult(false, current, "La versión anterior no supera manifiesto, workflow, dependencias, permisos o integridad.")
+        }
+        val blockingDependents = records.values.filter { dependent ->
+            val dependentKey = recordKey(dependent.manifest.id, dependent.manifest.version)
+            dependentKey != fromKey &&
+                dependent.lifecycle != BardoSkillLifecycle.REJECTED &&
+                dependent.manifest.dependencies.any { dependency ->
+                    dependency.skillId == skillId &&
+                        BardoSkillManifestValidator.compareVersions(target.manifest.version, dependency.minimumVersion) < 0 &&
+                        BardoSkillManifestValidator.compareVersions(current.manifest.version, dependency.minimumVersion) >= 0 &&
+                        missingDependencyHasNoAlternative(dependency, fromKey)
+                }
+        }
+        if (blockingDependents.isNotEmpty()) {
+            return@synchronized BardoSkillOperationResult(
+                false, current,
+                "La reversión rompería dependencias de: " +
+                    blockingDependents.joinToString { it.manifest.id + "@" + it.manifest.version }
+            )
         }
         if (current.lifecycle == BardoSkillLifecycle.ENABLED) {
             records[fromKey] = current.copy(
