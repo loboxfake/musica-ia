@@ -23,7 +23,7 @@ on:
         type: string
 
 permissions:
-  actions: read
+  actions: write
   contents: write
   pull-requests: write
 
@@ -213,11 +213,24 @@ jobs:
           EOF
           pr_url="$(gh pr create --draft --base main --head "$branch" --title "BARDO: candidate $CANDIDATE_ID" --body-file "$body")"
           pr_number="$(gh pr view "$pr_url" --json number --jq '.number')"
+
+          # GITHUB_TOKEN-created PR events do not reliably start downstream workflows.
+          # Dispatch the PR validation explicitly against the immutable candidate branch.
+          gh workflow run bardo-validation.yml --ref "$branch"
+          sleep 3
+          validation_run_id="$(gh run list --workflow bardo-validation.yml --branch "$branch" --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId')"
+
           {
             echo "Candidate branch: $branch"
             echo "Candidate commit: $candidate_sha"
             echo "Draft PR: $pr_url"
             echo "PR number: $pr_number"
+            echo "PR validation run: ${validation_run_id:-pending}"
             echo "main was not modified."
           } >> "$GITHUB_STEP_SUMMARY"
           echo "Created draft PR #$pr_number: $pr_url"
+          if [ -n "$validation_run_id" ] && [ "$validation_run_id" != "null" ]; then
+            echo "PR validation: https://github.com/$GITHUB_REPOSITORY/actions/runs/$validation_run_id"
+          else
+            echo "PR created; validation dispatch accepted but run ID is not yet visible."
+          fi
