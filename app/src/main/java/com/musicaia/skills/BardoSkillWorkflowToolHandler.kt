@@ -37,6 +37,11 @@ class BardoSkillWorkflowToolHandler(
                     appendLine("Pasos: " + inspection.stepCount)
                     appendLine("Acciones: " + inspection.actionIds.joinToString())
                     appendLine("Entradas requeridas: " + inspection.requiredInputs.sorted().joinToString())
+                    appendLine("Ejecución permitida: " + if (inspection.executionEligible) "sí" else "no")
+                    if (inspection.ineligibleActionIds.isNotEmpty()) {
+                        appendLine("Acciones sin smoke-test de confianza: " +
+                            inspection.ineligibleActionIds.joinToString())
+                    }
                     append("SHA-256: " + inspection.packageSha256)
                 }
             }.take(MAX_OUTPUT_CHARS)
