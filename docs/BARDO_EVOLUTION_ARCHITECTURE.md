@@ -182,8 +182,8 @@ La rama contiene código y pruebas para los subsistemas descritos. El nivel de v
 
 ### Estado de validación y límites pendientes
 
-- PR #3 permanece abierto en borrador y sin fusionar. Rama `bardo/integral-autonomy-20261109`; HEAD actualizado tras fijar el artefacto de audio y el exportador de APK: `3b9bb763f88b1cd22534f75ae854dac5807a7e08`. `main` no se ha modificado y su SHA previamente verificado es `386dc7fd23629b5620b6907272ca7d0fc19c6404`.
-- El blob SHA-1 de Modo3 permanece `8f2745fa841a06af43bf909732fba834474bf7dc`.
+- PR #3 permanece abierto en borrador y sin fusionar. Rama `bardo/integral-autonomy-20261109`; HEAD actual: `0222a7db6c867806a364c947fe95226e1b94887f`. La comparación con `main` muestra 274 commits por delante y 0 por detrás; `main` no se ha modificado y permanece en `386dc7fd23629b5620b6907272ca7d0fc19c6404`.
+- El blob SHA-1 de Modo3 permanece `8f2745fa841a06af43bf909732fba834474bf7dc`; el path no aparece entre los 81 archivos modificados frente a `main`.
 - La ejecución de candidato `42706354491`, sobre el HEAD `2d7bb4233675ea7f764f7ec199f06e568f3fb2be`, terminó correctamente: Gitleaks, actionlint, snapshot, descarga/verificación del modelo Stable Audio, tests unitarios, compilación ARM64, auditoría ZIP/JNI/modelos y firma Debug. Artefacto `bardo-unified-offline-arm64-candidate-3`, ID `13714846410`, 1.001.705.430 bytes, digest de artefacto `sha256:c8e561d5bb81896bd05324dcd091d33c31226e9615b71e8c1c81d384b9ecf547`.
 - La descarga directa del artefacto desde la integración disponible fue rechazada por superar su límite de 512 MiB. Por tanto, aún no se ha reconstruido localmente el APK ni se ha verificado su hash interno, instalación o ejecución.
 - El workflow de exportación por fragmentos se ha actualizado en el HEAD `3b9bb763f88b1cd22534f75ae854dac5807a7e08` para apuntar a ese artefacto exacto. La ejecución de exportación y la reconstrucción/validación de fragmentos siguen pendientes de confirmación.
