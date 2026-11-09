@@ -186,6 +186,24 @@ class BardoLocalCandidateEvidenceCollectorTest {
     }
 
     @Test
+    fun submissionGateRejectsUntrustedOriginAndMalformedEvidenceReference() {
+        val fixture = fixture()
+        val evidence = BardoLocalCandidateEvidenceCollector.collectForTest(
+            fixture.input,
+            fixture.modo3Hash
+        )
+        val forgedOrigin = evidence.mapIndexed { index, item ->
+            if (index == 0) item.copy(origin = BardoEvidenceOrigin.GITHUB_ACTIONS) else item
+        }
+        val malformedReference = evidence.mapIndexed { index, item ->
+            if (index == 0) item.copy(evidenceRef = "https://example.invalid/audit") else item
+        }
+        assertTrue(BardoLocalCandidateEvidenceCollector.isReadyForCiSubmission(evidence))
+        assertFalse(BardoLocalCandidateEvidenceCollector.isReadyForCiSubmission(forgedOrigin))
+        assertFalse(BardoLocalCandidateEvidenceCollector.isReadyForCiSubmission(malformedReference))
+    }
+
+    @Test
     fun rejectsSymlinkInCandidateAndDoesNotTrustModo3Check() {
         val fixture = fixture()
         val candidateSource = File(fixture.candidate, sourcePath)
