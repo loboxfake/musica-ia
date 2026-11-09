@@ -524,4 +524,8 @@ class BardoSkillManager(
             licenseAcceptedByUser = json.optBoolean("licenseAcceptedByUser", false)
         )
     }.getOrNull()
+
+    companion object {
+        private const val MAX_TEST_EVIDENCE_REFS = 20
+    }
 }
