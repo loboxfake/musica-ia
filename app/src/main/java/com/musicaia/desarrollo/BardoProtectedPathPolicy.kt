@@ -28,6 +28,13 @@ object BardoProtectedPathPolicy {
         "app/src/main/java/com/musicaia/desarrollo/BardoPatchApplier.kt",
         "app/src/main/java/com/musicaia/desarrollo/BardoProtectedPathPolicy.kt",
         "app/src/main/java/com/musicaia/desarrollo/BardoWorkspaceManager.kt",
+        "app/src/main/java/com/musicaia/seguridad/BardoAuthorityPolicy.kt",
+        "app/src/main/java/com/musicaia/seguridad/BardoAuthorityLedger.kt",
+        "app/src/main/java/com/musicaia/modelos/BardoModelProvider.kt",
+        "app/src/main/java/com/musicaia/skills/BardoSkillManifest.kt",
+        "app/src/main/java/com/musicaia/skills/BardoSkillManager.kt",
+        "app/src/main/java/com/musicaia/herramientas/BardoToolExecutor.kt",
+        "app/src/main/java/com/musicaia/evaluacion/BardoIndependentEvaluator.kt",
         "app/src/main/java/com/musicaia/modelo/BardoCapabilityRegistry.kt",
         "app/src/main/java/com/musicaia/modelo/BardoIntentRouter.kt",
         "app/src/main/java/com/musicaia/modelo/BardoResourceBudget.kt",
@@ -69,7 +76,7 @@ object BardoProtectedPathPolicy {
 
     fun normalize(path: String): String? {
         if (path.isBlank() || path != path.trim()) return null
-        if (path.startsWith("/") || path.contains('\\') || path.contains('\u0000') ||
+        if (path.startsWith("/") || path.contains('\\') || path.any { it.isISOControl() } ||
             path.contains(':') || path.startsWith("~")
         ) return null
         val parts = path.split('/')
