@@ -24,6 +24,8 @@ import com.musicaia.storage.BardoSharedStorage
 import com.musicaia.autonomia.BardoAutonomyEngine
 import com.musicaia.autonomia.BardoGemmaTaskPlanner
 import com.musicaia.autonomia.BardoTaskJournal
+import com.musicaia.evaluacion.BardoLocalCandidateAuditInput
+import com.musicaia.evaluacion.BardoLocalCandidateEvidenceCollector
 import com.musicaia.modelos.BardoModelRegistry
 import com.musicaia.modelos.BardoGemmaLiteRtProvider
 import com.musicaia.modelos.BardoAgentFleet
@@ -317,17 +319,55 @@ a pasar validación en otro runner.
                 val patch = response.substring(patchStart).substringBefore("\n```").trim()
                 val applied = BardoPatchApplier.aplicar(snapshot, patch, workspace)
                 val candidateAudit = BardoDeveloperCore.analizar(applied.directory).render()
-                candidateAuditFile = File(workspace, "candidato-" + timestamp + "-auditoria.md")
-                candidateAuditFile!!.writeText(candidateAudit, Charsets.UTF_8)
 
                 val sourceCommit = File(snapshot, "BARDO_SOURCE_COMMIT.txt")
                     .takeIf { it.isFile }?.readText(Charsets.UTF_8)?.trim().orEmpty()
                 val candidateId = BardoGitHubPolicy.newCandidateId()
+                val localAuditAttempt = runCatching {
+                    BardoLocalCandidateEvidenceCollector.collect(
+                        BardoLocalCandidateAuditInput(
+                            workspaceRoot = workspace,
+                            snapshotDirectory = snapshot,
+                            candidateDirectory = applied.directory,
+                            expectedBaseSha = sourceCommit,
+                            patchText = patch,
+                            changedFiles = applied.changedFiles,
+                            auditId = "candidate-" + candidateId
+                        )
+                    )
+                }
+                val localEvidence = localAuditAttempt.getOrDefault(emptyList())
+                val localAuditReady =
+                    BardoLocalCandidateEvidenceCollector.isReadyForCiSubmission(localEvidence)
+                val localAuditDetails = buildString {
+                    appendLine("Resultado: " + if (localAuditReady) "SUPERADA" else "BLOQUEADA")
+                    localAuditAttempt.exceptionOrNull()?.let {
+                        appendLine("Error del productor: " + (it.message ?: it.javaClass.simpleName).take(500))
+                    }
+                    localEvidence.forEach { item ->
+                        appendLine(
+                            "- " + item.check.name + ": " +
+                                (if (item.passed) "PASS" else "FAIL") +
+                                " · " + item.detail.take(1200)
+                        )
+                    }
+                }
+                candidateAuditFile = File(workspace, "candidato-" + timestamp + "-auditoria.md")
+                candidateAuditFile!!.writeText(
+                    candidateAudit + "\n\n## Verificación local independiente\n\n" +
+                        localAuditDetails,
+                    Charsets.UTF_8
+                )
+
                 val githubEligibility = runCatching {
                     BardoGitHubPolicy.validateBaseSha(sourceCommit)
                     BardoGitHubPolicy.validateCandidateId(candidateId)
                     BardoGitHubPolicy.validatePatch(patch)
                     BardoGitHubPolicy.validateAutonomousChangedPaths(applied.changedFiles)
+                    check(localAuditReady) {
+                        "La auditoría local independiente no ha superado todos los controles obligatorios. " +
+                            localAuditDetails.take(1500)
+                    }
                 }
                 val githubReady = githubEligibility.isSuccess
                 val candidateEditor = prefs.edit()
