@@ -145,6 +145,17 @@ class BardoToolExecutor(
         handlersById.values.map { it.descriptor }.sortedBy { it.id }
 
     /**
+     * Acciones que pueden incluirse en una skill instalable. Una acción solo
+     * es elegible si el APK incorpora un smoke-test escrito junto al handler;
+     * no basta con que figure en el catálogo general.
+     */
+    fun registeredSkillToolIds(): Set<String> =
+        handlersById.values
+            .filter { it is BardoToolSmokeTestHandler }
+            .map { it.descriptor.id }
+            .toSortedSet()
+
+    /**
      * Ejecuta únicamente una prueba interna escrita en el código del handler.
      * No acepta argumentos ni código de la skill. Si el handler no declara
      * explícitamente un smoke-test, la acción no puede habilitarse como skill.
