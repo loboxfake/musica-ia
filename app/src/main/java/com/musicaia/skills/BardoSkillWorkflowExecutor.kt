@@ -87,7 +87,7 @@ class BardoSkillWorkflowExecutor(
         }
 
         val ineligibleActions = steps.map { it.actionId }.distinct()
-            .filterNot { it in tools.verifiedSkillToolIds() }
+            .filterNot { it in tools.registeredSkillToolIds() }
             .sorted()
         val summary = buildString {
             append("Workflow estructuralmente válido: ").append(steps.size)
@@ -159,11 +159,11 @@ class BardoSkillWorkflowExecutor(
             )
         }
 
-        val ineligibleActions = steps.map { it.actionId }.toSet() - tools.registeredSkillToolIds()
+        val ineligibleActions = steps.map { it.actionId }.toSet() - tools.verifiedSkillToolIds()
         if (ineligibleActions.isNotEmpty()) {
             return failure(
                 skillId, version, 0, emptyList(),
-                "Ejecución denegada: las acciones no tienen smoke-test de confianza escrito en el APK: " +
+                "Ejecución denegada: las acciones no superaron su smoke-test de confianza en el APK: " +
                     ineligibleActions.sorted().joinToString()
             )
         }
