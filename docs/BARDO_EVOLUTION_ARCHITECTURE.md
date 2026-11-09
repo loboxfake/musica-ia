@@ -158,7 +158,7 @@ La creación musical, voz, mezcla, portadas, visión, OCR, transcripción, lectu
 
 Las capacidades musicales actuales se mantienen como especialidades. La generación instrumental, creación de letras, mezclas y exportaciones deben seguir superando pruebas reales de WAV/MP3 y escucha. La presencia de modelos/assets no demuestra calidad ni funcionamiento.
 
-## 12. Estado de implementación al 9 de noviembre de 2026
+## 12. Estado de implementación al 9 de noviembre de 2026 (revisión actualizada)
 
 ### Base que ya existía antes de esta rama
 
@@ -182,15 +182,45 @@ La rama contiene código y pruebas para los subsistemas descritos. El nivel de v
 
 ### Estado de validación y límites pendientes
 
-- PR #3 está abierto en borrador, no fusionado. Rama `bardo/integral-autonomy-20261109`; HEAD al registrar este inventario: `491e7018dc0dc371cf6b5f16a55792b39ca1381e`; 148 commits por delante y 0 por detrás de `main`. `main` permanece en `386dc7fd23629b5620b6907272ca7d0fc19c6404`.
+- PR #3 permanece abierto en borrador y sin fusionar. Rama `bardo/integral-autonomy-20261109`; HEAD actualizado tras fijar el artefacto de audio y el exportador de APK: `3b9bb763f88b1cd22534f75ae854dac5807a7e08`. `main` no se ha modificado y su SHA previamente verificado es `386dc7fd23629b5620b6907272ca7d0fc19c6404`.
 - El blob SHA-1 de Modo3 permanece `8f2745fa841a06af43bf909732fba834474bf7dc`.
-- Actions #645 y #646 pasaron Gitleaks, actionlint, tests unitarios, compilación debug, existencia del APK y subida de artefactos en el HEAD anterior `5d50e45`.
-- Actions #670 y #671, correspondientes al HEAD `491e701`, estaban pendientes cuando se actualizó este documento. No se declara que esa revisión haya compilado o generado APK.
-- Los artefactos #645/#646 son APK debug candidatas de una revisión anterior; no validan los commits posteriores.
+- La ejecución de candidato `42706354491`, sobre el HEAD `2d7bb4233675ea7f764f7ec199f06e568f3fb2be`, terminó correctamente: Gitleaks, actionlint, snapshot, descarga/verificación del modelo Stable Audio, tests unitarios, compilación ARM64, auditoría ZIP/JNI/modelos y firma Debug. Artefacto `bardo-unified-offline-arm64-candidate-3`, ID `13714846410`, 1.001.705.430 bytes, digest de artefacto `sha256:c8e561d5bb81896bd05324dcd091d33c31226e9615b71e8c1c81d384b9ecf547`.
+- La descarga directa del artefacto desde la integración disponible fue rechazada por superar su límite de 512 MiB. Por tanto, aún no se ha reconstruido localmente el APK ni se ha verificado su hash interno, instalación o ejecución.
+- El workflow de exportación por fragmentos se ha actualizado en el HEAD `3b9bb763f88b1cd22534f75ae854dac5807a7e08` para apuntar a ese artefacto exacto. La ejecución de exportación y la reconstrucción/validación de fragmentos siguen pendientes de confirmación.
 - No hay pruebas físicas de instalación, inferencia Gemma, operación sin red, SAF, generación/escucha WAV ni mezcla de voz en el Xiaomi 11T Pro.
 - Faltan productores que consulten realmente Actions/dispositivo y creen evidencias verificadas para el evaluador; integrar el gate al worker; auto-compilación y pruebas de candidatos en entorno local confiable; catálogo/adquisición segura de skills/modelos; proveedor adicional a Gemma; emparejamiento/transporte JARVIS; pruebas instrumentadas SAF y pruebas físicas.
+- La comparación de PR #2 y PR #3 confirma que los 34 paths de PR #2 están presentes en PR #3, que añade otros 47 paths. La comparación de ramas indica divergencia histórica (272 commits en PR #3 por delante y 29 por detrás de PR #2). La cobertura de rutas no demuestra equivalencia semántica: los contenidos de varios archivos difieren y cada cambio exclusivo de PR #2 debe revisarse antes de declarar reconciliación.
 - `main` no debe considerarse protegido automáticamente. GitHub debe configurarse para exigir PR y checks; no se presume que esa protección esté activa.
 
 ## 13. Criterio final de aceptación
 
 BARDO se considerará capaz de una función cuando: el código exista; la política permita la acción; las dependencias/versiones/huellas sean correctas; las pruebas objetivas pasen; el runtime se cargue; la tarea real complete; el resultado sea verificable; y, cuando corresponda, el dispositivo objetivo supere la prueba. Cada nivel debe quedar anotado por separado.
+
+
+## 14. Protocolo obligatorio de actualizaciones incrementales
+
+Después de la primera instalación y validación física, las mejoras ordinarias deben entregarse como cambios pequeños y aislados, no como reconstrucciones completas del proyecto. Este protocolo es requisito del EvolutionEngine y de cualquier herramienta de desarrollo autónomo de BARDO.
+
+1. **Identificar la versión base:** registrar package/versionCode, commit exacto de origen, versión de esquema/API y hashes de los componentes relevantes.
+2. **Diagnosticar antes de editar:** reproducir el fallo o definir el requisito; guardar logs y una prueba de referencia. No modificar código por una hipótesis sin evidencia.
+3. **Clasificar el alcance:** cambio local de módulo, cambio de contrato entre módulos o cambio estructural transversal. Elegir el menor alcance que resuelva el problema.
+4. **Crear una propuesta mínima:** diff limitado a los archivos necesarios; no reformatear ni reescribir archivos ajenos. Preservar APIs públicas y compatibilidad cuando sea posible.
+5. **Proteger datos y rutas:** nunca sobrescribir modelos importados, grabaciones, proyectos, exportaciones, claves, secretos ni Modo3 por una actualización de módulo. Las migraciones de datos deben ser explícitas, versionadas, transaccionales y con copia/restauración.
+6. **Pruebas por impacto:** añadir pruebas de regresión; ejecutar pruebas del módulo, contratos afectados y suite completa. No borrar, saltar ni debilitar pruebas existentes para lograr verde.
+7. **Compatibilidad y recursos:** comprobar Android/API, ABI, RAM, almacenamiento, temperatura, permisos, formatos de proyecto y dependencias. Los modelos se actualizan por separado de la APK, con licencia, tamaño y SHA-256.
+8. **Paquete de actualización:** generar un manifiesto que identifique versión anterior y nueva, commit base, archivos/cambios, hashes, dependencias, migraciones, permisos, pruebas, limitaciones y rollback. Rechazar paquetes incompletos, obsoletos o con hash incorrecto.
+9. **Canal seguro:** validar en runner aislado y crear una rama/PR borrador después de autorización. Nunca escribir directamente en main, fusionar, publicar Release ni instalar sin autorización expresa.
+10. **Despliegue gradual:** primero candidato Debug firmado con identidad de firma de prueba estable; después instalación y prueba en el Xiaomi. Solo promover a distribución estable mediante un proceso de firma y aprobación separado.
+11. **Reversión:** conservar la versión anterior y datos originales. Si falla un smoke test, restaurar el módulo/paquete anterior o desactivar la capacidad sin borrar datos.
+12. **Excepción estructural:** solo se permite una actualización amplia cuando el cambio cruza varios contratos/capas, exige migración de arquitectura o la solución incremental sería más insegura. Debe documentarse el motivo y plan de transición.
+
+### Clases de actualización
+
+- **Nivel 1 — contenido/configuración:** catálogo, prompts locales, manifiestos o parámetros validados. No recompilar si el formato y las políticas permiten actualizarlo de forma segura.
+- **Nivel 2 — módulo aislado:** cambio de una especialidad o skill con contrato estable; paquete pequeño y pruebas específicas.
+- **Nivel 3 — contrato compartido:** cambio coordinado de API entre módulos; actualizar consumidores y pruebas de compatibilidad.
+- **Nivel 4 — estructural:** núcleo, almacenamiento, seguridad, modelo de permisos, runtime o migración de datos. Requiere revisión ampliada y plan de rollback.
+
+BARDO debe mostrar al usuario el nivel, el motivo, los archivos afectados, los riesgos, el tamaño, la evidencia de pruebas y la opción de aplazar o rechazar la actualización. No debe instalar silenciosamente cambios de código ni conceder permisos nuevos por sí mismo.
+
+Este protocolo describe el comportamiento exigido; su inclusión en documentación no demuestra que la interfaz ni el actualizador estén implementados. Esa implementación deberá auditarse y probarse antes de habilitar autoactualizaciones.
