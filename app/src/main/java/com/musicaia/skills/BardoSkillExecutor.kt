@@ -66,7 +66,7 @@ class BardoSkillExecutor(
         if (missing.isNotEmpty()) {
             return report(
                 skillId, version, BardoSkillExecutionStatus.REJECTED, emptyList(),
-                "Las acciones ya no están registradas: " + missing.sorted().joinToString()
+                "Las acciones no superaron su smoke-test de confianza: " + missing.sorted().joinToString()
             )
         }
 
