@@ -2,12 +2,15 @@ package com.musicaia
 
 import com.musicaia.actualizaciones.BardoIncrementalUpdateManifest
 import com.musicaia.actualizaciones.BardoIncrementalUpdatePolicy
+import com.musicaia.actualizaciones.BardoIncrementalUpdateManifestFactory
 import com.musicaia.actualizaciones.BardoUpdateFile
 import com.musicaia.actualizaciones.BardoUpdateLevel
 import com.musicaia.actualizaciones.BardoUpdateOperation
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
+import java.nio.file.Files
 
 class BardoIncrementalUpdatePolicyTest {
     private fun validManifest(
@@ -121,4 +124,36 @@ class BardoIncrementalUpdatePolicyTest {
         assertFalse(result.accepted)
         assertTrue(result.errors.contains("ROLLBACK_PLAN_REFERENCE_INVALID"))
     }
+    @Test fun factoryHashesTheRealSnapshotAndCandidateFiles() {
+        val workspace = Files.createTempDirectory("bardo-update-test").toFile()
+        try {
+            val snapshot = File(workspace, "snapshot-001")
+            val candidate = File(workspace, "candidate-001")
+            val relative = "app/src/main/java/com/musicaia/modulos/Example.kt"
+            val source = File(snapshot, relative)
+            val target = File(candidate, relative)
+            source.parentFile.mkdirs()
+            target.parentFile.mkdirs()
+            source.writeText("class Example { fun value() = 1 }")
+            target.writeText("class Example { fun value() = 2 }")
+            val manifest = BardoIncrementalUpdateManifestFactory.create(
+                snapshotRoot = snapshot,
+                candidateRoot = candidate,
+                changedFiles = listOf(relative),
+                baseCommit = "a".repeat(40),
+                fromVersion = "1.0.3",
+                toVersion = "1.0.4-candidate.123",
+                patchText = "--- a/Example.kt\n+++ b/Example.kt\n@@ -1 +1 @@\n-old\n+new",
+                evidenceRefs = listOf("bardo-audit://candidate/ci-001"),
+                rollbackPlanRef = "bardo-rollback://snapshot-001"
+            )
+            assertTrue(BardoIncrementalUpdatePolicy.validate(manifest).accepted)
+            assertTrue(manifest.files.single().previousSha256 != manifest.files.single().targetSha256)
+            assertTrue(manifest.targetFingerprintSha256.matches(Regex("^[a-f0-9]{64}$")))
+            assertTrue(manifest.toJson().contains("targetFingerprintSha256"))
+        } finally {
+            workspace.deleteRecursively()
+        }
+    }
+
 }
