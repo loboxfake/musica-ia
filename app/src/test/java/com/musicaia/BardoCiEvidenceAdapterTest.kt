@@ -118,7 +118,12 @@ class BardoCiEvidenceAdapterTest {
 
     @Test
     fun acceptsSuccessfulCandidateBranchValidationDispatchedByTheTrustedPrWorkflow() {
-        val result = collect(run = run(event = "workflow_dispatch"))
+        val result = collect(
+            run = run(
+                event = "workflow_dispatch",
+                workflowPath = ".github/workflows/bardo-validation.yml@refs/heads/bardo/candidate-0123456789abcdef0123456789abcdef"
+            )
+        )
         assertEquals(BardoCiEvidenceState.CI_PASSED, result.state)
         assertTrue(result.evidence.all { it.passed })
         assertTrue(result.evidence.all {
@@ -183,6 +188,10 @@ class BardoCiEvidenceAdapterTest {
         val result = collect(run = run(branch = "main"))
         assertEquals(BardoCiEvidenceState.INVALID, result.state)
         assertTrue(result.evidence.isEmpty())
+
+        val dispatchedFromMain = collect(run = run(branch = "main", event = "workflow_dispatch"))
+        assertEquals(BardoCiEvidenceState.INVALID, dispatchedFromMain.state)
+        assertTrue(dispatchedFromMain.evidence.isEmpty())
     }
 
     @Test
