@@ -230,7 +230,7 @@ class BardoSkillExecutorTest {
             )
             assertEquals(BardoSkillExecutionStatus.REJECTED, report.status)
             assertEquals(0, calls)
-            assertTrue(report.summary.contains("no están verificadas"))
+            assertTrue(report.summary.contains("smoke-test de confianza"))
         } finally {
             root.deleteRecursively()
         }
