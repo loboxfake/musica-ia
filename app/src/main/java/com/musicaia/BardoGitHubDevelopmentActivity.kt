@@ -15,10 +15,19 @@ import com.musicaia.desarrollo.BardoGitHubCredentialStore
 import com.musicaia.desarrollo.BardoGitHubIntegrationPolicy
 import com.musicaia.desarrollo.BardoGitHubPolicy
 import com.musicaia.desarrollo.BardoGitHubRun
+import com.musicaia.evaluacion.BardoCheckEvidence
+import com.musicaia.evaluacion.BardoLocalCandidateAuditInput
+import com.musicaia.evaluacion.BardoLocalCandidateEvidenceCollector
 import java.util.concurrent.Executors
 
 /** GitHub CI bridge: validates isolated diffs and prepares a draft PR only after explicit user approval. */
 class BardoGitHubDevelopmentActivity : AppCompatActivity() {
+    private data class CandidateStatus(
+        val pullRequest: com.musicaia.desarrollo.BardoGitHubPullRequest?,
+        val evaluation: com.musicaia.desarrollo.BardoGitHubBranchEvaluation?,
+        val evaluationError: String?
+    )
+
     private lateinit var output: TextView
     private lateinit var tokenInput: EditText
     private lateinit var validateButton: Button
@@ -338,36 +347,134 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
         executor.execute {
             val result = runCatching {
                 val client = BardoGitHubActionsClient(token)
-                var pullRequest: Pair<Int, String>? = null
+                var pullRequest: com.musicaia.desarrollo.BardoGitHubPullRequest? = null
                 repeat(10) {
                     if (pullRequest == null) {
-                        pullRequest = client.pullRequestForCandidate(candidateId)
+                        pullRequest = client.pullRequestDetailsForCandidate(candidateId)
                         if (pullRequest == null) Thread.sleep(1500L)
                     }
                 }
-                pullRequest
+                val found = pullRequest
+                if (found == null) {
+                    CandidateStatus(null, null, null)
+                } else {
+                    val evaluationAttempt = runCatching {
+                        val localEvidence = collectLocalCandidateEvidence()
+                        client.evaluateCandidateBranch(candidateId, localEvidence)
+                    }
+                    CandidateStatus(
+                        pullRequest = found,
+                        evaluation = evaluationAttempt.getOrNull(),
+                        evaluationError = evaluationAttempt.exceptionOrNull()?.message
+                    )
+                }
             }
             runOnUiThread {
-                result.onSuccess { pullRequest ->
-                    if (pullRequest != null) {
+                result.onSuccess { status ->
+                    val pullRequest = status.pullRequest
+                    if (pullRequest == null) {
+                        output.append(
+                            "\\n\\nEl workflow terminó, pero la PR aún no aparece en GitHub. Pulsa «Consultar CI y resultado» de nuevo. main no se ha modificado."
+                        )
+                    } else {
                         prCreated = true
                         state.edit().putBoolean(key("pr_created"), true).apply()
                         output.append(
-                            "\n\nPR BORRADOR CREADA\nNúmero: #${pullRequest.first}\n${pullRequest.second}" +
-                                "\n\nmain sigue sin cambios. Revisa el diff y los checks del PR. BARDO no lo fusionará ni publicará una APK."
+                            "\\n\\nPR BORRADOR CREADA\\nNúmero: #${pullRequest.number}\\n${pullRequest.url}" +
+                                "\\nSHA de la rama: ${pullRequest.headSha}" +
+                                "\\n\\nmain sigue sin cambios. BARDO no fusiona el PR ni publica una Release."
                         )
+                        val evaluation = status.evaluation
+                        when {
+                            status.evaluationError != null -> output.append(
+                                "\\n\\nEVALUACIÓN AUTOMÁTICA NO DISPONIBLE\\n" + status.evaluationError.take(1200) +
+                                    "\\nLa PR puede revisarse, pero no se declara CI aprobado por esta pantalla."
+                            )
+                            evaluation == null || evaluation.validationRun == null -> output.append(
+                                "\\n\\nVALIDACIÓN DE LA RAMA PENDIENTE\\nAún no aparece una ejecución bardo-validation.yml workflow_dispatch asociada al SHA actual del PR."
+                            )
+                            else -> {
+                                val ci = evaluation.evaluation?.ci
+                                val report = evaluation.evaluation?.report
+                                output.append(
+                                    "\\n\\nVALIDACIÓN DE RAMA\\nRun: ${evaluation.validationRun.id}" +
+                                        "\\nEstado: ${evaluation.validationRun.status}" +
+                                        "\\nConclusión: ${evaluation.validationRun.conclusion ?: "pendiente"}" +
+                                        "\\n${evaluation.validationRun.url}"
+                                )
+                                when {
+                                    ci == null || ci.state == com.musicaia.evaluacion.BardoCiEvidenceState.PENDING ->
+                                        output.append("\\nCI pendiente; todavía no se emite un informe de evaluación.")
+                                    ci.state == com.musicaia.evaluacion.BardoCiEvidenceState.INVALID ->
+                                        output.append("\\nEVIDENCIA CI INVÁLIDA\\n" + ci.problems.joinToString("\\n"))
+                                    else -> {
+                                        output.append(
+                                            "\\nResultado del evaluador independiente: " +
+                                                (report?.status?.name ?: "INCOMPLETE") +
+                                                "\\n" + (report?.summary ?: "Faltan evidencias obligatorias.")
+                                        )
+                                        if (report != null) {
+                                            if (report.failedChecks.isNotEmpty()) {
+                                                output.append("\\nChecks fallidos: " + report.failedChecks.joinToString())
+                                            }
+                                            if (report.missingChecks.isNotEmpty()) {
+                                                output.append("\\nChecks pendientes: " + report.missingChecks.joinToString())
+                                            }
+                                        }
+                                        output.append(
+                                            "\\n\\nEsta evaluación no acredita instalación, inferencia Gemma, modo offline ni pruebas de audio en el Xiaomi."
+                                        )
+                                    }
+                                }
+                            }
+                        }
                         android.text.util.Linkify.addLinks(output, android.text.util.Linkify.WEB_URLS)
-                    } else {
-                        output.append(
-                            "\n\nEl workflow terminó, pero la PR aún no aparece en la consulta de GitHub. Pulsa «Consultar CI y resultado» de nuevo. main no se ha modificado por esta pantalla."
-                        )
                     }
                     renderButtons()
                 }.onFailure {
-                    output.append("\nNo se pudo consultar la PR: ${it.message}")
+                    output.append("\\nNo se pudo consultar la PR: ${it.message}")
                 }
             }
         }
+    }
+
+    /** Recalcula la auditoría desde el workspace privado; no reutiliza el booleano como evidencia. */
+    private fun collectLocalCandidateEvidence(): List<BardoCheckEvidence> {
+        val prefs = getSharedPreferences("bardo_developer", MODE_PRIVATE)
+        check(prefs.getBoolean("candidate_local_audit_passed", false)) {
+            "La candidatura no conserva un resultado local de auditoría superado."
+        }
+        val storedId = prefs.getString("candidate_id", "").orEmpty()
+        val storedBase = prefs.getString("candidate_base_sha", "").orEmpty()
+        val storedPatch = prefs.getString("candidate_patch", "").orEmpty()
+        val storedPaths = prefs.getString("candidate_files", "").orEmpty()
+            .lines().filter { it.isNotBlank() }
+        check(storedId == candidateId && storedBase.equals(baseSha, true) && storedPatch == patch &&
+            storedPaths.sorted() == changedFiles.sorted()
+        ) { "Los datos locales ya no coinciden con la candidatura abierta en GitHub." }
+
+        val workspace = java.io.File(filesDir, "bardo_developer")
+        val snapshot = prefs.getString("source_snapshot_path", "").orEmpty()
+            .takeIf { it.isNotBlank() }?.let(::java.io.File)
+            ?: throw IllegalStateException("No está disponible el snapshot base local.")
+        val candidate = prefs.getString("candidate_path", "").orEmpty()
+            .takeIf { it.isNotBlank() }?.let(::java.io.File)
+            ?: throw IllegalStateException("No está disponible la copia candidata local.")
+        val evidence = BardoLocalCandidateEvidenceCollector.collect(
+            BardoLocalCandidateAuditInput(
+                workspaceRoot = workspace,
+                snapshotDirectory = snapshot,
+                candidateDirectory = candidate,
+                expectedBaseSha = baseSha,
+                patchText = patch,
+                changedFiles = changedFiles,
+                auditId = "candidate-" + candidateId
+            )
+        )
+        check(BardoLocalCandidateEvidenceCollector.isReadyForCiSubmission(evidence)) {
+            "La auditoría local recalculada no ha superado todos los controles."
+        }
+        return evidence
     }
 
     private fun showRun(label: String, run: BardoGitHubRun, jobSummary: String = "") {
