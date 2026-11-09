@@ -25,6 +25,7 @@ enum class BardoPermissionScope {
     INSTALL_APK,
     EXPORT_USER_DATA,
     DELETE_USER_DATA,
+    MANAGE_BARDO_WORKSPACE,
     MODIFY_PROTECTED_CORE,
     MODIFY_MODO3,
     CHANGE_AUTHORITY_POLICY,
@@ -84,7 +85,8 @@ object BardoAuthorityPolicy {
         BardoPermissionScope.STUDY_LOCAL,
         BardoPermissionScope.PROPOSE_CHANGE,
         BardoPermissionScope.CREATE_LOCAL_CANDIDATE,
-        BardoPermissionScope.RUN_SANDBOX_CI
+        BardoPermissionScope.RUN_SANDBOX_CI,
+        BardoPermissionScope.MANAGE_BARDO_WORKSPACE
     )
 
     private val idPattern = Regex("^[A-Za-z0-9_-]{16,80}$")
