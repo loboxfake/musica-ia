@@ -4,6 +4,8 @@ import java.io.File
 import java.io.FileOutputStream
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 import java.util.UUID
 
 /**
@@ -15,7 +17,7 @@ class BardoFileAuthorityLedger(private val directory: File) :
     BardoGrantRevocationStore {
 
     init {
-        synchronized(processLock) {
+        processLock.withLock {
             if (!directory.exists()) {
                 check(directory.mkdirs()) { "No se pudo crear el ledger de autoridad." }
             }
@@ -29,7 +31,7 @@ class BardoFileAuthorityLedger(private val directory: File) :
         requestId: String,
         expiresAtMillis: Long,
         nowMillis: Long
-    ): Boolean = synchronized(processLock) {
+    ): Boolean = processLock.withLock {
         require(requestId.matches(Regex("^[A-Za-z0-9_-]{16,100}$"))) {
             "Identificador de petición no válido."
         }
@@ -122,7 +124,7 @@ class BardoFileAuthorityLedger(private val directory: File) :
     }
 
     companion object {
-        private val processLock = Any()
+        private val processLock = ReentrantLock()
         private const val NONCE_FILE = "nonce-ledger.txt"
         private const val REVOCATION_FILE = "revoked-grants.txt"
         const val MAX_ACTIVE_NONCES = 50_000
