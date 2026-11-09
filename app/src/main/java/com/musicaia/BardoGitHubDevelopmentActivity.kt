@@ -17,7 +17,7 @@ import com.musicaia.desarrollo.BardoGitHubPolicy
 import com.musicaia.desarrollo.BardoGitHubRun
 import java.util.concurrent.Executors
 
-/** GitHub CI bridge: validates isolated diffs; integration remains blocked until a safe draft-PR workflow exists. */
+/** GitHub CI bridge: validates isolated diffs and prepares a draft PR only after explicit user approval. */
 class BardoGitHubDevelopmentActivity : AppCompatActivity() {
     private lateinit var output: TextView
     private lateinit var tokenInput: EditText
@@ -82,12 +82,16 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
             appendLine("Archivos propuestos:")
             changedFiles.forEach { appendLine("• $it") }
             appendLine()
-            appendLine("Token requerido: Fine-grained PAT limitado a este repositorio, con Actions: Read and write y Contents: Read.")
+            appendLine("Token requerido: Fine-grained PAT limitado a este repositorio, con Actions: Read and write, Contents: Read y Pull requests: Read.")
             appendLine("El token se cifra con Android Keystore. No se incluye en el APK ni se transmite al runner.")
             appendLine()
-            appendLine("INTEGRACIÓN BLOQUEADA: el workflow heredado escribiría directamente en main. La validación del candidato sí está permitida; crear el PR queda deshabilitado hasta disponer de un workflow seguro.")
-            appendLine("La validación usa un runner efímero y no integra el candidato. No existe todavía un flujo seguro de creación de PR.")
-            appendLine("Esta pantalla no despacha la integración ni modifica main. La futura integración requerirá una rama bardo/* y un PR borrador sujeto a revisión humana.")
+            if (BardoGitHubIntegrationPolicy.DRAFT_PR_WORKFLOW_ENABLED) {
+                appendLine("INTEGRACIÓN SEGURA DISPONIBLE: tras la confirmación explícita, GitHub repetirá la validación y los tests, creará una rama bardo/* y abrirá un PR borrador.")
+                appendLine("No se hace push a main, no se fusiona el PR y no se publica una Release. La revisión y la fusión quedan en manos del usuario.")
+            } else {
+                appendLine("INTEGRACIÓN BLOQUEADA: " + BardoGitHubIntegrationPolicy.BLOCK_REASON)
+            }
+            appendLine("La validación y la preparación del PR se ejecutan en runners efímeros. El token personal permanece en el dispositivo; el workflow utiliza su GITHUB_TOKEN limitado por permisos.")
         }
         renderButtons()
     }
