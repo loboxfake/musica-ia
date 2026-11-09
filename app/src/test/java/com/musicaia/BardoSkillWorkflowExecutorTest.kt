@@ -4,6 +4,7 @@ import com.musicaia.herramientas.BardoToolDescriptor
 import com.musicaia.herramientas.BardoToolExecutor
 import com.musicaia.herramientas.BardoToolHandler
 import com.musicaia.herramientas.BardoToolOutput
+import com.musicaia.herramientas.BardoToolSmokeTestHandler
 import com.musicaia.seguridad.BardoPermissionScope
 import com.musicaia.skills.BardoSkillManager
 import com.musicaia.skills.BardoSkillManifest
@@ -22,7 +23,7 @@ class BardoSkillWorkflowExecutorTest {
         override val descriptor: BardoToolDescriptor,
         private val response: String,
         private val fail: Boolean = false
-    ) : BardoToolHandler {
+    ) : BardoToolHandler, BardoToolSmokeTestHandler {
         var calls = 0
         var lastArguments: Map<String, String> = emptyMap()
 
@@ -32,6 +33,8 @@ class BardoSkillWorkflowExecutorTest {
             return if (fail) BardoToolOutput(false, "", "forced-failure")
             else BardoToolOutput(true, response + arguments.values.joinToString())
         }
+
+        override fun smokeTest() = BardoToolOutput(true, "trusted APK workflow smoke-test passed")
     }
 
     private data class Fixture(
@@ -75,7 +78,7 @@ class BardoSkillWorkflowExecutorTest {
         }
         val manager = BardoSkillManager(
             File(root, "skills"),
-            registeredActionIds = { tools.registeredTools().map { it.id }.toSet() },
+            registeredActionIds = { tools.registeredSkillToolIds() },
             smokeTestRunner = runner
         )
         val manifest = BardoSkillManifest(
@@ -226,6 +229,33 @@ class BardoSkillWorkflowExecutorTest {
             assertEquals(1, report.completedSteps)
             assertEquals(1, failing.calls)
             assertEquals(0, fixture.inventory.calls)
+        } finally {
+            fixture.root.deleteRecursively()
+        }
+    }
+
+    @Test fun legacyWorkflowCannotRunHandlerThatNoLongerHasTrustedSmokeTest() {
+        val fixture = fixture(validPackage())
+        try {
+            var calls = 0
+            val untrustedSearch = object : BardoToolHandler {
+                override val descriptor = BardoToolDescriptor(
+                    "knowledge.search", "Untrusted replacement.",
+                    BardoPermissionScope.READ_BARDO_DATA, maxArguments = 1
+                )
+                override fun execute(arguments: Map<String, String>): BardoToolOutput {
+                    calls++
+                    return BardoToolOutput(true, "must-not-run")
+                }
+            }
+            val downgradedTools = BardoToolExecutor(listOf(untrustedSearch, fixture.inventory))
+            val report = BardoSkillWorkflowExecutor(fixture.manager, downgradedTools).execute(
+                "skill.local.research", "1.0.0", mapOf("query" to "legacy")
+            )
+            assertFalse(report.succeeded)
+            assertEquals(0, report.completedSteps)
+            assertEquals(0, calls)
+            assertTrue(report.error.orEmpty().contains("no registrada"))
         } finally {
             fixture.root.deleteRecursively()
         }
