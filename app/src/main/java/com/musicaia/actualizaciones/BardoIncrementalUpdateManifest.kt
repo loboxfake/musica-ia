@@ -23,7 +23,7 @@ data class BardoIncrementalUpdateManifest(
     val fromVersion: String,
     val toVersion: String,
     val baseCommit: String,
-    val targetCommit: String,
+    val targetFingerprintSha256: String,
     val level: BardoUpdateLevel,
     val files: List<BardoUpdateFile>,
     val requiredPermissions: Set<String>,
@@ -70,8 +70,8 @@ object BardoIncrementalUpdatePolicy {
         if (!idPattern.matches(manifest.updateId)) errors += "UPDATE_ID_INVALID"
         if (!versionPattern.matches(manifest.fromVersion) || !versionPattern.matches(manifest.toVersion)) errors += "VERSION_FORMAT_INVALID"
         if (manifest.fromVersion == manifest.toVersion) errors += "VERSION_NOT_CHANGED"
-        if (!commitPattern.matches(manifest.baseCommit) || !commitPattern.matches(manifest.targetCommit)) errors += "COMMIT_REFERENCE_INVALID"
-        if (manifest.baseCommit.equals(manifest.targetCommit, ignoreCase = true)) errors += "SOURCE_COMMIT_NOT_CHANGED"
+        if (!commitPattern.matches(manifest.baseCommit)) errors += "BASE_COMMIT_INVALID"
+        if (!sha256Pattern.matches(manifest.targetFingerprintSha256)) errors += "TARGET_FINGERPRINT_INVALID"
         if (manifest.files.isEmpty() || manifest.files.size > MAX_FILES) errors += "FILE_COUNT_OUT_OF_RANGE"
         if (manifest.files.map { it.path }.distinct().size != manifest.files.size) errors += "DUPLICATE_PATHS"
         var totalBytes = 0L
