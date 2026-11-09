@@ -7,6 +7,16 @@ import android.provider.DocumentsContract
 import java.io.File
 import java.security.MessageDigest
 import java.util.UUID
+import org.json.JSONArray
+import org.json.JSONObject
+
+data class BardoMobileFileDeletionRequest(
+    val id: String,
+    val relativePath: String,
+    val permanent: Boolean,
+    val reason: String,
+    val requestedAtMillis: Long
+)
 
 data class BardoMobileFileEntry(
     val relativePath: String,
@@ -301,6 +311,128 @@ object BardoSharedStorage {
         return DocumentsContract.deleteDocument(context.contentResolver, target)
     }
 
+    /**
+     * BARDO solicita una eliminación, pero no la ejecuta. La solicitud queda
+     * pendiente hasta que el usuario la revise y confirme en la interfaz.
+     */
+    fun requestDeletion(
+        context: Context,
+        relativePath: String,
+        permanent: Boolean,
+        reason: String
+    ): BardoMobileFileDeletionRequest {
+        val operation = if (permanent) BardoMobileFileOperation.PERMANENT_DELETE
+            else BardoMobileFileOperation.MOVE_TO_TRASH
+        val decision = BardoMobileFilePolicy.authorize(operation, relativePath)
+        require(decision.requiresUserApproval && decision.normalizedPath != null) {
+            decision.reason.ifBlank { "La solicitud de eliminación no es válida." }
+        }
+        val loc = location(context) ?: throw IllegalStateException("No existe permiso SAF para BARDO.")
+        resolveEntry(context, loc, decision.normalizedPath)
+        val prefs = context.applicationContext.getSharedPreferences(DELETE_REQUESTS_PREFS, Context.MODE_PRIVATE)
+        val current = readRequests(prefs.getString(DELETE_REQUESTS_KEY, "[]").orEmpty())
+        require(current.size < MAX_PENDING_DELETE_REQUESTS) {
+            "Hay demasiadas solicitudes pendientes; revisa primero las existentes."
+        }
+        require(current.none { it.relativePath == decision.normalizedPath && it.permanent == permanent }) {
+            "Ya existe una solicitud pendiente para esta operación y ruta."
+        }
+        val request = BardoMobileFileDeletionRequest(
+            id = UUID.randomUUID().toString(),
+            relativePath = decision.normalizedPath,
+            permanent = permanent,
+            reason = reason.trim().take(MAX_DELETE_REASON_CHARS).ifBlank {
+                "Mantenimiento solicitado por BARDO."
+            },
+            requestedAtMillis = System.currentTimeMillis()
+        )
+        val updated = current + request
+        check(prefs.edit().putString(DELETE_REQUESTS_KEY, requestsJson(updated).toString()).commit()) {
+            "No se pudo guardar la solicitud; no se ha eliminado nada."
+        }
+        return request
+    }
+
+    fun pendingDeletionRequests(context: Context): List<BardoMobileFileDeletionRequest> {
+        val prefs = context.applicationContext.getSharedPreferences(DELETE_REQUESTS_PREFS, Context.MODE_PRIVATE)
+        return readRequests(prefs.getString(DELETE_REQUESTS_KEY, "[]").orEmpty())
+            .sortedBy { it.requestedAtMillis }
+    }
+
+    fun rejectDeletionRequest(context: Context, requestId: String): Boolean {
+        val prefs = context.applicationContext.getSharedPreferences(DELETE_REQUESTS_PREFS, Context.MODE_PRIVATE)
+        val current = readRequests(prefs.getString(DELETE_REQUESTS_KEY, "[]").orEmpty())
+        val updated = current.filterNot { it.id == requestId }
+        if (updated.size == current.size) return false
+        return prefs.edit().putString(DELETE_REQUESTS_KEY, requestsJson(updated).toString()).commit()
+    }
+
+    /**
+     * Esta función se invoca solo desde la acción positiva de un diálogo UI
+     * que muestra la ruta y el tipo de eliminación. Los agentes no reciben
+     * una herramienta para aprobar solicitudes.
+     */
+    fun approveDeletionRequest(context: Context, requestId: String): String {
+        val app = context.applicationContext
+        val prefs = app.getSharedPreferences(DELETE_REQUESTS_PREFS, Context.MODE_PRIVATE)
+        val current = readRequests(prefs.getString(DELETE_REQUESTS_KEY, "[]").orEmpty())
+        val request = current.firstOrNull { it.id == requestId }
+            ?: throw IllegalArgumentException("La solicitud ya no existe o fue rechazada.")
+        val outcome = if (request.permanent) {
+            check(deletePermanently(app, request.relativePath, explicitUserConfirmation = true)) {
+                "El proveedor SAF no confirmó la eliminación."
+            }
+            "Eliminado permanentemente: BARDO/" + request.relativePath
+        } else {
+            "Movido a BARDO/" + moveToTrash(app, request.relativePath, explicitUserConfirmation = true)
+        }
+        val latest = readRequests(prefs.getString(DELETE_REQUESTS_KEY, "[]").orEmpty())
+        val updated = latest.filterNot { it.id == requestId }
+        check(prefs.edit().putString(DELETE_REQUESTS_KEY, requestsJson(updated).toString()).commit()) {
+            "La operación terminó, pero no se pudo cerrar el registro de la solicitud."
+        }
+        return outcome
+    }
+
+    private fun readRequests(raw: String): List<BardoMobileFileDeletionRequest> = runCatching {
+        val array = JSONArray(raw)
+        buildList {
+            for (index in 0 until array.length()) {
+                val row = array.optJSONObject(index) ?: continue
+                val id = row.optString("id")
+                val path = row.optString("path")
+                val reason = row.optString("reason")
+                val operation = row.optString("operation")
+                val requestedAt = row.optLong("requestedAt", 0L)
+                if (id.isNotBlank() && path.isNotBlank() &&
+                    operation in setOf("MOVE_TO_TRASH", "PERMANENT_DELETE") &&
+                    requestedAt > 0L &&
+                    BardoMobileFilePolicy.normalizeRelativePath(path) != null
+                ) {
+                    add(BardoMobileFileDeletionRequest(
+                        id = id,
+                        relativePath = path,
+                        permanent = operation == "PERMANENT_DELETE",
+                        reason = reason.take(MAX_DELETE_REASON_CHARS),
+                        requestedAtMillis = requestedAt
+                    ))
+                }
+            }
+        }
+    }.getOrDefault(emptyList())
+
+    private fun requestsJson(requests: List<BardoMobileFileDeletionRequest>) = JSONArray().also { array ->
+        requests.forEach { request ->
+            array.put(JSONObject()
+                .put("id", request.id)
+                .put("path", request.relativePath)
+                .put("operation", if (request.permanent) "PERMANENT_DELETE" else "MOVE_TO_TRASH")
+                .put("reason", request.reason)
+                .put("requestedAt", request.requestedAtMillis)
+            )
+        }
+    }
+
     private fun consumeApproval(
         context: Context,
         operation: BardoMobileFileOperation,
@@ -421,6 +553,10 @@ object BardoSharedStorage {
     companion object {
         const val MAX_LIST_ENTRIES = 1000
         const val MAX_WRITE_TEXT_CHARS = 256 * 1024
+        const val MAX_PENDING_DELETE_REQUESTS = 100
+        const val MAX_DELETE_REASON_CHARS = 500
         const val TRASH_DIRECTORY = "Papelera"
+        private const val DELETE_REQUESTS_PREFS = "bardo_mobile_file_requests"
+        private const val DELETE_REQUESTS_KEY = "pending"
     }
 }
