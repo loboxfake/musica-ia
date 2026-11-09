@@ -1,4 +1,5 @@
 name: Export unified BARDO APK for verified download
+# Candidate 3 is pinned to immutable run 42706354491 / artifact 13714846410; do not retarget without a successful audited build.
 
 on:
   push:
