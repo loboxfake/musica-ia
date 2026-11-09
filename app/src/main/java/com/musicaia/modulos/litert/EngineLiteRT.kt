@@ -63,23 +63,25 @@ object EngineLiteRT {
         val backends = listOf(Backend.GPU(), Backend.CPU())
         for (backend in backends) {
             var candidato: Engine? = null
-            var inicializado = false
+            var transferidoAlRuntime = false
             try {
                 candidato = Engine(EngineConfig(modelPath = path, backend = backend, cacheDir = cacheDir))
                 candidato.initialize()
-                inicializado = true
                 val nuevaConversacion = candidato.createConversation()
                 engine = candidato
                 conversation = nuevaConversacion
                 backendGpu = backend is Backend.GPU
+                transferidoAlRuntime = true
                 return true
             } catch (error: Throwable) {
                 ultimoError = error
+                // Engine puede reservar memoria nativa antes de que initialize()
+                // termine. Cierra también los candidatos parcialmente inicializados.
+                if (!transferidoAlRuntime) runCatching { candidato?.close() }
                 if (error is OutOfMemoryError) {
                     cerrarInterno()
                     throw error
                 }
-                if (inicializado) runCatching { candidato?.close() }
             }
         }
         throw IllegalStateException("LiteRT-LM no pudo iniciar ni con GPU ni con CPU.", ultimoError)
@@ -118,17 +120,21 @@ object EngineLiteRT {
             modelPath = path
             cachePath = cache
             val cpu = Engine(EngineConfig(modelPath = path, backend = Backend.CPU(), cacheDir = cache))
-            var inicializado = false
+            var transferidoAlRuntime = false
             try {
                 cpu.initialize()
-                inicializado = true
                 val nuevaConversacion = cpu.createConversation()
                 engine = cpu
                 conversation = nuevaConversacion
                 backendGpu = false
+                transferidoAlRuntime = true
                 return nuevaConversacion.sendMessage(prompt, maxOutputToken = 900).toString()
             } catch (cpuError: Throwable) {
-                if (inicializado && engine !== cpu) runCatching { cpu.close() }
+                // Si la inicialización falla, el Engine no llegó al runtime y se
+                // libera explícitamente. Si falló la inferencia por OOM, cerrarInterno
+                // libera la sesión CPU que ya habíamos transferido.
+                if (!transferidoAlRuntime) runCatching { cpu.close() }
+                if (cpuError is OutOfMemoryError) cerrarInterno()
                 throw cpuError
             }
         }
