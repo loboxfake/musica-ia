@@ -37,12 +37,26 @@ object BardoSkillMaintenancePlanner {
             val manifest = record.manifest
             val incompatible = currentApi !in manifest.apiMinimum..manifest.apiMaximum
             val missingActions = manifest.actions.filterNot { it in registeredActionIds }
+            val missingDependencies = manifest.dependencies.filterNot { dependency ->
+                records.any { candidate ->
+                    candidate.manifest.id == dependency.skillId &&
+                        candidate.lifecycle == BardoSkillLifecycle.ENABLED &&
+                        BardoSkillManifestValidator.compareVersions(
+                            candidate.manifest.version, dependency.minimumVersion
+                        ) >= 0
+                }
+            }
             val latest = newestBySkill[manifest.id]
             val superseded = latest != null && latest.manifest.version != manifest.version &&
                 latest.lifecycle == BardoSkillLifecycle.ENABLED
 
             if (incompatible) reasons += "La API de BARDO ya no es compatible con esta versión."
             if (missingActions.isNotEmpty()) reasons += "Acciones ausentes: " + missingActions.joinToString()
+            if (missingDependencies.isNotEmpty()) {
+                reasons += "Dependencias no satisfechas: " + missingDependencies.joinToString {
+                    it.skillId + ">=" + it.minimumVersion
+                }
+            }
             if (superseded) reasons += "Existe una versión posterior habilitada."
             if (record.lifecycle == BardoSkillLifecycle.REJECTED) reasons += "La skill está rechazada."
             if (record.lifecycle == BardoSkillLifecycle.ENABLED &&
@@ -53,7 +67,8 @@ object BardoSkillMaintenancePlanner {
             val action = when {
                 record.lifecycle == BardoSkillLifecycle.REJECTED || superseded ->
                     BardoSkillMaintenanceAction.PROPOSE_REMOVE
-                incompatible || missingActions.isNotEmpty() ->
+                record.lifecycle == BardoSkillLifecycle.ENABLED &&
+                    (incompatible || missingActions.isNotEmpty() || missingDependencies.isNotEmpty()) ->
                     BardoSkillMaintenanceAction.PROPOSE_DISABLE
                 record.lifecycle == BardoSkillLifecycle.ENABLED &&
                     (!record.lastTestPassed || record.lastTestVerifierId.isNullOrBlank() ||
