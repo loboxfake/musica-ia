@@ -17,7 +17,7 @@ import com.musicaia.desarrollo.BardoGitHubPolicy
 import com.musicaia.desarrollo.BardoGitHubRun
 import java.util.concurrent.Executors
 
-/** GitHub CI bridge: validates isolated diffs and opens a draft PR only after explicit in-app approval. */
+/** GitHub CI bridge: validates isolated diffs; integration remains blocked until a safe draft-PR workflow exists. */
 class BardoGitHubDevelopmentActivity : AppCompatActivity() {
     private lateinit var output: TextView
     private lateinit var tokenInput: EditText
@@ -86,8 +86,8 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
             appendLine("El token se cifra con Android Keystore. No se incluye en el APK ni se transmite al runner.")
             appendLine()
             appendLine("INTEGRACIÓN BLOQUEADA: el workflow heredado escribiría directamente en main. La validación del candidato sí está permitida; crear el PR queda deshabilitado hasta disponer de un workflow seguro.")
-            appendLine("El runner no recibe ese PAT ni secretos privados del dispositivo. Usa un GITHUB_TOKEN efímero limitado a crear la rama candidata y el PR.")
-            appendLine("main no se modifica ni se fusiona automáticamente. La decisión final de merge corresponde a una revisión humana.")
+            appendLine("La validación usa un runner efímero y no integra el candidato. No existe todavía un flujo seguro de creación de PR.")
+            appendLine("Esta pantalla no despacha la integración ni modifica main. La futura integración requerirá una rama bardo/* y un PR borrador sujeto a revisión humana.")
         }
         renderButtons()
     }
