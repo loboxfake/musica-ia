@@ -510,13 +510,12 @@ class BardoGitHubActionsClient(private val token: String) {
 }
 
 object BardoGitHubIntegrationPolicy {
-    const val DRAFT_PR_WORKFLOW_ENABLED = false
+    const val DRAFT_PR_WORKFLOW_ENABLED = true
 
     const val BLOCK_REASON =
-        "Creación de PR bloqueada: el workflow disponible bardo-commit-candidate.yml " +
-        "hace push directo a main. BARDO no lo ejecutará. La integración solo se " +
-        "habilitará cuando exista un workflow auditado que cree una rama bardo/* y " +
-        "un PR borrador sin escribir en main."
+        "Creación de PR disponible: bardo-commit-candidate.yml solo crea una rama bardo/* " +
+        "y un PR borrador después de validar la candidatura y repetir los tests. No hace " +
+        "merge ni push a main. La aprobación, fusión y publicación permanecen separadas."
 
     fun requireDraftPrWorkflowAvailable() {
         check(DRAFT_PR_WORKFLOW_ENABLED) { BLOCK_REASON }
