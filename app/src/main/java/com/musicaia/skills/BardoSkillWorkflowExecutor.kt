@@ -19,9 +19,7 @@ data class BardoSkillWorkflowReport(
     val completedSteps: Int,
     val outputs: List<String>,
     val error: String?,
-    val summary: String,
-    val executionEligible: Boolean = false,
-    val ineligibleActionIds: List<String> = emptyList()
+    val summary: String
 )
 
 /** Resultado de una inspección estática. No ejecuta acciones del catálogo. */
@@ -34,7 +32,9 @@ data class BardoSkillWorkflowInspection(
     val requiredInputs: Set<String>,
     val packageSha256: String?,
     val error: String?,
-    val summary: String
+    val summary: String,
+    val executionEligible: Boolean = false,
+    val ineligibleActionIds: List<String> = emptyList()
 )
 
 /**
