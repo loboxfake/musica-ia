@@ -46,6 +46,7 @@ import com.musicaia.skills.BardoSkillMaintenanceFinding
 import com.musicaia.skills.BardoSkillMaintenanceAction
 import com.musicaia.skills.BardoSkillManager
 import com.musicaia.skills.BardoSkillRecord
+import com.musicaia.skills.BardoSkillArchiveReader
 
 /** Entorno local de investigación y auditoría. Nunca ejecuta código importado ni modifica el APK instalado. */
 class BardoDeveloperActivity : AppCompatActivity() {
@@ -82,6 +83,9 @@ class BardoDeveloperActivity : AppCompatActivity() {
     }
     private val importProject = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) importarProyecto(uri)
+    }
+    private val importSkillArchive = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri != null) importarPaqueteSkill(uri)
     }
     private val exportFile = registerForActivityResult(ActivityResultContracts.CreateDocument("text/markdown")) { uri: Uri? ->
         if (uri != null) exportar(uri)
@@ -131,6 +135,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
         addButton(root, "Actualizar fuentes desde main (GitHub)") { actualizarFuentesDesdeMain() }
         addButton(root, "Autoanalizar el propio código de BARDO") { importarCodigoPropio() }
         addButton(root, "Importar código del proyecto (.zip)") { importProject.launch(arrayOf("application/zip", "application/octet-stream", "application/x-zip-compressed")) }
+        addButton(root, "Importar skill declarativa (.bskill)") { importSkillArchive.launch(arrayOf("application/zip", "application/octet-stream", "application/x-zip-compressed")) }
         btnAnalyze = addButton(root, "Analizar código y generar auditoría", enabled = snapshot != null) { analizarProyecto() }
         btnAsk = addButton(root, "Consultar a BARDO con Gemma local", enabled = false) { consultarModelo() }
         btnApply = addButton(root, "Aplicar propuesta a una copia aislada", enabled = false) { aplicarPropuesta() }
@@ -164,6 +169,74 @@ class BardoDeveloperActivity : AppCompatActivity() {
         val button = Button(this).apply { text = label; isAllCaps = false; isEnabled = enabled; setOnClickListener { action() } }
         parent.addView(button, LinearLayout.LayoutParams(-1, 48).apply { topMargin = 5 })
         return button
+    }
+
+    private fun importarPaqueteSkill(uri: Uri) {
+        output.text = "BARDO está verificando el paquete .bskill en modo local; no se ejecutará código del archivo…"
+        worker.execute {
+            val result = runCatching {
+                val runtime = BardoSkillRuntimeFactory.create(applicationContext)
+                val registered = BardoCoreToolCatalog.create(applicationContext)
+                    .map { it.descriptor.id }.toSet()
+                val archive = contentResolver.openInputStream(uri)?.use { input ->
+                    BardoSkillArchiveReader.read(input, registered)
+                } ?: throw IllegalStateException("Android no pudo abrir el paquete seleccionado.")
+                runtime to archive
+            }
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                result.onSuccess { (runtime, archive) ->
+                    val manifest = archive.manifest
+                    val details = buildString {
+                        appendLine(manifest.name + " · " + manifest.id + "@" + manifest.version)
+                        appendLine()
+                        appendLine(manifest.description)
+                        appendLine()
+                        appendLine("Licencia: " + manifest.license)
+                        appendLine("Origen declarado: " + manifest.source)
+                        appendLine("Acciones: " + manifest.actions.sorted().joinToString())
+                        appendLine("Permisos declarados: " + manifest.permissions.map { it.name }.sorted().joinToString())
+                        appendLine("Pasos del workflow: " + archive.workflowValidation.stepCount)
+                        appendLine("Entradas requeridas: " + archive.workflowValidation.requiredInputs.sorted().joinToString())
+                        appendLine()
+                        append("Integridad SHA-256 y estructura declarativa verificadas. El paquete se importará deshabilitado, en cuarentena. No se instalará ni ejecutará todavía.")
+                    }
+                    AlertDialog.Builder(this)
+                        .setTitle("Revisar skill y licencia")
+                        .setMessage(details)
+                        .setPositiveButton("Acepto la licencia e importar a cuarentena") { _, _ ->
+                            worker.execute {
+                                val imported = runCatching {
+                                    runtime.manager.importToQuarantine(
+                                        manifest = manifest,
+                                        input = java.io.ByteArrayInputStream(archive.workflowBytes),
+                                        userAcceptedLicense = true
+                                    )
+                                }
+                                runOnUiThread {
+                                    if (isFinishing || isDestroyed) return@runOnUiThread
+                                    output.text = imported.fold(
+                                        { operation ->
+                                            if (operation.succeeded) {
+                                                "PAQUETE IMPORTADO A CUARENTENA\n" + operation.message +
+                                                    "\n\nLa skill no está instalada, habilitada ni ejecutada. Revisa el informe de mantenimiento para continuar con la instalación y las pruebas."
+                                            } else {
+                                                "Importación rechazada: " + operation.message
+                                            }
+                                        },
+                                        { "No se pudo importar el paquete: " + (it.message ?: it.javaClass.simpleName) }
+                                    )
+                                }
+                            }
+                        }
+                        .setNegativeButton("Cancelar", null)
+                        .show()
+                }.onFailure {
+                    output.text = "Paquete .bskill rechazado: " + (it.message ?: it.javaClass.simpleName) +
+                        "\nNo se instaló ni ejecutó ningún contenido."
+                }
+            }
+        }
     }
 
     private fun revisarMantenimientoSkills() {
