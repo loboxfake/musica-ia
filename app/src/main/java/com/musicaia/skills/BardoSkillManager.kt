@@ -332,9 +332,12 @@ class BardoSkillManager(
     private fun safePackageFile(path: String?): File {
         require(!path.isNullOrBlank()) { "Falta ruta de paquete." }
         val file = File(path).canonicalFile
-        val base = rootDirectory.canonicalFile
-        require(file.path.startsWith(base.path + File.separator) && !Files.isSymbolicLink(file.toPath())) {
-            "La skill intenta salir del almacén privado."
+        val allowedParents = setOf(quarantine.canonicalFile, installed.canonicalFile)
+        require(file.parentFile in allowedParents &&
+            file.extension == "bskill" &&
+            !Files.isSymbolicLink(file.toPath())
+        ) {
+            "La skill intenta salir de las carpetas de paquetes del almacén privado."
         }
         return file
     }

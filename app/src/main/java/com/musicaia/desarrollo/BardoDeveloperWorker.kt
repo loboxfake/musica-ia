@@ -262,7 +262,7 @@ a pasar validación en otro runner.
                     BardoGitHubPolicy.validateBaseSha(sourceCommit)
                     BardoGitHubPolicy.validateCandidateId(candidateId)
                     BardoGitHubPolicy.validatePatch(patch)
-                    BardoGitHubPolicy.validateChangedPaths(applied.changedFiles)
+                    BardoGitHubPolicy.validateAutonomousChangedPaths(applied.changedFiles)
                 }
                 val githubReady = githubEligibility.isSuccess
                 val candidateEditor = prefs.edit()

@@ -129,6 +129,21 @@ class BardoAuthorityPolicyTest {
         ).allowed)
     }
 
+    @Test fun bardoCanReadItsOwnInventoryAndLocalStudyData() {
+        assertTrue(BardoAuthorityPolicy.authorize(
+            BardoPrincipal.BARDO,
+            BardoPermissionScope.READ_BARDO_DATA,
+            "",
+            100L
+        ).allowed)
+        assertTrue(BardoAuthorityPolicy.authorize(
+            BardoPrincipal.BARDO,
+            BardoPermissionScope.STUDY_LOCAL,
+            "",
+            100L
+        ).allowed)
+    }
+
     @Test fun acceptsValidScopedSignedJarvisRequestOnce() {
         val pairing = keys()
         val now = System.currentTimeMillis()
