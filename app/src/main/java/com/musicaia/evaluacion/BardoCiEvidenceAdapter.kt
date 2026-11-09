@@ -293,10 +293,14 @@ object BardoCandidateEvaluationPipeline {
         expectedHeadSha: String,
         nonCiEvidence: List<BardoCheckEvidence>
     ): BardoCandidateEvaluation {
-        require(nonCiEvidence.none {
-            it.check in BardoIndependentEvaluator.mandatoryCiChecks()
-        }) {
-            "Las evidencias CI solo pueden proceder del adaptador GitHub verificado."
+        val githubChecks = setOf(
+            BardoCheck.GITLEAKS,
+            BardoCheck.ACTIONLINT,
+            BardoCheck.UNIT_TESTS,
+            BardoCheck.DEBUG_BUILD
+        )
+        require(nonCiEvidence.none { it.check in githubChecks }) {
+            "Las evidencias de Gitleaks, actionlint, tests y build solo pueden proceder del adaptador GitHub verificado."
         }
         val collection = BardoCiEvidenceAdapter.collect(
             runJson,
