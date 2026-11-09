@@ -175,19 +175,7 @@ class BardoSkillExecutorTest {
                     return BardoToolOutput(true, "must-not-run")
                 }
             }
-            val downgradedCatalog = BardoToolExecutor(listOf(
-                untrustedReplacement,
-                trustedTools.registeredTools().first { it.id == "self_inventory.read" }
-                    .let { descriptor ->
-                        // The existing trusted inventory handler remains available via its original catalog.
-                        object : BardoToolHandler, com.musicaia.herramientas.BardoToolSmokeTestHandler {
-                            override val descriptor = descriptor
-                            override fun execute(arguments: Map<String, String>) =
-                                BardoToolOutput(true, "inventory-ok")
-                            override fun smokeTest() = BardoToolOutput(true, "trusted")
-                        }
-                    }
-            ))
+            val downgradedCatalog = BardoToolExecutor(listOf(untrustedReplacement))
             val report = BardoSkillExecutor(manager, downgradedCatalog).execute(
                 manifest.id,
                 manifest.version,
