@@ -141,7 +141,7 @@ object BardoSkillRuntimeFactory {
         val app = context.applicationContext
         val coreHandlers = BardoCoreToolCatalog.create(app)
         val coreTools = BardoToolExecutor(coreHandlers)
-        val registeredActions = coreTools.registeredTools().map { it.id }.toSet()
+        val registeredActions = coreTools.registeredSkillToolIds()
         val manager = BardoSkillManager(
             rootDirectory = File(app.filesDir, "bardo_skills"),
             registeredActionIds = { registeredActions },
@@ -167,7 +167,8 @@ object BardoSkillRuntimeFactory {
             manager = manager,
             tools = plannerTools,
             executor = skillExecutor,
-            workflowExecutor = workflowExecutor
+            workflowExecutor = workflowExecutor,
+            registeredActionIds = registeredActions
         )
     }
 }
