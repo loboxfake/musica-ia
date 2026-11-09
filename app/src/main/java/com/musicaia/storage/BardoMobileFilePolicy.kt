@@ -32,7 +32,7 @@ data class BardoMobileFileDecision(
 object BardoMobileFilePolicy {
     const val ROOT_LABEL = "Descargas/BARDO"
     const val MAX_RELATIVE_PATH_CHARS = 512
-    const val MAX_TEXT_READ_BYTES = 1_048_576L
+    const val MAX_TEXT_READ_BYTES = 48L * 1024L
     const val APPROVAL_VALIDITY_MILLIS = 120_000L
 
     private val protectedDeletePaths = setOf(
