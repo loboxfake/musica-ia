@@ -93,6 +93,9 @@ class BardoLocalCandidateEvidenceCollectorTest {
             result.map { it.check }.toSet()
         )
         assertTrue(result.all { it.passed })
+        assertTrue(BardoLocalCandidateEvidenceCollector.isReadyForCiSubmission(result))
+        assertFalse(BardoLocalCandidateEvidenceCollector.isReadyForCiSubmission(result.dropLast(1)))
+        assertFalse(BardoLocalCandidateEvidenceCollector.isReadyForCiSubmission(result + result.first()))
         assertTrue(result.all { it.origin == BardoEvidenceOrigin.LOCAL_AUDIT })
         assertTrue(result.all { it.evidenceRef == "bardo-audit://test/session-001" })
         assertTrue(fixture.candidate.isDirectory)
@@ -115,6 +118,7 @@ class BardoLocalCandidateEvidenceCollectorTest {
         )
 
         assertFalse(result.single { it.check == BardoCheck.PATCH_INTEGRITY }.passed)
+        assertFalse(BardoLocalCandidateEvidenceCollector.isReadyForCiSubmission(result))
         assertTrue(result.single { it.check == BardoCheck.SOURCE_BASE_CURRENT }.passed)
         assertTrue(result.single { it.check == BardoCheck.MODO3_HASH_UNCHANGED }.passed)
         assertEquals("val value = 999\n", File(fixture.candidate, sourcePath).readText())
