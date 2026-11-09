@@ -50,3 +50,26 @@ El modelo que propone no puede modificar las pruebas, el evaluador ni la políti
 ## Límites de Android
 
 Una aplicación Android ordinaria no puede sustituir silenciosamente su APK instalada ni eludir la firma y el instalador del sistema. Una compilación verde no equivale a prueba física. La instalación y la escucha de WAV deben realizarse en el Xiaomi 11T Pro antes de declarar el funcionamiento validado.
+
+
+## Implementación actual de la fase BARDO
+
+La rama bardo/autonomy-foundation-20261109 introduce el primer bucle operativo local de planificación, ejecución de acciones tipadas, observación, evaluación y corrección. El worker de autoestudio lo utiliza con el proveedor Gemma/LiteRT local y herramientas de lectura limitadas al inventario BARDO, biblioteca importada, snapshot estático y diagnósticos CI.
+
+Las tareas se guardan en un diario JSONL privado. El diario registra eventos, identificadores y resultados resumidos; no guarda el contenido completo de argumentos/salidas. La ejecución tiene límites de tiempo, pasos y correcciones.
+
+El ToolExecutor usa un catálogo cerrado. Los planes de Gemma son propuestas de datos: un ID de herramienta desconocido, un scope no autorizado o unos argumentos fuera de límite se rechazan antes de ejecutar. No hay shell genérico.
+
+El SkillManager puede poner paquetes declarativos en cuarentena, comprobar tamaño y SHA-256, instalarlos deshabilitados y habilitarlos solo con aprobación, permisos y smoke-test. También permite deshabilitar, revertir a una versión probada y retirar un paquete del almacén BARDO. No carga código ejecutable descargado y no elimina el original del usuario.
+
+El flujo de desarrollo GitHub prepara ramas bardo/* y PR borrador después de una autorización explícita. No escribe ni fusiona main. La compilación de APK completa solo firma y publica cuando un usuario inicia manualmente el workflow y marca publish_release=true.
+
+## Límites todavía abiertos
+
+El canal criptográfico User/JARVIS aún carece de interfaz de emparejamiento, distribución segura de claves y transporte autenticado entre el ordenador y Android. El verificador ECDSA y el ledger están añadidos, pero sin ese emparejamiento no hay que presentar órdenes remotas de JARVIS como activas.
+
+El bucle actual investiga localmente. No se ha añadido aún un cliente de búsqueda web general ni una red de agentes remotos. La coordinación multi-IA existe como objetivo y contratos iniciales, no como flota de agentes comprobada.
+
+El gestor de skills no descarga paquetes por sí solo ni inventa handlers: solo admite acciones que ya estén registradas. La integración UI para explorar fuentes, importar, revisar licencias y conceder permisos queda pendiente.
+
+main no está protegida en la configuración actual de GitHub. La protección de PR/checks debe activarse en el repositorio para que la regla exista también fuera del código de BARDO.

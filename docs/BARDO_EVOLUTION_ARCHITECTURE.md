@@ -155,13 +155,39 @@ Las capacidades musicales actuales se mantienen como especialidades. La generaci
 
 ## 12. Estado de implementación al 9 de noviembre de 2026
 
-**Integrado en la línea de trabajo antes de esta fase:** conversación/historial local, biblioteca de conocimiento, inventario propio, catálogo de capacidades/módulos, integración LiteRT-LM/Gemma, autoestudio estático con propuesta de diff, puente GitHub y herramientas musicales/documentales descritas en el inventario técnico.
+### Base que ya existía antes de esta rama
 
-**Iniciado en la rama `bardo/autonomy-foundation-20261109`:** política central de rutas protegidas, workspace de candidatos con controles de ruta/enlaces/tamaño, adopción por el aplicador de parches, nuevas pruebas, corrección del empaquetado de snapshot al retirar los maestros del repositorio, validación para PR, y preparación de PR borrador en vez de escritura directa en `main`.
+Conversación e historial local, biblioteca de conocimiento, inventario de capacidades, catálogo de módulos, integración LiteRT-LM/Gemma, autoestudio estático con propuesta de diff, puente GitHub y módulos musicales/documentales. Cada capacidad conserva el nivel de evidencia declarado en el inventario técnico; no se infiere funcionamiento físico por la presencia de código.
 
-**Aún no demostrado o pendiente de integración completa:** emparejamiento criptográfico JARVIS–BARDO y delegaciones firmadas; contrato de proveedores de modelos múltiples y selección dinámica; SkillManager instalable completo; ToolExecutor general; evaluador independiente y bucle de autocorrección end-to-end; protección real de `main` configurada en GitHub; ejecución de tests de esta rama; APK de esta rama; instalación, inferencia Gemma, audio y pruebas físicas en Xiaomi 11T Pro.
+### Implementación añadida en bardo/autonomy-foundation-20261109 — PR borrador #2
 
-No declarar ningún elemento de esta última lista como terminado sin código, prueba y evidencia.
+- Política central de rutas protegidas, clasificación de operaciones, bloqueo de Modo3 y protección del propio evaluador, del runtime, de la autoridad y de los gestores.
+- Workspace candidato con copia aislada, verificación de rutas, rechazo de symlinks/traversal, límites de archivos/tamaño y limpieza restringida.
+- Aplicador de parches conectado a esa política; no modifica ni borra pruebas existentes.
+- Verificador de autoridad ECDSA: delegación firmada por el usuario, petición firmada por JARVIS, fingerprints emparejados, scopes, expiración, hash de carga, nonce de un solo uso y revocación. Ledger local persistente.
+- Contrato de proveedores de modelos y registro local-first; adaptador Gemma/LiteRT inicial. El resto de llamadas antiguas a LiteRT aún no se han migrado todas al contrato.
+- SkillManager para paquetes declarativos: cuarentena, tamaño/SHA, registro persistente, instalación deshabilitada, habilitación con permisos y smoke-test, deshabilitación, rollback y retirada. No carga código ejecutable externo.
+- ToolExecutor con catálogo cerrado, límites de argumentos/salida y autorización antes de ejecutar. Primer catálogo local de autoinspección, búsqueda de conocimiento, auditoría estática del snapshot y lectura de diagnósticos CI.
+- Bucle local planificar→actuar→observar→evaluar→corregir, con Gemma local, máximo de pasos/correcciones, diario JSONL privado y criterios de salida. Conectado al worker de autoestudio.
+- Evaluador determinista que distingue evidencia incompleta, fallo, revisión humana y prueba física en el dispositivo.
+- GitHub workflow de candidatos cambiado a PR borrador en ramas bardo/*; elimina escritura automática de main.
+- Workflow de APK completa pasa a ejecución manual; firmar y publicar Release requiere marcar expresamente publish_release=true. Un dispatch de compilación por sí solo no publica.
+- Documentación actualizada sobre jerarquía Usuario/JARVIS/BARDO, modelos, skills y evolución.
+
+El commit cd8257d superó Gitleaks, actionlint, pruebas unitarias y compilación debug en CI. Ese resultado no incluye todos los commits posteriores de esta misma rama. La validación de los commits más recientes está en curso y debe completarse antes de declarar el PR validado.
+
+### Pendiente de integración/prueba
+
+- El emparejamiento de claves User/JARVIS entre dispositivos, la pantalla de alta, entrega segura de claves, firma de órdenes y revocación desde UI aún no están integrados de extremo a extremo. La política y el ledger son componentes, no un canal de control remoto ya disponible.
+- No hay aún proveedores adicionales concretos; el contrato y el registro permiten añadirlos. No se presenta todavía un enjambre multi-modelo distribuido como operativo.
+- SkillManager existe como API local; falta su interfaz completa de descubrimiento/descarga, revisión de licencia y aprobación de paquetes, así como la asociación automática de una skill habilitada al catálogo de acciones.
+- El ToolExecutor y el bucle local están conectados al autoestudio, pero el planificador solo puede usar el catálogo local actual. Investigación web, coordinación multiagente, sandbox de código real y ejecución autónoma de la suite de tests todavía necesitan conectores/handlers específicos y permisos.
+- El evaluador determinista existe; falta conectarlo a cada cambio de código, a los resultados completos de Actions y al registro de evidencias del dispositivo.
+- GitHub informa que main sigue sin protección efectiva y que no hay rulesets activos. La política debe activarse desde la configuración del repositorio; no se afirma que GitHub impida técnicamente todo push directo mientras siga así.
+- El PR #2 permanece en borrador y no se ha fusionado.
+- No hay APK nueva de esta rama, instalación, inferencia Gemma, funcionamiento sin red, audio, WAV escuchado ni prueba de Modo3 en el Xiaomi 11T Pro.
+
+No declarar ningún elemento pendiente como terminado sin código integrado, tests, CI y pruebas físicas cuando correspondan.
 
 ## 13. Criterio final de aceptación
 
