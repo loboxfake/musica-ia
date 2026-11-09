@@ -39,6 +39,13 @@ import androidx.work.WorkManager
 import com.musicaia.desarrollo.BardoDeveloperWorker
 import com.musicaia.desarrollo.BardoGitHubPolicy
 import com.musicaia.storage.BardoSharedStorage
+import com.musicaia.herramientas.BardoCoreToolCatalog
+import com.musicaia.skills.BardoSkillRuntimeFactory
+import com.musicaia.skills.BardoSkillMaintenancePlanner
+import com.musicaia.skills.BardoSkillMaintenanceFinding
+import com.musicaia.skills.BardoSkillMaintenanceAction
+import com.musicaia.skills.BardoSkillManager
+import com.musicaia.skills.BardoSkillRecord
 
 /** Entorno local de investigación y auditoría. Nunca ejecuta código importado ni modifica el APK instalado. */
 class BardoDeveloperActivity : AppCompatActivity() {
@@ -132,6 +139,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
         addButton(root, "Activar autoestudio en segundo plano (cada 6 h, al cargar)") { activarAutoestudio() }
         addButton(root, "Pausar autoestudio automático") { pausarAutoestudio() }
         addButton(root, "Revisar solicitudes de eliminación de BARDO") { revisarSolicitudesEliminacion() }
+        addButton(root, "Revisar mantenimiento y obsolescencia de skills") { revisarMantenimientoSkills() }
         urlInput = EditText(this).apply {
             hint = "URL HTTPS de documentación oficial"
             setHintTextColor(android.graphics.Color.LTGRAY); setTextColor(blanco)
@@ -156,6 +164,126 @@ class BardoDeveloperActivity : AppCompatActivity() {
         val button = Button(this).apply { text = label; isAllCaps = false; isEnabled = enabled; setOnClickListener { action() } }
         parent.addView(button, LinearLayout.LayoutParams(-1, 48).apply { topMargin = 5 })
         return button
+    }
+
+    private fun revisarMantenimientoSkills() {
+        output.text = "BARDO está comprobando compatibilidad, acciones registradas y evidencia de prueba de las skills locales…"
+        worker.execute {
+            val result = runCatching {
+                val runtime = BardoSkillRuntimeFactory.create(applicationContext)
+                val registered = BardoCoreToolCatalog.create(applicationContext)
+                    .map { it.descriptor.id }.toSet()
+                val records = runtime.manager.list()
+                val findings = BardoSkillMaintenancePlanner.evaluate(records, registered)
+                Triple(runtime.manager, findings, records.associateBy {
+                    it.manifest.id + "@" + it.manifest.version
+                })
+            }
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                result.onSuccess { (manager, findings, records) ->
+                    mostrarHallazgosMantenimientoSkills(manager, findings, records)
+                }.onFailure {
+                    output.text = "No se pudo revisar el almacén de skills: " +
+                        (it.message ?: it.javaClass.simpleName)
+                }
+            }
+        }
+    }
+
+    private fun mostrarHallazgosMantenimientoSkills(
+        manager: BardoSkillManager,
+        findings: List<BardoSkillMaintenanceFinding>,
+        records: Map<String, BardoSkillRecord>
+    ) {
+        if (findings.isEmpty()) {
+            AlertDialog.Builder(this)
+                .setTitle("Mantenimiento de skills")
+                .setMessage("No hay skills instaladas. No se ha realizado ninguna modificación.")
+                .setPositiveButton("Aceptar", null)
+                .show()
+            output.text = "Skills instaladas: 0."
+            return
+        }
+        val labels = findings.map { finding ->
+            finding.skillId + "@" + finding.version + " · " + finding.action.name +
+                if (finding.reasons.isEmpty()) "" else "\n" + finding.reasons.joinToString("; ")
+        }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("Informe de BARDO · " + findings.size + " versión(es)")
+            .setItems(labels) { _, index ->
+                val finding = findings[index]
+                val key = finding.skillId + "@" + finding.version
+                val record = records[key] ?: return@setItems
+                val detail = if (finding.reasons.isEmpty()) {
+                    "No se han detectado incidencias en las comprobaciones realizadas."
+                } else finding.reasons.joinToString("\n• ", prefix = "Motivos:\n• ")
+                when (finding.action) {
+                    BardoSkillMaintenanceAction.PROPOSE_DISABLE -> {
+                        AlertDialog.Builder(this)
+                            .setTitle("Deshabilitar skill")
+                            .setMessage(
+                                finding.skillId + "@" + finding.version + "\n\n" + detail +
+                                    "\n\nDeshabilitar es reversible y no elimina el paquete."
+                            )
+                            .setPositiveButton("Deshabilitar") { _, _ ->
+                                worker.execute {
+                                    val operation = runCatching { manager.disable(finding.skillId, finding.version) }
+                                    runOnUiThread {
+                                        output.text = operation.fold(
+                                            { it.message },
+                                            { "No se pudo deshabilitar: " + (it.message ?: it.javaClass.simpleName) }
+                                        )
+                                    }
+                                }
+                            }
+                            .setNegativeButton("Conservar", null)
+                            .show()
+                    }
+                    BardoSkillMaintenanceAction.PROPOSE_REMOVE -> {
+                        val warning = if (record.lifecycle.name == "ENABLED") {
+                            "La versión está habilitada. Retirarla eliminará su paquete y su registro. " +
+                                "La operación no se puede deshacer."
+                        } else {
+                            "Se eliminarán el paquete local de esta versión y su registro. La operación no se puede deshacer."
+                        }
+                        AlertDialog.Builder(this)
+                            .setTitle("Retirada definitiva · confirmación")
+                            .setMessage(
+                                finding.skillId + "@" + finding.version + "\n\n" + detail +
+                                    "\n\n" + warning
+                            )
+                            .setPositiveButton("Retirar definitivamente") { _, _ ->
+                                worker.execute {
+                                    val operation = runCatching {
+                                        manager.remove(finding.skillId, finding.version, explicitUserApproval = true)
+                                    }
+                                    runOnUiThread {
+                                        output.text = operation.fold(
+                                            { it.message },
+                                            { "No se pudo retirar: " + (it.message ?: it.javaClass.simpleName) }
+                                        )
+                                    }
+                                }
+                            }
+                            .setNegativeButton("Conservar", null)
+                            .show()
+                    }
+                    else -> {
+                        AlertDialog.Builder(this)
+                            .setTitle(finding.skillId + "@" + finding.version + " · " + finding.action.name)
+                            .setMessage(detail + "\n\nBARDO no ha modificado esta skill.")
+                            .setPositiveButton("Aceptar", null)
+                            .show()
+                    }
+                }
+            }
+            .setNegativeButton("Cerrar", null)
+            .show()
+        output.text = findings.joinToString("\n") { item ->
+            item.skillId + "@" + item.version + " → " + item.action.name +
+                if (item.reasons.isEmpty()) "" else ": " + item.reasons.joinToString("; ")
+        }
     }
 
     private fun revisarSolicitudesEliminacion() {
