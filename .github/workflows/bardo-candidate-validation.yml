@@ -84,6 +84,7 @@ jobs:
           import subprocess
           allowed = ("app/src/main/java/", "app/src/main/res/", "docs/")
           protected = {
+              "app/src/main/java/com/musicaia/modulos/Modo3MezclaVozUsuario.kt",
               "app/src/main/java/com/musicaia/MainActivity.kt",
               "app/src/main/java/com/musicaia/BardoDeveloperActivity.kt",
               "app/src/main/java/com/musicaia/BardoGitHubDevelopmentActivity.kt",
