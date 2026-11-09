@@ -38,6 +38,39 @@ fun interface BardoTaskPlanner {
     ): BardoActionPlan
 }
 
+data class BardoTaskStepVerification(
+    val accepted: Boolean,
+    val reason: String? = null
+)
+
+/**
+ * Verifica la salida de una herramienta fuera del modelo que propuso el plan.
+ * El verificador predeterminado exige ejecución satisfactoria, salida no vacía
+ * y, cuando se declara, el marcador objetivo exacto.
+ */
+fun interface BardoTaskStepVerifier {
+    fun verify(step: BardoTaskStep, output: com.musicaia.herramientas.BardoToolOutput): BardoTaskStepVerification
+}
+
+object BardoDeterministicTaskStepVerifier : BardoTaskStepVerifier {
+    override fun verify(
+        step: BardoTaskStep,
+        output: com.musicaia.herramientas.BardoToolOutput
+    ): BardoTaskStepVerification {
+        if (!output.succeeded) {
+            return BardoTaskStepVerification(false, output.error ?: "La herramienta no completó la acción.")
+        }
+        if (output.content.isBlank()) {
+            return BardoTaskStepVerification(false, "La herramienta informó éxito, pero no aportó evidencia de salida.")
+        }
+        val marker = step.expectedOutputContains
+        if (!marker.isNullOrBlank() && !output.content.contains(marker, ignoreCase = true)) {
+            return BardoTaskStepVerification(false, "La salida no contiene el criterio objetivo declarado.")
+        }
+        return BardoTaskStepVerification(true)
+    }
+}
+
 enum class BardoAutonomyStatus { COMPLETED, PARTIAL, BLOCKED, FAILED }
 
 data class BardoAutonomyResult(
@@ -58,7 +91,8 @@ class BardoAutonomyEngine(
     private val tools: BardoToolExecutor,
     private val journal: BardoTaskJournal,
     private val nowMillis: () -> Long = System::currentTimeMillis,
-    private val maxTaskMillis: Long = 180_000L
+    private val maxTaskMillis: Long = 180_000L,
+    private val stepVerifier: BardoTaskStepVerifier = BardoDeterministicTaskStepVerifier
 ) {
     fun run(goal: String): BardoAutonomyResult {
         require(goal.isNotBlank() && goal.length <= 4000) {
@@ -101,23 +135,19 @@ class BardoAutonomyEngine(
                 nowMillis()
             )
             val elapsed = (nowMillis() - stepStarted).coerceAtLeast(0L)
-            val markerSatisfied = step.expectedOutputContains.isNullOrBlank() ||
-                toolResult.content.contains(step.expectedOutputContains, ignoreCase = true)
-            val succeeded = toolResult.succeeded && markerSatisfied
-            val reason = when {
-                !toolResult.succeeded -> toolResult.error ?: "La herramienta no completó la acción."
-                !markerSatisfied -> "La salida no contiene el criterio objetivo declarado."
-                else -> null
-            }
+            val verification = stepVerifier.verify(step, toolResult)
+            val succeeded = verification.accepted
+            val reason = verification.reason
             observations += BardoTaskObservation(
                 step.toolId, succeeded, toolResult.content.take(MAX_OBSERVATION_CHARS), reason, elapsed
             )
             journal.record(
                 taskId,
-                "tool_result",
+                "step_verified",
                 step.toolId,
                 succeeded,
-                reason ?: "Criterio objetivo satisfecho; duración=${elapsed}ms",
+                (reason ?: "Salida no vacía y criterio objetivo satisfecho") +
+                    "; duración=${elapsed}ms",
                 nowMillis()
             )
 
