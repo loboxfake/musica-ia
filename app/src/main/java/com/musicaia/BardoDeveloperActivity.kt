@@ -39,6 +39,8 @@ import androidx.work.WorkManager
 import com.musicaia.desarrollo.BardoDeveloperWorker
 import com.musicaia.desarrollo.BardoGitHubPolicy
 import com.musicaia.storage.BardoSharedStorage
+import com.musicaia.evaluacion.BardoLocalCandidateAuditInput
+import com.musicaia.evaluacion.BardoLocalCandidateEvidenceCollector
 import com.musicaia.herramientas.BardoCoreToolCatalog
 import com.musicaia.skills.BardoSkillRuntimeFactory
 import com.musicaia.skills.BardoSkillMaintenancePlanner
@@ -51,6 +53,14 @@ import com.musicaia.skills.BardoSkillArchiveReader
 
 /** Entorno local de investigación y auditoría. Nunca ejecuta código importado ni modifica el APK instalado. */
 class BardoDeveloperActivity : AppCompatActivity() {
+    private data class CandidatePreparation(
+        val applied: BardoPatchApplier.Result,
+        val sourceCommit: String,
+        val candidateId: String,
+        val localAuditPassed: Boolean,
+        val localAuditDetails: String
+    )
+
     private lateinit var output: TextView
     private lateinit var urlInput: EditText
     private lateinit var btnAnalyze: Button
@@ -712,6 +722,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
                         .remove("candidate_id")
                         .remove("candidate_validation_succeeded")
                         .remove("candidate_validation_run_id")
+                        .remove("candidate_local_audit_passed")
                         .apply()
                     candidatePatch = ""
                     lastReport = ""
@@ -888,34 +899,92 @@ class BardoDeveloperActivity : AppCompatActivity() {
             output.text = "Gemma no devolvió un diff unificado aplicable."
             return
         }
-        setBusy(true, "Aplicando la propuesta únicamente a una copia aislada…")
+        setBusy(true, "Aplicando la propuesta únicamente a una copia aislada y auditando el diff…")
         worker.execute {
-            val result = runCatching { BardoPatchApplier.aplicar(original, patch, workspace) }
+            val result = runCatching {
+                val applied = BardoPatchApplier.aplicar(original, patch, workspace)
+                val sourceCommit = File(original, "BARDO_SOURCE_COMMIT.txt")
+                    .takeIf { it.isFile }?.readText(Charsets.UTF_8)?.trim().orEmpty()
+                val candidateId = BardoGitHubPolicy.newCandidateId()
+                val auditAttempt = runCatching {
+                    BardoLocalCandidateEvidenceCollector.collect(
+                        BardoLocalCandidateAuditInput(
+                            workspaceRoot = workspace,
+                            snapshotDirectory = original,
+                            candidateDirectory = applied.directory,
+                            expectedBaseSha = sourceCommit,
+                            patchText = patch,
+                            changedFiles = applied.changedFiles,
+                            auditId = "candidate-" + candidateId
+                        )
+                    )
+                }
+                val evidence = auditAttempt.getOrDefault(emptyList())
+                val auditPassed = BardoLocalCandidateEvidenceCollector.isReadyForCiSubmission(evidence)
+                val auditDetails = buildString {
+                    appendLine("Resultado: " + if (auditPassed) "SUPERADA" else "BLOQUEADA")
+                    auditAttempt.exceptionOrNull()?.let {
+                        appendLine("Error del productor: " + (it.message ?: it.javaClass.simpleName).take(500))
+                    }
+                    evidence.forEach { item ->
+                        appendLine(
+                            "- " + item.check.name + ": " +
+                                (if (item.passed) "PASS" else "FAIL") +
+                                " · " + item.detail.take(1200)
+                        )
+                    }
+                }
+                CandidatePreparation(applied, sourceCommit, candidateId, auditPassed, auditDetails)
+            }
             runOnUiThread {
-                result.onSuccess { applied ->
-                    val sourceCommit = File(original, "BARDO_SOURCE_COMMIT.txt")
-                        .takeIf { it.isFile }?.readText(Charsets.UTF_8)?.trim().orEmpty()
-                    val candidateId = BardoGitHubPolicy.newCandidateId()
+                result.onSuccess { prepared ->
+                    val applied = prepared.applied
                     candidatePatch = patch
                     snapshot = applied.directory
-                    getSharedPreferences("bardo_developer", MODE_PRIVATE).edit()
+                    val prefs = getSharedPreferences("bardo_developer", MODE_PRIVATE)
+                    val editor = prefs.edit()
                         .putString("snapshot_path", applied.directory.absolutePath)
                         .putString("source_snapshot_path", original.absolutePath)
-                        .putString("candidate_path", applied.directory.absolutePath)
-                        .putString("candidate_patch", patch)
-                        .putString("candidate_base_sha", sourceCommit)
-                        .putString("candidate_files", applied.changedFiles.joinToString("\n"))
-                        .putString("candidate_id", candidateId)
+                        .putString("last_candidate_path", applied.directory.absolutePath)
+                        .putBoolean("candidate_local_audit_passed", prepared.localAuditPassed)
                         .putBoolean("candidate_validation_succeeded", false)
-                        .apply()
+                        .remove("candidate_validation_run_id")
+                    if (prepared.localAuditPassed) {
+                        editor
+                            .putString("candidate_path", applied.directory.absolutePath)
+                            .putString("candidate_patch", patch)
+                            .putString("candidate_base_sha", prepared.sourceCommit)
+                            .putString("candidate_files", applied.changedFiles.joinToString("\n"))
+                            .putString("candidate_id", prepared.candidateId)
+                    } else {
+                        editor
+                            .remove("candidate_path")
+                            .remove("candidate_patch")
+                            .remove("candidate_base_sha")
+                            .remove("candidate_files")
+                            .remove("candidate_id")
+                    }
+                    editor.apply()
                     val report = BardoDeveloperCore.analizar(applied.directory)
                     lastReport = report.render()
-                    reportFile.writeText(lastReport)
+                    val completeReport = lastReport +
+                        "\n\n## Verificación local independiente\n\n" + prepared.localAuditDetails
+                    reportFile.writeText(completeReport, Charsets.UTF_8)
                     btnApply.isEnabled = false
                     actualizarBotonGithub()
-                    output.text = "PROPUESTA APLICADA A UNA COPIA AISLADA, NO AL CÓDIGO INSTALADO\n\nArchivos: " +
-                        applied.changedFiles.joinToString() + "\n\n" + lastReport +
-                        "\n\nLa copia original se conserva. La compilación se realizará en un runner efímero cuando envíes el candidato a GitHub."
+                    output.text = if (prepared.localAuditPassed) {
+                        "PROPUESTA APLICADA A UNA COPIA AISLADA, NO AL CÓDIGO INSTALADO\n\n" +
+                            "Auditoría local independiente superada.\nCandidato: " + prepared.candidateId +
+                            "\nArchivos: " + applied.changedFiles.joinToString() +
+                            "\n\n" + completeReport +
+                            "\n\nLa copia original se conserva. La compilación se realizará en un runner efímero cuando envíes el candidato a GitHub."
+                    } else {
+                        "CANDIDATO CONSERVADO SOLO PARA REVISIÓN LOCAL\n\n" +
+                            "La auditoría local no ha superado todos los controles. No se habilita el envío a GitHub.\n" +
+                            "Archivos: " + applied.changedFiles.joinToString() +
+                            "\n\n" + completeReport +
+                            "\n\nLa copia original se conserva; no se ha cambiado el código instalado."
+                    }
                 }.onFailure {
                     output.text = "BARDO rechazó la propuesta: " + it.message +
                         "\n\nNo se modificó el snapshot original."
@@ -1022,7 +1091,9 @@ class BardoDeveloperActivity : AppCompatActivity() {
         val candidateId = prefs.getString("candidate_id", "").orEmpty()
         val patch = prefs.getString("candidate_patch", "").orEmpty()
         val paths = prefs.getString("candidate_files", "").orEmpty().lines().filter { it.isNotBlank() }
-        btnGithub.isEnabled = !isBusy && runCatching {
+        btnGithub.isEnabled = !isBusy &&
+            prefs.getBoolean("candidate_local_audit_passed", false) &&
+            runCatching {
             BardoGitHubPolicy.validateBaseSha(baseSha)
             BardoGitHubPolicy.validateCandidateId(candidateId)
             BardoGitHubPolicy.validatePatch(patch)
@@ -1037,6 +1108,9 @@ class BardoDeveloperActivity : AppCompatActivity() {
         val patch = prefs.getString("candidate_patch", "").orEmpty()
         val paths = prefs.getString("candidate_files", "").orEmpty().lines().filter { it.isNotBlank() }
         runCatching {
+            check(prefs.getBoolean("candidate_local_audit_passed", false)) {
+                "La auditoría local independiente no está superada. El candidato no se enviará a GitHub."
+            }
             BardoGitHubPolicy.validateBaseSha(baseSha)
             BardoGitHubPolicy.validateCandidateId(candidateId)
             BardoGitHubPolicy.validatePatch(patch)
