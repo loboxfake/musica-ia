@@ -75,7 +75,7 @@ object BardoSharedStorage {
             val typeColumn = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_MIME_TYPE)
             while (cursor.moveToNext()) {
                 val isDirectory = cursor.getString(typeColumn) == DocumentsContract.Document.MIME_TYPE_DIR
-                if (cursor.getString(nameColumn).equals(name, ignoreCase = true) &&
+                if (cursor.getString(nameColumn) == name &&
                     (directory == null || directory == isDirectory)
                 ) {
                     return@use DocumentsContract.buildDocumentUriUsingTree(
@@ -238,7 +238,10 @@ object BardoSharedStorage {
     }
 
     fun createTextFile(context: Context, relativePath: String, content: String): String {
-        require(content.length <= MAX_WRITE_TEXT_CHARS) { "El contenido supera 256 KiB." }
+        val contentBytes = content.toByteArray(Charsets.UTF_8)
+        require(contentBytes.size <= BardoMobileFilePolicy.MAX_TEXT_READ_BYTES) {
+            "El archivo de texto supera el máximo de 48 KiB en UTF-8."
+        }
         val decision = BardoMobileFilePolicy.authorize(BardoMobileFileOperation.CREATE_FILE, relativePath)
         require(decision.allowed) { decision.reason }
         val loc = location(context) ?: throw IllegalStateException("No existe permiso SAF para BARDO.")
@@ -253,7 +256,7 @@ object BardoSharedStorage {
         ) ?: throw IllegalStateException("El proveedor SAF no pudo crear el archivo.")
         try {
             context.contentResolver.openOutputStream(target, "w")?.use { output ->
-                output.write(content.toByteArray(Charsets.UTF_8))
+                output.write(contentBytes)
                 output.flush()
             } ?: throw IllegalStateException("No se pudo abrir el archivo creado.")
             val saved = readText(context, normalized)
