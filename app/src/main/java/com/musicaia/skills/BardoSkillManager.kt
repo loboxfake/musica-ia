@@ -477,8 +477,10 @@ class BardoSkillManager(
     private fun safePackageFile(path: String?): File {
         require(!path.isNullOrBlank()) { "Falta ruta de paquete." }
         val file = File(path).canonicalFile
+        val parent = file.parentFile
+            ?: throw IllegalArgumentException("La ruta de la skill no tiene una carpeta contenedora válida.")
         val allowedParents = setOf(quarantine.canonicalFile, installed.canonicalFile)
-        require(file.parentFile in allowedParents &&
+        require(parent in allowedParents &&
             file.extension == "bskill" &&
             !Files.isSymbolicLink(file.toPath())
         ) {
