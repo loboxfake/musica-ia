@@ -73,7 +73,7 @@ El SkillManager debe poder descubrir, proponer, crear, importar, adaptar, valida
 
 Descargar o copiar un paquete no equivale a instalarlo. Instalarlo no equivale a activarlo. Activarlo no equivale a demostrar que funciona.
 
-La primera vía segura son skills declarativas compuestas por acciones tipadas del ToolExecutor. No se carga código ejecutable arbitrario en el proceso principal ni se interpreta una receta como permiso. Todo paquete nuevo se pone en cuarentena, se verifica y se prueba en un entorno aislado. Los permisos nuevos y la activación persistente requieren autorización explícita.
+La primera vía segura son skills declarativas compuestas por acciones tipadas del ToolExecutor. No se carga código ejecutable arbitrario en el proceso principal ni se interpreta una receta como permiso. Todo paquete nuevo se pone en cuarentena y se verifica. La activación exige aprobación explícita, permisos mínimos y un smoke-test ejecutado por un BardoSkillSmokeTestRunner de confianza que emita identificador y referencias de evidencia; la interfaz no puede suministrar un booleano de prueba. El runner de producción aún no está conectado, por lo que la activación permanece bloqueada hasta que exista y supere sus pruebas.
 
 ## 6. Aprendizaje e investigación
 
