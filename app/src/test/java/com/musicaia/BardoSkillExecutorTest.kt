@@ -10,6 +10,7 @@ import com.musicaia.skills.BardoSkillExecutionStatus
 import com.musicaia.skills.BardoSkillExecutor
 import com.musicaia.skills.BardoSkillLifecycle
 import com.musicaia.skills.BardoSkillManager
+import com.musicaia.skills.BardoSkillToolHandler
 import com.musicaia.skills.BardoSkillManifest
 import com.musicaia.skills.BardoSkillManifestValidator
 import com.musicaia.skills.BardoSkillPackageKind
@@ -194,4 +195,50 @@ class BardoSkillExecutorTest {
             root.deleteRecursively()
         }
     }
+    @Test fun plannerBridgeRunsOnlyAnApprovedEnabledSkillAction() {
+        val root = createTempDir(prefix = "bardo-skill-bridge")
+        try {
+            val (manager, coreTools) = setup(root)
+            val manifest = installAndEnable(manager, setOf("knowledge.search"))
+            val bridge = BardoSkillToolHandler(BardoSkillExecutor(manager, coreTools))
+
+            val result = bridge.execute(
+                mapOf(
+                    "skill_id" to manifest.id,
+                    "version" to manifest.version,
+                    "action_id" to "knowledge.search",
+                    "action_arguments_json" to """{"query":"BARDO"}"""
+                )
+            )
+
+            assertTrue(result.error.orEmpty(), result.succeeded)
+            assertTrue(result.content.contains("knowledge:BARDO"))
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test fun plannerBridgeRejectsMalformedActionArguments() {
+        val root = createTempDir(prefix = "bardo-skill-bridge-invalid")
+        try {
+            val (manager, coreTools) = setup(root)
+            val manifest = installAndEnable(manager, setOf("knowledge.search"))
+            val bridge = BardoSkillToolHandler(BardoSkillExecutor(manager, coreTools))
+
+            val result = bridge.execute(
+                mapOf(
+                    "skill_id" to manifest.id,
+                    "version" to manifest.version,
+                    "action_id" to "knowledge.search",
+                    "action_arguments_json" to """{"query":42}"""
+                )
+            )
+
+            assertFalse(result.succeeded)
+            assertTrue(result.error.orEmpty().contains("cadenas acotadas"))
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
 }
