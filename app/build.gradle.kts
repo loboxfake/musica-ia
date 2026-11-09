@@ -52,6 +52,10 @@ android {
         }
         debug {
             isMinifyEnabled = false
+            // Install debug candidates alongside the signed production app.
+            // Never require uninstalling BARDO stable or discarding its local data.
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
         }
     }
 
