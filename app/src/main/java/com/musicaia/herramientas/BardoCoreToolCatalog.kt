@@ -163,6 +163,47 @@ object BardoCoreToolCatalog {
             },
             object : BardoToolHandler {
                 override val descriptor = BardoToolDescriptor(
+                    "mobile_files.pending_deletions",
+                    "Enumera las solicitudes de eliminación propuestas por BARDO; no aprueba ni ejecuta ninguna.",
+                    BardoPermissionScope.READ_BARDO_DATA,
+                    maxArguments = 0
+                )
+                override fun execute(arguments: Map<String, String>): BardoToolOutput {
+                    val pending = BardoSharedStorage.pendingDeletionRequests(app)
+                    val body = if (pending.isEmpty()) "No hay solicitudes de eliminación pendientes." else
+                        pending.joinToString("\n") { request ->
+                            val kind = if (request.permanent) "ELIMINACIÓN PERMANENTE" else "MOVER A PAPELERA"
+                            kind + " · " + request.relativePath + " · " + request.reason +
+                                " · solicitud=" + request.id
+                        }
+                    return BardoToolOutput(true, body.take(60_000))
+                }
+            },
+            object : BardoToolHandler {
+                override val descriptor = BardoToolDescriptor(
+                    "mobile_files.request_delete",
+                    "Propone retirar un archivo de Descargas/BARDO. Solo crea una solicitud pendiente; nunca borra ni mueve nada.",
+                    BardoPermissionScope.MANAGE_BARDO_WORKSPACE,
+                    maxArguments = 3,
+                    maxValueChars = 1000
+                )
+                override fun execute(arguments: Map<String, String>): BardoToolOutput {
+                    val path = arguments["path"].orEmpty()
+                    require(path.isNotBlank()) { "Falta path." }
+                    val permanent = arguments["permanent"].orEmpty().equals("true", ignoreCase = true)
+                    val reason = arguments["reason"].orEmpty()
+                    val request = BardoSharedStorage.requestDeletion(app, path, permanent, reason)
+                    val kind = if (request.permanent) "eliminación permanente" else "mover a papelera"
+                    return BardoToolOutput(
+                        true,
+                        "Solicitud registrada para " + kind + ": BARDO/" + request.relativePath +
+                            ". Motivo: " + request.reason +
+                            ". No se ha eliminado ni movido nada; requiere tu revisión en BARDO Developer."
+                    )
+                }
+            },
+            object : BardoToolHandler {
+                override val descriptor = BardoToolDescriptor(
                     "mobile_files.create_text_file",
                     "Crea un archivo de texto UTF-8 dentro de Descargas/BARDO y verifica su lectura tras escribirlo.",
                     BardoPermissionScope.MANAGE_BARDO_WORKSPACE,
