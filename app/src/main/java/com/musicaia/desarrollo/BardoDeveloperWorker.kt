@@ -13,6 +13,7 @@ import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import com.musicaia.MainActivity
 import com.musicaia.memoria.BardoKnowledgeStore
+import com.musicaia.memoria.BardoLearningJournal
 import com.musicaia.memoria.BardoActivityStore
 import com.musicaia.diagnostico.BardoSelfInventory
 import com.musicaia.modelo.BardoCapabilityRegistry
@@ -27,6 +28,11 @@ import com.musicaia.herramientas.BardoCoreToolCatalog
 import com.musicaia.herramientas.BardoToolExecutor
 import com.musicaia.modelos.BardoModelRegistry
 import com.musicaia.modelos.BardoGemmaLiteRtProvider
+import com.musicaia.modelos.BardoAgentFleet
+import com.musicaia.modelos.BardoAgentProfile
+import com.musicaia.modelos.BardoAgentRole
+import com.musicaia.modelos.BardoAgentTask
+import com.musicaia.modelos.BardoProviderAgentInvoker
 import java.io.File
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -231,9 +237,50 @@ a pasar validación en otro runner.
             """.trimIndent()
 
             setForeground(foregroundInfo("BARDO está estudiando el código con Gemma…"))
-            val rawResponse = EngineLiteRT.generar(prompt, reiniciarConversacion = true)
-            val response = rawResponse.substringAfter("</think>", rawResponse).trim()
-            check(response.isNotBlank()) { "Gemma devolvió una respuesta vacía." }
+            // La flota es independiente del proveedor. Gemma es el primer agente local registrado;
+            // otros adaptadores podrán añadirse sin cambiar el flujo de autoestudio.
+            val gemmaProvider = BardoGemmaLiteRtProvider()
+            val agentFleet = BardoAgentFleet(
+                invokers = listOf(BardoProviderAgentInvoker(applicationContext, gemmaProvider)),
+                profiles = listOf(
+                    BardoAgentProfile(
+                        id = "bardo.local.software-engineer",
+                        name = "BARDO · ingeniería de software local",
+                        providerId = gemmaProvider.descriptor.id,
+                        role = BardoAgentRole.SOFTWARE_ENGINEER,
+                        capabilities = gemmaProvider.descriptor.capabilities,
+                        priority = 100
+                    )
+                )
+            )
+            val fleetReport = agentFleet.consult(
+                BardoAgentTask(
+                    taskId = taskId,
+                    capability = "code_analysis",
+                    goal = "Analiza BARDO y propone una corrección pequeña basada en evidencia.",
+                    context = prompt,
+                    maxAgents = 4,
+                    allowRemoteModels = false
+                )
+            )
+            val response = fleetReport.successfulContributions.firstOrNull()?.content
+                ?.substringAfter("</think>", fleetReport.successfulContributions.first().content)
+                ?.trim()
+                .orEmpty()
+            check(response.isNotBlank()) {
+                "Ningún agente local pudo completar el autoestudio. " + fleetReport.summary
+            }
+
+            // Las respuestas de los modelos son candidatos de aprendizaje, no hechos verificados.
+            // Permanecen fuera de la memoria de conocimiento fiable hasta superar un evaluador independiente.
+            val learningJournal = BardoLearningJournal(File(workspace, "aprendizaje"))
+            fleetReport.successfulContributions.forEach { contribution ->
+                learningJournal.recordCandidate(
+                    taskId = taskId,
+                    topic = "autoestudio y desarrollo del código BARDO",
+                    contribution = contribution
+                )
+            }
 
             val timestamp = System.currentTimeMillis()
             val proposalFile = File(workspace, "autoestudio-" + timestamp + ".md")
