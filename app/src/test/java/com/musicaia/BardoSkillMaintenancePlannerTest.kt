@@ -10,7 +10,8 @@ class BardoSkillMaintenancePlannerTest {
         lifecycle: BardoSkillLifecycle,
         apiMinimum: Int = 1,
         apiMaximum: Int = 1,
-        tested: Boolean = true
+        tested: Boolean = true,
+        dependencies: List<BardoSkillDependency> = emptyList()
     ): BardoSkillRecord {
         val manifest = BardoSkillManifest(
             id = "skill.example",
@@ -26,6 +27,7 @@ class BardoSkillMaintenancePlannerTest {
             kind = BardoSkillPackageKind.DECLARATIVE_TOOLCHAIN,
             actions = setOf("knowledge.search"),
             permissions = setOf(BardoSkillPermission.READ_BARDO_DATA),
+            dependencies = dependencies,
             licenseAcceptedByUser = true
         )
         return BardoSkillRecord(
@@ -66,6 +68,35 @@ class BardoSkillMaintenancePlannerTest {
             setOf("knowledge.search")
         )
         assertEquals(BardoSkillMaintenanceAction.RETEST_REQUIRED, findings.single().action)
+    }
+
+    @Test fun enabledSkillWithMissingDependencyIsProposedForDisable() {
+        val dependent = record(
+            "1.0.0",
+            BardoSkillLifecycle.ENABLED,
+            dependencies = listOf(BardoSkillDependency("skill.storage", "2.0.0"))
+        )
+        val findings = BardoSkillMaintenancePlanner.evaluate(
+            listOf(dependent),
+            setOf("knowledge.search")
+        )
+        assertEquals(BardoSkillMaintenanceAction.PROPOSE_DISABLE, findings.single().action)
+        assertTrue(findings.single().reasons.any { it.contains("skill.storage") })
+    }
+
+    @Test fun newerEnabledDependencySatisfiesMinimumVersion() {
+        val dependent = record(
+            "1.0.0",
+            BardoSkillLifecycle.ENABLED,
+            dependencies = listOf(BardoSkillDependency("skill.storage", "1.2.0"))
+        )
+        val storage = record("2.0.0", BardoSkillLifecycle.ENABLED)
+            .copy(manifest = record("2.0.0", BardoSkillLifecycle.ENABLED).manifest.copy(id = "skill.storage"))
+        val findings = BardoSkillMaintenancePlanner.evaluate(
+            listOf(dependent, storage),
+            setOf("knowledge.search")
+        )
+        assertEquals(BardoSkillMaintenanceAction.KEEP, findings.first { it.skillId == "skill.example" }.action)
     }
 
     @Test fun missingRegisteredActionProposesDisable() {
