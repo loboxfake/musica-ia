@@ -6,6 +6,7 @@ import android.provider.DocumentsContract
 import java.io.File
 import java.io.InputStreamReader
 import java.util.UUID
+import java.util.Locale
 import org.json.JSONArray
 import org.json.JSONObject
 
