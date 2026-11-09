@@ -16,7 +16,7 @@ class BardoSkillToolHandler(
 ) : BardoToolHandler {
     override val descriptor = BardoToolDescriptor(
         id = TOOL_ID,
-        description = "Ejecuta una acción tipada de una skill aprobada y habilitada.",
+        description = "Ejecuta una acción declarada de una skill aprobada y habilitada. Argumentos: skill_id, version, action_id y action_arguments_json (objeto JSON de cadenas)."
         requiredScope = BardoPermissionScope.READ_BARDO_DATA,
         maxArguments = 4,
         maxValueChars = 8_000
