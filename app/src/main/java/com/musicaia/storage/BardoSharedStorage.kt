@@ -583,7 +583,10 @@ object BardoSharedStorage {
         destinationName: String,
         mimeType: String
     ): String {
-        require(source.isFile) { "El archivo de BARDO no existe: " + source.name }
+        val developerWorkspace = File(context.applicationContext.filesDir, "bardo_developer")
+        require(BardoExportSourcePolicy.allows(developerWorkspace, source)) {
+            "Solo se pueden exportar archivos regulares creados dentro del workspace privado de BARDO."
+        }
         require(folderName.matches(Regex("[A-Za-z0-9 _-]{1,64}"))) {
             "Nombre de carpeta no permitido."
         }
