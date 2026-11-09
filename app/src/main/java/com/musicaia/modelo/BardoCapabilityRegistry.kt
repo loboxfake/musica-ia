@@ -135,8 +135,8 @@ object BardoCapabilityRegistry {
             Capability(
                 "skill_lifecycle", "Gestor de skills declarativas",
                 Status.REQUIRES_USER_ACTION,
-                "API local para cuarentena, SHA-256, instalación deshabilitada, activación aprobada, deshabilitación y rollback. La activación exige un ejecutor de smoke-test de confianza con evidencias; no hay uno conectado en el worker actual, por lo que de momento la activación queda bloqueada. UI de catálogo y descubrimiento/descarga pendiente.",
-                "Importar un paquete, probarlo aislado, exigir permisos mínimos y aprobación del usuario, activar solo acciones tipadas registradas."
+                "API local para cuarentena, SHA-256, instalación deshabilitada, activación aprobada, deshabilitación y rollback. BardoCoreSkillSmokeTestRunner ejecuta pruebas escritas en el APK sobre las acciones registradas; BardoSkillToolHandler permite al planificador invocar solo acciones declaradas en una skill habilitada. El worker integra el runtime. Actualmente solo hay cuatro acciones locales de lectura/estudio registradas; UI de catálogo, importación guiada y descubrimiento/descarga siguen pendientes.",
+                "Importar un paquete a cuarentena, verificar hash/licencia, instalar deshabilitado, ejecutar smoke-tests escritos en el APK con evidencia, exigir aprobación explícita y permisos mínimos; ejecutar solo acciones tipadas declaradas y registradas, pasando cada acción por ToolExecutor."
             ),
             Capability(
                 "jarvis_authority", "Autoridad delegada User/JARVIS",
