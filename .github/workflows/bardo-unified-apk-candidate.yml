@@ -255,10 +255,12 @@ jobs:
           grep -q "targetSdkVersion:'34'" unified-badging.txt
           grep -q "application-debuggable" unified-badging.txt
           python3 tools/audit_apk_secrets.py "$APK"
-          sha256sum "$APK" | tee -a unified-apk-audit.txt
-          cat stable-audio-model-manifest.tsv >> unified-apk-audit.txt
-          cat unified-signature.txt >> unified-apk-audit.txt
-          cat unified-badging.txt >> unified-apk-audit.txt
+          {
+            sha256sum "$APK"
+            cat stable-audio-model-manifest.tsv
+            cat unified-signature.txt
+            cat unified-badging.txt
+          } >> unified-apk-audit.txt
 
       - name: Upload single unified ARM64 APK candidate (Debug-signed; no release key)
         uses: actions/upload-artifact@v4
