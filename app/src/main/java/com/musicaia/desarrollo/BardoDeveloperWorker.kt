@@ -380,6 +380,7 @@ a pasar validación en otro runner.
                         .putString("candidate_files", applied.changedFiles.joinToString("\n"))
                         .putString("candidate_id", candidateId)
                         .putBoolean("candidate_validation_succeeded", false)
+                        .putBoolean("candidate_local_audit_passed", true)
                         .remove("candidate_validation_run_id")
                 } else {
                     // A newer non-submittable proposal must not leave an older candidate active.
@@ -390,6 +391,7 @@ a pasar validación en otro runner.
                         .remove("candidate_files")
                         .remove("candidate_id")
                         .remove("candidate_validation_succeeded")
+                        .putBoolean("candidate_local_audit_passed", false)
                         .remove("candidate_validation_run_id")
                 }
                 candidateEditor.apply()
