@@ -12,19 +12,49 @@ class BardoSkillWorkflowToolHandler(
 ) : BardoToolHandler {
     override val descriptor = BardoToolDescriptor(
         id = TOOL_ID,
-        description = "Ejecuta el workflow JSON de una skill instalada y habilitada. Argumentos: skill_id, version e inputs_json (objeto JSON de cadenas).",
+        description = "Inspecciona o ejecuta el workflow JSON de una skill habilitada. Argumentos: skill_id, version, operation opcional (inspect o execute; por defecto execute) e inputs_json para execute.",
         requiredScope = BardoPermissionScope.READ_BARDO_DATA,
-        maxArguments = 3,
+        maxArguments = 4,
         maxValueChars = 8_000
     )
 
     override fun execute(arguments: Map<String, String>): BardoToolOutput {
         val id = arguments["skill_id"].orEmpty()
         val version = arguments["version"].orEmpty()
-        val rawInputs = arguments["inputs_json"] ?: "{}"
         if (id.isBlank() || version.isBlank()) {
             return BardoToolOutput(false, "", "Faltan skill_id o version.")
         }
+
+        val operation = arguments["operation"] ?: "execute"
+        if (operation == "inspect") {
+            if (arguments.keys.any { it !in setOf("skill_id", "version", "operation") }) {
+                return BardoToolOutput(false, "", "La inspección no acepta parámetros de ejecución.")
+            }
+            val inspection = executor.inspect(id, version)
+            val details = buildString {
+                appendLine(inspection.summary)
+                if (inspection.succeeded) {
+                    appendLine("Pasos: " + inspection.stepCount)
+                    appendLine("Acciones: " + inspection.actionIds.joinToString())
+                    appendLine("Entradas requeridas: " + inspection.requiredInputs.sorted().joinToString())
+                    append("SHA-256: " + inspection.packageSha256)
+                }
+            }.take(MAX_OUTPUT_CHARS)
+            return BardoToolOutput(
+                succeeded = inspection.succeeded,
+                content = details,
+                error = inspection.error
+            )
+        }
+        if (operation != "execute") {
+            return BardoToolOutput(false, "", "operation debe ser inspect o execute.")
+        }
+
+        val unexpected = arguments.keys - setOf("skill_id", "version", "operation", "inputs_json")
+        if (unexpected.isNotEmpty()) {
+            return BardoToolOutput(false, "", "Argumentos no reconocidos: " + unexpected.sorted().joinToString())
+        }
+        val rawInputs = arguments["inputs_json"] ?: "{}"
         if (rawInputs.length > MAX_INPUT_JSON_CHARS) {
             return BardoToolOutput(false, "", "inputs_json supera el límite.")
         }
