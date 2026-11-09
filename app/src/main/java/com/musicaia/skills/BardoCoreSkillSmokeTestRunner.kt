@@ -80,7 +80,8 @@ class BardoCoreSkillSmokeTestRunner(
 
 data class BardoSkillRuntime(
     val manager: BardoSkillManager,
-    val tools: BardoToolExecutor
+    val tools: BardoToolExecutor,
+    val executor: BardoSkillExecutor
 )
 
 /**
@@ -97,6 +98,10 @@ object BardoSkillRuntimeFactory {
             registeredActionIds = { registeredActions },
             smokeTestRunner = BardoCoreSkillSmokeTestRunner(tools)
         )
-        return BardoSkillRuntime(manager, tools)
+        return BardoSkillRuntime(
+            manager = manager,
+            tools = tools,
+            executor = BardoSkillExecutor(manager, tools)
+        )
     }
 }
