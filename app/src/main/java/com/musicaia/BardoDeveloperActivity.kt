@@ -940,10 +940,12 @@ class BardoDeveloperActivity : AppCompatActivity() {
                 result.onSuccess { prepared ->
                     val applied = prepared.applied
                     candidatePatch = patch
-                    snapshot = applied.directory
+                    // Keep the immutable source snapshot as the next proposal base.
+                    // The candidate remains separately addressable for review.
+                    snapshot = original
                     val prefs = getSharedPreferences("bardo_developer", MODE_PRIVATE)
                     val editor = prefs.edit()
-                        .putString("snapshot_path", applied.directory.absolutePath)
+                        .putString("snapshot_path", original.absolutePath)
                         .putString("source_snapshot_path", original.absolutePath)
                         .putString("last_candidate_path", applied.directory.absolutePath)
                         .putBoolean("candidate_local_audit_passed", prepared.localAuditPassed)
