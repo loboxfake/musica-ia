@@ -54,7 +54,7 @@ class BardoSkillExecutor(
         }
 
         val declaredActions = record.manifest.actions
-        val registered = tools.registeredTools().associateBy { it.id }
+        val skillEligibleIds = tools.registeredSkillToolIds()
         val undeclared = invocations.map { it.toolId }.toSet() - declaredActions
         if (undeclared.isNotEmpty()) {
             return report(
@@ -62,7 +62,7 @@ class BardoSkillExecutor(
                 "La skill intentó usar acciones no declaradas: " + undeclared.sorted().joinToString()
             )
         }
-        val missing = invocations.map { it.toolId }.toSet() - registered.keys
+        val missing = invocations.map { it.toolId }.toSet() - skillEligibleIds
         if (missing.isNotEmpty()) {
             return report(
                 skillId, version, BardoSkillExecutionStatus.REJECTED, emptyList(),
