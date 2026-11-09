@@ -19,7 +19,9 @@ data class BardoSkillWorkflowReport(
     val completedSteps: Int,
     val outputs: List<String>,
     val error: String?,
-    val summary: String
+    val summary: String,
+    val executionEligible: Boolean = false,
+    val ineligibleActionIds: List<String> = emptyList()
 )
 
 /** Resultado de una inspección estática. No ejecuta acciones del catálogo. */
@@ -84,6 +86,21 @@ class BardoSkillWorkflowExecutor(
             )
         }
 
+        val ineligibleActions = steps.map { it.actionId }.distinct()
+            .filterNot { it in tools.registeredSkillToolIds() }
+            .sorted()
+        val summary = buildString {
+            append("Workflow estructuralmente válido: ").append(steps.size)
+                .append(" pasos; acciones=").append(steps.map { it.actionId }.distinct().joinToString())
+            append("; entradas requeridas=").append(requiredInputs.sorted().joinToString())
+            if (ineligibleActions.isNotEmpty()) {
+                append(". No ejecutable por BARDO: faltan smoke-tests de confianza para ")
+                    .append(ineligibleActions.joinToString())
+            } else {
+                append(". Todas las acciones tienen smoke-test de confianza.")
+            }
+            append(" No se ejecutó ninguna acción.")
+        }
         return BardoSkillWorkflowInspection(
             skillId = skillId,
             version = version,
@@ -93,10 +110,9 @@ class BardoSkillWorkflowExecutor(
             requiredInputs = requiredInputs,
             packageSha256 = enabled.manifest.packageSha256,
             error = null,
-            summary = "Workflow válido: ${steps.size} pasos; acciones=" +
-                steps.map { it.actionId }.distinct().joinToString() +
-                "; entradas requeridas=" + requiredInputs.sorted().joinToString() +
-                ". No se ejecutó ninguna acción."
+            summary = summary,
+            executionEligible = ineligibleActions.isEmpty(),
+            ineligibleActionIds = ineligibleActions
         )
     }
 
@@ -140,6 +156,15 @@ class BardoSkillWorkflowExecutor(
                 skillId, version, 0, emptyList(),
                 "Los parámetros no coinciden con el workflow. Faltan=" +
                     missing.sorted().joinToString() + "; no utilizados=" + unused.sorted().joinToString()
+            )
+        }
+
+        val ineligibleActions = steps.map { it.actionId }.toSet() - tools.registeredSkillToolIds()
+        if (ineligibleActions.isNotEmpty()) {
+            return failure(
+                skillId, version, 0, emptyList(),
+                "Ejecución denegada: las acciones no tienen smoke-test de confianza escrito en el APK: " +
+                    ineligibleActions.sorted().joinToString()
             )
         }
 
@@ -212,10 +237,9 @@ class BardoSkillWorkflowExecutor(
         require(array.length() in 1..MAX_STEPS) { "El workflow debe contener entre 1 y " + MAX_STEPS + " pasos." }
 
         val result = mutableListOf<BardoSkillWorkflowStep>()
-        val skillEligibleIds = tools.registeredSkillToolIds()
-        val registered = tools.registeredTools()
-            .filter { it.id in skillEligibleIds }
-            .associateBy { it.id }
+        // La inspección estructural puede describir acciones no elegibles.
+        // execute() aplica la allowlist completa antes de ejecutar el primer paso.
+        val registered = tools.registeredTools().associateBy { it.id }
         for (index in 0 until array.length()) {
             val row = array.optJSONObject(index)
                 ?: throw IllegalArgumentException("El paso " + index + " no es un objeto.")
