@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - main
+      - 'bardo/**'
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -46,3 +50,12 @@ jobs:
           "$(go env GOPATH)/bin/actionlint" -color .github/workflows/*.yml
       - name: Run unit tests and compile debug APK
         run: ./gradlew testDebugUnitTest assembleDebug --no-daemon --stacktrace
+      - name: Verify candidate APK exists
+        run: test -s app/build/outputs/apk/debug/app-debug.apk
+      - name: Upload branch validation APK (not a release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: bardo-debug-candidate-${{ github.run_number }}
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
