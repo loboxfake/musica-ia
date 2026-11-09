@@ -78,6 +78,8 @@ class BardoProtectedPathPolicyTest {
             "app/src/main/java/com/musicaia/skills/BardoSkillManager.kt",
             "app/src/main/java/com/musicaia/skills/BardoSkillWorkflowExecutor.kt",
             "app/src/main/java/com/musicaia/skills/BardoSkillMaintenancePlanner.kt",
+            "app/src/main/java/com/musicaia/skills/BardoSkillDraftBuilder.kt",
+            "app/src/main/java/com/musicaia/skills/BardoSkillDraftToolHandler.kt",
             "app/src/main/java/com/musicaia/skills/BardoCoreSkillSmokeTestRunner.kt"
         )
         protected.forEach { path ->
