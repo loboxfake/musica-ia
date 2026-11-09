@@ -258,3 +258,31 @@ La política bloquea rutas protegidas, Modo3, archivos de build, workflows, asse
 ### Evidencia de validación
 
 La revisión de PR #3 confirma que el workflow de candidatos crea una rama bardo/* y PR borrador, no un push a main; full-build.yml exige dispatch manual y publish_release=true para firmar/publicar. Los workflows y la política de rutas protegen Modo3 y los archivos críticos. La rama integral permanece abierta en borrador y no está fusionada. Los nuevos tests del manifiesto deben pasar en CI antes de considerar este código aceptado.
+
+## 16. Revisión con repositorio privado — 10 de noviembre de 2026
+
+### Visibilidad, ramas y protección
+
+- GitHub confirma que el repositorio es privado y la conexión de trabajo puede leer PR, ramas, ejecuciones y artefactos.
+- `main` continúa en `386dc7fd23629b5620b6907272ca7d0fc19c6404`; no se ha escrito en ella.
+- GitHub informa que `main` tiene `protected=false` y no tiene reglas de protección activas. Esto no cambia la regla operativa acordada: BARDO y este flujo no escribirán directamente en `main`. Para que GitHub haga cumplir la regla incluso ante otros clientes, el propietario debe activar protección de rama/ruleset, exigir PR y checks.
+- PR #2 y PR #3 siguen abiertas, en borrador y sin fusionar. PR #2 conserva la base fundacional. PR #3 es la candidata integral. La comparación de historial entre ambas sigue divergida: PR #3 está 296 commits por delante y 29 por detrás de PR #2. No se deben encadenar merges ni cherry-picks automáticos.
+- Los 34 archivos de PR #2 están presentes en el diff de PR #3; 10 parches son idénticos y 24 difieren. Las diferencias tienen mayor tamaño de parche en PR #3, pero el tamaño no demuestra equivalencia semántica completa. La reconciliación se considera funcionalmente cubierta en rutas, pero la equivalencia de cada cambio exclusivo sigue requiriendo revisión de comportamiento y pruebas; no se declara equivalencia matemática de commits.
+
+### Candidata integral y exportación
+
+- La ejecución `42716917671` terminó correctamente para el SHA `96498e5acdb998cbe8ca4c93dbc5c03d19b758ce`. Produjo el artefacto `bardo-unified-offline-arm64-candidate-21`, 1.001.732.046 bytes, digest `sha256:cd5248f108c52d825123fbb173062508d3dc66080b690c554d315fb2c2a33078`.
+- Esa candidata superó Gitleaks, actionlint, tests unitarios, compilación Debug ARM64, auditoría de assets/modelos/JNI, integridad y firma Debug. No incluye el cambio posterior del avatar ni su test.
+- El exportador por fragmentos estaba fijado a un artefacto anterior. Se actualizó para apuntar a la candidata 21, pero su ejecución `42720562614` falló y la API de logs no devolvió el registro de pasos.
+- Tras el cambio del avatar, los workflows `42720610999`, `42720611055` y `42720619166` también fallaron; sus reintentos terminaron igual y GitHub no proporcionó steps/logs descargables. No se atribuye la causa al código ni a la falta de PAT sin evidencia. La nueva validación del test `7f2e8ea20c839d8e2f61ff40422c777e4f36a13c` quedó en cola al registrar esta nota.
+- El token personal de GitHub no es necesario para que Actions use su `GITHUB_TOKEN` en sus propios workflows; la app móvil sí necesita un token fine-grained guardado por el usuario para despachar validaciones/PR. Sin ese token, la publicación desde la app debe detenerse con un mensaje claro. No se ha intentado crear PR ni publicar Release desde este proceso.
+
+### Avatar e interfaz
+
+- `BardoAvatarView` conserva el icono oficial de BARDO y añade perfiles de movimiento diferentes para escucha, lectura, estudio, pensamiento, respuesta, generación y espera. En reposo, éxito y error no mantiene animación continua; se respeta el ajuste de animaciones del sistema y se conserva una descripción accesible.
+- Se añadió `BardoAvatarStateTest` para verificar que los estados activos tienen perfiles acotados y que reposo/estados terminales permanecen estáticos.
+- El layout principal ya está basado en secciones y navegación por espacios; no se ha sustituido ni rediseñado de forma amplia en esta revisión. La optimización visual adicional debe hacerse por componentes reutilizables y sin duplicar funciones ni alterar flujos musicales ya probados.
+
+### Criterio de aceptación
+
+La candidata 21 es una compilación auditada de un SHA anterior, no la candidata final con avatar. El cambio de avatar y su test no se aceptarán hasta que Actions vuelva a ejecutar correctamente. La exportación por fragmentos debe finalizar, reconstruirse y verificarse por SHA-256 antes de entregar un APK descargable. Ningún estado de CI sustituye la instalación, inferencia Gemma, operación sin red, generación y escucha WAV ni pruebas de mezcla en el Xiaomi 11T Pro.
