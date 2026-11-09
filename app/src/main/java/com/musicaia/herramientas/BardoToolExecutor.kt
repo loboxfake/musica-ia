@@ -34,6 +34,15 @@ interface BardoToolHandler {
 }
 
 /**
+ * Implementación opcional, escrita y revisada junto al handler, para comprobar
+ * su comportamiento con datos locales seguros. Una skill descargada nunca puede
+ * implementar esta interfaz porque los paquetes no se cargan como código.
+ */
+interface BardoToolSmokeTestHandler {
+    fun smokeTest(): BardoToolOutput
+}
+
+/**
  * La keyring se implementa con el almacenamiento emparejado privado de BARDO.
  * Si no hay una keyring emparejada, las llamadas de JARVIS se rechazan.
  */
@@ -134,6 +143,33 @@ class BardoToolExecutor(
 
     fun registeredTools(): List<BardoToolDescriptor> =
         handlersById.values.map { it.descriptor }.sortedBy { it.id }
+
+    /**
+     * Ejecuta únicamente una prueba interna escrita en el código del handler.
+     * No acepta argumentos ni código de la skill. Si el handler no declara
+     * explícitamente un smoke-test, la acción no puede habilitarse como skill.
+     */
+    fun runTrustedSmokeTest(toolId: String): BardoToolOutput {
+        val handler = handlersById[toolId]
+            ?: return blocked("La herramienta no está registrada: $toolId")
+        val smoke = handler as? BardoToolSmokeTestHandler
+            ?: return blocked("La herramienta no tiene un smoke-test de confianza: $toolId")
+        return try {
+            val result = smoke.smokeTest()
+            if (!result.succeeded) result
+            else if (result.content.length > MAX_OUTPUT_CHARS) {
+                blocked("El smoke-test excedió el tamaño máximo de salida.")
+            } else result
+        } catch (error: OutOfMemoryError) {
+            throw error
+        } catch (error: Exception) {
+            BardoToolOutput(
+                succeeded = false,
+                content = "",
+                error = error.message ?: error.javaClass.simpleName
+            )
+        }
+    }
 
     private fun validateArguments(
         arguments: Map<String, String>,
