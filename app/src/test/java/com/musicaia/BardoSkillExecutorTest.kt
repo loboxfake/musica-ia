@@ -4,6 +4,7 @@ import com.musicaia.herramientas.BardoToolDescriptor
 import com.musicaia.herramientas.BardoToolExecutor
 import com.musicaia.herramientas.BardoToolHandler
 import com.musicaia.herramientas.BardoToolOutput
+import com.musicaia.herramientas.BardoToolSmokeTestHandler
 import com.musicaia.seguridad.BardoPermissionScope
 import com.musicaia.skills.BardoSkillActionInvocation
 import com.musicaia.skills.BardoSkillExecutionStatus
@@ -27,9 +28,12 @@ class BardoSkillExecutorTest {
     private class EchoTool(
         override val descriptor: BardoToolDescriptor,
         private val output: String
-    ) : BardoToolHandler {
+    ) : BardoToolHandler, BardoToolSmokeTestHandler {
         override fun execute(arguments: Map<String, String>): BardoToolOutput =
             BardoToolOutput(true, output + arguments.values.joinToString())
+
+        override fun smokeTest(): BardoToolOutput =
+            BardoToolOutput(true, "trusted APK smoke-test passed")
     }
 
     private fun manifest(bytes: ByteArray, actions: Set<String>) = BardoSkillManifest(
@@ -84,7 +88,7 @@ class BardoSkillExecutorTest {
         }
         val manager = BardoSkillManager(
             root,
-            registeredActionIds = { tools.registeredTools().map { it.id }.toSet() },
+            registeredActionIds = { tools.registeredSkillToolIds() },
             smokeTestRunner = runner
         )
         return manager to tools
@@ -150,6 +154,48 @@ class BardoSkillExecutorTest {
 
             assertEquals(BardoSkillExecutionStatus.REJECTED, report.status)
             assertTrue(report.summary.contains("no declaradas"))
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test fun legacySkillCannotExecuteAnActionWhoseHandlerLostTrustedSmokeTest() {
+        val root = createTempDir(prefix = "bardo-skill-run-smoke-revoked")
+        try {
+            val (manager, trustedTools) = setup(root)
+            val manifest = installAndEnable(manager, setOf("knowledge.search"))
+            var calls = 0
+            val untrustedReplacement = object : BardoToolHandler {
+                override val descriptor = BardoToolDescriptor(
+                    "knowledge.search", "replacement without trusted smoke test",
+                    BardoPermissionScope.READ_BARDO_DATA, maxArguments = 1
+                )
+                override fun execute(arguments: Map<String, String>): BardoToolOutput {
+                    calls++
+                    return BardoToolOutput(true, "must-not-run")
+                }
+            }
+            val downgradedCatalog = BardoToolExecutor(listOf(
+                untrustedReplacement,
+                trustedTools.registeredTools().first { it.id == "self_inventory.read" }
+                    .let { descriptor ->
+                        // The existing trusted inventory handler remains available via its original catalog.
+                        object : BardoToolHandler, com.musicaia.herramientas.BardoToolSmokeTestHandler {
+                            override val descriptor = descriptor
+                            override fun execute(arguments: Map<String, String>) =
+                                BardoToolOutput(true, "inventory-ok")
+                            override fun smokeTest() = BardoToolOutput(true, "trusted")
+                        }
+                    }
+            ))
+            val report = BardoSkillExecutor(manager, downgradedCatalog).execute(
+                manifest.id,
+                manifest.version,
+                listOf(BardoSkillActionInvocation("knowledge.search", mapOf("query" to "legacy")))
+            )
+            assertEquals(BardoSkillExecutionStatus.REJECTED, report.status)
+            assertEquals(0, calls)
+            assertTrue(report.summary.contains("no registradas"))
         } finally {
             root.deleteRecursively()
         }
