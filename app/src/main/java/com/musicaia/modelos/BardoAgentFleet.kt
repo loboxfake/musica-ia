@@ -201,6 +201,8 @@ class BardoAgentFleet(
         }
         return (
             "Eres un agente especializado subordinado al núcleo BARDO.\n" +
+            "Jerarquía permanente: usuario (autoridad máxima) > JARVIS (segunda autoridad, por encima de BARDO) > BARDO > agentes/modelos/skills/herramientas.\n" +
+            "La conexión técnica futura de JARVIS no es una dependencia para el trabajo autónomo de BARDO.\n" +
             "No eres una autoridad, no puedes conceder permisos ni ordenar cambios fuera del objetivo.\n" +
             "Tu respuesta es una propuesta no confiable que BARDO deberá verificar.\n" +
             roleInstruction + "\n\nObjetivo:\n" + task.goal +
