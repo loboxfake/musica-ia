@@ -5,6 +5,7 @@ import com.musicaia.diagnostico.BardoSelfInventory
 import com.musicaia.desarrollo.BardoDeveloperCore
 import com.musicaia.memoria.BardoKnowledgeStore
 import com.musicaia.seguridad.BardoPermissionScope
+import com.musicaia.storage.BardoSharedStorage
 import java.io.File
 import java.nio.file.Files
 
@@ -109,6 +110,72 @@ object BardoCoreToolCatalog {
                 }
 
                 override fun smokeTest(): BardoToolOutput = execute(emptyMap())
+            },
+            object : BardoToolHandler {
+                override val descriptor = BardoToolDescriptor(
+                    "mobile_files.list",
+                    "Lista archivos y carpetas solo dentro del árbol SAF Descargas/BARDO que autorizó el usuario.",
+                    BardoPermissionScope.READ_BARDO_DATA,
+                    maxArguments = 1,
+                    maxValueChars = 512
+                )
+                override fun execute(arguments: Map<String, String>): BardoToolOutput {
+                    require(BardoSharedStorage.isConfigured(app)) {
+                        "El usuario debe conectar primero Descargas/BARDO mediante el selector SAF de Android."
+                    }
+                    val entries = BardoSharedStorage.listEntries(app, arguments["path"].orEmpty())
+                    val body = if (entries.isEmpty()) "La carpeta está vacía." else entries.joinToString("\n") {
+                        val type = if (it.isDirectory) "[CARPETA]" else "[ARCHIVO]"
+                        val size = it.sizeBytes?.let { bytes -> " · $bytes bytes" }.orEmpty()
+                        "$type ${it.name}$size"
+                    }
+                    return BardoToolOutput(true, body.take(60_000))
+                }
+            },
+            object : BardoToolHandler {
+                override val descriptor = BardoToolDescriptor(
+                    "mobile_files.read",
+                    "Lee texto UTF-8 de un archivo pequeño dentro de Descargas/BARDO; nunca lee modelos ni audio binario.",
+                    BardoPermissionScope.READ_BARDO_DATA,
+                    maxArguments = 1,
+                    maxValueChars = 512
+                )
+                override fun execute(arguments: Map<String, String>): BardoToolOutput {
+                    val path = arguments["path"].orEmpty()
+                    require(path.isNotBlank()) { "Falta path." }
+                    return BardoToolOutput(true, BardoSharedStorage.readText(app, path))
+                }
+            },
+            object : BardoToolHandler {
+                override val descriptor = BardoToolDescriptor(
+                    "mobile_files.create_directory",
+                    "Crea una subcarpeta únicamente dentro del árbol SAF Descargas/BARDO autorizado.",
+                    BardoPermissionScope.MANAGE_BARDO_WORKSPACE,
+                    maxArguments = 1,
+                    maxValueChars = 512
+                )
+                override fun execute(arguments: Map<String, String>): BardoToolOutput {
+                    val path = arguments["path"].orEmpty()
+                    require(path.isNotBlank()) { "Falta path." }
+                    val created = BardoSharedStorage.createDirectory(app, path)
+                    return BardoToolOutput(true, "Carpeta creada: BARDO/$created")
+                }
+            },
+            object : BardoToolHandler {
+                override val descriptor = BardoToolDescriptor(
+                    "mobile_files.create_text_file",
+                    "Crea un archivo de texto UTF-8 dentro de Descargas/BARDO y verifica su lectura tras escribirlo.",
+                    BardoPermissionScope.MANAGE_BARDO_WORKSPACE,
+                    maxArguments = 2,
+                    maxValueChars = 262_144
+                )
+                override fun execute(arguments: Map<String, String>): BardoToolOutput {
+                    val path = arguments["path"].orEmpty()
+                    val content = arguments["content"].orEmpty()
+                    require(path.isNotBlank()) { "Falta path." }
+                    val created = BardoSharedStorage.createTextFile(app, path, content)
+                    return BardoToolOutput(true, "Archivo de texto creado y verificado: BARDO/$created")
+                }
             }
         )
     }
