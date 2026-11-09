@@ -23,7 +23,7 @@ on:
         type: string
 
 permissions:
-  actions: read
+  actions: write
   contents: write
   pull-requests: write
 
@@ -229,11 +229,23 @@ jobs:
           pr_url="$(jq -r '.html_url' <<< "$pull_request")"
           test "$pr_number" -gt 0
           test "$pr_url" = "https://github.com/$GITHUB_REPOSITORY/pull/$pr_number"
+          gh workflow run bardo-validation.yml --ref "$candidate_branch"
+          branch_validation_run_id=""
+          for attempt in $(seq 1 15); do
+            branch_validation_run_id="$(gh run list --workflow bardo-validation.yml --branch "$candidate_branch" --event workflow_dispatch --limit 10 --json databaseId,headSha --jq ".[] | select(.headSha == \"$candidate_sha\") | .databaseId" | head -n 1)"
+            [ -n "$branch_validation_run_id" ] && break
+            sleep 2
+          done
+          test -n "$branch_validation_run_id" || {
+            echo "::error::Draft PR exists, but the branch validation workflow could not be located."
+            exit 1
+          }
           {
             echo "Draft PR created: #$pr_number"
             echo "$pr_url"
             echo "Candidate branch: $candidate_branch"
             echo "Candidate commit: $candidate_sha"
+            echo "Branch validation run: https://github.com/$GITHUB_REPOSITORY/actions/runs/$branch_validation_run_id"
             echo "main remains at $BASE_SHA"
             echo "No merge or Release was performed."
           } >> "$GITHUB_STEP_SUMMARY"
