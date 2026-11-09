@@ -397,8 +397,6 @@ class MainActivity : AppCompatActivity() {
  private val selectorElegirCarpetaBardo =
      registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
          if (uri != null) runCatching {
-             contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-             uriCarpetaBardo = uri
              val treeRootId = DocumentsContract.getTreeDocumentId(uri)
              val treeRootUri = DocumentsContract.buildDocumentUriUsingTree(uri, treeRootId)
              val rootName = contentResolver.query(
@@ -406,10 +404,17 @@ class MainActivity : AppCompatActivity() {
              )?.use { cursor ->
                  if (cursor.moveToFirst()) cursor.getString(0) else ""
              }.orEmpty()
-             bardoRootDocumentId = if (rootName.equals("Download", true) ||
+             require(rootName.equals("Download", true) ||
                  rootName.equals("Downloads", true) || rootName.equals("Descargas", true)) {
-                 DocumentsContract.getDocumentId(buscarOCrearSubcarpetaBardo(treeRootUri, "BARDO"))
-             } else treeRootId
+                 "Por seguridad, selecciona la carpeta Descargas/Download. BARDO creará y usará únicamente Descargas/BARDO."
+             }
+             val bardoFolder = buscarOCrearSubcarpetaBardo(treeRootUri, "BARDO")
+             bardoRootDocumentId = DocumentsContract.getDocumentId(bardoFolder)
+             contentResolver.takePersistableUriPermission(
+                 uri,
+                 Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+             )
+             uriCarpetaBardo = uri
              getSharedPreferences("bardo_storage", MODE_PRIVATE).edit()
                  .putString("tree_uri", uri.toString())
                  .putString("root_document_id", bardoRootDocumentId).apply()
