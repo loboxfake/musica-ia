@@ -41,6 +41,8 @@ object BardoProtectedPathPolicy {
         "app/src/main/java/com/musicaia/skills/BardoSkillWorkflowToolHandler.kt",
         "app/src/main/java/com/musicaia/skills/BardoCoreSkillSmokeTestRunner.kt",
         "app/src/main/java/com/musicaia/skills/BardoSkillMaintenancePlanner.kt",
+        "app/src/main/java/com/musicaia/skills/BardoSkillDraftBuilder.kt",
+        "app/src/main/java/com/musicaia/skills/BardoSkillDraftToolHandler.kt",
         "app/src/main/java/com/musicaia/storage/BardoMobileFilePolicy.kt",
         "app/src/main/java/com/musicaia/storage/BardoSharedStorage.kt",
         "app/src/main/java/com/musicaia/herramientas/BardoToolExecutor.kt",
