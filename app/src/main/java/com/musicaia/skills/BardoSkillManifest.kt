@@ -1,5 +1,7 @@
 package com.musicaia.skills
 
+import java.net.URI
+
 enum class BardoSkillPermission {
     READ_BARDO_DATA,
     STUDY_LOCAL,
