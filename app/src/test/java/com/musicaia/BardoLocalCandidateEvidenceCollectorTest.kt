@@ -2,6 +2,7 @@ package com.musicaia
 
 import com.musicaia.desarrollo.BardoPatchApplier
 import com.musicaia.evaluacion.BardoCheck
+import com.musicaia.evaluacion.BardoCheckEvidence
 import com.musicaia.evaluacion.BardoEvidenceOrigin
 import com.musicaia.evaluacion.BardoLocalCandidateAuditInput
 import com.musicaia.evaluacion.BardoLocalCandidateEvidenceCollector
@@ -193,10 +194,26 @@ class BardoLocalCandidateEvidenceCollectorTest {
             fixture.modo3Hash
         )
         val forgedOrigin = evidence.mapIndexed { index, item ->
-            if (index == 0) item.copy(origin = BardoEvidenceOrigin.GITHUB_ACTIONS) else item
+            if (index == 0) {
+                BardoCheckEvidence(
+                    item.check,
+                    item.passed,
+                    item.detail,
+                    item.evidenceRef,
+                    BardoEvidenceOrigin.GITHUB_ACTIONS
+                )
+            } else item
         }
         val malformedReference = evidence.mapIndexed { index, item ->
-            if (index == 0) item.copy(evidenceRef = "https://example.invalid/audit") else item
+            if (index == 0) {
+                BardoCheckEvidence(
+                    item.check,
+                    item.passed,
+                    item.detail,
+                    "https://example.invalid/audit",
+                    item.origin
+                )
+            } else item
         }
         assertTrue(BardoLocalCandidateEvidenceCollector.isReadyForCiSubmission(evidence))
         assertFalse(BardoLocalCandidateEvidenceCollector.isReadyForCiSubmission(forgedOrigin))
