@@ -206,6 +206,7 @@ class BardoGitHubActionsClient(private val token: String) {
     }
 
     fun dispatchPullRequest(baseSha: String, candidateId: String, packedPatch: String, validationRunId: Long) {
+        BardoGitHubIntegrationPolicy.requireDraftPrWorkflowAvailable()
         require(validationRunId > 0L) { "Falta la ejecución de validación aprobada." }
         dispatch(
             PR_WORKFLOW,
@@ -236,6 +237,9 @@ class BardoGitHubActionsClient(private val token: String) {
     }
 
     fun findRun(workflow: String, candidateId: String, baseSha: String): BardoGitHubRun? {
+        if (workflow == PR_WORKFLOW && !BardoGitHubIntegrationPolicy.DRAFT_PR_WORKFLOW_ENABLED) {
+            return null
+        }
         BardoGitHubPolicy.validateCandidateId(candidateId)
         BardoGitHubPolicy.validateBaseSha(baseSha)
         val response = request(
