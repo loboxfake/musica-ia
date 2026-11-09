@@ -169,6 +169,7 @@ object BardoIncrementalUpdateManifestFactory {
         require(changedFiles.isNotEmpty() && changedFiles.size <= BardoIncrementalUpdatePolicy.MAX_FILES)
         require(changedFiles.distinct().size == changedFiles.size)
         require(snapshotRoot.isDirectory && candidateRoot.isDirectory)
+        require(!Files.isSymbolicLink(snapshotRoot.toPath()) && !Files.isSymbolicLink(candidateRoot.toPath()))
         val entries = changedFiles.sorted().map { path ->
             require(BardoProtectedPathPolicy.canModifyExisting(path)) {
                 "La ruta no está permitida para una actualización incremental: " + path
