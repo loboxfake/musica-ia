@@ -82,7 +82,7 @@ jobs:
           git apply "$RUNNER_TEMP/bardo-candidate/change.patch"
           python3 - <<'PY'
           import subprocess
-          allowed = ("app/src/main/java/", "app/src/test/java/", "app/src/main/res/", "docs/")
+          allowed = ("app/src/main/java/", "app/src/main/res/", "docs/")
           protected = {
               "app/src/main/java/com/musicaia/MainActivity.kt",
               "app/src/main/java/com/musicaia/BardoDeveloperActivity.kt",
@@ -90,6 +90,8 @@ jobs:
               "app/src/main/java/com/musicaia/desarrollo/BardoDeveloperCore.kt",
               "app/src/main/java/com/musicaia/desarrollo/BardoDeveloperWorker.kt",
               "app/src/main/java/com/musicaia/desarrollo/BardoPatchApplier.kt",
+              "app/src/main/java/com/musicaia/desarrollo/BardoProtectedPathPolicy.kt",
+              "app/src/main/java/com/musicaia/desarrollo/BardoWorkspaceManager.kt",
               "app/src/main/java/com/musicaia/desarrollo/BardoGitHubAutomation.kt",
               "app/src/main/java/com/musicaia/modelo/BardoCapabilityRegistry.kt",
               "app/src/main/java/com/musicaia/modelo/BardoIntentRouter.kt",
