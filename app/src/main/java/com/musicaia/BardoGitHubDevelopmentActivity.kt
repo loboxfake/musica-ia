@@ -12,6 +12,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.musicaia.desarrollo.BardoGitHubActionsClient
 import com.musicaia.desarrollo.BardoGitHubCredentialStore
+import com.musicaia.desarrollo.BardoGitHubIntegrationPolicy
 import com.musicaia.desarrollo.BardoGitHubPolicy
 import com.musicaia.desarrollo.BardoGitHubRun
 import java.util.concurrent.Executors
@@ -83,6 +84,8 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
             appendLine()
             appendLine("Token requerido: Fine-grained PAT limitado a este repositorio, con Actions: Read and write y Contents: Read.")
             appendLine("El token se cifra con Android Keystore. No se incluye en el APK ni se transmite al runner.")
+            appendLine()
+            appendLine("INTEGRACIÓN BLOQUEADA: el workflow heredado escribiría directamente en main. La validación del candidato sí está permitida; crear el PR queda deshabilitado hasta disponer de un workflow seguro.")
             appendLine("El runner no recibe ese PAT ni secretos privados del dispositivo. Usa un GITHUB_TOKEN efímero limitado a crear la rama candidata y el PR.")
             appendLine("main no se modifica ni se fusiona automáticamente. La decisión final de merge corresponde a una revisión humana.")
         }
@@ -222,8 +225,10 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
                 val client = BardoGitHubActionsClient(token)
                 val validation = if (validationRunId > 0L) client.getRun(validationRunId) else
                     client.findRun(BardoGitHubActionsClient.VALIDATION_WORKFLOW, candidateId, baseSha)
-                val prPreparation = if (prRunId > 0L) client.getRun(prRunId) else
-                    client.findRun(BardoGitHubActionsClient.PR_WORKFLOW, candidateId, baseSha)
+                val prPreparation = if (BardoGitHubIntegrationPolicy.DRAFT_PR_WORKFLOW_ENABLED) {
+                    if (prRunId > 0L) client.getRun(prRunId) else
+                        client.findRun(BardoGitHubActionsClient.PR_WORKFLOW, candidateId, baseSha)
+                } else null
                 if (validation != null && validationRunId == 0L) {
                     validationRunId = validation.id
                     state.edit().putLong(key("validation_run_id"), validation.id).apply()
@@ -257,6 +262,10 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
     }
 
     private fun confirmIntegration() {
+        if (!BardoGitHubIntegrationPolicy.DRAFT_PR_WORKFLOW_ENABLED) {
+            output.text = BardoGitHubIntegrationPolicy.BLOCK_REASON
+            return
+        }
         if (!validationSucceeded || validationRunId <= 0L || prCreated || prDispatched) {
             output.text = "Solo se puede preparar un PR para un candidato cuya validación haya terminado en SUCCESS."
             return
@@ -270,6 +279,10 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
     }
 
     private fun dispatchIntegration() {
+        if (!BardoGitHubIntegrationPolicy.DRAFT_PR_WORKFLOW_ENABLED) {
+            output.text = BardoGitHubIntegrationPolicy.BLOCK_REASON
+            return
+        }
         if (busy || prDispatched || prCreated) return
         val token = BardoGitHubCredentialStore.read(this)
         if (token == null) {
@@ -405,8 +418,13 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
         val tokenReady = BardoGitHubCredentialStore.hasToken(this)
         validateButton.isEnabled = !busy && tokenReady && !prCreated && !validationDispatched
         refreshButton.isEnabled = !busy && tokenReady && (validationDispatched || prDispatched)
-        prButton.isEnabled = !busy && tokenReady && validationSucceeded && !prCreated && !prDispatched
-        prButton.text = if (prCreated) "PR borrador creado" else "Crear PR del candidato"
+        prButton.isEnabled = BardoGitHubIntegrationPolicy.DRAFT_PR_WORKFLOW_ENABLED &&
+            !busy && tokenReady && validationSucceeded && !prCreated && !prDispatched
+        prButton.text = when {
+            prCreated -> "PR borrador creado"
+            !BardoGitHubIntegrationPolicy.DRAFT_PR_WORKFLOW_ENABLED -> "PR bloqueado: workflow inseguro"
+            else -> "Crear PR del candidato"
+        }
     }
 
     private fun setBusy(value: Boolean, message: String = "") {
