@@ -33,6 +33,22 @@ class BardoToolExecutorTest {
         override fun smokeTest() = BardoToolOutput(true, "smoke")
     }
 
+    @Test fun runtimeSkillAllowlistExcludesSmokeTestsThatCurrentlyFail() {
+        val trustedButFailing = object : BardoToolHandler, BardoToolSmokeTestHandler {
+            override val descriptor = BardoToolDescriptor(
+                "test.failing", "failing trusted smoke test",
+                BardoPermissionScope.READ_BARDO_DATA, 0, 32
+            )
+            override fun execute(arguments: Map<String, String>) =
+                BardoToolOutput(true, "action output")
+            override fun smokeTest() =
+                BardoToolOutput(false, "", "smoke-test regression")
+        }
+        val executor = BardoToolExecutor(listOf(trustedButFailing))
+        assertEquals(setOf("test.failing"), executor.registeredSkillToolIds())
+        assertTrue(executor.verifiedSkillToolIds().isEmpty())
+    }
+
     @Test fun skillAllowlistContainsOnlyHandlersWithApkAuthoredSmokeTests() {
         val executor = BardoToolExecutor(listOf(EchoTool(), TrustedSmokeTool()))
         assertEquals(setOf("test.smoke"), executor.registeredSkillToolIds())
