@@ -215,14 +215,14 @@ object BardoSharedStorage {
         val input = context.contentResolver.openInputStream(uri)
             ?: throw IllegalStateException("No se pudo abrir el documento SAF.")
         return input.use { stream ->
-            InputStreamReader(stream, Charsets.UTF_8).buffered().use { reader ->
+            InputStreamReader(stream, Charsets.UTF_8).buffered().use readerUse@ { reader ->
                 var remaining = offsetChars.toLong()
                 while (remaining > 0L) {
                     val skipped = reader.skip(remaining)
                     if (skipped > 0L) {
                         remaining -= skipped
                     } else {
-                        if (reader.read() < 0) return@use ""
+                        if (reader.read() < 0) return@readerUse ""
                         remaining--
                     }
                 }
