@@ -326,6 +326,6 @@ class BardoSkillWorkflowExecutor(
         const val MAX_PACKAGE_BYTES = 10L * 1024L * 1024L
         private val INPUT_KEY = Regex("^[A-Za-z][A-Za-z0-9_.-]{0,63}$")
         private val ARGUMENT_KEY = Regex("^[A-Za-z][A-Za-z0-9_.-]{0,63}$")
-        private val INPUT_TOKEN = Regex("^\\{\\{input:([A-Za-z][A-Za-z0-9_.-]{0,63})}}$")
+        private val INPUT_TOKEN = Regex("^\\{\\{input[.:]([A-Za-z][A-Za-z0-9_.-]{0,63})}}$")
     }
 }
