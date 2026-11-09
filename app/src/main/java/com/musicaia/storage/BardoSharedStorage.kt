@@ -14,8 +14,21 @@ data class BardoMobileFileDeletionRequest(
     val relativePath: String,
     val permanent: Boolean,
     val reason: String,
-    val requestedAtMillis: Long
-)
+    val requestedAtMillis: Long,
+    val documentId: String? = null,
+    val name: String? = null,
+    val mimeType: String? = null,
+    val sizeBytes: Long? = null,
+    val lastModifiedMillis: Long? = null
+) {
+    fun matchesCurrentIdentity(documentId: String, current: BardoMobileFileEntry): Boolean =
+        !this.documentId.isNullOrBlank() &&
+            this.documentId == documentId &&
+            this.name == current.name &&
+            this.mimeType == current.mimeType &&
+            this.sizeBytes == current.sizeBytes &&
+            this.lastModifiedMillis == current.lastModifiedMillis
+}
 
 data class BardoMobileFileEntry(
     val relativePath: String,
@@ -322,14 +335,14 @@ object BardoSharedStorage {
      */
     private fun moveToTrash(
         context: Context,
+        source: Uri,
+        sourceParent: Uri,
         relativePath: String,
         explicitUserConfirmation: Boolean
     ): String {
         require(explicitUserConfirmation) { "La operación requiere confirmación directa del usuario." }
         val approval = consumeApproval(context, BardoMobileFileOperation.MOVE_TO_TRASH, relativePath)
-        require(approval.allowed) { approval.reason }
-        val loc = location(context) ?: throw IllegalStateException("No existe permiso SAF para BARDO.")
-        val (source, sourceParent) = resolveEntry(context, loc, approval.normalizedPath!!)
+        require(approval.allowed && approval.normalizedPath == relativePath) { approval.reason }
         val trash = findChild(context, loc, loc.root, TRASH_DIRECTORY, true)
             ?: DocumentsContract.createDocument(
                 context.contentResolver, loc.root,
@@ -345,14 +358,13 @@ object BardoSharedStorage {
     /** Eliminación permanente limitada a archivos o carpetas vacías y confirmación de una sola operación. */
     private fun deletePermanently(
         context: Context,
+        target: Uri,
         relativePath: String,
         explicitUserConfirmation: Boolean
     ): Boolean {
         require(explicitUserConfirmation) { "La eliminación requiere confirmación directa del usuario." }
         val approval = consumeApproval(context, BardoMobileFileOperation.PERMANENT_DELETE, relativePath)
-        require(approval.allowed) { approval.reason }
-        val loc = location(context) ?: throw IllegalStateException("No existe permiso SAF para BARDO.")
-        val (target, _) = resolveEntry(context, loc, approval.normalizedPath!!)
+        require(approval.allowed && approval.normalizedPath == relativePath) { approval.reason }
         val info = metadata(context, target) ?: throw IllegalStateException("No se pudo consultar el elemento.")
         if (info.isDirectory) {
             val children = DocumentsContract.buildChildDocumentsUriUsingTree(
@@ -390,7 +402,11 @@ object BardoSharedStorage {
             decision.reason.ifBlank { "La solicitud de eliminación no es válida." }
         }
         val loc = location(context) ?: throw IllegalStateException("No existe permiso SAF para BARDO.")
-        resolveEntry(context, loc, decision.normalizedPath)
+        val (entryUri, _) = resolveEntry(context, loc, decision.normalizedPath)
+        val entryInfo = metadata(context, entryUri)
+            ?: throw IllegalStateException("No se pudo registrar la identidad del documento.")
+        val documentId = DocumentsContract.getDocumentId(entryUri)
+        require(documentId.isNotBlank()) { "El proveedor SAF no facilitó un identificador estable." }
         val prefs = context.applicationContext.getSharedPreferences(DELETE_REQUESTS_PREFS, Context.MODE_PRIVATE)
         val current = readRequests(prefs.getString(DELETE_REQUESTS_KEY, "[]").orEmpty())
         require(current.size < MAX_PENDING_DELETE_REQUESTS) {
@@ -406,7 +422,12 @@ object BardoSharedStorage {
             reason = reason.trim().take(MAX_DELETE_REASON_CHARS).ifBlank {
                 "Mantenimiento solicitado por BARDO."
             },
-            requestedAtMillis = System.currentTimeMillis()
+            requestedAtMillis = System.currentTimeMillis(),
+            documentId = documentId,
+            name = entryInfo.name,
+            mimeType = entryInfo.mimeType,
+            sizeBytes = entryInfo.sizeBytes,
+            lastModifiedMillis = entryInfo.lastModifiedMillis
         )
         val updated = current + request
         check(prefs.edit().putString(DELETE_REQUESTS_KEY, requestsJson(updated).toString()).commit()) {
@@ -444,13 +465,25 @@ object BardoSharedStorage {
         val current = readRequests(prefs.getString(DELETE_REQUESTS_KEY, "[]").orEmpty())
         val request = current.firstOrNull { it.id == requestId }
             ?: throw IllegalArgumentException("La solicitud ya no existe o fue rechazada.")
+        val loc = location(app) ?: throw IllegalStateException("No existe permiso SAF para BARDO.")
+        val (target, parent) = resolveEntry(app, loc, request.relativePath)
+        val currentInfo = metadata(app, target)
+            ?: throw IllegalStateException("No se pudo comprobar el documento pendiente.")
+        val currentId = DocumentsContract.getDocumentId(target)
+        require(request.matchesCurrentIdentity(currentId, currentInfo)) {
+            "El elemento de Descargas/BARDO cambió desde la solicitud. No se ha movido ni eliminado; rechaza esta solicitud y crea otra si procede."
+        }
         val outcome = if (request.permanent) {
-            check(deletePermanently(app, request.relativePath, explicitUserConfirmation = true)) {
+            check(deletePermanently(
+                app, target, request.relativePath, explicitUserConfirmation = true
+            )) {
                 "El proveedor SAF no confirmó la eliminación."
             }
             "Eliminado permanentemente: BARDO/" + request.relativePath
         } else {
-            "Movido a BARDO/" + moveToTrash(app, request.relativePath, explicitUserConfirmation = true)
+            "Movido a BARDO/" + moveToTrash(
+                app, target, parent, request.relativePath, explicitUserConfirmation = true
+            )
         }
         val latest = readRequests(prefs.getString(DELETE_REQUESTS_KEY, "[]").orEmpty())
         val updated = latest.filterNot { it.id == requestId }
@@ -480,7 +513,12 @@ object BardoSharedStorage {
                         relativePath = path,
                         permanent = operation == "PERMANENT_DELETE",
                         reason = reason.take(MAX_DELETE_REASON_CHARS),
-                        requestedAtMillis = requestedAt
+                        requestedAtMillis = requestedAt,
+                        documentId = row.optString("documentId").takeIf { it.isNotBlank() },
+                        name = row.optString("name").takeIf { it.isNotBlank() },
+                        mimeType = row.optString("mimeType").takeIf { it.isNotBlank() },
+                        sizeBytes = if (row.has("sizeBytes") && !row.isNull("sizeBytes")) row.optLong("sizeBytes") else null,
+                        lastModifiedMillis = if (row.has("lastModifiedMillis") && !row.isNull("lastModifiedMillis")) row.optLong("lastModifiedMillis") else null
                     ))
                 }
             }
@@ -495,6 +533,11 @@ object BardoSharedStorage {
                 .put("operation", if (request.permanent) "PERMANENT_DELETE" else "MOVE_TO_TRASH")
                 .put("reason", request.reason)
                 .put("requestedAt", request.requestedAtMillis)
+                .put("documentId", request.documentId)
+                .put("name", request.name)
+                .put("mimeType", request.mimeType)
+                .put("sizeBytes", request.sizeBytes)
+                .put("lastModifiedMillis", request.lastModifiedMillis)
             )
         }
     }
