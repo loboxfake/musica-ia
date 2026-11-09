@@ -152,14 +152,14 @@ object BardoCiEvidenceAdapter {
         val artifact = matchingArtifacts.singleOrNull()
         val artifactRun = artifact?.optJSONObject("workflow_run")
         val artifactDigest = artifact?.optString("digest", "").orEmpty()
-        val artifactDigestVerified = Regex("^sha256:[0-9a-f]{64}$").matches(artifactDigest)
+        val artifactDigestMetadataValid = Regex("^sha256:[0-9a-f]{64}$").matches(artifactDigest)
         val artifactVerified = artifact != null &&
             artifactRun != null &&
             !artifact.optBoolean("expired", true) &&
             artifact.optLong("size_in_bytes", 0L) > 0L &&
             artifactRun.optLong("id", 0L) == runId &&
             artifactRun.optString("head_sha", "").equals(expectedSha, ignoreCase = true) &&
-            artifactDigestVerified
+            artifactDigestMetadataValid
 
         val reference = expectedUrl
         val allGood = pipelineSucceeded &&
@@ -238,7 +238,7 @@ object BardoCiEvidenceAdapter {
                 "verify_apk=" + stepSucceeded(VERIFY_APK_STEP) +
                     "; artifact=" + artifactName +
                     "; artifact_verified=" + artifactVerified +
-                    "; artifact_digest_verified=" + artifactDigestVerified
+                    "; artifact_digest_metadata_format_valid=" + artifactDigestMetadataValid
             )
         )
 
@@ -249,7 +249,7 @@ object BardoCiEvidenceAdapter {
             if (!stepSucceeded(GRADLE_STEP)) add("Los tests unitarios y/o la compilación debug no terminaron en SUCCESS.")
             if (!stepSucceeded(VERIFY_APK_STEP)) add("La verificación de existencia del APK no terminó en SUCCESS.")
             if (!stepSucceeded(UPLOAD_APK_STEP)) add("La subida del artefacto debug no terminó en SUCCESS.")
-            if (!artifactVerified) add("No se ha verificado el artefacto no expirado, su digest SHA-256 y su asociación al mismo run y commit.")
+            if (!artifactVerified) add("No se ha verificado la presencia/formato del digest de GitHub y la asociación del artefacto no expirado al mismo run y commit.")
         }
 
         return BardoCiEvidenceCollection(
