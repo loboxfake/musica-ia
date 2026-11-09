@@ -1,6 +1,12 @@
 package com.musicaia.actualizaciones
 
 import com.musicaia.desarrollo.BardoProtectedPathPolicy
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
+import java.io.FileInputStream
+import java.nio.file.Files
+import java.security.MessageDigest
 
 /**
  * Contrato de validación para actualizaciones incrementales de BARDO.
@@ -32,7 +38,35 @@ data class BardoIncrementalUpdateManifest(
     val rollbackPlanRef: String,
     val dataMigrationId: String? = null,
     val migrationIsReversible: Boolean = true
-)
+) {
+    /** Serialización estable para conservar el manifiesto junto al candidato. */
+    fun toJson(): String {
+        val fileArray = JSONArray()
+        files.forEach { item ->
+            fileArray.put(JSONObject()
+                .put("path", item.path)
+                .put("operation", item.operation.name)
+                .put("previousSha256", item.previousSha256)
+                .put("targetSha256", item.targetSha256)
+                .put("sizeBytes", item.sizeBytes))
+        }
+        return JSONObject()
+            .put("updateId", updateId)
+            .put("fromVersion", fromVersion)
+            .put("toVersion", toVersion)
+            .put("baseCommit", baseCommit)
+            .put("targetFingerprintSha256", targetFingerprintSha256)
+            .put("level", level.name)
+            .put("files", fileArray)
+            .put("requiredPermissions", JSONArray(requiredPermissions.sorted()))
+            .put("approvedPermissions", JSONArray(approvedPermissions.sorted()))
+            .put("evidenceRefs", JSONArray(evidenceRefs))
+            .put("rollbackPlanRef", rollbackPlanRef)
+            .put("dataMigrationId", dataMigrationId)
+            .put("migrationIsReversible", migrationIsReversible)
+            .toString()
+    }
+}
 
 data class BardoUpdateValidation(
     val accepted: Boolean,
@@ -112,4 +146,108 @@ object BardoIncrementalUpdatePolicy {
         return raw
     }
     private fun isAllowedPath(path: String): Boolean = path.startsWith("app/src/main/java/") || path.startsWith("app/src/main/res/") || path.startsWith("docs/")
+}
+
+
+/**
+ * Construye el manifiesto a partir de los bytes reales del snapshot y del
+ * candidato. Solo admite modificaciones de archivos existentes; el aplicador
+ * actual no instala archivos nuevos ni elimina archivos.
+ */
+object BardoIncrementalUpdateManifestFactory {
+    fun create(
+        snapshotRoot: File,
+        candidateRoot: File,
+        changedFiles: List<String>,
+        baseCommit: String,
+        fromVersion: String,
+        toVersion: String,
+        patchText: String,
+        evidenceRefs: List<String>,
+        rollbackPlanRef: String
+    ): BardoIncrementalUpdateManifest {
+        require(changedFiles.isNotEmpty() && changedFiles.size <= BardoIncrementalUpdatePolicy.MAX_FILES)
+        require(changedFiles.distinct().size == changedFiles.size)
+        require(snapshotRoot.isDirectory && candidateRoot.isDirectory)
+        val entries = changedFiles.sorted().map { path ->
+            require(BardoProtectedPathPolicy.canModifyExisting(path)) {
+                "La ruta no está permitida para una actualización incremental: " + path
+            }
+            val source = resolveRegularFile(snapshotRoot, path)
+            val target = resolveRegularFile(candidateRoot, path)
+            BardoUpdateFile(
+                path = path,
+                operation = BardoUpdateOperation.MODIFY,
+                previousSha256 = sha256(source),
+                targetSha256 = sha256(target),
+                sizeBytes = target.length()
+            )
+        }
+        val packageDirs = changedFiles.map { it.substringBeforeLast('/') }.distinct()
+        val level = when {
+            changedFiles.all { it.startsWith("docs/") } -> BardoUpdateLevel.CONFIGURATION
+            changedFiles.all { it.startsWith("app/src/main/java/") } &&
+                packageDirs.size == 1 -> BardoUpdateLevel.MODULE
+            else -> BardoUpdateLevel.SHARED_CONTRACT
+        }
+        val patchBytes = patchText.toByteArray(Charsets.UTF_8)
+        require(patchBytes.isNotEmpty()) { "El diff de actualización está vacío." }
+        val manifest = BardoIncrementalUpdateManifest(
+            updateId = "update-" + System.currentTimeMillis().toString() + "-" +
+                sha256(patchBytes).take(12),
+            fromVersion = fromVersion,
+            toVersion = toVersion,
+            baseCommit = baseCommit,
+            targetFingerprintSha256 = sha256(patchBytes),
+            level = level,
+            files = entries,
+            requiredPermissions = emptySet(),
+            approvedPermissions = emptySet(),
+            evidenceRefs = evidenceRefs.distinct(),
+            rollbackPlanRef = rollbackPlanRef
+        )
+        val validation = BardoIncrementalUpdatePolicy.validate(manifest)
+        require(validation.accepted) {
+            "Manifiesto incremental rechazado: " + validation.errors.joinToString(", ")
+        }
+        return manifest
+    }
+
+    private fun resolveRegularFile(root: File, relativePath: String): File {
+        val canonicalRoot = root.canonicalFile
+        var current = canonicalRoot
+        relativePath.split('/').forEach { segment ->
+            current = File(current, segment)
+            require(!Files.isSymbolicLink(current.toPath())) {
+                "El candidato contiene un enlace simbólico: " + relativePath
+            }
+        }
+        val canonical = current.canonicalFile
+        require(canonical.path.startsWith(canonicalRoot.path + File.separator))
+        require(canonical.isFile) { "Falta el archivo de actualización: " + relativePath }
+        require(canonical.length() in 1L..BardoWorkspaceFileLimit.MAX_BYTES) {
+            "El archivo supera el límite de tamaño o está vacío: " + relativePath
+        }
+        return canonical
+    }
+
+    private fun sha256(file: File): String = FileInputStream(file).use { input ->
+        val digest = MessageDigest.getInstance("SHA-256")
+        val buffer = ByteArray(8192)
+        while (true) {
+            val count = input.read(buffer)
+            if (count < 0) break
+            digest.update(buffer, 0, count)
+        }
+        digest.digest().joinToString("") { "%02x".format(it) }
+    }
+
+    private fun sha256(bytes: ByteArray): String =
+        MessageDigest.getInstance("SHA-256").digest(bytes)
+            .joinToString("") { "%02x".format(it) }
+}
+
+/** Límite conservador para el manifiesto, independiente del límite del workspace. */
+private object BardoWorkspaceFileLimit {
+    const val MAX_BYTES = 2L * 1024L * 1024L
 }
