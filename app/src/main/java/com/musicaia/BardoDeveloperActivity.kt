@@ -137,6 +137,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
         addButton(root, "Autoanalizar el propio código de BARDO") { importarCodigoPropio() }
         addButton(root, "Importar código del proyecto (.zip)") { importProject.launch(arrayOf("application/zip", "application/octet-stream", "application/x-zip-compressed")) }
         addButton(root, "Importar skill declarativa (.bskill)") { importSkillArchive.launch(arrayOf("application/zip", "application/octet-stream", "application/x-zip-compressed")) }
+        addButton(root, "Revisar borradores de skills creados por BARDO") { revisarBorradoresSkills() }
         btnAnalyze = addButton(root, "Analizar código y generar auditoría", enabled = snapshot != null) { analizarProyecto() }
         btnAsk = addButton(root, "Consultar a BARDO con Gemma local", enabled = false) { consultarModelo() }
         btnApply = addButton(root, "Aplicar propuesta a una copia aislada", enabled = false) { aplicarPropuesta() }
@@ -257,15 +258,45 @@ class BardoDeveloperActivity : AppCompatActivity() {
     }
 
     private fun importarPaqueteSkill(uri: Uri) {
+        importarPaqueteSkillDesde { contentResolver.openInputStream(uri) }
+    }
+
+    private fun revisarBorradoresSkills() {
+        val root = File(filesDir, "bardo_skill_drafts")
+        val drafts = root.listFiles()
+            ?.filter { it.isFile && it.extension.equals("bskill", true) }
+            ?.sortedByDescending { it.lastModified() }
+            .orEmpty()
+        if (drafts.isEmpty()) {
+            AlertDialog.Builder(this)
+                .setTitle("Borradores de skills")
+                .setMessage("BARDO todavía no ha creado borradores .bskill. Puede proponerlos con skills.create_draft; nada se instala automáticamente.")
+                .setPositiveButton("Aceptar", null)
+                .show()
+            return
+        }
+        val labels = drafts.map { file ->
+            file.name + " · " + file.length() + " bytes"
+        }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("Revisar borradores locales")
+            .setItems(labels) { _, index ->
+                importarPaqueteSkillDesde { drafts[index].inputStream() }
+            }
+            .setNegativeButton("Cerrar", null)
+            .show()
+    }
+
+    private fun importarPaqueteSkillDesde(openInput: () -> java.io.InputStream?) {
         output.text = "BARDO está verificando el paquete .bskill en modo local; no se ejecutará código del archivo…"
         worker.execute {
             val result = runCatching {
                 val runtime = BardoSkillRuntimeFactory.create(applicationContext)
                 val registered = BardoCoreToolCatalog.create(applicationContext)
                     .map { it.descriptor.id }.toSet()
-                val archive = contentResolver.openInputStream(uri)?.use { input ->
+                val archive = openInput()?.use { input ->
                     BardoSkillArchiveReader.read(input, registered)
-                } ?: throw IllegalStateException("Android no pudo abrir el paquete seleccionado.")
+                } ?: throw IllegalStateException("No se pudo abrir el paquete .bskill seleccionado.")
                 runtime to archive
             }
             runOnUiThread {
