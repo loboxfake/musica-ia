@@ -86,6 +86,25 @@ object BardoSkillManifestValidator {
 
     fun supportedActionIds(): Set<String> = actionPermissions.keys.toSet()
 
+    /** Comparador SemVer básico para major.minor.patch y pre-release. */
+    fun compareVersions(first: String, second: String): Int {
+        fun parts(value: String): List<Int> =
+            value.substringBefore('-').substringBefore('+').split('.').map { it.toIntOrNull() ?: 0 }
+        val left = parts(first)
+        val right = parts(second)
+        for (index in 0..2) {
+            val comparison = left.getOrElse(index) { 0 }.compareTo(right.getOrElse(index) { 0 })
+            if (comparison != 0) return comparison
+        }
+        val leftPre = first.substringAfter('-', "").substringBefore('+')
+        val rightPre = second.substringAfter('-', "").substringBefore('+')
+        return when {
+            leftPre.isEmpty() && rightPre.isNotEmpty() -> 1
+            leftPre.isNotEmpty() && rightPre.isEmpty() -> -1
+            else -> leftPre.compareTo(rightPre)
+        }
+    }
+
     fun validate(
         manifest: BardoSkillManifest,
         registeredActionIds: Set<String> = supportedActionIds()
@@ -102,16 +121,19 @@ object BardoSkillManifestValidator {
         if (manifest.description.isBlank() || manifest.description.length > 2000) {
             errors += "Descripción ausente o demasiado larga."
         }
-        val sourceIsHttps = manifest.source.startsWith("https://")
-        val sourceIsLocal = manifest.source.startsWith("local://")
+        val sourceUri = runCatching { URI(manifest.source) }.getOrNull()
+        val sourceIsHttps = sourceUri?.scheme.equals("https", ignoreCase = true) &&
+            !sourceUri?.host.isNullOrBlank() && sourceUri?.rawUserInfo == null
+        val sourceIsLocal = manifest.source.matches(Regex("^local://[A-Za-z0-9._/-]{1,160}$")) &&
+            !manifest.source.contains("../") && !manifest.source.contains("/..")
         if ((!sourceIsHttps && !sourceIsLocal) || manifest.source.length > 1000) {
-            errors += "El origen debe ser HTTPS o un identificador local."
+            errors += "El origen debe ser HTTPS válido o un identificador local sin traversal."
         }
         if (manifest.license.isBlank() || manifest.license.equals("unknown", true)) {
             errors += "La licencia debe identificarse antes de instalar."
         }
         if (!hashPattern.matches(manifest.packageSha256)) errors += "SHA-256 de paquete no válido."
-        if (manifest.packageSizeBytes !in 1..MAX_PACKAGE_BYTES) {
+        if (manifest.packageSizeBytes !in 1L..MAX_PACKAGE_BYTES) {
             errors += "El paquete supera el límite de 10 MiB o está vacío."
         }
         if (!manifest.licenseAcceptedByUser) errors += "El usuario aún no ha aceptado la licencia."
@@ -124,6 +146,14 @@ object BardoSkillManifestValidator {
         if (manifest.dependencies.size > 20) errors += "Demasiadas dependencias."
         if (manifest.dependencies.map { it.skillId }.distinct().size != manifest.dependencies.size) {
             errors += "La lista de dependencias contiene IDs duplicados."
+        }
+        manifest.dependencies.forEach { dependency ->
+            if (!idPattern.matches(dependency.skillId)) {
+                errors += "ID de dependencia no válido: " + dependency.skillId
+            }
+            if (!versionPattern.matches(dependency.minimumVersion)) {
+                errors += "Versión mínima no válida para la dependencia: " + dependency.skillId
+            }
         }
 
         manifest.actions.forEach { action ->
