@@ -78,7 +78,7 @@ La flota puede recibir varios proveedores y perfiles, pero el autoestudio solo r
 
 El diario de aprendizaje guarda propuestas no verificadas. Falta conectar un verificador independiente real a resultados CI, benchmarks y evidencias reproducibles para promover lecciones a memoria fiable.
 
-El gestor de skills no descarga paquetes por sí solo ni crea automáticamente handlers: solo admite acciones ya registradas. La UI para explorar fuentes, importar paquetes, revisar licencias y conceder permisos queda pendiente. Las skills ejecutables siguen bloqueadas.
+El gestor de skills no descarga paquetes por sí solo ni crea automáticamente handlers: solo admite acciones ya registradas. La UI para explorar fuentes, importar paquetes, revisar licencias y conceder permisos queda pendiente. No hay un BardoSkillSmokeTestRunner de producción conectado, por lo que activar skills está bloqueado hasta implementar y probar ese verificador. Las skills ejecutables siguen bloqueadas.
 
 El evaluador puede clasificar evidencias, pero aún falta garantizar que cada evidencia proviene de resultados verificables y enlazarlo al proceso de integración end-to-end. La autonomía de código no está aún probada como ciclo completo que identifica, desarrolla, ejecuta tests, corrige y vuelve a validar sin ayuda de una conversación externa.
 
