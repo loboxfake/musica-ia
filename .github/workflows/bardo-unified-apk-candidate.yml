@@ -5,7 +5,12 @@ on:
     branches:
       - bardo/integral-autonomy-20261109
     paths:
-      - .github/workflows/**
+      - .github/workflows/bardo-unified-apk-candidate.yml
+      - .github/workflows/bardo-commit-candidate.yml
+      - .github/workflows/bardo-candidate-validation.yml
+      - .github/workflows/bardo-validation.yml
+      - .github/workflows/full-build.yml
+      - .github/workflows/prepare-audio-model.yml
       - app/**
       - build.gradle.kts
       - settings.gradle.kts
