@@ -54,6 +54,23 @@ class BardoProtectedPathPolicyTest {
         assertFalse(BardoProtectedPathPolicy.canModifyExisting("secrets.env"))
     }
 
+    @Test fun protectsAuthorityModelsSkillsToolsAndEvaluatorPolicies() {
+        val protected = listOf(
+            "app/src/main/java/com/musicaia/seguridad/BardoAuthorityPolicy.kt",
+            "app/src/main/java/com/musicaia/seguridad/BardoAuthorityLedger.kt",
+            "app/src/main/java/com/musicaia/modelos/BardoModelProvider.kt",
+            "app/src/main/java/com/musicaia/skills/BardoSkillManifest.kt",
+            "app/src/main/java/com/musicaia/herramientas/BardoToolExecutor.kt",
+            "app/src/main/java/com/musicaia/evaluacion/BardoIndependentEvaluator.kt"
+        )
+        protected.forEach { path ->
+            assertEquals(
+                BardoProtectedPathPolicy.PathClass.HUMAN_REVIEW_REQUIRED,
+                BardoProtectedPathPolicy.classify(path)
+            )
+        }
+    }
+
     @Test fun rejectsTraversalAndAmbiguousPaths() {
         listOf(
             "../MainActivity.kt",

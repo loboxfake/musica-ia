@@ -43,6 +43,18 @@ class BardoIndependentEvaluatorTest {
         )
     }
 
+    @Test fun aFailedDeviceCheckCannotBeReportedAsVerifiedOrReady() {
+        val evidence = ciEvidence() + BardoCheckEvidence(
+            BardoCheck.DEVICE_INSTALL,
+            false,
+            "install failed"
+        )
+        assertEquals(
+            BardoEvaluationStatus.REJECTED,
+            BardoIndependentEvaluator.evaluate(evidence).status
+        )
+    }
+
     @Test fun refusesDuplicateCheckEvidence() {
         val one = BardoCheckEvidence(BardoCheck.UNIT_TESTS, true, "ok")
         assertTrue(runCatching {

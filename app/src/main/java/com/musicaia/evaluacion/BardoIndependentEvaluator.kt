@@ -82,7 +82,7 @@ object BardoIndependentEvaluator {
             (requiredDevice - passed).isEmpty()
 
         val status = when {
-            failedCi.isNotEmpty() -> BardoEvaluationStatus.REJECTED
+            failed.isNotEmpty() -> BardoEvaluationStatus.REJECTED
             !ciComplete -> BardoEvaluationStatus.INCOMPLETE
             deviceComplete -> BardoEvaluationStatus.DEVICE_VERIFIED
             else -> BardoEvaluationStatus.READY_FOR_HUMAN_REVIEW
