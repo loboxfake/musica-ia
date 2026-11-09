@@ -301,6 +301,14 @@ class BardoGemmaTaskPlanner(
             para recibir una entrada. Solo usa skills habilitadas y acciones declaradas.
             Para una acción aislada, skill.run_action admite skill_id, version, action_id
             y action_arguments_json. Toda acción vuelve a pasar por ToolExecutor y permisos.
+            Para diseñar una skill declarativa nueva, puedes llamar a skills.create_draft con
+            id, name, version, description, license y workflow_json. workflow_json debe ser
+            JSON schema_version=1 con steps; cada paso usa solo acciones registradas y sus
+            argumentos de texto. El sistema calcula hash y permisos, valida el workflow y
+            guarda un .bskill en borradores privados. Esto NO importa, instala ni habilita
+            la skill. Nunca inventes una licencia: usa una licencia conocida de la fuente o
+            deja la creación pendiente de confirmación del usuario. No incluyas scripts,
+            comandos, código ejecutable ni URL de descarga en el workflow.
             Devuelve SOLO JSON:
             {"correctionBudget":1,"steps":[{"toolId":"id.registrado","purpose":"motivo breve","arguments":{"key":"value"},"expectedOutputContains":"opcional"}]}
             Máximo 12 pasos y 2 correcciones. Cada paso invoca una herramienta tipada.
