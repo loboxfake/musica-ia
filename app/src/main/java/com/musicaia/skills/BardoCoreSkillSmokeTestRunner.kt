@@ -37,7 +37,7 @@ class BardoCoreSkillSmokeTestRunner(
         val untested = manifest.actions - skillEligibleIds
         if (untested.isNotEmpty()) {
             return failed(
-                "Acciones sin smoke-test de confianza escrito en el APK: " +
+                "La acción no tiene un smoke-test de confianza escrito en el APK: " +
                     untested.sorted().joinToString()
             )
         }
