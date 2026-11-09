@@ -16,15 +16,15 @@ La ruta se expresa como relativa a la raíz concedida. Se rechazan rutas absolut
 
 `BardoMobileFilePolicy` valida operaciones y rutas relativas, rechaza traversal y limita las operaciones al árbol SAF persistente. `BardoSharedStorage` ya implementa:
 - listado de hijos directos con metadatos;
-- lectura acotada de texto UTF-8 (hasta 48 KiB);
-- creación y verificación de archivos de texto (hasta 28.000 caracteres);
-- creación de subcarpetas bajo directorios ya existentes;
+- lectura por tramos de texto UTF-8, permitiendo recorrer documentos grandes sin cargarlos completos en RAM;
+- creación y verificación de archivos de texto (hasta 24.000 caracteres y 48 KiB UTF-8);
+- creación recursiva de rutas de carpetas dentro del árbol BARDO, reutilizando solo directorios existentes;
 - cola persistente de solicitudes de retirada;
 - traslado a `Papelera` cuando el proveedor SAF soporta MOVE;
 - eliminación permanente solo de archivos o carpetas vacías y después de confirmación visible;
 - registro local de las operaciones, sin guardar el contenido de los archivos.
 
-El catálogo expone lectura/listado, creación de carpetas/archivos y solicitud de retirada. BARDO nunca recibe una herramienta que apruebe o ejecute eliminaciones. La pantalla Developer muestra ruta, motivo y naturaleza de la operación; el usuario puede aprobar o rechazar. El Gemma original sigue protegido.
+El catálogo expone listado, lectura por tramos con desplazamiento, creación de carpetas/archivos y solicitud de retirada. BARDO nunca recibe una herramienta que apruebe o ejecute eliminaciones. La pantalla Developer muestra ruta, motivo y naturaleza de la operación; el usuario puede aprobar o rechazar. El Gemma original sigue protegido.
 
 `BardoMobileFilePolicyTest` cubre traversal, rutas absolutas, raíz, permisos rutinarios, aprobación vinculada a ruta/operación, caducidad y protección del Gemma original. La ejecución real SAF y compatibilidad de MOVE requieren prueba en el dispositivo.
 
