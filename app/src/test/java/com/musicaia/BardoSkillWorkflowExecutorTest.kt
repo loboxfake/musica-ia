@@ -155,6 +155,25 @@ class BardoSkillWorkflowExecutorTest {
         }
     }
 
+
+    @Test fun rejectsUnusedWorkflowInputsBeforeExecutingAnyAction() {
+        val fixture = fixture(validPackage())
+        try {
+            val report = BardoSkillWorkflowExecutor(fixture.manager, fixture.tools).execute(
+                "skill.local.research",
+                "1.0.0",
+                mapOf("query" to "audio offline", "unneeded" to "must-not-be-forwarded")
+            )
+
+            assertFalse(report.succeeded)
+            assertEquals(0, fixture.search.calls)
+            assertEquals(0, fixture.inventory.calls)
+            assertTrue(report.error.orEmpty().contains("no utilizados"))
+        } finally {
+            fixture.root.deleteRecursively()
+        }
+    }
+
     @Test fun rejectsWorkflowActionThatIsNotDeclaredInManifest() {
         val invalid = """
             {
