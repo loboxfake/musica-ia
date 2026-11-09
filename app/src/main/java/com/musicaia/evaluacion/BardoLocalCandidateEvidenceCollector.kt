@@ -197,8 +197,10 @@ object BardoLocalCandidateEvidenceCollector {
     private fun listRegularFiles(root: File): List<String> {
         require(isRealDirectory(root)) { "La carpeta candidata no es real." }
         val result = mutableListOf<String>()
+        var totalBytes = 0L
 
-        fun visit(directory: File, relative: String) {
+        fun visit(directory: File, relative: String, depth: Int) {
+            require(depth <= 20) { "El candidato supera la profundidad máxima de carpetas." }
             val children = directory.listFiles()
                 ?: throw IllegalStateException("No se pudo enumerar el candidato.")
             children.sortedBy { it.name }.forEach { child ->
@@ -207,15 +209,23 @@ object BardoLocalCandidateEvidenceCollector {
                 }
                 val path = if (relative.isBlank()) child.name else relative + "/" + child.name
                 if (child.isDirectory) {
-                    visit(child, path)
+                    visit(child, path, depth + 1)
                 } else {
                     require(child.isFile) { "El candidato contiene una entrada no regular." }
+                    require(result.size < 30) { "El candidato supera el máximo de 30 archivos." }
+                    require(child.length() <= BardoWorkspaceManager.MAX_FILE_BYTES) {
+                        "Un archivo del candidato supera el máximo de 2 MiB: $path"
+                    }
+                    totalBytes += child.length()
+                    require(totalBytes <= BardoWorkspaceManager.MAX_TOTAL_BYTES) {
+                        "El candidato supera el máximo total de 60 MiB."
+                    }
                     result += path
                 }
             }
         }
 
-        visit(root, "")
+        visit(root, "", 0)
         return result
     }
 
