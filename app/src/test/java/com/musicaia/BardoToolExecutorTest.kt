@@ -25,6 +25,19 @@ class BardoToolExecutorTest {
             BardoToolOutput(true, arguments.values.joinToString("|"))
     }
 
+    private class TrustedSmokeTool : BardoToolHandler, com.musicaia.herramientas.BardoToolSmokeTestHandler {
+        override val descriptor = BardoToolDescriptor(
+            "test.smoke", "Trusted smoke-test tool", BardoPermissionScope.READ_BARDO_DATA, 0, 32
+        )
+        override fun execute(arguments: Map<String, String>) = BardoToolOutput(true, "runtime")
+        override fun smokeTest() = BardoToolOutput(true, "smoke")
+    }
+
+    @Test fun skillAllowlistContainsOnlyHandlersWithApkAuthoredSmokeTests() {
+        val executor = BardoToolExecutor(listOf(EchoTool(), TrustedSmokeTool()))
+        assertEquals(setOf("test.smoke"), executor.registeredSkillToolIds())
+    }
+
     @Test fun registeredSafeToolCanRunForBardo() {
         val executor = BardoToolExecutor(listOf(EchoTool()))
         val result = executor.execute(
