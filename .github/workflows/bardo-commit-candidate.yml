@@ -197,10 +197,10 @@ jobs:
           cat > "$body" <<EOF
           ## BARDO candidate — human review required
 
-          - Candidate: `$CANDIDATE_ID`
-          - Base commit: `$BASE_SHA`
-          - Candidate commit: `$candidate_sha`
-          - Source branch: `$branch`
+          - Candidate ID: $CANDIDATE_ID
+          - Base commit: $BASE_SHA
+          - Candidate commit: $candidate_sha
+          - Source branch: $branch
 
           ### Validation
           - Isolated candidate validation: SUCCESS
@@ -209,7 +209,7 @@ jobs:
           - Existing tests, workflows, build configuration, signing data and Modo3 were not changed by this candidate.
 
           ### Governance
-          This draft PR does not modify `main`, does not merge itself, and does not publish an APK. A human must review the diff and CI results and decide whether to merge it. The full signed APK workflow runs only after a separately authorised merge to `main`.
+          This draft PR does not modify main, does not merge itself, and does not publish an APK. A human must review the diff and CI results and decide whether to merge it. The full signed APK workflow runs only after a separately authorised merge to main.
           EOF
           pr_url="$(gh pr create --draft --base main --head "$branch" --title "BARDO: candidate $CANDIDATE_ID" --body-file "$body")"
           pr_number="$(gh pr view "$pr_url" --json number --jq '.number')"
