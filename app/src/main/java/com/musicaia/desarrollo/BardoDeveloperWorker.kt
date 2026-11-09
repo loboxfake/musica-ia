@@ -152,10 +152,10 @@ class BardoDeveloperWorker(
                 applicationContext, taskId, "autoestudio", "running",
                 "bucle_autonomo", "BARDO inicia planificar→actuar→observar→evaluar→corregir con herramientas locales tipadas.", 42
             )
+            val skillRuntime = BardoSkillRuntimeFactory.create(applicationContext)
+            val toolExecutor = skillRuntime.tools
             val autonomyResult = runCatching {
                 val modelRegistry = BardoModelRegistry(listOf(BardoGemmaLiteRtProvider()))
-                val skillRuntime = BardoSkillRuntimeFactory.create(applicationContext)
-                val toolExecutor = skillRuntime.tools
                 val autonomy = BardoAutonomyEngine(
                     planner = BardoGemmaTaskPlanner(applicationContext, modelRegistry),
                     tools = toolExecutor,
