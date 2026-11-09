@@ -5,6 +5,7 @@ import com.musicaia.herramientas.BardoToolExecutor
 import com.musicaia.herramientas.BardoToolHandler
 import com.musicaia.herramientas.BardoToolRequest
 import com.musicaia.herramientas.BardoToolOutput
+import com.musicaia.herramientas.BardoToolSmokeTestHandler
 import com.musicaia.seguridad.BardoPermissionScope
 import com.musicaia.seguridad.BardoPrincipal
 import org.junit.Assert.assertEquals
