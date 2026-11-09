@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: bardo-validation-${{ github.ref }}
+  group: bardo-validation-${{ github.event.pull_request.head.sha || github.sha }}
   # Las validaciones completas no deben cancelarse por un push posterior.
   cancel-in-progress: false
 
