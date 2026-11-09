@@ -105,8 +105,14 @@ class BardoDeveloperActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         workspace.mkdirs()
-        snapshot = getSharedPreferences("bardo_developer", MODE_PRIVATE)
-            .getString("snapshot_path", null)?.let { File(it) }?.takeIf { it.isDirectory }
+        val developerPrefs = getSharedPreferences("bardo_developer", MODE_PRIVATE)
+        snapshot = developerPrefs.getString("source_snapshot_path", null)
+            ?.takeIf { it.isNotBlank() }
+            ?.let { File(it) }
+            ?.takeIf { it.isDirectory && it.name.startsWith("snapshot-") }
+            ?: developerPrefs.getString("snapshot_path", null)
+                ?.let { File(it) }
+                ?.takeIf { it.isDirectory && it.name.startsWith("snapshot-") }
         construirInterfaz()
         val savedReport = runCatching { reportFile.readText() }.getOrDefault("")
         val responseMarker = listOf("## Respuesta del modelo\n\n", "## RESPUESTA AUTOESTUDIO\n\n")
