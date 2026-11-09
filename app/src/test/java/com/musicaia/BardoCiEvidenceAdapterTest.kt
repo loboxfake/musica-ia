@@ -3,6 +3,9 @@ package com.musicaia
 import com.musicaia.evaluacion.BardoCheck
 import com.musicaia.evaluacion.BardoCiEvidenceAdapter
 import com.musicaia.evaluacion.BardoCiEvidenceState
+import com.musicaia.evaluacion.BardoIndependentEvaluator
+import com.musicaia.evaluacion.BardoEvaluationStatus
+import com.musicaia.evaluacion.BardoCandidateEvaluationPipeline
 import com.musicaia.evaluacion.BardoEvidenceOrigin
 import org.json.JSONArray
 import org.json.JSONObject
@@ -186,4 +189,55 @@ class BardoCiEvidenceAdapterTest {
         assertEquals(BardoCiEvidenceState.INVALID, result.state)
         assertTrue(result.evidence.isEmpty())
     }
+
+    @Test
+    fun successfulCiIsOnlyReadyForHumanReviewAndNeverDeviceVerified() {
+        val result = BardoCandidateEvaluationPipeline.evaluate(
+            run(), jobs(), artifacts(), sha, emptyList()
+        )
+        assertEquals(BardoCiEvidenceState.CI_PASSED, result.ci.state)
+        assertEquals(BardoEvaluationStatus.READY_FOR_HUMAN_REVIEW, result.report?.status)
+        assertTrue(result.report!!.missingChecks.contains(BardoCheck.DEVICE_INSTALL))
+        assertTrue(
+            (result.report.passedChecks intersect BardoIndependentEvaluator.mandatoryDeviceChecks())
+                .isEmpty()
+        )
+    }
+
+    @Test
+    fun pendingOrInvalidCiDoesNotProduceAnEvaluationReport() {
+        val pending = BardoCandidateEvaluationPipeline.evaluate(
+            run(status = "queued", conclusion = ""),
+            jobs(), artifacts(), sha, emptyList()
+        )
+        assertEquals(BardoCiEvidenceState.PENDING, pending.ci.state)
+        assertEquals(null, pending.report)
+
+        val invalid = BardoCandidateEvaluationPipeline.evaluate(
+            run(headSha = "cccccccccccccccccccccccccccccccccccccccc"),
+            jobs(), artifacts(), sha, emptyList()
+        )
+        assertEquals(BardoCiEvidenceState.INVALID, invalid.ci.state)
+        assertEquals(null, invalid.report)
+    }
+
+    @Test
+    fun pipelineRejectsCallerSuppliedCiEvidence() {
+        val fakeCi = BardoIndependentEvaluator.mandatoryCiChecks().first()
+        val fake = com.musicaia.evaluacion.BardoCheckEvidence(
+            fakeCi,
+            true,
+            "not from GitHub API",
+            "https://github.com/loboxfake/musica-ia/actions/runs/" + runId,
+            BardoEvidenceOrigin.GITHUB_ACTIONS
+        )
+        val result = runCatching {
+            BardoCandidateEvaluationPipeline.evaluate(
+                run(), jobs(), artifacts(), sha, listOf(fake)
+            )
+        }
+        assertTrue(result.isFailure)
+    }
+
+
 }
