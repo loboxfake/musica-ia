@@ -11,26 +11,10 @@ on:
   workflow_dispatch:
     inputs:
       publish_release:
-        description: Explicitly authorize publishing the signed APK as a GitHub Release
+        description: Explicitly authorize building and publishing the signed production APK
         required: true
         default: false
         type: boolean
-  push:
-    branches:
-      - main
-    paths:
-      - .github/workflows/full-build.yml
-      - app/src/**
-      - app/build.gradle.kts
-      - build.gradle.kts
-      - settings.gradle.kts
-      - gradle.properties
-      - gradle/wrapper/**
-      - catalogo/**
-      - tools/**
-      - docs/**
-      - ESPECIFICACION.md
-      - README.md
 
 permissions:
   actions: write
@@ -39,6 +23,7 @@ permissions:
 
 jobs:
   full-build:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.publish_release == true
     runs-on: ubuntu-22.04
     timeout-minutes: 240
     steps:
