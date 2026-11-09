@@ -335,6 +335,7 @@ object BardoSharedStorage {
      */
     private fun moveToTrash(
         context: Context,
+        location: Location,
         source: Uri,
         sourceParent: Uri,
         relativePath: String,
@@ -343,9 +344,9 @@ object BardoSharedStorage {
         require(explicitUserConfirmation) { "La operación requiere confirmación directa del usuario." }
         val approval = consumeApproval(context, BardoMobileFileOperation.MOVE_TO_TRASH, relativePath)
         require(approval.allowed && approval.normalizedPath == relativePath) { approval.reason }
-        val trash = findChild(context, loc, loc.root, TRASH_DIRECTORY, true)
+        val trash = findChild(context, location, location.root, TRASH_DIRECTORY, true)
             ?: DocumentsContract.createDocument(
-                context.contentResolver, loc.root,
+                context.contentResolver, location.root,
                 DocumentsContract.Document.MIME_TYPE_DIR, TRASH_DIRECTORY
             ) ?: throw IllegalStateException("No se pudo crear la papelera BARDO.")
         val moved = DocumentsContract.moveDocument(context.contentResolver, source, sourceParent, trash)
@@ -358,6 +359,7 @@ object BardoSharedStorage {
     /** Eliminación permanente limitada a archivos o carpetas vacías y confirmación de una sola operación. */
     private fun deletePermanently(
         context: Context,
+        location: Location,
         target: Uri,
         relativePath: String,
         explicitUserConfirmation: Boolean
@@ -368,7 +370,7 @@ object BardoSharedStorage {
         val info = metadata(context, target) ?: throw IllegalStateException("No se pudo consultar el elemento.")
         if (info.isDirectory) {
             val children = DocumentsContract.buildChildDocumentsUriUsingTree(
-                loc.tree, DocumentsContract.getDocumentId(target)
+                location.tree, DocumentsContract.getDocumentId(target)
             )
             val count = context.contentResolver.query(
                 children, arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID), null, null, null
@@ -475,14 +477,14 @@ object BardoSharedStorage {
         }
         val outcome = if (request.permanent) {
             check(deletePermanently(
-                app, target, request.relativePath, explicitUserConfirmation = true
+                app, loc, target, request.relativePath, explicitUserConfirmation = true
             )) {
                 "El proveedor SAF no confirmó la eliminación."
             }
             "Eliminado permanentemente: BARDO/" + request.relativePath
         } else {
             "Movido a BARDO/" + moveToTrash(
-                app, target, parent, request.relativePath, explicitUserConfirmation = true
+                app, loc, target, parent, request.relativePath, explicitUserConfirmation = true
             )
         }
         val latest = readRequests(prefs.getString(DELETE_REQUESTS_KEY, "[]").orEmpty())
