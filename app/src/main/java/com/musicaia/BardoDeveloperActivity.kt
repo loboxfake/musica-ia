@@ -50,6 +50,7 @@ import com.musicaia.skills.BardoSkillManager
 import com.musicaia.skills.BardoSkillRecord
 import com.musicaia.skills.BardoSkillLifecycle
 import com.musicaia.skills.BardoSkillArchiveReader
+import com.musicaia.skills.BardoSkillActivationGate
 
 /** Entorno local de investigación y auditoría. Nunca ejecuta código importado ni modifica el APK instalado. */
 class BardoDeveloperActivity : AppCompatActivity() {
@@ -189,6 +190,22 @@ class BardoDeveloperActivity : AppCompatActivity() {
         return button
     }
 
+    /** Preflight del workflow almacenado antes de activar; el gestor conserva la comprobación de hash y smoke-tests. */
+    private fun habilitarSkillConPreflight(
+        manager: BardoSkillManager,
+        skillId: String,
+        version: String,
+        approvedPermissions: Set<com.musicaia.skills.BardoSkillPermission>
+    ) = BardoSkillActivationGate(
+        manager,
+        BardoSkillRuntimeFactory.create(applicationContext).registeredActionIds
+    ).enable(
+        skillId = skillId,
+        version = version,
+        explicitlyApproved = true,
+        approvedPermissions = approvedPermissions
+    )
+
     private fun solicitarInstalacionSkill(
         manager: BardoSkillManager,
         record: BardoSkillRecord
@@ -245,7 +262,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
             appendLine("Permisos que autorizas:")
             manifest.permissions.map { it.name }.sorted().forEach { appendLine("• " + it) }
             appendLine()
-            append("BARDO volverá a comprobar el hash, validará cada paso del workflow y ejecutará únicamente los smoke-tests de confianza escritos en la APK. Si falta evidencia, permanecerá deshabilitada.")
+            append("Antes de habilitar, BARDO volverá a comprobar el hash y ejecutará el preflight del workflow almacenado contra el catálogo actual. Después el gestor repetirá permisos, dependencias y smoke-tests de confianza escritos en la APK. Si falta evidencia, permanecerá deshabilitada.")
         }
         AlertDialog.Builder(this)
             .setTitle("Revisar permisos y habilitar")
@@ -253,11 +270,11 @@ class BardoDeveloperActivity : AppCompatActivity() {
             .setPositiveButton("Autorizar permisos y pruebas") { _, _ ->
                 worker.execute {
                     val enabled = runCatching {
-                        manager.enable(
+                        habilitarSkillConPreflight(
+                            manager,
                             manifest.id,
                             manifest.version,
-                            explicitlyApproved = true,
-                            approvedPermissions = manifest.permissions
+                            manifest.permissions
                         )
                     }
                     runOnUiThread {
@@ -496,11 +513,11 @@ class BardoDeveloperActivity : AppCompatActivity() {
                                 worker.execute {
                                     val disabled = runCatching { manager.disable(finding.skillId, finding.version) }
                                     val activated = disabled.mapCatching {
-                                        manager.enable(
+                                        habilitarSkillConPreflight(
+                                            manager,
                                             finding.skillId,
                                             finding.version,
-                                            explicitlyApproved = true,
-                                            approvedPermissions = record.manifest.permissions
+                                            record.manifest.permissions
                                         )
                                     }
                                     runOnUiThread {
