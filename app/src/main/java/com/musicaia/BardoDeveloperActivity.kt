@@ -46,6 +46,7 @@ import com.musicaia.skills.BardoSkillMaintenanceFinding
 import com.musicaia.skills.BardoSkillMaintenanceAction
 import com.musicaia.skills.BardoSkillManager
 import com.musicaia.skills.BardoSkillRecord
+import com.musicaia.skills.BardoSkillLifecycle
 import com.musicaia.skills.BardoSkillArchiveReader
 
 /** Entorno local de investigación y auditoría. Nunca ejecuta código importado ni modifica el APK instalado. */
@@ -169,6 +170,90 @@ class BardoDeveloperActivity : AppCompatActivity() {
         val button = Button(this).apply { text = label; isAllCaps = false; isEnabled = enabled; setOnClickListener { action() } }
         parent.addView(button, LinearLayout.LayoutParams(-1, 48).apply { topMargin = 5 })
         return button
+    }
+
+    private fun solicitarInstalacionSkill(
+        manager: BardoSkillManager,
+        record: BardoSkillRecord
+    ) {
+        val manifest = record.manifest
+        val details = buildString {
+            appendLine(manifest.name + " · " + manifest.id + "@" + manifest.version)
+            appendLine()
+            appendLine("Acciones: " + manifest.actions.sorted().joinToString())
+            appendLine("Permisos: " + manifest.permissions.map { it.name }.sorted().joinToString())
+            appendLine("Licencia aceptada: " + manifest.license)
+            appendLine()
+            append("La instalación copiará el paquete verificado al almacén privado y lo dejará DESHABILITADO. No se ejecutará ninguna acción.")
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Aprobar instalación deshabilitada")
+            .setMessage(details)
+            .setPositiveButton("Instalar deshabilitada") { _, _ ->
+                worker.execute {
+                    val installed = runCatching {
+                        manager.install(manifest.id, manifest.version, explicitUserApproval = true)
+                    }
+                    runOnUiThread {
+                        if (isFinishing || isDestroyed) return@runOnUiThread
+                        installed.fold(
+                            { result ->
+                                output.text = result.message
+                                if (result.succeeded && result.record != null) {
+                                    solicitarActivacionSkill(manager, result.record)
+                                }
+                            },
+                            { error ->
+                                output.text = "No se pudo instalar: " + (error.message ?: error.javaClass.simpleName)
+                            }
+                        )
+                    }
+                }
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
+    private fun solicitarActivacionSkill(
+        manager: BardoSkillManager,
+        record: BardoSkillRecord
+    ) {
+        val manifest = record.manifest
+        val details = buildString {
+            appendLine(manifest.name + " · " + manifest.id + "@" + manifest.version)
+            appendLine()
+            appendLine("Acciones que podrá invocar:")
+            manifest.actions.sorted().forEach { appendLine("• " + it) }
+            appendLine()
+            appendLine("Permisos que autorizas:")
+            manifest.permissions.map { it.name }.sorted().forEach { appendLine("• " + it) }
+            appendLine()
+            append("BARDO volverá a comprobar el hash, validará cada paso del workflow y ejecutará únicamente los smoke-tests de confianza escritos en la APK. Si falta evidencia, permanecerá deshabilitada.")
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Revisar permisos y habilitar")
+            .setMessage(details)
+            .setPositiveButton("Autorizar permisos y pruebas") { _, _ ->
+                worker.execute {
+                    val enabled = runCatching {
+                        manager.enable(
+                            manifest.id,
+                            manifest.version,
+                            explicitlyApproved = true,
+                            approvedPermissions = manifest.permissions
+                        )
+                    }
+                    runOnUiThread {
+                        if (isFinishing || isDestroyed) return@runOnUiThread
+                        output.text = enabled.fold(
+                            { it.message },
+                            { "La skill permanece deshabilitada: " + (it.message ?: it.javaClass.simpleName) }
+                        )
+                    }
+                }
+            }
+            .setNegativeButton("Mantener deshabilitada", null)
+            .show()
     }
 
     private fun importarPaqueteSkill(uri: Uri) {
@@ -340,6 +425,47 @@ class BardoDeveloperActivity : AppCompatActivity() {
                                 }
                             }
                             .setNegativeButton("Conservar", null)
+                            .show()
+                    }
+                    BardoSkillMaintenanceAction.REVIEW_COMPATIBILITY -> {
+                        when (record.lifecycle) {
+                            BardoSkillLifecycle.QUARANTINED -> solicitarInstalacionSkill(manager, record)
+                            BardoSkillLifecycle.INSTALLED_DISABLED,
+                            BardoSkillLifecycle.DISABLED -> solicitarActivacionSkill(manager, record)
+                            else -> AlertDialog.Builder(this)
+                                .setTitle(finding.skillId + "@" + finding.version + " · revisión")
+                                .setMessage(detail + "\n\nNo se ha modificado esta skill.")
+                                .setPositiveButton("Aceptar", null)
+                                .show()
+                        }
+                    }
+                    BardoSkillMaintenanceAction.RETEST_REQUIRED -> {
+                        AlertDialog.Builder(this)
+                            .setTitle("Volver a probar skill")
+                            .setMessage(
+                                finding.skillId + "@" + finding.version + "\n\n" + detail +
+                                    "\n\nBARDO deshabilitará esta versión y ejecutará de nuevo las pruebas de confianza solo después de tu aprobación."
+                            )
+                            .setPositiveButton("Deshabilitar y volver a probar") { _, _ ->
+                                worker.execute {
+                                    val disabled = runCatching { manager.disable(finding.skillId, finding.version) }
+                                    val activated = disabled.mapCatching {
+                                        manager.enable(
+                                            finding.skillId,
+                                            finding.version,
+                                            explicitlyApproved = true,
+                                            approvedPermissions = record.manifest.permissions
+                                        )
+                                    }
+                                    runOnUiThread {
+                                        output.text = activated.fold(
+                                            { it.message },
+                                            { "No se completó la revalidación: " + (it.message ?: it.javaClass.simpleName) }
+                                        )
+                                    }
+                                }
+                            }
+                            .setNegativeButton("Conservar deshabilitada", null)
                             .show()
                     }
                     else -> {
