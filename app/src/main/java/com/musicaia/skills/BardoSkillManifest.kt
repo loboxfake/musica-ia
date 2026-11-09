@@ -57,6 +57,8 @@ object BardoSkillManifestValidator {
     private val actionPermissions = mapOf(
         "self_inventory.read" to setOf(BardoSkillPermission.READ_BARDO_DATA),
         "knowledge.search" to setOf(BardoSkillPermission.READ_BARDO_DATA),
+        "developer.audit_snapshot" to setOf(BardoSkillPermission.READ_BARDO_DATA),
+        "developer.ci_diagnostics" to setOf(BardoSkillPermission.READ_BARDO_DATA),
         "documents.read_imported" to setOf(BardoSkillPermission.READ_BARDO_DATA),
         "music.create_plan" to setOf(BardoSkillPermission.READ_BARDO_DATA),
         "music.generate_wav" to setOf(BardoSkillPermission.WRITE_BARDO_WORKSPACE),

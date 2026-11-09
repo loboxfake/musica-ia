@@ -79,6 +79,7 @@ data class BardoAuthorizationDecision(
 object BardoAuthorityPolicy {
     private val autonomousSafeScopes = setOf(
         BardoPermissionScope.READ_OWN_PROJECT,
+        BardoPermissionScope.READ_BARDO_DATA,
         BardoPermissionScope.STUDY_LOCAL,
         BardoPermissionScope.PROPOSE_CHANGE,
         BardoPermissionScope.CREATE_LOCAL_CANDIDATE,
