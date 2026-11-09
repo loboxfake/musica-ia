@@ -12,6 +12,8 @@ import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import com.musicaia.MainActivity
+import com.musicaia.actualizaciones.BardoIncrementalUpdateManifest
+import com.musicaia.actualizaciones.BardoIncrementalUpdateManifestFactory
 import com.musicaia.memoria.BardoKnowledgeStore
 import com.musicaia.memoria.BardoLearningJournal
 import com.musicaia.memoria.BardoActivityStore
@@ -337,10 +339,42 @@ a pasar validación en otro runner.
                     )
                 }
                 val localEvidence = localAuditAttempt.getOrDefault(emptyList())
+                val currentVersion = runCatching {
+                    applicationContext.packageManager
+                        .getPackageInfo(applicationContext.packageName, 0).versionName
+                }.getOrNull()?.takeIf { it.matches(Regex("^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][A-Za-z0-9.-]+)?$")) }
+                    ?: "1.0.0"
+                val updateManifestAttempt = runCatching {
+                    BardoIncrementalUpdateManifestFactory.create(
+                        snapshotRoot = snapshot,
+                        candidateRoot = applied.directory,
+                        changedFiles = applied.changedFiles,
+                        baseCommit = sourceCommit,
+                        fromVersion = currentVersion,
+                        toVersion = currentVersion + "-candidate." + timestamp,
+                        patchText = patch,
+                        evidenceRefs = localEvidence.map { it.evidenceRef }.distinct(),
+                        rollbackPlanRef = "bardo-rollback://" + snapshot.name
+                    )
+                }
+                val updateManifest: BardoIncrementalUpdateManifest? =
+                    updateManifestAttempt.getOrNull()
                 val localAuditReady =
-                    BardoLocalCandidateEvidenceCollector.isReadyForCiSubmission(localEvidence)
+                    BardoLocalCandidateEvidenceCollector.isReadyForCiSubmission(localEvidence) &&
+                        updateManifest != null
                 val localAuditDetails = buildString {
                     appendLine("Resultado: " + if (localAuditReady) "SUPERADA" else "BLOQUEADA")
+                    appendLine("Manifiesto incremental: " + if (updateManifest != null) "VALIDADO" else "RECHAZADO")
+                    updateManifestAttempt.exceptionOrNull()?.let {
+                        appendLine("Error de manifiesto: " + (it.message ?: it.javaClass.simpleName).take(500))
+                    }
+                    updateManifest?.let {
+                        appendLine("Nivel: " + it.level.name)
+                        appendLine("Archivos con hash anterior/nuevo: " + it.files.size)
+                        appendLine("SHA-256 del diff: " + it.targetFingerprintSha256)
+                        appendLine("Requiere APK completa: " + BardoIncrementalUpdatePolicy.validate(it).requiresFullApk)
+                        appendLine("Reversión: " + it.rollbackPlanRef)
+                    }
                     localAuditAttempt.exceptionOrNull()?.let {
                         appendLine("Error del productor: " + (it.message ?: it.javaClass.simpleName).take(500))
                     }
@@ -381,6 +415,8 @@ a pasar validación en otro runner.
                         .putString("candidate_id", candidateId)
                         .putBoolean("candidate_validation_succeeded", false)
                         .putBoolean("candidate_local_audit_passed", true)
+                        .putString("candidate_update_manifest", updateManifest!!.toJson())
+                        .putBoolean("candidate_update_manifest_valid", true)
                         .remove("candidate_validation_run_id")
                 } else {
                     // A newer non-submittable proposal must not leave an older candidate active.
@@ -392,6 +428,8 @@ a pasar validación en otro runner.
                         .remove("candidate_id")
                         .remove("candidate_validation_succeeded")
                         .putBoolean("candidate_local_audit_passed", false)
+                        .remove("candidate_update_manifest")
+                        .putBoolean("candidate_update_manifest_valid", false)
                         .remove("candidate_validation_run_id")
                 }
                 candidateEditor.apply()
