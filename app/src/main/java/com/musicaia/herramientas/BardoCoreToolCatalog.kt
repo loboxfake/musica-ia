@@ -208,7 +208,7 @@ object BardoCoreToolCatalog {
                     "Crea un archivo de texto UTF-8 dentro de Descargas/BARDO y verifica su lectura tras escribirlo.",
                     BardoPermissionScope.MANAGE_BARDO_WORKSPACE,
                     maxArguments = 2,
-                    maxValueChars = 262_144
+                    maxValueChars = 30_000
                 )
                 override fun execute(arguments: Map<String, String>): BardoToolOutput {
                     val path = arguments["path"].orEmpty()
