@@ -13,7 +13,7 @@ object BardoCoreToolCatalog {
     fun create(context: Context): List<BardoToolHandler> {
         val app = context.applicationContext
         return listOf(
-            object : BardoToolHandler {
+            object : BardoToolHandler, BardoToolSmokeTestHandler {
                 override val descriptor = BardoToolDescriptor(
                     "self_inventory.read",
                     "Lee el inventario de BARDO, sus modelos, módulos y recursos.",
@@ -38,8 +38,10 @@ object BardoCoreToolCatalog {
                     }
                     return BardoToolOutput(true, content.take(60_000))
                 }
+
+                override fun smokeTest(): BardoToolOutput = execute(emptyMap())
             },
-            object : BardoToolHandler {
+            object : BardoToolHandler, BardoToolSmokeTestHandler {
                 override val descriptor = BardoToolDescriptor(
                     "knowledge.search",
                     "Busca información en documentos que el usuario ha importado a la biblioteca local.",
@@ -54,8 +56,11 @@ object BardoCoreToolCatalog {
                     val found = BardoKnowledgeStore(app).search(query, 7000)
                     return BardoToolOutput(true, if (found.isBlank()) "No hay referencias locales coincidentes." else found)
                 }
+
+                override fun smokeTest(): BardoToolOutput =
+                    execute(mapOf("query" to "BARDO"))
             },
-            object : BardoToolHandler {
+            object : BardoToolHandler, BardoToolSmokeTestHandler {
                 override val descriptor = BardoToolDescriptor(
                     "developer.audit_snapshot",
                     "Analiza estáticamente el snapshot de BARDO; nunca ejecuta su código.",
@@ -80,8 +85,10 @@ object BardoCoreToolCatalog {
                     val report = BardoDeveloperCore.analizar(snapshot).render()
                     return BardoToolOutput(true, report.take(60_000))
                 }
+
+                override fun smokeTest(): BardoToolOutput = execute(emptyMap())
             },
-            object : BardoToolHandler {
+            object : BardoToolHandler, BardoToolSmokeTestHandler {
                 override val descriptor = BardoToolDescriptor(
                     "developer.ci_diagnostics",
                     "Lee diagnósticos resumidos de CI guardados por BARDO; no consulta red ni secretos.",
@@ -100,6 +107,8 @@ object BardoCoreToolCatalog {
                     }
                     return BardoToolOutput(true, message)
                 }
+
+                override fun smokeTest(): BardoToolOutput = execute(emptyMap())
             }
         )
     }
