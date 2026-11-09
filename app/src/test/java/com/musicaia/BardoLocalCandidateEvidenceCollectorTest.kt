@@ -180,4 +180,27 @@ class BardoLocalCandidateEvidenceCollectorTest {
         assertTrue(result.all { !it.passed })
         assertTrue(fixture.candidate.isDirectory)
     }
+
+    @Test
+    fun rejectsSymlinkInCandidateAndDoesNotTrustModo3Check() {
+        val fixture = fixture()
+        val candidateSource = File(fixture.candidate, sourcePath)
+        assertTrue(candidateSource.delete())
+        Files.createSymbolicLink(
+            candidateSource.toPath(),
+            File(fixture.snapshot, sourcePath).toPath()
+        )
+
+        val result = BardoLocalCandidateEvidenceCollector.collectForTest(
+            fixture.input,
+            fixture.modo3Hash
+        )
+
+        assertTrue(result.single { it.check == BardoCheck.SOURCE_BASE_CURRENT }.passed)
+        assertFalse(result.single { it.check == BardoCheck.PATCH_INTEGRITY }.passed)
+        assertFalse(result.single { it.check == BardoCheck.PROTECTED_PATHS }.passed)
+        assertFalse(result.single { it.check == BardoCheck.MODO3_HASH_UNCHANGED }.passed)
+    }
+
+
 }
