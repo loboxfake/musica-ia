@@ -267,3 +267,45 @@ object BardoCiEvidenceAdapter {
         problems = listOf(message)
     )
 }
+
+
+data class BardoCandidateEvaluation(
+    val ci: BardoCiEvidenceCollection,
+    val report: BardoEvaluationReport?
+)
+
+/**
+ * Conecta evidencias API de CI al evaluador determinista existente.
+ * La falta de CI válido/pasado nunca se interpreta como revisión aprobada.
+ * Las pruebas físicas deben aportarse por separado y conservar su origen DEVICE_TEST.
+ */
+object BardoCandidateEvaluationPipeline {
+    fun evaluate(
+        runJson: JSONObject,
+        jobsJson: JSONObject,
+        artifactsJson: JSONObject,
+        expectedHeadSha: String,
+        nonCiEvidence: List<BardoCheckEvidence>
+    ): BardoCandidateEvaluation {
+        require(nonCiEvidence.none {
+            it.check in BardoIndependentEvaluator.mandatoryCiChecks()
+        }) {
+            "Las evidencias CI solo pueden proceder del adaptador GitHub verificado."
+        }
+        val collection = BardoCiEvidenceAdapter.collect(
+            runJson,
+            jobsJson,
+            artifactsJson,
+            expectedHeadSha
+        )
+        val report = when (collection.state) {
+            BardoCiEvidenceState.PENDING,
+            BardoCiEvidenceState.INVALID -> null
+            BardoCiEvidenceState.CI_PASSED,
+            BardoCiEvidenceState.CI_FAILED -> BardoIndependentEvaluator.evaluate(
+                nonCiEvidence + collection.evidence
+            )
+        }
+        return BardoCandidateEvaluation(collection, report)
+    }
+}
