@@ -3342,7 +3342,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
          texto.lowercase(java.util.Locale.ROOT), Normalizer.Form.NFD
      ).replace(Regex("\\p{M}+"), "")
      val consultaGemma = Regex(
-         "\\b(gemma|modelo local|modelo de ia|que modelo|cual modelo|tienes.*instalad|modelo.*instalad)\\b"
+         "\\b(gemma|modelo local|modelo de ia|modelo de inteligencia artificial|que modelo|cual modelo|tienes.*instalad|modelo.*instalad)\\b"
      ).containsMatchIn(normalizado)
      val consultaDesarrollo = Regex(
          "\\b(apk|actualizacion|actualizar la aplicacion|compilar|firmar una aplicacion)\\b"
@@ -4695,7 +4695,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                          try {
                              retriever.setDataSource(archivo.absolutePath)
                              retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
-                                 ?.toLongOrNull()?.takeIf { it > 0L }?.let { formatearTiempo(it) }
+                                 ?.toLongOrNull()?.takeIf { it > 0L && it <= Int.MAX_VALUE }?.let { formatearTiempo(it.toInt()) }
                          } finally {
                              retriever.release()
                          }
