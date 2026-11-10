@@ -742,6 +742,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
                         .putString("snapshot_path", imported.directory.absolutePath)
                         .putString("source_snapshot_path", imported.directory.absolutePath)
                         .putString(BardoSnapshotOriginPolicy.PREF_KEY, BardoSnapshotOriginPolicy.PRIVATE_GITHUB_MAIN)
+                        .putBoolean("candidate_prompt_privacy_safe", false)
                         .remove("candidate_path")
                         .remove("candidate_patch")
                         .remove("candidate_base_sha")
@@ -778,6 +779,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
                         .putString("snapshot_path", it.directory.absolutePath)
                         .putString("source_snapshot_path", it.directory.absolutePath)
                         .putString(BardoSnapshotOriginPolicy.PREF_KEY, BardoSnapshotOriginPolicy.BUNDLED_BARDO)
+                        .putBoolean("candidate_prompt_privacy_safe", false)
                         .remove("candidate_path")
                         .remove("candidate_patch").remove("candidate_base_sha").remove("candidate_files").remove("candidate_id").apply()
                     candidatePatch = ""
@@ -808,6 +810,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
                     getSharedPreferences("bardo_developer", MODE_PRIVATE).edit().putString("snapshot_path", it.directory.absolutePath)
                         .putString("source_snapshot_path", it.directory.absolutePath)
                         .putString(BardoSnapshotOriginPolicy.PREF_KEY, BardoSnapshotOriginPolicy.USER_IMPORTED_PROJECT)
+                        .putBoolean("candidate_prompt_privacy_safe", false)
                         .remove("candidate_path")
                         .remove("candidate_patch").remove("candidate_base_sha").remove("candidate_files").remove("candidate_id").apply()
                     candidatePatch = ""
@@ -977,6 +980,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
                         .putString("snapshot_path", original.absolutePath)
                         .putString("source_snapshot_path", original.absolutePath)
                         .putString("last_candidate_path", applied.directory.absolutePath)
+                        .putBoolean("candidate_prompt_privacy_safe", false)
                         .putBoolean("candidate_local_audit_passed", prepared.localAuditPassed)
                         .putBoolean("candidate_validation_succeeded", false)
                         .remove("candidate_validation_run_id")
@@ -1205,6 +1209,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
             prefs.getString(BardoSnapshotOriginPolicy.PREF_KEY, null)
         )
         btnGithub.isEnabled = !isBusy && trustedSource &&
+            prefs.getBoolean("candidate_prompt_privacy_safe", false) &&
             prefs.getBoolean("candidate_local_audit_passed", false) &&
             runCatching {
             BardoGitHubPolicy.validateBaseSha(baseSha)
@@ -1217,6 +1222,10 @@ class BardoDeveloperActivity : AppCompatActivity() {
     private fun abrirDesarrolloGitHub() {
         if (isBusy) return
         val prefs = getSharedPreferences("bardo_developer", MODE_PRIVATE)
+        if (!prefs.getBoolean("candidate_prompt_privacy_safe", false)) {
+            output.text = "ENVÍO BLOQUEADO POR PRIVACIDAD: esta propuesta no dispone de evidencia de que Gemma la haya generado exclusivamente a partir del código BARDO. Puede conservarse y revisarse localmente."
+            return
+        }
         val baseSha = prefs.getString("candidate_base_sha", "").orEmpty()
         val candidateId = prefs.getString("candidate_id", "").orEmpty()
         val patch = prefs.getString("candidate_patch", "").orEmpty()
@@ -1228,6 +1237,9 @@ class BardoDeveloperActivity : AppCompatActivity() {
                     prefs.getString(BardoSnapshotOriginPolicy.PREF_KEY, null)
                 )) {
                     "Privacidad protegida: los proyectos importados solo pueden estudiarse localmente y nunca se envían a GitHub."
+                }
+                check(prefs.getBoolean("candidate_prompt_privacy_safe", false)) {
+                    "Privacidad protegida: falta la certificación de contexto de Gemma libre de datos privados."
                 }
                 check(prefs.getBoolean("candidate_local_audit_passed", false)) {
                     "La auditoría local anterior no está superada."
