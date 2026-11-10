@@ -53,8 +53,17 @@ object BardoSharedStorage {
         val prefs = app.getSharedPreferences("bardo_storage", Context.MODE_PRIVATE)
         val rawTree = prefs.getString("tree_uri", null) ?: return null
         val tree = runCatching { Uri.parse(rawTree) }.getOrNull() ?: return null
+        val treeDocumentId = runCatching { DocumentsContract.getTreeDocumentId(tree) }.getOrNull()
+        if (!BardoLocalStorageDestinationPolicy.isLocalDownloadsTree(
+                tree.scheme, tree.authority, treeDocumentId
+            )
+        ) return null
         val rootId = prefs.getString("root_document_id", null)
-            ?: DocumentsContract.getTreeDocumentId(tree)
+            ?: treeDocumentId
+        if (!BardoLocalStorageDestinationPolicy.isBardoRoot(
+                tree.scheme, tree.authority, treeDocumentId, rootId
+            )
+        ) return null
         val permission = app.contentResolver.persistedUriPermissions.any {
             it.uri == tree && it.isReadPermission && it.isWritePermission
         }
