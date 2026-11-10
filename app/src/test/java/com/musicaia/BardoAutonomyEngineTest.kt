@@ -3,6 +3,7 @@ package com.musicaia
 import com.musicaia.autonomia.BardoActionPlan
 import com.musicaia.autonomia.BardoAutonomyEngine
 import com.musicaia.autonomia.BardoAutonomyBudget
+import com.musicaia.autonomia.BardoTaskExecutionGuard
 import com.musicaia.autonomia.BardoAutonomyStatus
 import com.musicaia.autonomia.toActivityState
 import com.musicaia.autonomia.BardoTaskJournal
@@ -77,6 +78,74 @@ class BardoAutonomyEngineTest {
             assertEquals(BardoAutonomyStatus.COMPLETED, result.status)
             assertTrue(result.observations.single().succeeded)
             assertTrue(BardoTaskJournal(root).readRecent().any { it.optString("event") == "task_finished" })
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test fun resourceGuardStopsBeforeTheNextToolAndPreservesPartialWork() {
+        val root = createTempDir(prefix = "bardo-autonomy-resource-guard")
+        try {
+            val checks = AtomicInteger()
+            val planner = BardoTaskPlanner { _, _, _ ->
+                BardoActionPlan(
+                    listOf(
+                        BardoTaskStep("test.echo", mapOf("value" to "first"), "First safe step"),
+                        BardoTaskStep("test.echo", mapOf("value" to "second"), "Second step")
+                    ),
+                    correctionBudget = 0
+                )
+            }
+            val result = BardoAutonomyEngine(
+                planner,
+                tools(),
+                BardoTaskJournal(root),
+                executionGuard = BardoTaskExecutionGuard {
+                    if (checks.getAndIncrement() == 0) null else "RAM libre insuficiente"
+                }
+            ).run("Stop when device resources become unsafe")
+
+            assertEquals(BardoAutonomyStatus.PARTIAL, result.status)
+            assertEquals(1, result.observations.size)
+            assertEquals("first", result.observations.single().output)
+            assertTrue(BardoTaskJournal(root).readRecent().any {
+                it.optString("event") == "resource_blocked"
+            })
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test fun resourceGuardBlocksBeforeAnyToolWhenInitialResourcesAreUnsafe() {
+        val root = createTempDir(prefix = "bardo-autonomy-resource-blocked")
+        try {
+            val executionCount = AtomicInteger()
+            val countedTool = object : BardoToolHandler {
+                override val descriptor = BardoToolDescriptor(
+                    "test.echo", "Returns a fixed response", BardoPermissionScope.READ_OWN_PROJECT
+                )
+                override fun execute(arguments: Map<String, String>): BardoToolOutput {
+                    executionCount.incrementAndGet()
+                    return BardoToolOutput(true, arguments["value"].orEmpty())
+                }
+            }
+            val planner = BardoTaskPlanner { _, _, _ ->
+                BardoActionPlan(listOf(
+                    BardoTaskStep("test.echo", mapOf("value" to "never"), "Must not run")
+                ), 0)
+            }
+            val result = BardoAutonomyEngine(
+                planner,
+                BardoToolExecutor(listOf(countedTool)),
+                BardoTaskJournal(root),
+                executionGuard = BardoTaskExecutionGuard {
+                    "El teléfono está demasiado caliente"
+                }
+            ).run("Do not act while the device is too hot")
+
+            assertEquals(BardoAutonomyStatus.BLOCKED, result.status)
+            assertTrue(result.observations.isEmpty())
+            assertEquals(0, executionCount.get())
         } finally {
             root.deleteRecursively()
         }
