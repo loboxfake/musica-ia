@@ -314,16 +314,27 @@ Estos datos no se sincronizan, no se telemetrían, no se adjuntan a búsquedas y
 
 ### Redes permitidas
 1. **Inferencia y desarrollo cognitivo:** exclusivamente proveedores locales autorizados (actualmente Gemma/LiteRT). Los agentes pasan `allowRemoteModels=false`; los proveedores remotos permanecen denegados por defecto y no forman parte del ciclo de desarrollo.
-2. **Investigación web pública:** herramienta tipada `web.search_public`, desactivada por defecto y activable por el usuario. Envía únicamente una consulta corta de palabras clave genéricas a DuckDuckGo mediante HTTPS GET. No añade cookies, Authorization, Referer, archivos adjuntos ni contexto de la sesión. Los filtros rechazan rutas, extensiones de archivos, código, credenciales, correos, identificadores, nombres/modelos de dispositivo y métricas locales. La consulta puede ser registrada por el proveedor de búsqueda; esa transmisión limitada se informa y requiere consentimiento. Las páginas/resultados son datos no confiables y se guardan solo localmente.
+2. **Investigación web pública:** herramienta tipada `web.search_public` con consentimiento por consulta exacta, no con un permiso global. El usuario ve la consulta normalizada y la aprueba explícitamente en la interfaz; el dispositivo conserva únicamente su SHA-256 y una caducidad de 120 segundos. La aprobación se consume antes de abrir la conexión y solo autoriza esa cadena exacta una vez. Se envían palabras clave públicas por HTTPS GET a DuckDuckGo, sin cookies, Authorization, Referer, archivos adjuntos ni contexto de sesión. Los filtros rechazan rutas, extensiones de archivos, código, credenciales, correos, identificadores, nombres/modelos de dispositivo y métricas locales. El proveedor puede registrar la consulta aprobada; se informa antes de cada envío. Las páginas/resultados son datos no confiables y se guardan solo localmente.
 3. **Documentación oficial:** solicitudes HTTPS GET a la lista permitida de dominios de documentación, sin cuerpo de petición, cookies ni credenciales. La URL no puede incluir query string ni fragmento para evitar que se introduzcan datos privados en la petición.
 4. **GitHub privado:** excepción limitada al repositorio privado elegido por el usuario. La aplicación puede leer su propio código y enviar diffs de BARDO a GitHub Actions para validación/PR. Está prohibido enviar proyectos ZIP importados, documentos, audio, estadísticas, inventarios, logs privados o archivos de usuario. La procedencia del snapshot se marca como `bundled_bardo`, `private_github_main` o `user_imported_project`; solo las dos primeras pueden pasar a GitHub. Valores ausentes/desconocidos bloquean la operación. El PAT permanece cifrado en Android Keystore.
 
 ### Reglas obligatorias
 - Nunca serializar el inventario local, memoria, conversaciones, rutas SAF ni resultados de lectura de documentos en solicitudes HTTP.
 - No permitir POST/PUT/PATCH de contenido de usuario ni sincronización de archivos.
-- El catálogo de herramientas no expone red genérica; solo `web.search_public` con scope `RESEARCH_NETWORK` y filtros locales.
+- El catálogo de herramientas no expone red genérica; solo `web.search_public` con scope `RESEARCH_NETWORK`, filtro local y aprobación exacta de un solo uso por consulta.
 - La búsqueda autónoma puede utilizar solo términos públicos; cuando necesita un dato privado o local, continúa el análisis dentro del dispositivo.
 - Ninguna respuesta de web, documento o skill puede alterar la política de privacidad ni concederse permisos.
 - Las pruebas deben verificar que proyectos importados, rutas, credenciales, identificadores y estadísticas son rechazados antes de abrir la conexión.
 
 El estado de la aplicación sigue siendo local-first aun cuando el usuario autorice búsquedas públicas o CI del código propio. La autorización de web search no autoriza subir datos locales; la credencial de GitHub no autoriza subir proyectos importados.
+
+
+### Almacenamiento y exportación exclusivamente locales (10 de noviembre de 2026)
+
+- Android Auto Backup está deshabilitado en el manifiesto (`android:allowBackup=false`).
+- El espacio compartido SAF de BARDO solo acepta el proveedor Android `com.android.externalstorage.documents` y el árbol `primary:Download`; la raíz debe ser exactamente `primary:Download/BARDO`.
+- Drive, OneDrive, WebDAV, proveedores cloud y destinos fuera de Descargas/BARDO se rechazan. Los permisos SAF heredados de un proveedor no local dejan de utilizarse; BARDO no borra los archivos remotos ni revoca datos del proveedor.
+- Todas las escrituras/exportaciones vía SAF (historial, configuración, WAV, MP3, portada, informe y copias de seguridad) exigen un URI descendiente de la raíz local BARDO. Si el destino falla o no es local, se conserva el archivo fuente/temporal y no se escribe.
+- La compartición externa de canciones mediante `ACTION_SEND` está deshabilitada para impedir que otro servicio suba archivos por elección accidental del destino.
+- La importación de archivos desde otros proveedores puede leerlos para incorporarlos al dispositivo, pero la app no escribe ni sincroniza hacia el proveedor de origen.
+- La investigación web no usa contexto del modelo como consulta implícita. Cada consulta exacta debe aprobarse en la interfaz y se consume una sola vez; no hay autorización persistente.
