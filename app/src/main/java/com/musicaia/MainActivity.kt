@@ -3358,12 +3358,12 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
  }
 
  private fun responderConOrquestador(textoUsuario: String, respuestaGuiada: String) {
-     anexarChat("\\nTú: $textoUsuario")
+     anexarChat("\nTú: $textoUsuario")
 
      // La conversación guiada usa el mismo registro local que el chat libre.
      // No exige Gemma ni aplica aquí un umbral fijo de 4 GB: el registro inspecciona
      // cada proveedor y puede continuar con Qwen si está instalado y es viable.
-     val memoriaPrompt = datosConver.entries.joinToString("\\n") { it.key + ": " + it.value }
+     val memoriaPrompt = datosConver.entries.joinToString("\n") { it.key + ": " + it.value }
      val camposActuales = datosConver.toMap()
      val contextoPrompt = chatLog.text.toString().takeLast(5000)
      val conocimientoAntiguo = getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE)
@@ -3375,7 +3375,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
      tvEstado.text = "BARDO está buscando un modelo local compatible; no se usará la nube..."
      Thread({
          val resultado = runCatching {
-             val conocimientoPrompt = (conocimientoAntiguo + "\\n" +
+             val conocimientoPrompt = (conocimientoAntiguo + "\n" +
                  knowledgeStore.search(textoUsuario, 8000)).takeLast(12000)
              val instruccionIdioma = "Detecta el idioma del último mensaje y responde en ese idioma. La conversación puede tratar sobre música, composición, producción, audio, voz, imágenes, creación y modificación de canciones, herramientas y desarrollo de BARDO. No fuerces la conversación hacia la creación de canciones si el usuario solo quiere hablar, preguntar o aprender."
              val prompt = """
@@ -3442,12 +3442,12 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
              }
              if (parsed != null) {
                  parsed.updates.forEach { (key, value) -> datosConver[key] = value }
-                 anexarChat("\\nBARDO ($providerLabel): ${parsed.reply}")
+                 anexarChat("\nBARDO ($providerLabel): ${parsed.reply}")
                  tvEstado.text = "Respuesta local con $providerLabel; ${parsed.updates.size} campo(s) guardado(s) con evidencia."
              } else {
                  val error = resultado.exceptionOrNull()?.message
                      ?: "El modelo no devolvió una respuesta estructurada verificable."
-                 anexarChat("\\nBARDO: No he podido generar una respuesta local verificable. No he simulado una conversación generativa.\\nBARDO · modo guiado: $respuestaGuiada\\nDetalle: $error")
+                 anexarChat("\nBARDO: No he podido generar una respuesta local verificable. No he simulado una conversación generativa.\nBARDO · modo guiado: $respuestaGuiada\nDetalle: $error")
                  tvEstado.text = "Modo guiado disponible; no hay inferencia local válida."
              }
          }
