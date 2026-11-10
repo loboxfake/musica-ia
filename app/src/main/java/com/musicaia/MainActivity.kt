@@ -883,7 +883,7 @@ private fun crearEstructuraCarpetaBardo() {
          tvEstado.text = "No hay una mezcla pendiente."
          return
      }
-     if (!requiereCarpetaLocalBardo()) return
+     if (!requiereCarpetaLocalBardo { guardarMezclaPistasLocal() }) return
      val name = "BARDO-mezcla-estereo-${System.currentTimeMillis()}.wav"
      tvEstado.text = "Guardando la mezcla solo en Descargas/BARDO/Canciones…"
      Thread({
@@ -908,7 +908,7 @@ private fun crearEstructuraCarpetaBardo() {
          tvEstado.text = "No hay un WAV masterizado pendiente."
          return
      }
-     if (!requiereCarpetaLocalBardo()) return
+     if (!requiereCarpetaLocalBardo { guardarMasterizadoLocal() }) return
      val name = "BARDO-masterizado-${System.currentTimeMillis()}.wav"
      tvEstado.text = "Guardando masterizado solo en Descargas/BARDO/Canciones…"
      Thread({
@@ -932,7 +932,7 @@ private fun crearEstructuraCarpetaBardo() {
          tvEstado.text = "No hay una portada pendiente de guardar."
          return
      }
-     if (!requiereCarpetaLocalBardo()) return
+     if (!requiereCarpetaLocalBardo { guardarPortadaLocal(fileName) }) return
      val safeName = fileName.takeIf {
          it.matches(Regex("[A-Za-z0-9._ -]{1,120}")) && !it.contains("..")
      } ?: "bardo-cover-${System.currentTimeMillis()}.png"
@@ -953,7 +953,7 @@ private fun crearEstructuraCarpetaBardo() {
  }
 
  private fun exportarInterfazLocal() {
-     if (!requiereCarpetaLocalBardo()) return
+     if (!requiereCarpetaLocalBardo { exportarInterfazLocal() }) return
      val name = "musicalia-interfaz-${System.currentTimeMillis()}.json"
      val content = configuracionInterfazActual().toString(2)
      tvEstado.text = "Guardando configuración dentro de Descargas/BARDO/Configuracion…"
@@ -981,7 +981,7 @@ private fun crearEstructuraCarpetaBardo() {
          tvEstado.text = "No hay un MP3 pendiente de guardar."
          return
      }
-     if (!requiereCarpetaLocalBardo()) return
+     if (!requiereCarpetaLocalBardo { guardarMp3PendienteLocal() }) return
      val deleteAfterSave = rutaExportacionTemporal
      tvEstado.text = "Guardando MP3 solo en Descargas/BARDO/Canciones…"
      Thread({
@@ -1179,7 +1179,7 @@ private fun crearConversacionNueva() {
              val mime = if (indice == 0) "application/json" else "text/plain"
              val name = "bardo-historial-${System.currentTimeMillis()}.$extension"
              val content = if (indice == 0) conversationStore.exportJson() else conversationStore.exportText()
-             if (!requiereCarpetaLocalBardo()) return@setItems
+             if (!requiereCarpetaLocalBardo { mostrarOpcionesExportacionHistorial() }) return@setItems
              tvEstado.text = "Guardando historial exclusivamente en el almacenamiento interno…"
              Thread({
                  val result = runCatching {
