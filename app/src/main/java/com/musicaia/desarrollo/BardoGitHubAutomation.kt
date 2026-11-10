@@ -220,6 +220,7 @@ class BardoGitHubActionsClient(private val token: String) {
     companion object {
         const val VALIDATION_WORKFLOW = "bardo-candidate-validation.yml"
         const val PR_WORKFLOW = "bardo-commit-candidate.yml"
+        const val MAIN_COMMIT_WORKFLOW = "bardo-main-commit-candidate.yml"
         const val FULL_BUILD_WORKFLOW = "full-build.yml"
         private const val API_ROOT = "https://api.github.com/repos/loboxfake/musica-ia"
     }
@@ -250,6 +251,36 @@ class BardoGitHubActionsClient(private val token: String) {
         )
     }
 
+    /** Solo la pantalla puede llamar a este método tras una aprobación explícita del usuario. */
+    fun dispatchMainCommit(
+        baseSha: String,
+        candidateId: String,
+        packedPatch: String,
+        validationRunId: Long,
+        explicitlyApprovedByUser: Boolean
+    ) {
+        BardoGitHubIntegrationPolicy.requireMainCommitWorkflowAvailable()
+        require(explicitlyApprovedByUser) {
+            "La integración a main requiere una aprobación explícita en la interfaz."
+        }
+        require(validationRunId > 0L) { "Falta la ejecución de validación aislada." }
+        val validation = getRun(validationRunId)
+        check(validation.succeeded && validation.headSha.equals(baseSha, ignoreCase = true)) {
+            "La validación aislada no terminó en SUCCESS para el SHA base de este candidato."
+        }
+        BardoGitHubPolicy.validateBaseSha(baseSha)
+        BardoGitHubPolicy.validateCandidateId(candidateId)
+        require(packedPatch.length in 1..BardoGitHubPolicy.MAX_PACKED_PATCH_CHARS)
+        val inputs = JSONObject()
+            .put("candidate_id", candidateId)
+            .put("base_sha", baseSha)
+            .put("patch_gzip_b64", packedPatch)
+            .put("validation_run_id", validationRunId.toString())
+            .put("approve_main_commit", true)
+        val body = JSONObject().put("ref", "main").put("inputs", inputs)
+        request("POST", "/actions/workflows/$MAIN_COMMIT_WORKFLOW/dispatches", body, setOf(204))
+    }
+
     private fun dispatch(
         workflow: String,
         baseSha: String,
@@ -273,6 +304,9 @@ class BardoGitHubActionsClient(private val token: String) {
         if (workflow == PR_WORKFLOW && !BardoGitHubIntegrationPolicy.DRAFT_PR_WORKFLOW_ENABLED) {
             return null
         }
+        if (workflow == MAIN_COMMIT_WORKFLOW && !BardoGitHubIntegrationPolicy.MAIN_COMMIT_WORKFLOW_ENABLED) {
+            return null
+        }
         BardoGitHubPolicy.validateCandidateId(candidateId)
         BardoGitHubPolicy.validateBaseSha(baseSha)
         val response = request(
@@ -285,6 +319,7 @@ class BardoGitHubActionsClient(private val token: String) {
         val prefix = when (workflow) {
             VALIDATION_WORKFLOW -> "BARDO candidate validation"
             PR_WORKFLOW -> "BARDO approved PR preparation"
+            MAIN_COMMIT_WORKFLOW -> "BARDO main commit"
             else -> ""
         }
         val matches = mutableListOf<BardoGitHubRun>()
@@ -608,15 +643,20 @@ class BardoGitHubActionsClient(private val token: String) {
 }
 
 object BardoGitHubIntegrationPolicy {
-    /** BARDO solo trabaja sobre main: no se permite crear ramas auxiliares ni PR. */
+    /** BARDO trabaja en una sola rama: no crea ramas auxiliares ni PR. */
     const val DRAFT_PR_WORKFLOW_ENABLED = false
+    const val MAIN_COMMIT_WORKFLOW_ENABLED = true
 
     const val BLOCK_REASON =
         "La creación de ramas bardo/* y PR está desactivada por la política de rama única. " +
-        "Los candidatos pueden validarse de forma aislada, pero cualquier incorporación " +
-        "debe dirigirse a main, comprobar de nuevo su SHA base y contar con autorización explícita."
+        "La integración directa a main solo se permite después de validar el candidato, " +
+        "comprobar que el SHA base sigue siendo el mismo y recibir aprobación explícita."
 
     fun requireDraftPrWorkflowAvailable() {
         check(DRAFT_PR_WORKFLOW_ENABLED) { BLOCK_REASON }
+    }
+
+    fun requireMainCommitWorkflowAvailable() {
+        check(MAIN_COMMIT_WORKFLOW_ENABLED) { BLOCK_REASON }
     }
 }
