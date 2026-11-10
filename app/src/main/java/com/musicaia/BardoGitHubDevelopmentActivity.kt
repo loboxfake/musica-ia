@@ -21,7 +21,7 @@ import com.musicaia.evaluacion.BardoLocalCandidateAuditInput
 import com.musicaia.evaluacion.BardoLocalCandidateEvidenceCollector
 import java.util.concurrent.Executors
 
-/** GitHub CI bridge: validates isolated diffs and prepares a draft PR only after explicit user approval. */
+/** Puente de CI: valida diffs aislados sobre un snapshot exacto de main; no crea ramas ni PR. */
 class BardoGitHubDevelopmentActivity : AppCompatActivity() {
     private data class CandidateStatus(
         val pullRequest: com.musicaia.desarrollo.BardoGitHubPullRequest?,
@@ -92,19 +92,19 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
             appendLine()
             appendLine("Repositorio: ${BardoGitHubPolicy.REPOSITORY}")
             appendLine("Rama base: main")
-            appendLine("Rama candidata: bardo/$candidateId")
+            appendLine("Destino de desarrollo: main (la validación es aislada; no crea ramas)")
             appendLine("Commit base: $baseSha")
             appendLine("Candidato: $candidateId")
             appendLine()
             appendLine("Archivos propuestos:")
             changedFiles.forEach { appendLine("• $it") }
             appendLine()
-            appendLine("Token requerido: Fine-grained PAT limitado a este repositorio, con Actions: Read and write, Contents: Read y Pull requests: Read.")
+            appendLine("Token requerido: Fine-grained PAT limitado a este repositorio, con Actions: Read and write y Contents: Read.")
             appendLine("El token se cifra con Android Keystore. No se incluye en el APK ni se transmite al runner.")
             appendLine()
             if (BardoGitHubIntegrationPolicy.DRAFT_PR_WORKFLOW_ENABLED) {
-                appendLine("INTEGRACIÓN SEGURA DISPONIBLE: tras la confirmación explícita, GitHub repetirá la validación y los tests, creará una rama bardo/* y abrirá un PR borrador.")
-                appendLine("No se hace push a main, no se fusiona el PR y no se publica una Release. La revisión y la fusión quedan en manos del usuario.")
+                appendLine("INTEGRACIÓN BLOQUEADA: esta versión trabaja solo sobre main. La validación aislada no crea ramas ni PR.")
+                appendLine("La validación se ejecuta en un runner efímero. No modifica main ni publica una Release.")
             } else {
                 appendLine("INTEGRACIÓN BLOQUEADA: " + BardoGitHubIntegrationPolicy.BLOCK_REASON)
             }
@@ -138,7 +138,7 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
             setPadding(0, 4, 0, 12)
         })
         root.addView(TextView(this).apply {
-            text = "VALIDACIÓN AISLADA · RAMA bardo/* · PR BORRADOR · SIN TOKEN DENTRO DEL APK"
+            text = "VALIDACIÓN AISLADA · SOLO MAIN · SIN RAMAS NI PR · SIN TOKEN DENTRO DEL APK"
             textSize = 12f
             setTextColor(white)
             setPadding(0, 0, 0, 10)
@@ -566,11 +566,7 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
         refreshButton.isEnabled = !busy && tokenReady && (validationDispatched || prDispatched)
         prButton.isEnabled = BardoGitHubIntegrationPolicy.DRAFT_PR_WORKFLOW_ENABLED &&
             !busy && tokenReady && privacyReady && validationSucceeded && !prCreated && !prDispatched
-        prButton.text = when {
-            prCreated -> "PR borrador creado"
-            !BardoGitHubIntegrationPolicy.DRAFT_PR_WORKFLOW_ENABLED -> "PR bloqueado: workflow inseguro"
-            else -> "Crear PR del candidato"
-        }
+        prButton.text = "Ramas y PR desactivados — política de main única"
     }
 
     private fun setBusy(value: Boolean, message: String = "") {
