@@ -799,7 +799,7 @@ class MainActivity : AppCompatActivity() {
      )
      Log.i(
          etiqueta,
-         "Exportación SAF verificada: \${receipt.relativePath} · \${receipt.bytes} bytes · SHA-256 \${receipt.sha256}"
+         "Exportación SAF verificada: ${receipt.relativePath} · ${receipt.bytes} bytes · SHA-256 ${receipt.sha256}"
      )
  }
 
@@ -815,7 +815,7 @@ private fun crearEstructuraCarpetaBardo() {
      )
      Log.i(
          etiqueta,
-         "Exportación SAF verificada: \${receipt.relativePath} · \${receipt.bytes} bytes · SHA-256 \${receipt.sha256}"
+         "Exportación SAF verificada: ${receipt.relativePath} · ${receipt.bytes} bytes · SHA-256 ${receipt.sha256}"
      )
  }
 
@@ -3029,6 +3029,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
         guardarEstadoCreacionMusical()
     }
     if (intent == BardoIntentRouter.Intent.GENERAL_CHAT) {
+        if (responderConsultaEstadoLocal(texto)) return
         responderChatLibre(texto)
         return
     }
@@ -3331,6 +3332,72 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
          anexarChat("\nBARDO: No pude poner el autoestudio en cola: ${error.message}")
          tvEstado.text = "No se pudo iniciar el autoestudio."
      }
+ }
+
+
+ private fun responderConsultaEstadoLocal(texto: String): Boolean {
+     val normalizado = Normalizer.normalize(
+         texto.lowercase(java.util.Locale.ROOT), Normalizer.Form.NFD
+     ).replace(Regex("\\p{M}+"), "")
+     val consultaGemma = Regex(
+         "\\b(gemma|modelo local|modelo de ia|que modelo|cual modelo|tienes.*instalad|modelo.*instalad)\\b"
+     ).containsMatchIn(normalizado)
+     val consultaDesarrollo = Regex(
+         "\\b(apk|actualizacion|actualizar la aplicacion|compilar|firmar una aplicacion)\\b"
+     ).containsMatchIn(normalizado) && Regex(
+         "\\b(puedes|puede|eres capaz|capacidad|capaz|puede hacer)\\b"
+     ).containsMatchIn(normalizado)
+
+     if (consultaDesarrollo) {
+         anexarChat(
+             "\nTú: $texto\nBARDO: Consulta local de capacidades (sin inferencia generativa): esta versión contiene un módulo de autoestudio que puede analizar un snapshot del proyecto y preparar propuestas aisladas. No está demostrado que BARDO pueda compilar, firmar, instalar y publicar una APK completa por sí sola desde el teléfono. Para afirmar esa capacidad tendría que existir y superar una cadena de compilación, evaluación, firma y actualización verificable. No voy a presentar una propuesta de código como una APK terminada."
+         )
+         tvEstado.text = "Capacidad de desarrollo explicada con el estado local verificado."
+         return true
+     }
+
+     if (!consultaGemma) return false
+
+     anexarChat("\nTú: $texto")
+     tvEstado.text = "Consultando el estado local de Gemma, sin cargar el modelo..."
+     val modelo = LiteRTLMModule.modelFile(this)
+     val inferenciaActiva = gemmaInferenceEnCurso
+     Thread({
+         val existe = modelo.isFile
+         val tamanoCorrecto = existe && modelo.length() == LiteRTLMModule.EXPECTED_SIZE_BYTES
+         val memoriaLibre = memoriaLibreActualBytes()
+         val umbral = BardoCapabilityRegistry.MIN_GEMMA_FREE_MEMORY_BYTES
+         val cargado = if (!tamanoCorrecto) {
+             false
+         } else if (inferenciaActiva) {
+             true
+         } else {
+             runCatching { EngineLiteRT.estaCargado(modelo.absolutePath) }.getOrDefault(false)
+         }
+         val estado = when {
+             !existe -> "Gemma no está instalado en el almacenamiento privado de esta aplicación."
+             !tamanoCorrecto -> "El archivo de Gemma existe, pero su tamaño no coincide con el esperado. No se utilizará hasta repararlo y verificar su SHA-256."
+             cargado -> "Gemma 4 E2B-it está presente y el runtime local figura cargado."
+             else -> "Gemma 4 E2B-it está presente en el almacenamiento privado, pero el runtime no está cargado."
+         }
+         val tamano = if (existe) "Tamaño del archivo: " + modelo.length() + " bytes." else ""
+         val ram = "RAM disponible ahora: " + (memoriaLibre / (1024L * 1024L)) +
+             " MiB; umbral preventivo configurado: " + (umbral / (1024L * 1024L)) + " MiB."
+         val disponibilidad = when {
+             !tamanoCorrecto -> "No disponible para inferencia: archivo no validado."
+             cargado -> "El runtime ya está cargado; esta consulta no ha iniciado otra inferencia."
+             memoriaLibre < umbral -> "No disponible para inferencia ahora: BARDO no forzará la carga porque la RAM está por debajo del umbral."
+             else -> "El archivo está presente y la RAM supera el umbral, pero esta consulta no ha cargado el modelo."
+         }
+         val respuesta = estado + " " + tamano + " " + ram + " " + disponibilidad +
+             " La verificación SHA-256 se exige antes de inferir; esta consulta de estado no recalcula el hash ni genera texto con Gemma."
+         runOnUiThread {
+             if (isFinishing || isDestroyed) return@runOnUiThread
+             anexarChat("\nBARDO: Consulta local de estado (sin inferencia generativa): " + respuesta)
+             tvEstado.text = "Estado de Gemma consultado sin cargar ni descargar modelos."
+         }
+     }, "BARDO-Consulta-Estado-Gemma").start()
+     return true
  }
 
  private fun responderChatLibre(textoUsuario: String, activityTaskId: String? = null) {
