@@ -2616,8 +2616,8 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
              var total = 0L
              val sources = uris.mapIndexed { index, uri ->
                  val name = contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
-                     ?.use { if (it.moveToFirst()) it.getString(0) else null } ?: "pista-\${index + 1}.wav"
-                 val file = File(session, "source-\${index + 1}.wav")
+                     ?.use { if (it.moveToFirst()) it.getString(0) else null } ?: "pista-${index + 1}.wav"
+                 val file = File(session, "source-${index + 1}.wav")
                  val input = contentResolver.openInputStream(uri) ?: error("No se pudo abrir " + name)
                  input.use { source ->
                      FileOutputStream(file).use { output ->
@@ -2660,14 +2660,14 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
      })
      val controls = mutableListOf<C>()
      sources.forEachIndexed { index, source ->
-         panel.addView(TextView(this).apply { text = "\${index + 1}. \${source.first}" })
+         panel.addView(TextView(this).apply { text = "${index + 1}. ${source.first}" })
          val gain = SeekBar(this).apply { max = 30; progress = 24 }
          val pan = SeekBar(this).apply { max = 200; progress = 100 }
          val summary = TextView(this)
          fun update() {
              val g = gain.progress - 24; val p = pan.progress - 100
-             val side = when { p <= -95 -> "izquierda"; p >= 95 -> "derecha"; p in -5..5 -> "centro"; p < 0 -> "izquierda \${-p}%"; else -> "derecha \${p}%" }
-             summary.text = "Ganancia: \${g} dB · Panorama: \${side}"
+             val side = when { p <= -95 -> "izquierda"; p >= 95 -> "derecha"; p in -5..5 -> "centro"; p < 0 -> "izquierda ${-p}%"; else -> "derecha ${p}%" }
+             summary.text = "Ganancia: ${g} dB · Panorama: ${side}"
          }
          val l = object : SeekBar.OnSeekBarChangeListener {
              override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) = update()
@@ -2680,7 +2680,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
          controls += C(source.second, gain, pan)
      }
      scroll.addView(panel)
-     val dialog = AlertDialog.Builder(this).setTitle("Configurar \${sources.size} pistas WAV")
+     val dialog = AlertDialog.Builder(this).setTitle("Configurar ${sources.size} pistas WAV")
          .setView(scroll).setNegativeButton("Cancelar", null).setPositiveButton("Mezclar WAV", null).create()
      var submitted = false
      dialog.setOnDismissListener { if (!submitted) session.deleteRecursively() }
@@ -2703,7 +2703,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
      tvEstado.text = "Mezclando pistas WAV localmente..."
      val output = File(session, "mezcla-estereo.wav")
      val taskId = java.util.UUID.randomUUID().toString()
-     BardoActivityStore.record(this, taskId, "mezcla_multipista_basica", "running", "mix_pcm16_stereo", "Mezcla offline de \${tracks.size} pistas.", 10, session.absolutePath)
+     BardoActivityStore.record(this, taskId, "mezcla_multipista_basica", "running", "mix_pcm16_stereo", "Mezcla offline de ${tracks.size} pistas.", 10, session.absolutePath)
      Thread({
          val result = runCatching { com.musicaia.modulos.BardoWavMultitrackMixer.mix(tracks, output) }
          sources.forEach { it.second.delete() }
@@ -2712,11 +2712,11 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
              if (isFinishing || isDestroyed) { session.deleteRecursively(); return@runOnUiThread }
              result.onSuccess { mix ->
                  BardoActivityStore.record(this, taskId, "mezcla_multipista_basica", "completed", "mix_pcm16_stereo",
-                     "Mezcla WAV verificada; \${mix.trackCount} pistas; originales intactos.", 100, output.absolutePath)
+                     "Mezcla WAV verificada; ${mix.trackCount} pistas; originales intactos.", 100, output.absolutePath)
                  mezclaPistasPendiente = output
                  val duration = mix.frames.toDouble() / mix.sampleRate
-                 val report = "Mezcla estéreo verificada.\\n\\nPistas: \${mix.trackCount}\\nFrecuencia: \${mix.sampleRate} Hz\\nDuración: " +
-                     String.format(java.util.Locale.ROOT, "%.2f", duration) + " s\\nPico antes: " +
+                 val report = "Mezcla estéreo verificada.\n\nPistas: ${mix.trackCount}\nFrecuencia: ${mix.sampleRate} Hz\nDuración: " +
+                     String.format(java.util.Locale.ROOT, "%.2f", duration) + " s\nPico antes: " +
                      String.format(java.util.Locale.ROOT, "%.2f", mix.peakBeforeDbfs) + " dBFS\\nPico después: " +
                      String.format(java.util.Locale.ROOT, "%.2f", mix.peakAfterDbfs) + " dBFS\\nSin EQ, automatización ni true-peak mastering."
                  AlertDialog.Builder(this).setTitle("Mezcla WAV básica lista").setMessage(report)
