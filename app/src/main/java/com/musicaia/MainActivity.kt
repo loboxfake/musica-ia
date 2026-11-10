@@ -4951,7 +4951,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
              rutaMp3Compartir = temporal.absolutePath
              btnCompartir.visibility = View.GONE
              if (guardarEnCarpeta && guardado?.isSuccess == true) {
-                 tvEstado.text = "Canción MP3 guardada en la carpeta BARDO. Ya puedes compartirla."
+                 tvEstado.text = "Canción MP3 guardada localmente en Descargas/BARDO. La compartición con servicios externos permanece desactivada por privacidad."
              } else {
              if (guardarEnCarpeta) tvEstado.text = "No se pudo guardar en BARDO: ${guardado?.exceptionOrNull()?.message}. Elige otro destino."
              rutaExportacion = temporal.absolutePath
