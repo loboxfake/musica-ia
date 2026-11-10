@@ -45,6 +45,7 @@ import com.musicaia.memoria.BardoConversationStore
 import com.musicaia.memoria.BardoKnowledgeStore
 import com.musicaia.memoria.BardoActivityStore
 import com.musicaia.storage.BardoSharedStorage
+import com.musicaia.storage.BardoLocalStorageDestinationPolicy
 import com.musicaia.diagnostico.BardoSelfInventory
 import com.musicaia.ui.BardoAvatarState
 import com.musicaia.ui.BardoAvatarView
@@ -398,6 +399,11 @@ class MainActivity : AppCompatActivity() {
      registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
          if (uri != null) runCatching {
              val treeRootId = DocumentsContract.getTreeDocumentId(uri)
+             require(BardoLocalStorageDestinationPolicy.isLocalDownloadsTree(
+                 uri.scheme, uri.authority, treeRootId
+             )) {
+                 "Solo se permite Descargas del almacenamiento interno del teléfono. No se aceptan Drive, OneDrive, proveedores cloud ni unidades externas."
+             }
              val treeRootUri = DocumentsContract.buildDocumentUriUsingTree(uri, treeRootId)
              val rootName = contentResolver.query(
                  treeRootUri, arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME), null, null, null
@@ -866,6 +872,17 @@ class MainActivity : AppCompatActivity() {
      val prefs = getSharedPreferences("bardo_storage", MODE_PRIVATE)
      val rawUri = prefs.getString("tree_uri", null) ?: return
      val tree = runCatching { Uri.parse(rawUri) }.getOrNull() ?: return
+     val treeDocumentId = runCatching { DocumentsContract.getTreeDocumentId(tree) }.getOrNull()
+     val rootId = prefs.getString("root_document_id", null) ?: treeDocumentId
+     if (!BardoLocalStorageDestinationPolicy.isBardoRoot(
+             tree.scheme, tree.authority, treeDocumentId, rootId
+         )
+     ) {
+         uriCarpetaBardo = null
+         bardoRootDocumentId = null
+         tvEstado.text = "El espacio compartido anterior no es una carpeta local de Descargas. BARDO no utilizará proveedores cloud; selecciona Descargas del almacenamiento interno para reconectar el espacio local."
+         return
+     }
      val permission = contentResolver.persistedUriPermissions.any {
          it.uri == tree && it.isReadPermission && it.isWritePermission
      }
@@ -887,6 +904,25 @@ class MainActivity : AppCompatActivity() {
          uriCarpetaBardo == null -> "Descargas/BARDO: permiso de carpeta pendiente. Conéctalo una vez para localizar tu Gemma y guardar el trabajo."
          bardoRootDocumentId != DocumentsContract.getTreeDocumentId(uriCarpetaBardo!!) -> "Espacio de trabajo conectado: Descargas/BARDO · Modelos, Canciones, Proyectos y Copias."
          else -> "Espacio de trabajo conectado: carpeta autorizada · acceso limitado a BARDO."
+     }
+ }
+
+ private fun esDestinoLocalBardo(uri: Uri): Boolean = runCatching {
+     val tree = uriCarpetaBardo ?: return@runCatching false
+     val treeId = DocumentsContract.getTreeDocumentId(tree)
+     val rootId = bardoRootDocumentId ?: return@runCatching false
+     BardoLocalStorageDestinationPolicy.isLocalBardoDestination(
+         uri.scheme,
+         uri.authority,
+         treeId,
+         rootId,
+         DocumentsContract.getDocumentId(uri)
+     )
+ }.getOrDefault(false)
+
+ private fun exigirDestinoLocalBardo(uri: Uri) {
+     require(esDestinoLocalBardo(uri)) {
+         "Privacidad protegida: solo se puede guardar dentro de Descargas/BARDO del almacenamiento interno del teléfono. No se escribe en proveedores cloud ni destinos externos."
      }
  }
 
