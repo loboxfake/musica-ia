@@ -8,6 +8,12 @@ concurrency:
   cancel-in-progress: false
 
 on:
+  # Construir desde main cuando el workflow se integre; publicar Release sigue siendo opcional.
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/full-build.yml
   workflow_dispatch:
     inputs:
       publish_release:
@@ -23,7 +29,7 @@ permissions:
 
 jobs:
   full-build:
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.publish_release == true
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-22.04
     timeout-minutes: 240
     steps:
@@ -78,16 +84,20 @@ jobs:
         run: |
           set -euo pipefail
           artifact_name="stable-audio-open-small-executorch"
-          export_run_id="42700052867"
-          export_head_sha="b0c9fc6998594b2f58cd8392dd65d8d4a593d4bb"
-          artifact_id="13713725273"
-          expected_digest="sha256:c0e6773df66ceedca06dc694239a79ad559ff372a3193e05e063f9a6d11d9c1a"
+          export_run_id="42770159088"
+          export_head_sha="3d7ee6b779f068a4b63f0a9781433d0a749d15c9"
+          artifact_id="13741387696"
+          expected_digest="sha256:16bb1c8274496878c9f7b4983aa08a09c66b7b7e80063eeff5a5559b7b4a3152"
           metadata="$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id")"
           test "$(printf '%s' "$metadata" | jq -r '.name')" = "$artifact_name"
           test "$(printf '%s' "$metadata" | jq -r '.expired')" = "false"
           test "$(printf '%s' "$metadata" | jq -r '.digest')" = "$expected_digest"
           test "$(printf '%s' "$metadata" | jq -r '.workflow_run.id')" = "$export_run_id"
           test "$(printf '%s' "$metadata" | jq -r '.workflow_run.head_sha')" = "$export_head_sha"
+          run_info="$(gh run view "$export_run_id" --json status,conclusion,headSha)"
+          test "$(printf '%s' "$run_info" | jq -r '.status')" = "completed"
+          test "$(printf '%s' "$run_info" | jq -r '.conclusion')" = "success"
+          test "$(printf '%s' "$run_info" | jq -r '.headSha')" = "$export_head_sha"
           mkdir -p app/src/main/assets/audio_model
           gh run download "$export_run_id" --name "$artifact_name" --dir app/src/main/assets/audio_model
           for file in conditioners_model.pte dit_model.pte autoencoder_model.pte spiece.model LICENSE; do
@@ -309,6 +319,7 @@ jobs:
             full-apk-audit.txt
           if-no-files-found: error
           retention-days: 30
+          compression-level: 0
 
       - name: Publish signed APK as a GitHub Release (explicit opt-in only)
         if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.publish_release == true
