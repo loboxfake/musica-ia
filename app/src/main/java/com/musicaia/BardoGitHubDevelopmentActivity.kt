@@ -231,6 +231,10 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
                     } else {
                         validationRunId = run.id
                         state.edit().putLong(key("validation_run_id"), run.id).apply()
+                        if (run.succeeded) {
+                            validationSucceeded = true
+                            state.edit().putBoolean(key("validation_succeeded"), true).apply()
+                        }
                         showRun("VALIDACIÓN DEL CANDIDATO", run, summary)
                     }
                 }.onFailure { output.text = "No se pudo enviar el candidato: ${it.message}" }
