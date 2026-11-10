@@ -149,7 +149,20 @@ class BardoDeveloperWorker(
                 "La verificación SHA-256 de Gemma ha fallado."
             }
 
-            BardoActivityStore.record(applicationContext, taskId, "autoestudio", "running", "verificacion_modelo", "Gemma y la memoria disponible han superado las comprobaciones previas.", 35, model.absolutePath)
+            // El hash puede tardar y el foreground puede demorarse: comprobar recursos de nuevo
+            // inmediatamente antes de reservar memoria nativa para Gemma.
+            setForeground(foregroundInfo("BARDO está comprobando los recursos antes de cargar Gemma…"))
+            val bloqueoRecursosFinal = BardoResourceBudget.blockingReason(
+                applicationContext, MIN_FREE_MEMORY_BYTES
+            )
+            check(bloqueoRecursosFinal == null) {
+                bloqueoRecursosFinal ?: "Los recursos del dispositivo cambiaron antes de cargar Gemma."
+            }
+            BardoActivityStore.record(
+                applicationContext, taskId, "autoestudio", "running",
+                "verificacion_modelo", "SHA-256 correcto y recursos vueltos a comprobar inmediatamente antes de cargar Gemma.",
+                35, model.absolutePath
+            )
             setForeground(foregroundInfo("BARDO está cargando Gemma local…"))
             check(EngineLiteRT.inicializar(
                 model.absolutePath,
