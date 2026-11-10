@@ -22,8 +22,12 @@ data class BardoPublicWebResult(
  */
 object BardoPublicWebSearchPolicy {
     const val PREFS_NAME = "bardo_web_research"
-    const val ENABLED_KEY = "public_keyword_search_enabled"
+    const val AUTHORIZED_QUERY_HASH_KEY = "authorized_query_sha256"
+    const val AUTHORIZATION_EXPIRY_KEY = "authorized_query_expires_at"
     const val MAX_QUERY_CHARS = 180
+    const val AUTHORIZATION_TTL_MILLIS = 120_000L
+
+    private val authorizationLock = Any()
 
     private val allowedCharacters = Regex("^[\\p{L}\\p{N}][\\p{L}\\p{N} .,:_+()\\-]{1,179}$")
     private val privateContent = listOf(
@@ -37,10 +41,60 @@ object BardoPublicWebSearchPolicy {
         Regex("(?i)\\b[^\\s]+\\.(?:wav|mp3|flac|zip|7z|pdf|docx?|xlsx?|pptx?|kt|java|json|txt|db)\\b")
     )
 
-    fun isEnabled(context: Context): Boolean =
-        context.applicationContext
+    /**
+     * Stores only a digest for the exact query approved in the confirmation dialog.
+     * The authorization expires quickly and can be consumed only once.
+     */
+    fun authorizeExactQuery(
+        context: Context,
+        rawQuery: String,
+        nowMillis: Long = System.currentTimeMillis()
+    ) = synchronized(authorizationLock) {
+        val query = validateQuery(rawQuery)
+        val saved = context.applicationContext
             .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getBoolean(ENABLED_KEY, false)
+            .edit()
+            .putString(AUTHORIZED_QUERY_HASH_KEY, querySha256(query))
+            .putLong(AUTHORIZATION_EXPIRY_KEY, nowMillis + AUTHORIZATION_TTL_MILLIS)
+            .commit()
+        check(saved) { "No se pudo registrar la aprobación local de esta búsqueda." }
+    }
+
+    /**
+     * One-shot authorization, bound to the exact normalized query and expiry.
+     * It is removed before the network connection is opened.
+     */
+    fun consumeExactQueryAuthorization(
+        context: Context,
+        rawQuery: String,
+        nowMillis: Long = System.currentTimeMillis()
+    ): Boolean = synchronized(authorizationLock) {
+        val query = validateQuery(rawQuery)
+        val prefs = context.applicationContext
+            .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val expectedHash = prefs.getString(AUTHORIZED_QUERY_HASH_KEY, null)
+        val expiresAt = prefs.getLong(AUTHORIZATION_EXPIRY_KEY, 0L)
+        val cleared = prefs.edit()
+            .remove(AUTHORIZED_QUERY_HASH_KEY)
+            .remove(AUTHORIZATION_EXPIRY_KEY)
+            .commit()
+        cleared && expectedHash != null &&
+            expiresAt >= nowMillis &&
+            expiresAt - nowMillis <= AUTHORIZATION_TTL_MILLIS &&
+            constantTimeEquals(expectedHash, querySha256(query))
+    }
+
+    internal fun querySha256(query: String): String =
+        java.security.MessageDigest.getInstance("SHA-256")
+            .digest(query.toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+
+    private fun constantTimeEquals(left: String, right: String): Boolean {
+        if (left.length != right.length) return false
+        var difference = 0
+        for (index in left.indices) difference = difference or (left[index].code xor right[index].code)
+        return difference == 0
+    }
 
     fun validateQuery(raw: String): String {
         val query = raw.trim().replace(Regex("\\s+"), " ")
@@ -69,8 +123,11 @@ object BardoPublicWebSearch {
     private const val MAX_RESPONSE_BYTES = 1_000_000
     private const val MAX_RESULTS = 8
 
-    fun search(rawQuery: String): List<BardoPublicWebResult> {
+    fun search(context: Context, rawQuery: String): List<BardoPublicWebResult> {
         val query = BardoPublicWebSearchPolicy.validateQuery(rawQuery)
+        check(BardoPublicWebSearchPolicy.consumeExactQueryAuthorization(context, query)) {
+            "Búsqueda bloqueada: falta la aprobación vigente para esta consulta exacta."
+        }
         val encoded = URLEncoder.encode(query, StandardCharsets.UTF_8.name())
         var current = URL(SEARCH_ENDPOINT + "?q=" + encoded)
 
