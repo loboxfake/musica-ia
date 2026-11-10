@@ -73,6 +73,14 @@ object BardoDeterministicTaskStepVerifier : BardoTaskStepVerifier {
 
 enum class BardoAutonomyStatus { COMPLETED, PARTIAL, BLOCKED, FAILED }
 
+/** Estado persistido sin convertir bloqueos o resultados parciales en éxitos. */
+fun BardoAutonomyStatus.toActivityState(): String = when (this) {
+    BardoAutonomyStatus.COMPLETED -> "completed"
+    BardoAutonomyStatus.PARTIAL -> "partial"
+    BardoAutonomyStatus.BLOCKED -> "blocked"
+    BardoAutonomyStatus.FAILED -> "failed"
+}
+
 data class BardoAutonomyResult(
     val taskId: String,
     val status: BardoAutonomyStatus,
