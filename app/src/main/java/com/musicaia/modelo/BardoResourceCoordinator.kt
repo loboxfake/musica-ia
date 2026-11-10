@@ -6,8 +6,8 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
 /**
- * Arbitra los dos runtimes que más memoria nativa reservan en este teléfono.
- * Nunca mantiene Gemma y Stable Audio cargados por decisión de BARDO a la vez.
+ * Arbitra los runtimes de texto y audio de los flujos coordinados.
+ * Antes de usar uno, intenta liberar el otro; no controla la RAM de otras aplicaciones.
  */
 object BardoResourceCoordinator {
     enum class Resource { TEXT_MODEL, AUDIO_MODEL }
@@ -28,13 +28,18 @@ object BardoResourceCoordinator {
             val previous = activeResource.get()
             releaseOtherRuntime(resource)
             activeResource.set(resource)
+            var completed = false
             try {
-                action()
+                val result = action()
+                completed = true
+                result
             } finally {
-                // Si una operación anidada cambió de motor, libera el motor
-                // anidado antes de devolver el control al recurso anterior.
-                if (previous != null && previous != resource) {
-                    releaseRuntime(resource)
+                // Libera un motor anidado al volver al anterior. Si una operación
+                // de primer nivel falla (incluido OOM), libera posibles cargas parciales.
+                val mustRelease = (previous != null && previous != resource) ||
+                    (previous == null && !completed)
+                if (mustRelease) {
+                    runCatching { releaseRuntime(resource) }
                 }
                 if (previous == null) {
                     activeResource.remove()
