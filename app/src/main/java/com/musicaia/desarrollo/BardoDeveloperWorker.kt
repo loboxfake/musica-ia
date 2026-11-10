@@ -26,6 +26,7 @@ import com.musicaia.modulos.litert.EngineLiteRT
 import com.musicaia.modulos.litert.LiteRTLMModule
 import com.musicaia.storage.BardoSharedStorage
 import com.musicaia.autonomia.BardoAutonomyEngine
+import com.musicaia.autonomia.BardoTaskExecutionGuard
 import com.musicaia.autonomia.BardoAutonomyBudget
 import com.musicaia.autonomia.toActivityState
 import com.musicaia.autonomia.BardoGemmaTaskPlanner
@@ -192,7 +193,13 @@ class BardoDeveloperWorker(
                     ),
                     tools = toolExecutor,
                     journal = BardoTaskJournal(File(workspace, "diario-autonomia")),
-                    budget = autonomyBudget
+                    budget = autonomyBudget,
+                    executionGuard = BardoTaskExecutionGuard {
+                        BardoResourceBudget.blockingReason(
+                            applicationContext,
+                            MIN_FREE_MEMORY_BYTES
+                        )
+                    }
                 )
                 autonomy.run(
                     "Estudia el estado real de BARDO. Consulta el inventario propio, revisa estáticamente " +
