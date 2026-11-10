@@ -59,6 +59,19 @@ class BardoGuidedResponseParserTest {
         assertEquals("grabada", parsed.updates["vozFuente"])
     }
 
+    @Test fun preservesConversationReplyWhenNoCreativeFieldsAreReturned() {
+        val json = """{\"reply\":\"La armonía menor aporta un carácter introspectivo.\"}"""
+        val parsed = BardoGuidedResponseParser.parse(json, "Explícame la armonía menor", emptyMap())!!
+        assertTrue(parsed.updates.isEmpty())
+        assertEquals("La armonía menor aporta un carácter introspectivo.", parsed.reply)
+    }
+
+    @Test fun extractsPlainConversationalTextWithoutTreatingItAsCreativeData() {
+        val reply = BardoGuidedResponseParser.extractFreeformReply("La síncopa desplaza el acento rítmico esperado.")
+        assertEquals("La síncopa desplaza el acento rítmico esperado.", reply)
+        assertNull(BardoGuidedResponseParser.extractFreeformReply("{\"reply\":\"texto\"}"))
+    }
+
     @Test fun rejectsMalformedOrIncompleteStructuredResponses() {
         assertNull(BardoGuidedResponseParser.parse("not JSON", "hello", emptyMap()))
         assertNull(BardoGuidedResponseParser.parse("""{"fields":{},"reply":""}""", "hello", emptyMap()))
