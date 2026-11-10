@@ -262,122 +262,6 @@ class MainActivity : AppCompatActivity() {
          if (uris.isNotEmpty()) prepararMezclaPistasWav(uris)
      }
 
- private val selectorGuardarMezclaPistas: ActivityResultLauncher<String> =
-     registerForActivityResult(ActivityResultContracts.CreateDocument("audio/wav")) { uri ->
-         val origen = mezclaPistasPendiente
-         if (origen == null) {
-             tvEstado.text = "No hay una mezcla pendiente de guardar."
-         } else if (uri == null) {
-             tvEstado.text = "Guardado cancelado; la mezcla temporal se conserva para reintentar."
-             AlertDialog.Builder(this)
-                 .setTitle("Mezcla pendiente")
-                 .setMessage("La mezcla no se ha borrado. ¿Quieres volver a elegir dónde guardarla?")
-                 .setNegativeButton("Conservar por ahora", null)
-                 .setPositiveButton("Reintentar") { _, _ ->
-                     selectorGuardarMezclaPistas.launch("BARDO-mezcla-estereo.wav")
-                 }
-                 .show()
-         } else {
-             Thread({
-                 val result = runCatching {
-                     val target = run { exigirDestinoLocalBardo(uri); contentResolver.openOutputStream(uri) }
-                         ?: throw IllegalStateException("No se pudo abrir el destino.")
-                     val written = target.use { output ->
-                         origen.inputStream().buffered().use { input ->
-                             val count = input.copyTo(output)
-                             output.flush()
-                             count
-                         }
-                     }
-                     require(written == origen.length()) {
-                         "La copia terminó con un tamaño distinto al WAV temporal."
-                     }
-                 }
-                 runOnUiThread {
-                     if (isFinishing || isDestroyed) return@runOnUiThread
-                     result.onSuccess {
-                         mezclaPistasPendiente = null
-                         origen.parentFile?.deleteRecursively()
-                         tvEstado.text = "Mezcla WAV estéreo guardada y tamaño verificado."
-                     }.onFailure { error ->
-                         mezclaPistasPendiente = origen
-                         tvEstado.text = "No se pudo guardar la mezcla: " + error.message
-                         AlertDialog.Builder(this)
-                             .setTitle("Error al guardar la mezcla")
-                             .setMessage((error.message ?: "Error desconocido.") + "\n\nEl WAV temporal sigue intacto.")
-                             .setNegativeButton("Conservar por ahora", null)
-                             .setPositiveButton("Reintentar") { _, _ ->
-                                 selectorGuardarMezclaPistas.launch("BARDO-mezcla-estereo.wav")
-                             }
-                             .show()
-                     }
-                 }
-             }, "BARDO-Save-Multitrack-WAV").start()
-         }
-     }
-
- private val selectorGuardarMasterizado =
-     registerForActivityResult(ActivityResultContracts.CreateDocument("audio/wav")) { uri ->
-         val origen = rutaMasterizadoPendiente?.let(::File)
-         if (origen == null) {
-             tvEstado.text = "No hay un WAV masterizado pendiente."
-         } else if (uri == null) {
-             tvEstado.text = "Guardado cancelado. El WAV masterizado permanece en el almacenamiento privado para reintentar."
-         } else {
-             Thread({
-                 val error = runCatching {
-                     val salida = run { exigirDestinoLocalBardo(uri); contentResolver.openOutputStream(uri) }
-                         ?: throw IllegalStateException("No se pudo abrir el destino local BARDO.")
-                     val written = salida.use { destino ->
-                         origen.inputStream().buffered().use { it.copyTo(destino) }
-                     }
-                     require(written == origen.length()) { "La copia WAV no coincide con el tamaño original." }
-                 }.exceptionOrNull()
-                 if (error == null) {
-                     origen.delete()
-                     rutaMasterizadoPendiente = null
-                 }
-                 runOnUiThread {
-                     if (!isFinishing && !isDestroyed) {
-                         tvEstado.text = if (error == null) "WAV masterizado guardado en Descargas/BARDO." else
-                             "No se pudo guardar localmente: ${error.message}. El WAV original se conserva."
-                     }
-                 }
-             }, "BARDO-Save-Mastered-WAV").start()
-         }
-     }
-
- private val selectorGuardarPortada: ActivityResultLauncher<String> =
-     registerForActivityResult(ActivityResultContracts.CreateDocument("image/png")) { uri ->
-         val sourceFile = portadaPendiente
-         if (uri == null || sourceFile == null) {
-             tvEstado.text = "Guardado cancelado; la portada temporal se conserva."
-         } else {
-             Thread({
-                 val result = runCatching {
-                     val output = run { exigirDestinoLocalBardo(uri); contentResolver.openOutputStream(uri) }
-                         ?: throw IllegalStateException("No se pudo abrir el destino PNG.")
-                     val copied = output.use { destination ->
-                         sourceFile.inputStream().buffered().use { input ->
-                             input.copyTo(destination).also { destination.flush() }
-                         }
-                     }
-                     require(copied == sourceFile.length()) { "La copia PNG tiene un tamaño distinto al original." }
-                 }
-                 runOnUiThread {
-                     if (isFinishing || isDestroyed) return@runOnUiThread
-                     result.onSuccess {
-                         sourceFile.delete()
-                         portadaPendiente = null
-                         tvEstado.text = "Portada PNG guardada y tamaño verificado."
-                     }.onFailure {
-                         tvEstado.text = "No se pudo guardar la portada: " + it.message + ". El archivo temporal se conserva."
-                     }
-                 }
-             }, "BARDO-Save-Cover-PNG").start()
-         }
-     }
-
  private val selectorImportarBackup =
      registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
          if (uri != null) importarCopiaSeleccionada(uri)
@@ -477,38 +361,6 @@ class MainActivity : AppCompatActivity() {
          }
      }
 
- private val selectorExportarInterfaz =
-     registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
-         if (uri != null) {
-             runCatching {
-                 val salida = run { exigirDestinoLocalBardo(uri); contentResolver.openOutputStream(uri) }
-                     ?: throw IllegalStateException("No se pudo abrir el destino.")
-                 salida.bufferedWriter().use { it.write(configuracionInterfazActual().toString(2)) }
-                 tvEstado.text = "Configuración de interfaz exportada."
-             }.onFailure { tvEstado.text = "No se pudo exportar el diseño: ${it.message}" }
-         }
-     }
-
- private val selectorExportarHistorialJson =
-     registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
-         if (uri != null) runCatching {
-             val salida = run { exigirDestinoLocalBardo(uri); contentResolver.openOutputStream(uri) }
-                 ?: throw IllegalStateException("No se pudo abrir el destino.")
-             salida.bufferedWriter().use { it.write(conversationStore.exportJson()) }
-             tvEstado.text = "Historial completo exportado en JSON."
-         }.onFailure { tvEstado.text = "No se pudo exportar el historial: ${it.message}" }
-     }
-
- private val selectorExportarHistorialTxt =
-     registerForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
-         if (uri != null) runCatching {
-             val salida = run { exigirDestinoLocalBardo(uri); contentResolver.openOutputStream(uri) }
-                 ?: throw IllegalStateException("No se pudo abrir el destino.")
-             salida.bufferedWriter().use { it.write(conversationStore.exportText()) }
-             tvEstado.text = "Historial legible exportado en TXT."
-         }.onFailure { tvEstado.text = "No se pudo exportar el historial: ${it.message}" }
-     }
-
  private val selectorImportarHistorial =
      registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
          if (uri != null) runCatching {
@@ -540,56 +392,6 @@ class MainActivity : AppCompatActivity() {
                  }
                  .show()
          }.onFailure { tvEstado.text = "No se pudo leer el historial: ${it.message}" }
-     }
-
- private val selectorGuardar =
-     registerForActivityResult(ActivityResultContracts.CreateDocument("audio/mpeg")) { uri ->
-         val origen = rutaExportacion
-         val borrarOrigenAlCancelar = rutaExportacionTemporal
-         if (uri != null && origen != null) {
-             tvEstado.text = "Guardando MP3 en el destino elegido..."
-             Thread({
-                 val error = runCatching {
-                     val salida = run { exigirDestinoLocalBardo(uri); contentResolver.openOutputStream(uri) }
-                         ?: throw IllegalStateException("No se pudo abrir el destino de exportación.")
-                     salida.use { destino ->
-                         File(origen).inputStream().buffered().use { it.copyTo(destino) }
-                     }
-                 }.exceptionOrNull()
-                 if (error == null && borrarOrigenAlCancelar) File(origen).delete()
-                 runOnUiThread {
-                     if (error == null) {
-                         if (borrarOrigenAlCancelar && rutaMp3Compartir == origen) {
-                             rutaMp3Compartir = null
-                             btnCompartir.visibility = View.GONE
-                         }
-                         rutaExportacion = null
-                         rutaExportacionTemporal = false
-                     } else {
-                         rutaExportacion = origen
-                         rutaExportacionTemporal = borrarOrigenAlCancelar
-                     }
-                     if (!isFinishing && !isDestroyed) {
-                         tvEstado.text = if (error == null) {
-                             "Canción MP3 guardada localmente dentro de Descargas/BARDO."
-                         } else {
-                             "No se pudo guardar localmente: ${error.message}. El MP3 original permanece en el almacenamiento del teléfono."
-                         }
-                     }
-                 }
-             }, "BARDO-MP3-Save").start()
-         } else {
-             // A canceled or rejected destination must never delete the local MP3.
-             if (origen != null) {
-                 rutaExportacion = origen
-                 rutaExportacionTemporal = borrarOrigenAlCancelar
-             }
-             tvEstado.text = if (origen == null) {
-                 "No hay un MP3 pendiente de guardar."
-             } else {
-                 "Guardado cancelado. El MP3 permanece localmente; no se ha enviado a ningún proveedor."
-             }
-         }
      }
 
  override fun onCreate(savedInstanceState: Bundle?) {
@@ -707,7 +509,7 @@ class MainActivity : AppCompatActivity() {
  }
  actualizarEstadoConocimiento()
  findViewById<Button>(R.id.btnImportarInterfaz).setOnClickListener { selectorImportarInterfaz.launch(arrayOf("application/json", "text/*")) }
- findViewById<Button>(R.id.btnExportarInterfaz).setOnClickListener { selectorExportarInterfaz.launch("musicalia-interfaz.json") }
+ findViewById<Button>(R.id.btnExportarInterfaz).setOnClickListener { exportarInterfazLocal() }
  findViewById<Button>(R.id.btnBorrarMemoria).setOnClickListener { confirmarBorradoMemoria() }
  findViewById<Button>(R.id.btnActualizarBiblioteca).setOnClickListener { actualizarBiblioteca() }
  findViewById<Button>(R.id.btnBibliotecaReproducir).setOnClickListener { reproducirUltimoDeBiblioteca() }
@@ -732,7 +534,7 @@ class MainActivity : AppCompatActivity() {
                  .setMessage("Puedes guardar el WAV temporal existente o descartarlo para iniciar otra sesión.")
                  .setNegativeButton("Cancelar", null)
                  .setPositiveButton("Guardar pendiente") { _, _ ->
-                     selectorGuardarMezclaPistas.launch("BARDO-mezcla-estereo.wav")
+                     guardarMezclaPistasLocal()
                  }
                  .setNeutralButton("Descartar y crear otra") { _, _ ->
                      pendiente.parentFile?.deleteRecursively()
@@ -1044,7 +846,145 @@ private fun crearEstructuraCarpetaBardo() {
      }
  }
 
- private fun crearConversacionNueva() {
+ private fun requiereCarpetaLocalBardo(): Boolean {
+     if (uriCarpetaBardo != null && runCatching { raizCarpetaBardo() }.isSuccess) return true
+     AlertDialog.Builder(this)
+         .setTitle("Conectar almacenamiento local")
+         .setMessage("Para guardar archivos, BARDO necesita Descargas/BARDO del almacenamiento interno. No abrirá Google Drive, OneDrive ni otros proveedores cloud.")
+         .setNegativeButton("Cancelar", null)
+         .setPositiveButton("Elegir Descargas local") { _, _ ->
+             selectorElegirCarpetaBardo.launch(null)
+         }
+         .show()
+     return false
+ }
+
+ private fun guardarMezclaPistasLocal() {
+     val source = mezclaPistasPendiente
+     if (source == null) {
+         tvEstado.text = "No hay una mezcla pendiente."
+         return
+     }
+     if (!requiereCarpetaLocalBardo()) return
+     val name = "BARDO-mezcla-estereo-${System.currentTimeMillis()}.wav"
+     tvEstado.text = "Guardando la mezcla solo en Descargas/BARDO/Canciones…"
+     Thread({
+         val result = runCatching { guardarArchivoEnCarpetaBardo(source, "Canciones", name, "audio/wav") }
+         runOnUiThread {
+             if (isFinishing || isDestroyed) return@runOnUiThread
+             result.onSuccess {
+                 mezclaPistasPendiente = null
+                 source.parentFile?.deleteRecursively()
+                 tvEstado.text = "Mezcla guardada localmente en Descargas/BARDO/Canciones."
+             }.onFailure {
+                 mezclaPistasPendiente = source
+                 tvEstado.text = "No se pudo guardar localmente: ${it.message}. El WAV temporal se conserva."
+             }
+         }
+     }, "BARDO-Save-Multitrack-WAV-Local").start()
+ }
+
+ private fun guardarMasterizadoLocal() {
+     val source = rutaMasterizadoPendiente?.let(::File)
+     if (source == null || !source.isFile) {
+         tvEstado.text = "No hay un WAV masterizado pendiente."
+         return
+     }
+     if (!requiereCarpetaLocalBardo()) return
+     val name = "BARDO-masterizado-${System.currentTimeMillis()}.wav"
+     tvEstado.text = "Guardando masterizado solo en Descargas/BARDO/Canciones…"
+     Thread({
+         val result = runCatching { guardarArchivoEnCarpetaBardo(source, "Canciones", name, "audio/wav") }
+         runOnUiThread {
+             if (isFinishing || isDestroyed) return@runOnUiThread
+             result.onSuccess {
+                 source.delete()
+                 rutaMasterizadoPendiente = null
+                 tvEstado.text = "WAV masterizado guardado localmente en Descargas/BARDO/Canciones."
+             }.onFailure {
+                 tvEstado.text = "No se pudo guardar localmente: ${it.message}. El WAV original se conserva."
+             }
+         }
+     }, "BARDO-Save-Mastered-WAV-Local").start()
+ }
+
+ private fun guardarPortadaLocal(fileName: String) {
+     val source = portadaPendiente
+     if (source == null || !source.isFile) {
+         tvEstado.text = "No hay una portada pendiente de guardar."
+         return
+     }
+     if (!requiereCarpetaLocalBardo()) return
+     val safeName = fileName.takeIf {
+         it.matches(Regex("[A-Za-z0-9._ -]{1,120}")) && !it.contains("..")
+     } ?: "bardo-cover-${System.currentTimeMillis()}.png"
+     tvEstado.text = "Guardando PNG solo en Descargas/BARDO/Portadas…"
+     Thread({
+         val result = runCatching { guardarArchivoEnCarpetaBardo(source, "Portadas", safeName, "image/png") }
+         runOnUiThread {
+             if (isFinishing || isDestroyed) return@runOnUiThread
+             result.onSuccess {
+                 source.delete()
+                 portadaPendiente = null
+                 tvEstado.text = "Portada guardada localmente en Descargas/BARDO/Portadas."
+             }.onFailure {
+                 tvEstado.text = "No se pudo guardar localmente: ${it.message}. El PNG temporal se conserva."
+             }
+         }
+     }, "BARDO-Save-Cover-Local").start()
+ }
+
+ private fun exportarInterfazLocal() {
+     if (!requiereCarpetaLocalBardo()) return
+     val name = "musicalia-interfaz-${System.currentTimeMillis()}.json"
+     val content = configuracionInterfazActual().toString(2)
+     tvEstado.text = "Guardando configuración dentro de Descargas/BARDO/Configuracion…"
+     Thread({
+         val result = runCatching {
+             val temporary = File(cacheDir, name)
+             temporary.writeText(content, Charsets.UTF_8)
+             try { guardarArchivoEnCarpetaBardo(temporary, "Configuracion", name, "application/json") }
+             finally { temporary.delete() }
+         }
+         runOnUiThread {
+             if (isFinishing || isDestroyed) return@runOnUiThread
+             tvEstado.text = result.fold(
+                 { "Configuración exportada localmente en Descargas/BARDO/Configuracion." },
+                 { "No se pudo exportar localmente: ${it.message}. La configuración actual sigue en BARDO." }
+             )
+         }
+     }, "BARDO-UI-Export-Local").start()
+ }
+
+ private fun guardarMp3PendienteLocal() {
+     val sourcePath = rutaExportacion ?: rutaMp3Compartir
+     val source = sourcePath?.let(::File)
+     if (source == null || !source.isFile || source.length() <= 128L) {
+         tvEstado.text = "No hay un MP3 pendiente de guardar."
+         return
+     }
+     if (!requiereCarpetaLocalBardo()) return
+     val deleteAfterSave = rutaExportacionTemporal
+     tvEstado.text = "Guardando MP3 solo en Descargas/BARDO/Canciones…"
+     Thread({
+         val result = runCatching { guardarArchivoEnCarpetaBardo(source, "Canciones", source.name, "audio/mpeg") }
+         if (result.isSuccess && deleteAfterSave) source.delete()
+         runOnUiThread {
+             if (isFinishing || isDestroyed) return@runOnUiThread
+             result.onSuccess {
+                 rutaExportacion = null
+                 rutaExportacionTemporal = false
+                 rutaMp3Compartir = null
+                 btnCompartir.visibility = View.GONE
+                 tvEstado.text = "MP3 guardado localmente en Descargas/BARDO/Canciones. No se ha enviado a ningún proveedor cloud."
+             }.onFailure {
+                 tvEstado.text = "No se pudo guardar localmente: ${it.message}. El MP3 original se conserva en el dispositivo."
+             }
+         }
+     }, "BARDO-MP3-Save-Local").start()
+ }
+
+private fun crearConversacionNueva() {
      val titulo = "Conversación " + DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
          .withZone(ZoneId.systemDefault()).format(Instant.now())
      val nueva = conversationStore.createConversation(titulo)
@@ -1213,39 +1153,35 @@ private fun crearEstructuraCarpetaBardo() {
 
  private fun mostrarOpcionesExportacionHistorial() {
      AlertDialog.Builder(this)
-         .setTitle("Exportar historial")
-         .setItems(arrayOf("JSON · copia completa", "TXT · lectura sencilla")) { _, indice ->
-             val carpetaElegida = uriCarpetaBardo != null
-             if (!carpetaElegida) {
-                 if (indice == 0) selectorExportarHistorialJson.launch("bardo-historial.json")
-                 else selectorExportarHistorialTxt.launch("bardo-historial.txt")
-             } else {
-                 val extension = if (indice == 0) "json" else "txt"
-                 val mime = if (indice == 0) "application/json" else "text/plain"
-                 val nombre = "bardo-historial-${System.currentTimeMillis()}.$extension"
-                 val contenido = if (indice == 0) conversationStore.exportJson() else conversationStore.exportText()
-                 tvEstado.text = "Guardando copia del historial en BARDO..."
-                 Thread({
-                     val resultado = runCatching {
-                         val temporal = File(cacheDir, nombre)
-                         temporal.writeText(contenido, Charsets.UTF_8)
-                         try { guardarArchivoEnCarpetaBardo(temporal, "Historial", nombre, mime) }
-                         finally { temporal.delete() }
-                     }
-                     runOnUiThread {
-                         if (!isFinishing && !isDestroyed) {
-                             tvEstado.text = if (resultado.isSuccess)
-                                 "Copia del historial guardada en Descargas/BARDO/Historial."
-                             else "No se pudo guardar en BARDO: ${resultado.exceptionOrNull()?.message}"
-                         }
-                     }
-                 }, "BARDO-History-Export").start()
-             }
-         }
+         .setTitle("Exportar historial local")
+         .setMessage("El historial solo se guardará dentro de Descargas/BARDO/Historial, en el almacenamiento interno del teléfono. No se abrirán proveedores externos ni se sincronizará con la nube.")
          .setNegativeButton("Cancelar", null)
+         .setItems(arrayOf("JSON · copia completa", "TXT · lectura sencilla")) { _, indice ->
+             val extension = if (indice == 0) "json" else "txt"
+             val mime = if (indice == 0) "application/json" else "text/plain"
+             val name = "bardo-historial-${System.currentTimeMillis()}.$extension"
+             val content = if (indice == 0) conversationStore.exportJson() else conversationStore.exportText()
+             if (!requiereCarpetaLocalBardo()) return@setItems
+             tvEstado.text = "Guardando historial exclusivamente en el almacenamiento interno…"
+             Thread({
+                 val result = runCatching {
+                     val temporary = File(cacheDir, name)
+                     temporary.writeText(content, Charsets.UTF_8)
+                     try { guardarArchivoEnCarpetaBardo(temporary, "Historial", name, mime) }
+                     finally { temporary.delete() }
+                 }
+                 runOnUiThread {
+                     if (!isFinishing && !isDestroyed) {
+                         tvEstado.text = result.fold(
+                             { "Copia guardada en Descargas/BARDO/Historial. No se ha creado ningún archivo en proveedores cloud." },
+                             { "No se pudo guardar localmente: ${it.message}. El historial original permanece en BARDO." }
+                         )
+                     }
+                 }
+             }, "BARDO-History-Export-Local").start()
+         }
          .show()
  }
-
  private fun renderizarConversacionActiva() {
      val id = activeConversationId ?: return
      val mensajes = conversationStore.messages(id)
@@ -2640,7 +2576,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                      String.format(java.util.Locale.ROOT, "%.2f", mix.peakAfterDbfs) + " dBFS\\nSin EQ, automatización ni true-peak mastering."
                  AlertDialog.Builder(this).setTitle("Mezcla WAV básica lista").setMessage(report)
                      .setNegativeButton("Descartar") { _, _ -> mezclaPistasPendiente?.parentFile?.deleteRecursively(); mezclaPistasPendiente = null }
-                     .setPositiveButton("Guardar WAV") { _, _ -> selectorGuardarMezclaPistas.launch("BARDO-mezcla-estereo.wav") }
+                     .setPositiveButton("Guardar WAV") { _, _ -> guardarMezclaPistasLocal() }
                      .show()
                  tvEstado.text = "Mezcla WAV completada; pendiente de guardar."
              }.onFailure { error ->
@@ -2988,10 +2924,11 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
          .setView(content)
          .setNegativeButton("Cerrar", null)
          .setPositiveButton("Guardar PNG") { _, _ ->
-             selectorGuardarPortada.launch(
-                 title.lowercase(java.util.Locale.ROOT).replace(Regex("[^a-z0-9]+"), "-")
-                     .trim('-').take(48).ifBlank { if (standaloneImage) "bardo-image" else "bardo-cover" } + ".png"
-             )
+             val fileName = title.lowercase(java.util.Locale.ROOT)
+                 .replace(Regex("[^a-z0-9]+"), "-")
+                 .trim('-').take(48)
+                 .ifBlank { if (standaloneImage) "bardo-image" else "bardo-cover" } + ".png"
+             guardarPortadaLocal(fileName)
          }
          .create()
      dialog.setOnDismissListener {
@@ -3051,7 +2988,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                          rutaMasterizadoPendiente = null
                      }
                      .setPositiveButton("Guardar WAV") { _, _ ->
-                         selectorGuardarMasterizado.launch("BARDO-masterizado.wav")
+                         guardarMasterizadoLocal()
                      }
                      .show()
                  tvEstado.text = "Procesado WAV completado; pendiente de guardar."
@@ -4972,7 +4909,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                  guardado?.exceptionOrNull()?.let { Log.e(etiqueta, "No se pudo archivar el MP3 existente", it) }
                  rutaExportacion = mp3Existente.absolutePath
                  rutaExportacionTemporal = false
-                 selectorGuardar.launch(mp3Existente.name)
+                 guardarMp3PendienteLocal()
              }
          }
      }, "BARDO-MP3-Save-Existing").start()
@@ -5018,7 +4955,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
              if (guardarEnCarpeta) tvEstado.text = "No se pudo guardar en BARDO: ${guardado?.exceptionOrNull()?.message}. Elige otro destino."
              rutaExportacion = temporal.absolutePath
              rutaExportacionTemporal = true
-             selectorGuardar.launch(nombre)
+             guardarMp3PendienteLocal()
              }
          } else {
              temporal.delete()
