@@ -146,7 +146,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
             textSize = 13f; setTextColor(blanco); setPadding(0, 0, 0, 12)
         })
         root.addView(TextView(this).apply {
-            text = "SEGURIDAD: el código importado se analiza como texto. BARDO no lo ejecuta, no modifica el APK instalado y no publica cambios automáticamente."
+            text = "PRIVACIDAD: los proyectos ZIP que importes se analizan y trabajan solo en el teléfono. Nunca se envían a GitHub ni a servicios de IA. GitHub Actions solo puede recibir diffs del código propio de BARDO procedentes de su snapshot oficial; no se envían estadísticas, grabaciones, archivos personales ni proyectos importados. La inferencia de Gemma es local."
             textSize = 12f; setTextColor(android.graphics.Color.rgb(235, 190, 125)); setPadding(0, 0, 0, 12)
         })
         addButton(root, "Configurar acceso GitHub limitado") { configurarAccesoGithub() }
@@ -738,6 +738,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
                     getSharedPreferences("bardo_developer", MODE_PRIVATE).edit()
                         .putString("snapshot_path", imported.directory.absolutePath)
                         .putString("source_snapshot_path", imported.directory.absolutePath)
+                        .putString(BardoSnapshotOriginPolicy.PREF_KEY, BardoSnapshotOriginPolicy.PRIVATE_GITHUB_MAIN)
                         .remove("candidate_path")
                         .remove("candidate_patch")
                         .remove("candidate_base_sha")
@@ -773,6 +774,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
                     getSharedPreferences("bardo_developer", MODE_PRIVATE).edit()
                         .putString("snapshot_path", it.directory.absolutePath)
                         .putString("source_snapshot_path", it.directory.absolutePath)
+                        .putString(BardoSnapshotOriginPolicy.PREF_KEY, BardoSnapshotOriginPolicy.BUNDLED_BARDO)
                         .remove("candidate_path")
                         .remove("candidate_patch").remove("candidate_base_sha").remove("candidate_files").remove("candidate_id").apply()
                     candidatePatch = ""
@@ -802,6 +804,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
                     snapshot = it.directory
                     getSharedPreferences("bardo_developer", MODE_PRIVATE).edit().putString("snapshot_path", it.directory.absolutePath)
                         .putString("source_snapshot_path", it.directory.absolutePath)
+                        .putString(BardoSnapshotOriginPolicy.PREF_KEY, BardoSnapshotOriginPolicy.USER_IMPORTED_PROJECT)
                         .remove("candidate_path")
                         .remove("candidate_patch").remove("candidate_base_sha").remove("candidate_files").remove("candidate_id").apply()
                     candidatePatch = ""
@@ -1116,7 +1119,10 @@ class BardoDeveloperActivity : AppCompatActivity() {
         val candidateId = prefs.getString("candidate_id", "").orEmpty()
         val patch = prefs.getString("candidate_patch", "").orEmpty()
         val paths = prefs.getString("candidate_files", "").orEmpty().lines().filter { it.isNotBlank() }
-        btnGithub.isEnabled = !isBusy &&
+        val trustedSource = BardoSnapshotOriginPolicy.allowsPrivateRepositoryCi(
+            prefs.getString(BardoSnapshotOriginPolicy.PREF_KEY, null)
+        )
+        btnGithub.isEnabled = !isBusy && trustedSource &&
             prefs.getBoolean("candidate_local_audit_passed", false) &&
             runCatching {
             BardoGitHubPolicy.validateBaseSha(baseSha)
@@ -1136,6 +1142,11 @@ class BardoDeveloperActivity : AppCompatActivity() {
         setBusy(true, "Recalculando la auditoría local antes de habilitar la consulta a GitHub…")
         worker.execute {
             val validation = runCatching {
+                check(BardoSnapshotOriginPolicy.allowsPrivateRepositoryCi(
+                    prefs.getString(BardoSnapshotOriginPolicy.PREF_KEY, null)
+                )) {
+                    "Privacidad protegida: los proyectos importados solo pueden estudiarse localmente y nunca se envían a GitHub."
+                }
                 check(prefs.getBoolean("candidate_local_audit_passed", false)) {
                     "La auditoría local anterior no está superada."
                 }
