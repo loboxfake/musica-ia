@@ -31,7 +31,9 @@ data class BardoLearningVerification(
     val passed: Boolean,
     val verifierId: String,
     val evidenceRefs: List<String>,
-    val note: String
+    val note: String,
+    /** Contenido exacto reconstruido por el verificador; nunca procede del modelo sin validar. */
+    val verifiedContent: String? = null
 )
 
 /**
@@ -123,7 +125,15 @@ class BardoLearningJournal(
             "La verificación debe aportar referencias de evidencia."
         }
         require(verification.note.isNotBlank() && verification.note.length <= 2000)
+        val trustedContent = if (verification.passed) {
+            verification.verifiedContent ?: candidate.content
+        } else candidate.content
+        require(trustedContent.isNotBlank() && trustedContent.length <= MAX_CONTENT_CHARS) {
+            "El contenido verificado está vacío o supera el límite."
+        }
         val updated = candidate.copy(
+            content = trustedContent,
+            contentSha256 = sha256(trustedContent.toByteArray(Charsets.UTF_8)),
             state = if (verification.passed) BardoLearningState.VERIFIED else BardoLearningState.REJECTED,
             verifierId = verification.verifierId,
             evidenceRefs = verification.evidenceRefs.distinct(),

@@ -129,7 +129,7 @@ object BardoCapabilityRegistry {
             Capability(
                 "model_learning_journal", "Memoria de aprendizaje desde otros modelos",
                 Status.REQUIRES_USER_ACTION,
-                "BardoLearningJournal conserva respuestas de agentes como candidatas no verificadas con SHA-256 y procedencia. Todavía no hay un verificador de producción conectado; no se promueven como hechos ni se modifican pesos del modelo.",
+                "BardoLearningJournal conserva respuestas de agentes con SHA-256 y procedencia. El verificador local solo promueve extractos literales que coinciden byte a byte con el snapshot oficial de BARDO; las interpretaciones y respuestas sin evidencia permanecen como candidatas. No se modifican pesos del modelo.",
                 "Promover una lección solo después de corroboración independiente, evidencia trazable y resultado reproducible; conservar también discrepancias y fallos."
             ),
             Capability(
