@@ -216,6 +216,29 @@ class BardoCiEvidenceAdapterTest {
     }
 
     @Test
+    fun signatureAndArm64ChecksAreMandatoryForTheBuildEvidence() {
+        val failedSignature = collect(
+            run = run(conclusion = "failure"),
+            jobs = jobs(conclusion = "failure", failedStep = stepNames[4])
+        )
+        assertEquals(BardoCiEvidenceState.CI_FAILED, failedSignature.state)
+        assertFalse(failedSignature.evidence.single {
+            it.check == BardoCheck.DEBUG_BUILD
+        }.passed)
+        assertTrue(failedSignature.problems.any { it.contains("firma v2") })
+
+        val failedAbi = collect(
+            run = run(conclusion = "failure"),
+            jobs = jobs(conclusion = "failure", failedStep = stepNames[5])
+        )
+        assertEquals(BardoCiEvidenceState.CI_FAILED, failedAbi.state)
+        assertFalse(failedAbi.evidence.single {
+            it.check == BardoCheck.DEBUG_BUILD
+        }.passed)
+        assertTrue(failedAbi.problems.any { it.contains("ARM64") })
+    }
+
+    @Test
     fun artifactMustBelongToTheSameRunAndCommitAndMustNotBeExpired() {
         val wrongRun = collect(artifacts = artifacts(artifactRunId = runId + 1))
         assertEquals(BardoCiEvidenceState.CI_FAILED, wrongRun.state)
