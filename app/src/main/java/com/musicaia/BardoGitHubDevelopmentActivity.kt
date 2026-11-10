@@ -522,9 +522,13 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
         val privacyReady = sourceOriginIsTrusted() && candidatePromptPrivacyIsSafe()
         validateButton.isEnabled = !busy && tokenReady && privacyReady && !mainCommitSucceeded && !validationDispatched
         refreshButton.isEnabled = !busy && tokenReady && (validationDispatched || mainCommitDispatched)
-        integrateButton.isEnabled = BardoGitHubIntegrationPolicy.DRAFT_PR_WORKFLOW_ENABLED &&
+        integrateButton.isEnabled = BardoGitHubIntegrationPolicy.MAIN_COMMIT_WORKFLOW_ENABLED &&
             !busy && tokenReady && privacyReady && validationSucceeded && !mainCommitSucceeded && !mainCommitDispatched
-        integrateButton.text = "Ramas y PR desactivados — política de main única"
+        integrateButton.text = if (mainCommitSucceeded) {
+            "Candidato integrado en main"
+        } else {
+            "Autorizar commit directo a main"
+        }
     }
 
     private fun setBusy(value: Boolean, message: String = "") {
