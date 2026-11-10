@@ -296,7 +296,9 @@ class MainActivity : AppCompatActivity() {
 
  private val selectorElegirCarpetaBardo =
      registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-         if (uri != null) runCatching {
+         if (uri == null) {
+         accionPendienteTrasConectarCarpeta = null
+     } else runCatching {
              val treeRootId = DocumentsContract.getTreeDocumentId(uri)
              require(BardoLocalStorageDestinationPolicy.isLocalDownloadsTree(
                  uri.scheme, uri.authority, treeRootId
@@ -758,7 +760,11 @@ class MainActivity : AppCompatActivity() {
      if (uriCarpetaBardo != null && bardoRootDocumentId != null &&
          runCatching { raizCarpetaBardo() }.isSuccess
      ) return
-     if (!BardoSharedStorage.isConfigured(applicationContext)) return
+     if (!BardoSharedStorage.isConfigured(applicationContext)) {
+         uriCarpetaBardo = null
+         bardoRootDocumentId = null
+         return
+     }
      val prefs = getSharedPreferences("bardo_storage", MODE_PRIVATE)
      uriCarpetaBardo = prefs.getString("tree_uri", null)
          ?.let { runCatching { Uri.parse(it) }.getOrNull() }
@@ -1030,8 +1036,8 @@ private fun crearConversacionNueva() {
      AlertDialog.Builder(this)
          .setTitle("Historial de BARDO")
          .setItems(titulos) { _, indice ->
-             activeConversationId = conversaciones[indice].id
              cargarMemoriaLocal()
+             activeConversationId = conversaciones[indice].id
              getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE).edit()
                  .putString("active_conversation_id", activeConversationId).apply()
              chatLog.text = ""
