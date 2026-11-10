@@ -99,6 +99,50 @@ class BardoAutonomyEngineTest {
         }
     }
 
+    @Test fun stepBudgetCountsStepsAcrossCorrectionsForTheWholeTask() {
+        val root = createTempDir(prefix = "bardo-autonomy-total-step-budget")
+        try {
+            val plannerCalls = AtomicInteger()
+            val planner = BardoTaskPlanner { _, _, reason ->
+                if (plannerCalls.getAndIncrement() == 0) {
+                    BardoActionPlan(
+                        listOf(BardoTaskStep(
+                            "test.echo", mapOf("value" to "wrong"), "First attempt", "right"
+                        )),
+                        correctionBudget = 1
+                    )
+                } else {
+                    assertTrue(reason.orEmpty().contains("criterio"))
+                    BardoActionPlan(
+                        listOf(
+                            BardoTaskStep("test.echo", mapOf("value" to "second"), "Corrected step 1"),
+                            BardoTaskStep("test.echo", mapOf("value" to "third"), "Corrected step 2")
+                        ),
+                        correctionBudget = 0
+                    )
+                }
+            }
+            val result = BardoAutonomyEngine(
+                planner,
+                tools(),
+                BardoTaskJournal(root),
+                budget = BardoAutonomyBudget(
+                    maxTaskMillis = 30_000L,
+                    maxSteps = 2,
+                    maxCorrections = 1
+                )
+            ).run("Respect total step budget across corrections")
+
+            assertEquals(BardoAutonomyStatus.PARTIAL, result.status)
+            assertEquals(2, result.observations.size)
+            assertTrue(BardoTaskJournal(root).readRecent().any {
+                it.optString("event") == "step_limit"
+            })
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
     @Test fun failedCriterionInvokesOneCorrectionAndCanComplete() {
         val root = createTempDir(prefix = "bardo-autonomy-correction")
         try {
