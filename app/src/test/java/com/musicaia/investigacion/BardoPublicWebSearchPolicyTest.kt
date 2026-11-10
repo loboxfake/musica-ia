@@ -21,6 +21,9 @@ class BardoPublicWebSearchPolicyTest {
             "github_pat_ABCDEFGHIJKLMNOPQRSTUVWXYZ123456",
             "Xiaomi 11T Pro Snapdragon 888",
             "RAM libre 2.4 GB batería 72%",
+            "battery 82",
+            "RAM libre 512",
+            "CPU at 74",
             "my_audio.wav",
             "1234567890123456"
         ).forEach { query ->
