@@ -14,6 +14,12 @@ class BardoCoverArtGeneratorTest {
     }
 
     @Test
+    fun emptyArtistDoesNotProduceAPlaceholder() {
+        assertEquals(null, BardoCoverArtGenerator.visibleArtistLabel("   "))
+        assertEquals("BARDO", BardoCoverArtGenerator.visibleArtistLabel(" BARDO "))
+    }
+
+    @Test
     fun seedIsRepeatableAndDependsOnTheCreativeBrief() {
         val seed = BardoCoverArtGenerator.stableSeed("Luz", "BARDO", "esperanza", "Cosmos")
         assertEquals(seed, BardoCoverArtGenerator.stableSeed("Luz", "BARDO", "esperanza", "Cosmos"))

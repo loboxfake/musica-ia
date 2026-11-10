@@ -1081,11 +1081,9 @@ private fun crearConversacionNueva() {
          .append("\n\n")
          .append("Este inventario consulta únicamente el paquete, modelos, recursos, módulos y ayudantes propios de BARDO. No enumera aplicaciones externas. «Código integrado» no significa función probada; «modelo presente» tampoco garantiza que pueda cargarse. Gemma se identifica por archivo y tamaño; su SHA-256 debe validarse antes de inferir. Solo se considera probado lo ejecutado realmente en el Xiaomi 11T Pro.")
 
-     AlertDialog.Builder(this)
-         .setTitle("BARDO · Inventario propio")
-         .setMessage(texto)
-         .setPositiveButton("Cerrar", null)
-         .show()
+     mostrarTextoDiagnostico(
+         "BARDO · Inventario propio", texto.toString(), "BARDO_inventario"
+     )
  }
 
  private fun mostrarBusquedaHistorial() {
@@ -1121,13 +1119,13 @@ private fun crearConversacionNueva() {
                  .setTitle("Resultados: ${resultados.size}")
                  .setItems(etiquetas) { _, indice ->
                      val seleccion = resultados[indice]
-                     activeConversationId = seleccion.conversation.id
                      cargarMemoriaLocal()
+                     activeConversationId = seleccion.conversation.id
                      getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE).edit()
                          .putString("active_conversation_id", activeConversationId).apply()
                      chatLog.text = ""
-                     renderizarConversacionActiva()
-                     tvEstado.text = "Conversación recuperada desde el resultado de búsqueda."
+                     renderizarConversacionActiva(seleccion.message.id)
+                     tvEstado.text = "Conversación recuperada y mensaje encontrado resaltado."
                  }
                  .setNegativeButton("Cerrar", null)
                  .show()
@@ -1166,12 +1164,12 @@ private fun crearConversacionNueva() {
          }
          .show()
  }
- private fun renderizarConversacionActiva() {
+ private fun renderizarConversacionActiva(focusMessageId: String? = null) {
      val id = activeConversationId ?: return
      val mensajes = conversationStore.messages(id)
      if (mensajes.isEmpty()) {
          chatLog.text = ""
-         renderizarBurbujasChat()
+         renderizarBurbujasChat(focusMessageId)
          return
      }
      val formato = DateTimeFormatter.ofPattern("dd/MM HH:mm")
@@ -1186,7 +1184,7 @@ private fun crearConversacionNueva() {
          }
          "[$hora] $autor: ${mensaje.content}"
      }
-     renderizarBurbujasChat()
+     renderizarBurbujasChat(focusMessageId)
  }
 
  private fun memoriaLibreActualBytes(): Long {
@@ -1267,7 +1265,7 @@ private fun crearConversacionNueva() {
      raiz.viewTreeObserver.addOnGlobalLayoutListener(listener)
  }
 
- private fun renderizarBurbujasChat() {
+ private fun renderizarBurbujasChat(focusMessageId: String? = null) {
      if (!::chatMessages.isInitialized || !::chatScroll.isInitialized) return
      chatMessages.removeAllViews()
      val id = activeConversationId ?: return
@@ -1285,17 +1283,29 @@ private fun crearConversacionNueva() {
                  "tool" -> "Herramienta"
                  else -> "Sistema"
              }
-             agregarBurbujaChat(autor, mensaje.content, hora, mensaje.role)
+             agregarBurbujaChat(
+                 autor, mensaje.content, hora, mensaje.role,
+                 mensaje.id, mensaje.id == focusMessageId
+             )
          }
      }
      chatProgrammaticScroll = true
      chatScroll.post {
-         chatScroll.fullScroll(View.FOCUS_DOWN)
-         chatScroll.postDelayed({ chatProgrammaticScroll = false }, 180L)
+         val objetivo = if (focusMessageId == null) null else {
+             (0 until chatMessages.childCount)
+                 .map { chatMessages.getChildAt(it) }
+                 .firstOrNull { it.tag == focusMessageId }
+         }
+         if (objetivo != null) chatScroll.smoothScrollTo(0, objetivo.top)
+         else chatScroll.fullScroll(View.FOCUS_DOWN)
+         chatScroll.postDelayed({ chatProgrammaticScroll = false }, 220L)
      }
  }
 
- private fun agregarBurbujaChat(autor: String, contenido: String, hora: String, rol: String) {
+ private fun agregarBurbujaChat(
+     autor: String, contenido: String, hora: String, rol: String,
+     messageId: String? = null, highlight: Boolean = false
+ ) {
      val usuario = rol == "user"
      val sistema = rol == "system" || rol == "tool"
      val fila = LinearLayout(this).apply {
@@ -1306,6 +1316,7 @@ private fun crearConversacionNueva() {
              else -> Gravity.START
          }
      }
+     fila.tag = messageId
      val burbuja = LinearLayout(this).apply {
          orientation = LinearLayout.VERTICAL
          setPadding(dp(14), dp(10), dp(14), dp(11))
@@ -1330,7 +1341,10 @@ private fun crearConversacionNueva() {
          }
          background = GradientDrawable(GradientDrawable.Orientation.BL_TR, colores).apply {
              cornerRadius = dp(18).toFloat()
-             setStroke(dp(1), borde)
+             setStroke(
+                 if (highlight) dp(3) else dp(1),
+                 if (highlight) android.graphics.Color.rgb(255, 196, 88) else borde
+             )
          }
      }
      val encabezado = TextView(this).apply {
@@ -1850,21 +1864,133 @@ private fun crearConversacionNueva() {
      }, "BARDO-Backup-Restore").start()
  }
 
+ private fun copiarTextoDiagnostico(titulo: String, contenido: String) {
+     val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+     clipboard.setPrimaryClip(android.content.ClipData.newPlainText(titulo, contenido))
+     android.widget.Toast.makeText(this, "Texto copiado al portapapeles.", android.widget.Toast.LENGTH_SHORT).show()
+ }
+
+ private fun compartirTextoDiagnostico(titulo: String, contenido: String) {
+     val intent = Intent(Intent.ACTION_SEND).apply {
+         type = "text/plain"
+         putExtra(Intent.EXTRA_SUBJECT, titulo)
+         putExtra(Intent.EXTRA_TEXT, contenido)
+     }
+     startActivity(Intent.createChooser(intent, titulo))
+ }
+
+ private fun exportarTextoDiagnostico(contenido: String, nombreBase: String) {
+     if (!requiereCarpetaLocalBardo()) return
+     val nombre = nombreBase + "_" + System.currentTimeMillis() + ".txt"
+     val temporal = File(File(filesDir, "exports"), nombre)
+     tvEstado.text = "Exportando diagnóstico local y verificando el archivo..."
+     Thread({
+         val resultado = runCatching {
+             temporal.parentFile?.mkdirs()
+             temporal.writeText(contenido, Charsets.UTF_8)
+             guardarArchivoEnCarpetaBardo(temporal, "Diagnosticos", nombre, "text/plain")
+         }
+         temporal.delete()
+         runOnUiThread {
+             if (!isFinishing && !isDestroyed) {
+                 tvEstado.text = resultado.fold(
+                     { "Diagnóstico exportado y verificado en Descargas/BARDO/Diagnosticos." },
+                     { "No se pudo exportar el diagnóstico: " + (it.message ?: "error desconocido") }
+                 )
+             }
+         }
+     }, "BARDO-Diagnostic-Export").start()
+ }
+
+ private fun mostrarTextoDiagnostico(titulo: String, contenido: String, nombreBase: String) {
+     val texto = TextView(this).apply {
+         text = contenido
+         setTextColor(android.graphics.Color.parseColor("#DCE8F8"))
+         textSize = 12f
+         setPadding(dp(14), dp(10), dp(14), dp(10))
+         setTextIsSelectable(true)
+     }
+     val scroll = ScrollView(this).apply {
+         addView(texto)
+         isFillViewport = true
+     }
+     fun boton(etiqueta: String, accion: () -> Unit) = Button(this).apply {
+         text = etiqueta
+         isAllCaps = false
+         textSize = 10.5f
+         minHeight = dp(38)
+         setOnClickListener { accion() }
+     }
+     fun fila(vararg botones: Button) = LinearLayout(this).apply {
+         orientation = LinearLayout.HORIZONTAL
+         botones.forEach { addView(it, LinearLayout.LayoutParams(0, dp(40), 1f)) }
+     }
+     val panel = LinearLayout(this).apply {
+         orientation = LinearLayout.VERTICAL
+         addView(fila(
+             boton("Seleccionar todo") { texto.selectAll() },
+             boton("Copiar todo") { copiarTextoDiagnostico(titulo, contenido) }
+         ))
+         addView(fila(
+             boton("Exportar TXT") { exportarTextoDiagnostico(contenido, nombreBase) },
+             boton("Compartir") { compartirTextoDiagnostico(titulo, contenido) }
+         ))
+         addView(scroll, LinearLayout.LayoutParams(
+             LinearLayout.LayoutParams.MATCH_PARENT, dp(250)
+         ))
+     }
+     AlertDialog.Builder(this)
+         .setTitle(titulo)
+         .setView(panel)
+         .setPositiveButton("Cerrar", null)
+         .show()
+ }
+
  private fun mostrarActividadBardo() {
      val texto = TextView(this).apply {
          setTextColor(android.graphics.Color.parseColor("#DCE8F8"))
-         textSize = 13f
-         setPadding(20, 12, 20, 12)
+         textSize = 12f
+         setPadding(dp(12), dp(8), dp(12), dp(8))
+         setTextIsSelectable(true)
      }
-     val scroll = ScrollView(this).apply { addView(texto) }
-     val dialogo = AlertDialog.Builder(this)
+     val scroll = ScrollView(this).apply {
+         addView(texto)
+         isFillViewport = true
+     }
+     fun boton(etiqueta: String) = Button(this).apply {
+         text = etiqueta
+         isAllCaps = false
+         textSize = 10.5f
+         minHeight = dp(38)
+     }
+     fun fila(vararg botones: Button) = LinearLayout(this).apply {
+         orientation = LinearLayout.HORIZONTAL
+         botones.forEach { addView(it, LinearLayout.LayoutParams(0, dp(40), 1f)) }
+     }
+     var pausada = false
+     lateinit var dialogo: AlertDialog
+     lateinit var refresco: Runnable
+     val btnPausar = boton("Pausar")
+     val btnSeleccionar = boton("Seleccionar todo")
+     val btnCopiar = boton("Copiar todo")
+     val btnExportar = boton("Exportar TXT")
+     val btnCompartir = boton("Compartir")
+     val panel = LinearLayout(this).apply {
+         orientation = LinearLayout.VERTICAL
+         addView(fila(btnPausar, btnSeleccionar, btnCopiar))
+         addView(fila(btnExportar, btnCompartir))
+         addView(scroll, LinearLayout.LayoutParams(
+             LinearLayout.LayoutParams.MATCH_PARENT, dp(220)
+         ))
+     }
+     dialogo = AlertDialog.Builder(this)
          .setTitle("BARDO · Actividad y trabajos")
-         .setView(scroll)
+         .setView(panel)
          .setPositiveButton("Cerrar", null)
          .create()
-     val refresco = object : Runnable {
+     refresco = object : Runnable {
          override fun run() {
-             if (!dialogo.isShowing) return
+             if (!dialogo.isShowing || pausada) return
              val eventos = BardoActivityStore.recent(this@MainActivity, 250)
              texto.text = if (eventos.isEmpty()) {
                  "Todavía no hay tareas registradas en esta versión."
@@ -1872,16 +1998,25 @@ private fun crearConversacionNueva() {
                  val fecha = DateTimeFormatter.ofPattern("dd/MM HH:mm:ss").withZone(ZoneId.systemDefault())
                      .format(Instant.ofEpochMilli(evento.timestamp))
                  buildString {
-                     append(fecha).append(" · ").append(evento.category.uppercase()).append("\n")
+                     append(fecha).append(" · ").append(evento.category.uppercase()).append('\n')
                      append(evento.state.uppercase()).append(" · ").append(evento.stage)
                      evento.progress?.let { append(" · ").append(it).append("%") }
-                     append("\n").append(evento.message)
+                     append('\n').append(evento.message)
                      evento.artifact?.let { append("\nResultado: ").append(it) }
                  }
              }
              handler.postDelayed(this, 2500L)
          }
      }
+     btnPausar.setOnClickListener {
+         pausada = !pausada
+         btnPausar.text = if (pausada) "Reanudar" else "Pausar"
+         if (pausada) handler.removeCallbacks(refresco) else handler.post(refresco)
+     }
+     btnSeleccionar.setOnClickListener { texto.selectAll() }
+     btnCopiar.setOnClickListener { copiarTextoDiagnostico("BARDO · Actividad", texto.text.toString()) }
+     btnExportar.setOnClickListener { exportarTextoDiagnostico(texto.text.toString(), "BARDO_actividad") }
+     btnCompartir.setOnClickListener { compartirTextoDiagnostico("BARDO · Actividad", texto.text.toString()) }
      dialogo.setOnDismissListener { handler.removeCallbacks(refresco) }
      dialogo.setOnShowListener { handler.post(refresco) }
      dialogo.show()

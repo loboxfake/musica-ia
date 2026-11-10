@@ -19,6 +19,9 @@ object BardoCoverArtGenerator {
     const val SIZE = 1024
     val STYLES = listOf("Cosmos", "Geometría", "Aurora", "Noir", "Orgánico")
 
+    fun visibleArtistLabel(artist: String): String? =
+        artist.trim().takeIf { it.isNotEmpty() }?.take(48)
+
     fun stableSeed(title: String, artist: String, concept: String, style: String): Int =
         listOf(title.trim(), artist.trim(), concept.trim(), style.trim()).joinToString("|").hashCode()
 
@@ -233,7 +236,7 @@ object BardoCoverArtGenerator {
             textSize = 34f
             typeface = Typeface.create("sans-serif", Typeface.NORMAL)
         }
-        canvas.drawText(artist.ifBlank { "ARTISTA" }.take(48), 74f, 960f, artistPaint)
+        visibleArtistLabel(artist)?.let { canvas.drawText(it, 74f, 960f, artistPaint) }
         if (concept.isNotBlank()) {
             artistPaint.textSize = 22f
             artistPaint.alpha = 210
