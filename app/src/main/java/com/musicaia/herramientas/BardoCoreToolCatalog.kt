@@ -223,11 +223,8 @@ object BardoCoreToolCatalog {
                 )
 
                 override fun execute(arguments: Map<String, String>): BardoToolOutput {
-                    check(BardoPublicWebSearchPolicy.isEnabled(app)) {
-                        "La búsqueda web pública está desactivada. El usuario debe autorizarla en BARDO Developer."
-                    }
                     val query = BardoPublicWebSearchPolicy.validateQuery(arguments["query"].orEmpty())
-                    val results = BardoPublicWebSearch.search(query)
+                    val results = BardoPublicWebSearch.search(app, query)
                     require(results.isNotEmpty()) { "El buscador no devolvió resultados para esta consulta." }
                     val body = buildString {
                         appendLine("CONSULTA PÚBLICA: " + query)
