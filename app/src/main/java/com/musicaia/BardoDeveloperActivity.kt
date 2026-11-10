@@ -56,6 +56,7 @@ import com.musicaia.skills.BardoSkillLifecycle
 import com.musicaia.skills.BardoSkillArchiveReader
 import com.musicaia.skills.BardoSkillActivationGate
 import com.musicaia.investigacion.BardoPublicWebSearchPolicy
+import com.musicaia.autonomia.BardoAutonomyBudget
 
 /** Entorno local de investigación y auditoría. Nunca ejecuta código importado ni modifica el APK instalado. */
 class BardoDeveloperActivity : AppCompatActivity() {
@@ -161,6 +162,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
         btnAsk = addButton(root, "Consultar a BARDO con Gemma local", enabled = false) { consultarModelo() }
         btnApply = addButton(root, "Aplicar propuesta a una copia aislada", enabled = false) { aplicarPropuesta() }
         btnGithub = addButton(root, "Validar e integrar candidato con GitHub CI", enabled = false) { abrirDesarrolloGitHub() }
+        addButton(root, "Configurar presupuesto por tarea") { configurarPresupuestoAutonomia() }
         addButton(root, "Iniciar autoestudio ahora (Gemma local)") { ejecutarAutoestudioAhora() }
         addButton(root, "Activar autoestudio en segundo plano (cada 6 h, al cargar)") { activarAutoestudio() }
         addButton(root, "Pausar autoestudio automático") { pausarAutoestudio() }
@@ -185,6 +187,90 @@ class BardoDeveloperActivity : AppCompatActivity() {
         scroll.addView(output)
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = 12 })
         setContentView(root)
+    }
+
+    /** Configura los límites de cada ejecución; se aplican al siguiente autoestudio. */
+    private fun configurarPresupuestoAutonomia() {
+        val prefs = getSharedPreferences("bardo_developer", MODE_PRIVATE)
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(36, 8, 36, 0)
+        }
+
+        fun addNumberField(label: String, value: String): EditText {
+            container.addView(TextView(this).apply {
+                text = label
+                textSize = 14f
+                setPadding(0, 10, 0, 2)
+            })
+            return EditText(this).apply {
+                inputType = android.text.InputType.TYPE_CLASS_NUMBER
+                setSingleLine(true)
+                setText(value)
+                container.addView(this, LinearLayout.LayoutParams(-1, 48))
+            }
+        }
+
+        val seconds = addNumberField(
+            "Duración máxima (10–900 segundos)",
+            (prefs.getLong("autonomy_budget_task_millis", 180_000L) / 1000L).toString()
+        )
+        val steps = addNumberField(
+            "Pasos máximos (1–12)",
+            prefs.getInt("autonomy_budget_max_steps", 12).toString()
+        )
+        val corrections = addNumberField(
+            "Correcciones máximas (0–2)",
+            prefs.getInt("autonomy_budget_max_corrections", 2).toString()
+        )
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Presupuesto de autoestudio")
+            .setMessage("Los límites se aplican a cada tarea nueva. Si se alcanza un límite, BARDO conserva el resultado parcial y detiene esa ejecución. Los cambios no interrumpen una tarea que ya esté en marcha.")
+            .setView(container)
+            .setNegativeButton("Cancelar", null)
+            .setPositiveButton("Guardar", null)
+            .create()
+
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val secondsValue = seconds.text.toString().trim().toLongOrNull()
+                val stepsValue = steps.text.toString().trim().toIntOrNull()
+                val correctionsValue = corrections.text.toString().trim().toIntOrNull()
+                val budget = runCatching {
+                    require(secondsValue != null) { "Indica la duración en segundos." }
+                    require(stepsValue != null) { "Indica el máximo de pasos." }
+                    require(correctionsValue != null) { "Indica el máximo de correcciones." }
+                    BardoAutonomyBudget(
+                        maxTaskMillis = secondsValue * 1000L,
+                        maxSteps = stepsValue,
+                        maxCorrections = correctionsValue
+                    )
+                }
+                budget.fold(
+                    onSuccess = { validated ->
+                        prefs.edit()
+                            .putLong("autonomy_budget_task_millis", validated.maxTaskMillis)
+                            .putInt("autonomy_budget_max_steps", validated.maxSteps)
+                            .putInt("autonomy_budget_max_corrections", validated.maxCorrections)
+                            .apply()
+                        output.text = "Presupuesto guardado para las próximas tareas: " +
+                            (validated.maxTaskMillis / 1000L) + " s · " +
+                            validated.maxSteps + " pasos · " +
+                            validated.maxCorrections + " correcciones."
+                        dialog.dismiss()
+                    },
+                    onFailure = { error ->
+                        AlertDialog.Builder(this)
+                            .setTitle("Presupuesto no válido")
+                            .setMessage(error.message ?: "Revisa los valores introducidos.")
+                            .setPositiveButton("Corregir", null)
+                            .show()
+                    }
+                )
+            }
+        }
+        dialog.show()
     }
 
     private fun addButton(parent: LinearLayout, label: String, enabled: Boolean = true, action: () -> Unit): Button {
