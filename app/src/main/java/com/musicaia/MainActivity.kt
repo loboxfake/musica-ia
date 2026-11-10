@@ -280,7 +280,7 @@ class MainActivity : AppCompatActivity() {
          } else {
              Thread({
                  val result = runCatching {
-                     val target = contentResolver.openOutputStream(uri)
+                     val target = run { exigirDestinoLocalBardo(uri); contentResolver.openOutputStream(uri) }
                          ?: throw IllegalStateException("No se pudo abrir el destino.")
                      val written = target.use { output ->
                          origen.inputStream().buffered().use { input ->
@@ -325,7 +325,7 @@ class MainActivity : AppCompatActivity() {
          } else {
              Thread({
                  val error = runCatching {
-                     val salida = contentResolver.openOutputStream(uri)
+                     val salida = run { exigirDestinoLocalBardo(uri); contentResolver.openOutputStream(uri) }
                          ?: throw IllegalStateException("No se pudo abrir el destino.")
                      salida.use { destino ->
                          origen.inputStream().buffered().use { it.copyTo(destino) }
@@ -350,7 +350,7 @@ class MainActivity : AppCompatActivity() {
          } else {
              Thread({
                  val result = runCatching {
-                     val output = contentResolver.openOutputStream(uri)
+                     val output = run { exigirDestinoLocalBardo(uri); contentResolver.openOutputStream(uri) }
                          ?: throw IllegalStateException("No se pudo abrir el destino PNG.")
                      val copied = output.use { destination ->
                          sourceFile.inputStream().buffered().use { input ->
@@ -476,7 +476,7 @@ class MainActivity : AppCompatActivity() {
      registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
          if (uri != null) {
              runCatching {
-                 val salida = contentResolver.openOutputStream(uri)
+                 val salida = run { exigirDestinoLocalBardo(uri); contentResolver.openOutputStream(uri) }
                      ?: throw IllegalStateException("No se pudo abrir el destino.")
                  salida.bufferedWriter().use { it.write(configuracionInterfazActual().toString(2)) }
                  tvEstado.text = "Configuración de interfaz exportada."
@@ -487,7 +487,7 @@ class MainActivity : AppCompatActivity() {
  private val selectorExportarHistorialJson =
      registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
          if (uri != null) runCatching {
-             val salida = contentResolver.openOutputStream(uri)
+             val salida = run { exigirDestinoLocalBardo(uri); contentResolver.openOutputStream(uri) }
                  ?: throw IllegalStateException("No se pudo abrir el destino.")
              salida.bufferedWriter().use { it.write(conversationStore.exportJson()) }
              tvEstado.text = "Historial completo exportado en JSON."
@@ -497,7 +497,7 @@ class MainActivity : AppCompatActivity() {
  private val selectorExportarHistorialTxt =
      registerForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
          if (uri != null) runCatching {
-             val salida = contentResolver.openOutputStream(uri)
+             val salida = run { exigirDestinoLocalBardo(uri); contentResolver.openOutputStream(uri) }
                  ?: throw IllegalStateException("No se pudo abrir el destino.")
              salida.bufferedWriter().use { it.write(conversationStore.exportText()) }
              tvEstado.text = "Historial legible exportado en TXT."
@@ -545,7 +545,7 @@ class MainActivity : AppCompatActivity() {
              tvEstado.text = "Guardando MP3 en el destino elegido..."
              Thread({
                  val error = runCatching {
-                     val salida = contentResolver.openOutputStream(uri)
+                     val salida = run { exigirDestinoLocalBardo(uri); contentResolver.openOutputStream(uri) }
                          ?: throw IllegalStateException("No se pudo abrir el destino de exportación.")
                      salida.use { destino ->
                          File(origen).inputStream().buffered().use { it.copyTo(destino) }
