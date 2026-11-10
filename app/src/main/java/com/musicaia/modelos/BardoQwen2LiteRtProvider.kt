@@ -80,11 +80,16 @@ class BardoQwen2LiteRtProvider : BardoModelProvider {
     override fun generate(context: Context, request: BardoModelRequest): BardoModelResponse {
         val started = System.nanoTime()
         val model = BardoQwen2LiteRtModule.modelFile(context)
+        if (!EngineLiteRT.estaCargado(model.absolutePath)) {
+            check(load(context)) { "No se pudo cargar Qwen2." }
+        }
         val text = EngineLiteRT.withSession {
-            if (!EngineLiteRT.estaCargado(model.absolutePath)) {
-                check(load(context)) { "No se pudo cargar Qwen2." }
+            if (!estaCargado(model.absolutePath)) {
+                check(inicializar(model.absolutePath, File(context.cacheDir, "bardo-litert-cache").absolutePath)) {
+                    "No se pudo cargar Qwen2."
+                }
             }
-            EngineLiteRT.generar(
+            generar(
                 request.prompt,
                 reiniciarConversacion = request.resetConversation
             ).trim()
