@@ -10,6 +10,12 @@ import java.util.Locale
 import org.json.JSONArray
 import org.json.JSONObject
 
+data class BardoExportReceipt(
+    val relativePath: String,
+    val bytes: Long,
+    val sha256: String
+)
+
 data class BardoMobileFileDeletionRequest(
     val id: String,
     val relativePath: String,
@@ -656,6 +662,114 @@ object BardoSharedStorage {
         } catch (error: Exception) {
             // Solo se elimina el destino parcial creado por esta misma operación.
             runCatching { DocumentsContract.deleteDocument(context.contentResolver, target) }
+            throw error
+        }
+    }
+
+    /**
+     * Exporta un artefacto BARDO desde almacenamiento privado y verifica la copia
+     * leyendo de nuevo el documento SAF. Un recuento de bytes escrito no basta.
+     */
+    fun exportGeneratedFile(
+        context: Context,
+        relativeDirectory: String,
+        source: File,
+        destinationName: String,
+        mimeType: String
+    ): BardoExportReceipt {
+        val app = context.applicationContext
+        require(source.isFile && source.length() > 0L) {
+            "El archivo de origen no existe o está vacío."
+        }
+        val allowedRoots = listOfNotNull(
+            app.filesDir,
+            app.cacheDir,
+            app.getExternalFilesDir(null),
+            app.externalCacheDir
+        )
+        require(BardoGeneratedExportSourcePolicy.allows(allowedRoots, source)) {
+            "Por seguridad, solo se exportan archivos creados o importados dentro del almacenamiento privado de BARDO."
+        }
+        require(mimeType.isNotBlank()) { "El tipo MIME no puede estar vacío." }
+        val directory = BardoMobileFilePolicy.normalizeRelativePath(relativeDirectory)
+            ?: throw IllegalArgumentException("La carpeta de destino no es válida.")
+        require(directory.isNotEmpty()) { "Indica una carpeta dentro de Descargas/BARDO." }
+        val directoryDecision = BardoMobileFilePolicy.authorize(
+            BardoMobileFileOperation.CREATE_DIRECTORY, directory
+        )
+        require(directoryDecision.allowed) { directoryDecision.reason }
+        createDirectory(app, directory)
+
+        val name = validateName(destinationName, allowExtension = true)
+        val relativePath = "$directory/$name"
+        val fileDecision = BardoMobileFilePolicy.authorize(
+            BardoMobileFileOperation.CREATE_FILE, relativePath
+        )
+        require(fileDecision.allowed) { fileDecision.reason }
+        val loc = location(app) ?: throw IllegalStateException(
+            "No existe permiso SAF persistente y verificable para Descargas/BARDO."
+        )
+        val parent = resolveDirectory(app, loc, directory)
+        val target = DocumentsContract.createDocument(
+            app.contentResolver, parent, mimeType, name
+        ) ?: throw IllegalStateException("Android no pudo crear BARDO/$relativePath.")
+
+        try {
+            check(isAuthorizedLocalBardoDestination(app, target)) {
+                "Android devolvió un destino fuera de la carpeta local BARDO autorizada."
+            }
+            val expectedBytes = source.length()
+            val writeDigest = java.security.MessageDigest.getInstance("SHA-256")
+            var writtenBytes = 0L
+            val output = app.contentResolver.openOutputStream(target, "w")
+                ?: throw IllegalStateException("No se pudo abrir el destino SAF para escritura.")
+            output.use { destination ->
+                source.inputStream().buffered().use { input ->
+                    val buffer = ByteArray(64 * 1024)
+                    while (true) {
+                        val count = input.read(buffer)
+                        if (count < 0) break
+                        if (count == 0) continue
+                        destination.write(buffer, 0, count)
+                        writeDigest.update(buffer, 0, count)
+                        writtenBytes += count
+                    }
+                }
+                destination.flush()
+            }
+            check(writtenBytes == expectedBytes && source.length() == expectedBytes) {
+                "La escritura quedó incompleta ($writtenBytes/$expectedBytes bytes)."
+            }
+            val expectedHash = writeDigest.digest().joinToString("") { "%02x".format(it) }
+
+            val readDigest = java.security.MessageDigest.getInstance("SHA-256")
+            var verifiedBytes = 0L
+            val readback = app.contentResolver.openInputStream(target)
+                ?: throw IllegalStateException("No se pudo reabrir el archivo para verificarlo.")
+            readback.use { input ->
+                val buffer = ByteArray(64 * 1024)
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    if (count == 0) continue
+                    readDigest.update(buffer, 0, count)
+                    verifiedBytes += count
+                }
+            }
+            val verifiedHash = readDigest.digest().joinToString("") { "%02x".format(it) }
+            check(verifiedBytes == expectedBytes && verifiedHash == expectedHash) {
+                "La verificación de lectura no coincide: $verifiedBytes/$expectedBytes bytes; SHA-256 distinto."
+            }
+            val info = metadata(app, target)
+                ?: throw IllegalStateException("El proveedor SAF no confirma que el archivo exista.")
+            check(!info.isDirectory && (info.sizeBytes == null || info.sizeBytes == expectedBytes)) {
+                "El proveedor SAF informa un tamaño o tipo distinto al archivo original."
+            }
+            recordAudit(app, "EXPORT_FILE", relativePath, "VERIFIED bytes=$verifiedBytes sha256=$verifiedHash")
+            return BardoExportReceipt(relativePath, verifiedBytes, verifiedHash)
+        } catch (error: Exception) {
+            runCatching { DocumentsContract.deleteDocument(app.contentResolver, target) }
+            recordAudit(app, "EXPORT_FILE", relativePath, "FAILED \${error.message ?: error.javaClass.simpleName}")
             throw error
         }
     }

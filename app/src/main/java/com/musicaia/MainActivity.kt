@@ -832,36 +832,13 @@ private fun crearEstructuraCarpetaBardo() {
  }
 
  private fun guardarArchivoEnCarpetaBardo(origen: File, categoria: String, nombre: String, mimeType: String) {
-     require(origen.isFile && origen.length() > 0L) { "El archivo generado está vacío o no es regular." }
-     require(categoria.matches(Regex("[A-Za-z0-9 _-]{1,64}"))) { "La carpeta de destino no es válida." }
-     require(nombre.matches(Regex("[A-Za-z0-9._ -]{1,180}")) &&
-         !nombre.startsWith(".") && !nombre.contains("..")
-     ) { "El nombre del archivo no es seguro." }
-     val folder = buscarOCrearSubcarpetaBardo(raizCarpetaBardo(), categoria)
-     val destination = DocumentsContract.createDocument(contentResolver, folder, mimeType, nombre)
-         ?: throw IllegalStateException("Android no pudo crear $nombre en Descargas/BARDO/$categoria.")
-     try {
-         exigirDestinoLocalBardo(destination)
-         val output = contentResolver.openOutputStream(destination, "w")
-             ?: throw IllegalStateException("No se pudo abrir el archivo local BARDO.")
-         var copied = 0L
-         output.use { stream ->
-             origen.inputStream().buffered().use { input ->
-                 val buffer = ByteArray(64 * 1024)
-                 while (true) {
-                     val count = input.read(buffer)
-                     if (count < 0) break
-                     if (count == 0) continue
-                     stream.write(buffer, 0, count)
-                     copied += count
-                 }
-             }
-         }
-         require(copied == origen.length()) { "La copia local no coincide con el tamaño original." }
-     } catch (error: Exception) {
-         runCatching { DocumentsContract.deleteDocument(contentResolver, destination) }
-         throw error
-     }
+     val receipt = BardoSharedStorage.exportGeneratedFile(
+         applicationContext, categoria, origen, nombre, mimeType
+     )
+     Log.i(
+         etiqueta,
+         "Exportación SAF verificada: \${receipt.relativePath} · \${receipt.bytes} bytes · SHA-256 \${receipt.sha256}"
+     )
  }
 
  private fun requiereCarpetaLocalBardo(): Boolean {
