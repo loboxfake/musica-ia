@@ -34,7 +34,9 @@ object BardoGuidedResponseParser {
         val root = runCatching { JSONObject(raw.substring(start, end + 1)) }.getOrNull() ?: return null
         val reply = root.optString("reply").trim().take(1500)
         if (reply.isBlank()) return null
-        val fields = root.optJSONObject("fields") ?: return null
+        // La respuesta conversacional es independiente de la extracción de campos.
+        // Un JSON válido con reply pero sin fields sigue siendo útil y no actualiza datos.
+        val fields = root.optJSONObject("fields") ?: return ParsedResponse(emptyMap(), reply)
         val updates = linkedMapOf<String, String>()
         specs.forEach { spec ->
             val item = fields.optJSONObject(spec.jsonName) ?: return@forEach
@@ -53,6 +55,13 @@ object BardoGuidedResponseParser {
             updates[spec.appName] = value
         }
         return ParsedResponse(updates, reply)
+    }
+
+    /** Recupera texto libre si el modelo no respeta JSON; no expone JSON malformado. */
+    fun extractFreeformReply(raw: String): String? {
+        val value = raw.trim()
+        if (value.isBlank() || value.startsWith("{")) return null
+        return value.take(1500)
     }
 
     private fun containsEvidence(message: String, evidence: String): Boolean {
