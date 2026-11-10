@@ -668,12 +668,6 @@ class MainActivity : AppCompatActivity() {
              if (sectionId == R.id.seccionBiblioteca) actualizarBiblioteca()
          }
      }
-     findViewById<View>(R.id.btnAtajoSistema).setOnClickListener {
-         findViewById<TextView>(R.id.navSistema).performClick()
-     }
-     findViewById<View>(R.id.shortcutStudio).setOnClickListener { findViewById<TextView>(R.id.navCrear).performClick() }
-     findViewById<View>(R.id.shortcutLibrary).setOnClickListener { findViewById<TextView>(R.id.navBiblioteca).performClick() }
-     findViewById<View>(R.id.shortcutEvolution).setOnClickListener { findViewById<TextView>(R.id.navLaboratorio).performClick() }
      seleccionar(R.id.navOrquestador)
  }
 
