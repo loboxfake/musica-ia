@@ -1,10 +1,9 @@
 name: BARDO unified offline APK candidate
 
 on:
-  push:
-    branches:
-      - bardo/integral-autonomy-20261109
-    paths:
+  # Legacy branch-specific candidate is retained for history but disabled.
+  workflow_dispatch:
+
       - .github/workflows/bardo-unified-apk-candidate.yml
       - .github/workflows/bardo-commit-candidate.yml
       - .github/workflows/bardo-candidate-validation.yml
@@ -34,7 +33,8 @@ concurrency:
 
 jobs:
   build-unified-candidate:
-    if: github.ref == 'refs/heads/bardo/integral-autonomy-20261109'
+    # Replaced by the main-only full-build.yml workflow.
+    if: ${{ false }}
     runs-on: ubuntu-22.04
     timeout-minutes: 240
     steps:
