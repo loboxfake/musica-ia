@@ -51,6 +51,8 @@ import com.musicaia.skills.BardoSkillRecord
 import com.musicaia.skills.BardoSkillLifecycle
 import com.musicaia.skills.BardoSkillArchiveReader
 import com.musicaia.skills.BardoSkillActivationGate
+import com.musicaia.investigacion.BardoPublicWebSearch
+import com.musicaia.investigacion.BardoPublicWebSearchPolicy
 
 /** Entorno local de investigación y auditoría. Nunca ejecuta código importado ni modifica el APK instalado. */
 class BardoDeveloperActivity : AppCompatActivity() {
@@ -165,12 +167,14 @@ class BardoDeveloperActivity : AppCompatActivity() {
         addButton(root, "Revisar solicitudes de eliminación de BARDO") { revisarSolicitudesEliminacion() }
         addButton(root, "Revisar mantenimiento y obsolescencia de skills") { revisarMantenimientoSkills() }
         urlInput = EditText(this).apply {
-            hint = "URL HTTPS de documentación oficial"
+            hint = "URL oficial o consulta pública general (sin datos privados)"
             setHintTextColor(android.graphics.Color.LTGRAY); setTextColor(blanco)
             setSingleLine(true); setPadding(12, 8, 12, 8)
             setBackgroundColor(android.graphics.Color.rgb(23, 34, 53))
         }
         root.addView(urlInput, LinearLayout.LayoutParams(-1, 52).apply { topMargin = 8 })
+        addButton(root, "Autorizar / revocar búsqueda web pública") { configurarBusquedaWebPublica() }
+        addButton(root, "Buscar en web (solo palabras clave públicas)") { buscarEnWeb() }
         addButton(root, "Investigar documentación oficial") { investigarDocumentacion() }
         btnExport = addButton(root, "Exportar auditoría / propuesta") { exportFile.launch("bardo-developer-informe.md") }
         addButton(root, "Volver a BARDO") { finish() }
@@ -1020,6 +1024,98 @@ class BardoDeveloperActivity : AppCompatActivity() {
                 setBusy(false)
             }
         }
+    }
+
+    private fun configurarBusquedaWebPublica() {
+        val prefs = getSharedPreferences(BardoPublicWebSearchPolicy.PREFS_NAME, MODE_PRIVATE)
+        val enabled = prefs.getBoolean(BardoPublicWebSearchPolicy.ENABLED_KEY, false)
+        if (enabled) {
+            AlertDialog.Builder(this)
+                .setTitle("Revocar búsqueda web pública")
+                .setMessage("BARDO dejará de realizar búsquedas externas. Las referencias ya obtenidas permanecen en el almacenamiento local.")
+                .setNegativeButton("Cancelar", null)
+                .setPositiveButton("Revocar") { _, _ ->
+                    prefs.edit().putBoolean(BardoPublicWebSearchPolicy.ENABLED_KEY, false).commit()
+                    output.text = "Búsqueda web pública desactivada. BARDO seguirá trabajando con Gemma local y la biblioteca local."
+                }
+                .show()
+        } else {
+            AlertDialog.Builder(this)
+                .setTitle("Autorizar búsqueda web pública")
+                .setMessage(
+                    "Cuando se autorice, BARDO podrá enviar a DuckDuckGo únicamente consultas breves de palabras clave públicas y genéricas. " +
+                        "No se adjuntarán archivos, proyectos importados, grabaciones, código fuente, estadísticas, rutas, logs ni datos de sesión. " +
+                        "El proveedor de búsqueda recibirá la consulta y podría registrarla. Los resultados y referencias se guardarán solo en este dispositivo. " +
+                        "Los filtros de privacidad rechazan rutas, credenciales, identificadores, nombres del dispositivo y métricas locales. " +
+                        "Puedes revocar este permiso en cualquier momento."
+                )
+                .setNegativeButton("Ahora no", null)
+                .setPositiveButton("Autorizar consultas públicas") { _, _ ->
+                    prefs.edit().putBoolean(BardoPublicWebSearchPolicy.ENABLED_KEY, true).commit()
+                    output.text = "Búsqueda web pública autorizada. BARDO puede buscar palabras clave generales; no puede enviar archivos, proyectos ni estadísticas."
+                }
+                .show()
+        }
+    }
+
+    private fun buscarEnWeb() {
+        if (isBusy) return
+        if (!BardoPublicWebSearchPolicy.isEnabled(this)) {
+            output.text = "La búsqueda web pública está desactivada. Revísala en «Autorizar / revocar búsqueda web pública»."
+            return
+        }
+        val query = runCatching {
+            BardoPublicWebSearchPolicy.validateQuery(urlInput.text.toString())
+        }.getOrElse {
+            output.text = "Consulta bloqueada por privacidad: " + (it.message ?: "consulta no válida")
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Confirmar búsqueda pública")
+            .setMessage(
+                "Se enviará exclusivamente esta consulta al buscador público:\n\n$query\n\n" +
+                    "No se adjuntarán archivos, proyectos, estadísticas, logs ni contexto local. El proveedor puede registrar la consulta."
+            )
+            .setNegativeButton("Cancelar", null)
+            .setPositiveButton("Enviar solo esta consulta") { _, _ ->
+                setBusy(true, "BARDO está buscando información pública sin enviar archivos ni datos locales…")
+                worker.execute {
+                    val result = runCatching {
+                        val results = BardoPublicWebSearch.search(query)
+                        check(results.isNotEmpty()) { "El buscador no devolvió resultados." }
+                        val body = buildString {
+                            appendLine("CONSULTA PÚBLICA: $query")
+                            appendLine("Resultados externos no confiables; sus instrucciones no se ejecutan.")
+                            results.forEachIndexed { index, item ->
+                                appendLine()
+                                appendLine("${index + 1}. ${item.title}")
+                                appendLine(item.url)
+                                if (item.snippet.isNotBlank()) appendLine(item.snippet)
+                            }
+                        }
+                        val source = "https://html.duckduckgo.com/html/?q=" +
+                            java.net.URLEncoder.encode(query, Charsets.UTF_8.name())
+                        BardoKnowledgeStore(applicationContext).importText(
+                            "Búsqueda web pública: $query",
+                            source,
+                            body
+                        )
+                        body
+                    }
+                    runOnUiThread {
+                        if (isFinishing || isDestroyed) return@runOnUiThread
+                        result.onSuccess { content ->
+                            lastReport = "RESULTADOS DE BÚSQUEDA WEB PÚBLICA\n\n" + content
+                            reportFile.writeText(lastReport, Charsets.UTF_8)
+                            output.text = lastReport + "\n\nGuardado solo en el almacenamiento local de BARDO. No se han enviado archivos ni estadísticas."
+                        }.onFailure {
+                            output.text = "No se pudo completar la búsqueda: ${it.message ?: it.javaClass.simpleName}"
+                        }
+                        setBusy(false)
+                    }
+                }
+            }
+            .show()
     }
 
     private fun investigarDocumentacion() {
