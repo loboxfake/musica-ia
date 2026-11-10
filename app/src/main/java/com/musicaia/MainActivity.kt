@@ -299,27 +299,45 @@ class MainActivity : AppCompatActivity() {
              )?.use { cursor ->
                  if (cursor.moveToFirst()) cursor.getString(0) else ""
              }.orEmpty()
-             require(rootName.equals("Download", true) ||
+             val selectedBardoRoot = rootName.equals("BARDO", true)
+             require(selectedBardoRoot || rootName.equals("Download", true) ||
                  rootName.equals("Downloads", true) || rootName.equals("Descargas", true)) {
-                 "Por seguridad, selecciona la carpeta Descargas/Download. BARDO creará y usará únicamente Descargas/BARDO."
+                 "Selecciona Descargas o directamente Descargas/BARDO del almacenamiento interno. BARDO no acepta proveedores cloud ni unidades externas."
              }
-             // La creación SAF usa la URI temporal devuelta por el selector.
-             // La concesión persistente se guarda solo tras verificar el árbol elegido.
+             // Android puede devolver el árbol Descargas o directamente BARDO.
+             // En ambos casos la raíz autorizada queda fijada exactamente en Descargas/BARDO.
              uriCarpetaBardo = uri
-             val bardoFolder = buscarOCrearSubcarpetaBardo(treeRootUri, "BARDO")
-             bardoRootDocumentId = DocumentsContract.getDocumentId(bardoFolder)
+             val bardoFolder = if (selectedBardoRoot) {
+                 treeRootUri
+             } else {
+                 buscarOCrearSubcarpetaBardo(treeRootUri, "BARDO")
+             }
+             val verifiedBardoRootId = DocumentsContract.getDocumentId(bardoFolder)
+             require(BardoLocalStorageDestinationPolicy.isBardoRoot(
+                 uri.scheme, uri.authority, treeRootId, verifiedBardoRootId
+             )) {
+                 "La carpeta seleccionada no coincide con Descargas/BARDO."
+             }
              contentResolver.takePersistableUriPermission(
                  uri,
                  Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
              )
-             uriCarpetaBardo = uri
-             getSharedPreferences("bardo_storage", MODE_PRIVATE).edit()
+             val persistedPermission = contentResolver.persistedUriPermissions.any {
+                 it.uri == uri && it.isReadPermission && it.isWritePermission
+             }
+             check(persistedPermission) {
+                 "Android no confirmó el permiso persistente de lectura y escritura."
+             }
+             bardoRootDocumentId = verifiedBardoRootId
+             val stored = getSharedPreferences("bardo_storage", MODE_PRIVATE).edit()
                  .putString("tree_uri", uri.toString())
-                 .putString("root_document_id", bardoRootDocumentId).apply()
+                 .putString("root_document_id", verifiedBardoRootId)
+                 .commit()
+             check(stored) { "No se pudo guardar la configuración local de BARDO." }
              crearEstructuraCarpetaBardo()
              actualizarEtiquetaCarpetaBardo()
-             tvEstado.text = "Carpeta BARDO configurada. BARDO podrá usar su espacio autorizado. Buscando Gemma en Modelos…"
-              detectarGemmaEnCarpetaBardo()
+             tvEstado.text = "Almacenamiento local conectado y permiso persistente verificado. Buscando Gemma en Modelos…"
+             detectarGemmaEnCarpetaBardo()
          }.onFailure {
              uriCarpetaBardo = null
              tvEstado.text = "No se pudo conservar el permiso de la carpeta: ${it.message}"
