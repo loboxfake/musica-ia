@@ -8,20 +8,18 @@ import org.junit.Test
 
 class BardoGitHubIntegrationPolicyTest {
     @Test
-    fun onlyTheAuditedDraftPrWorkflowIsEnabled() {
-        assertTrue(BardoGitHubIntegrationPolicy.DRAFT_PR_WORKFLOW_ENABLED)
+    fun branchAndPullRequestFlowIsDisabledForMainOnlyDevelopment() {
+        assertEquals(false, BardoGitHubIntegrationPolicy.DRAFT_PR_WORKFLOW_ENABLED)
         assertTrue(
             runCatching {
                 BardoGitHubIntegrationPolicy.requireDraftPrWorkflowAvailable()
-            }.isSuccess
+            }.isFailure
         )
         assertEquals(
             "bardo-commit-candidate.yml",
             BardoGitHubActionsClient.PR_WORKFLOW
         )
-        assertTrue(BardoGitHubIntegrationPolicy.BLOCK_REASON.contains("rama bardo/*"))
-        assertTrue(BardoGitHubIntegrationPolicy.BLOCK_REASON.contains("PR borrador"))
-        assertTrue(BardoGitHubIntegrationPolicy.BLOCK_REASON.contains("No hace merge"))
-        assertTrue(BardoGitHubIntegrationPolicy.BLOCK_REASON.contains("ni push a main"))
+        assertTrue(BardoGitHubIntegrationPolicy.BLOCK_REASON.contains("rama única"))
+        assertTrue(BardoGitHubIntegrationPolicy.BLOCK_REASON.contains("main"))
     }
 }
