@@ -231,6 +231,11 @@ jobs:
           PY
           git diff --check
 
+      - name: Set up Go for Gitleaks
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
       - name: Prepare the candidate commit locally and scan its complete history
         id: prepare
         env:
