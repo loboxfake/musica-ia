@@ -100,7 +100,7 @@ jobs:
           test "$(printf '%s' "$run_info" | jq -r '.headSha')" = "$export_head_sha"
           mkdir -p app/src/main/assets/audio_model
           gh run download "$export_run_id" --name "$artifact_name" --dir app/src/main/assets/audio_model
-          for file in conditioners_model.pte dit_model.pte autoencoder_model.pte spiece.model LICENSE; do
+          for file in conditioners_model.pte dit_model.pte autoencoder_model.pte spiece.model LICENSE model_config.json; do
             test -s "app/src/main/assets/audio_model/$file"
           done
           test -s app/src/main/assets/audio_model/model_config.json
@@ -224,6 +224,7 @@ jobs:
               "assets/audio_model/autoencoder_model.pte",
               "assets/audio_model/spiece.model",
               "assets/audio_model/LICENSE",
+              "assets/audio_model/model_config.json",
               "assets/NOTICE.txt",
               "AndroidManifest.xml",
               "resources.arsc",
