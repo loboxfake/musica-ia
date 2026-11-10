@@ -3,6 +3,7 @@ rootProject.name = "MusicaIA"
 
 pluginManagement {
     repositories {
+        gradlePluginPortal()
         exclusiveContent {
             forRepository {
                 maven {

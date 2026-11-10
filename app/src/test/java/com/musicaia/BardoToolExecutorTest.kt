@@ -5,6 +5,7 @@ import com.musicaia.herramientas.BardoToolExecutor
 import com.musicaia.herramientas.BardoToolHandler
 import com.musicaia.herramientas.BardoToolRequest
 import com.musicaia.herramientas.BardoToolOutput
+import com.musicaia.herramientas.BardoToolSmokeTestHandler
 import com.musicaia.seguridad.BardoPermissionScope
 import com.musicaia.seguridad.BardoPrincipal
 import org.junit.Assert.assertEquals
@@ -23,6 +24,35 @@ class BardoToolExecutorTest {
         )
         override fun execute(arguments: Map<String, String>) =
             BardoToolOutput(true, arguments.values.joinToString("|"))
+    }
+
+    private class TrustedSmokeTool : BardoToolHandler, com.musicaia.herramientas.BardoToolSmokeTestHandler {
+        override val descriptor = BardoToolDescriptor(
+            "test.smoke", "Trusted smoke-test tool", BardoPermissionScope.READ_BARDO_DATA, 0, 32
+        )
+        override fun execute(arguments: Map<String, String>) = BardoToolOutput(true, "runtime")
+        override fun smokeTest() = BardoToolOutput(true, "smoke")
+    }
+
+    @Test fun runtimeSkillAllowlistExcludesSmokeTestsThatCurrentlyFail() {
+        val trustedButFailing = object : BardoToolHandler, BardoToolSmokeTestHandler {
+            override val descriptor = BardoToolDescriptor(
+                "test.failing", "failing trusted smoke test",
+                BardoPermissionScope.READ_BARDO_DATA, 0, 32
+            )
+            override fun execute(arguments: Map<String, String>) =
+                BardoToolOutput(true, "action output")
+            override fun smokeTest() =
+                BardoToolOutput(false, "", "smoke-test regression")
+        }
+        val executor = BardoToolExecutor(listOf(trustedButFailing))
+        assertEquals(setOf("test.failing"), executor.registeredSkillToolIds())
+        assertTrue(executor.verifiedSkillToolIds().isEmpty())
+    }
+
+    @Test fun skillAllowlistContainsOnlyHandlersWithApkAuthoredSmokeTests() {
+        val executor = BardoToolExecutor(listOf(EchoTool(), TrustedSmokeTool()))
+        assertEquals(setOf("test.smoke"), executor.registeredSkillToolIds())
     }
 
     @Test fun registeredSafeToolCanRunForBardo() {

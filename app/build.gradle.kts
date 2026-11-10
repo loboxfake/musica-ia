@@ -4,6 +4,16 @@ plugins {
 }
 
 val bardoVersionCode = project.findProperty("bardoVersionCode")?.toString()?.toIntOrNull() ?: 1
+val bardoTargetAbi = project.findProperty("bardoTargetAbi")?.toString()?.trim()
+require(
+    bardoTargetAbi.isNullOrEmpty() ||
+        bardoTargetAbi in setOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
+) { "bardoTargetAbi debe ser una ABI Android reconocida." }
+require(
+    project.findProperty("withAudioNative") != "true" ||
+        bardoTargetAbi.isNullOrEmpty() ||
+        bardoTargetAbi == "arm64-v8a"
+) { "La compilación con audio nativo solo admite arm64-v8a." }
 
 android {
     namespace = "com.musicaia"
@@ -13,6 +23,11 @@ android {
         applicationId = "com.musicaia"
         minSdk = 26
         targetSdk = 34
+        if (!bardoTargetAbi.isNullOrEmpty()) {
+            // Permite generar candidatos específicos del dispositivo sin reducir
+            // la compatibilidad de las compilaciones locales universales.
+            ndk { abiFilters += bardoTargetAbi }
+        }
         versionCode = bardoVersionCode
         versionName = "1.0.$bardoVersionCode"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -52,6 +67,10 @@ android {
         }
         debug {
             isMinifyEnabled = false
+            // Install debug candidates alongside the signed production app.
+            // Never require uninstalling BARDO stable or discarding its local data.
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
         }
     }
 

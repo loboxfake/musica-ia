@@ -11,10 +11,10 @@ on:
   workflow_dispatch:
     inputs:
       publish_release:
-        description: "Autorizar expresamente la firma y publicación de la APK en GitHub Releases"
+        description: Explicitly authorize publishing the signed production APK as a GitHub Release from main
         required: true
-        type: boolean
         default: false
+        type: boolean
 
 permissions:
   actions: write
@@ -23,6 +23,7 @@ permissions:
 
 jobs:
   full-build:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.publish_release == true
     runs-on: ubuntu-22.04
     timeout-minutes: 240
     steps:
@@ -71,75 +72,34 @@ jobs:
           cp "$RUNNER_TEMP/bardo-source-snapshot.zip" app/src/main/assets/bardo_source_snapshot.zip
           ls -lh app/src/main/assets/bardo_source_snapshot.zip
 
-      - name: Download pinned local audio model pack
+      - name: Download pinned and previously verified Stable Audio model pack
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           artifact_name="stable-audio-open-small-executorch"
-          run_id=""
-          download_if_available() {
-            local candidate="$1"
-            local available
-            available="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$candidate/artifacts" --jq "[.artifacts[] | select(.name == \"$artifact_name\" and .expired == false)] | length")"
-            if [ "$available" -gt 0 ]; then
-              rm -rf app/src/main/assets/audio_model
-              mkdir -p app/src/main/assets/audio_model
-              if gh run download "$candidate" --name "$artifact_name" --dir app/src/main/assets/audio_model; then
-                if [ -s app/src/main/assets/audio_model/conditioners_model.pte ] && \
-                   [ -s app/src/main/assets/audio_model/dit_model.pte ] && \
-                   [ -s app/src/main/assets/audio_model/autoencoder_model.pte ] && \
-                   [ -s app/src/main/assets/audio_model/spiece.model ] && \
-                   [ -s app/src/main/assets/audio_model/LICENSE ]; then
-                  run_id="$candidate"
-                  return 0
-                fi
-              fi
-              rm -rf app/src/main/assets/audio_model
-            fi
-            return 1
-          }
-          # Reuse a valid, unexpired artifact; never mistake a green run with expired artifacts for a usable model.
-          for candidate in $(gh run list --workflow prepare-audio-model.yml --branch main --status success --limit 20 --json databaseId --jq '.[].databaseId'); do
-            if download_if_available "$candidate"; then break; fi
+          export_run_id="42700052867"
+          export_head_sha="b0c9fc6998594b2f58cd8392dd65d8d4a593d4bb"
+          artifact_id="13713725273"
+          expected_digest="sha256:c0e6773df66ceedca06dc694239a79ad559ff372a3193e05e063f9a6d11d9c1a"
+          metadata="$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id")"
+          test "$(printf '%s' "$metadata" | jq -r '.name')" = "$artifact_name"
+          test "$(printf '%s' "$metadata" | jq -r '.expired')" = "false"
+          test "$(printf '%s' "$metadata" | jq -r '.digest')" = "$expected_digest"
+          test "$(printf '%s' "$metadata" | jq -r '.workflow_run.id')" = "$export_run_id"
+          test "$(printf '%s' "$metadata" | jq -r '.workflow_run.head_sha')" = "$export_head_sha"
+          mkdir -p app/src/main/assets/audio_model
+          gh run download "$export_run_id" --name "$artifact_name" --dir app/src/main/assets/audio_model
+          for file in conditioners_model.pte dit_model.pte autoencoder_model.pte spiece.model LICENSE; do
+            test -s "app/src/main/assets/audio_model/$file"
           done
-          if [ -z "$run_id" ]; then
-            # A workflow push may already have queued the exporter. Dispatch only when none is queued/running.
-            active="$(gh run list --workflow prepare-audio-model.yml --branch main --limit 20 --json status --jq '[.[] | select(.status == "queued" or .status == "in_progress")] | length')"
-            if [ "$active" -eq 0 ]; then
-              echo "No unexpired audio model artifact; requesting a fresh pinned export on main."
-              gh workflow run prepare-audio-model.yml --ref main
-            else
-              echo "Waiting for the already queued/running canonical model export."
-            fi
-            for attempt in $(seq 1 180); do
-              for candidate in $(gh run list --workflow prepare-audio-model.yml --branch main --status success --limit 20 --json databaseId --jq '.[].databaseId'); do
-                if download_if_available "$candidate"; then break; fi
-              done
-              [ -n "$run_id" ] && break
-              latest_status="$(gh run list --workflow prepare-audio-model.yml --branch main --limit 1 --json status,conclusion --jq '.[0].status + ":" + (.[0].conclusion // "")')"
-              if [ "$latest_status" = "completed:failure" ] || [ "$latest_status" = "completed:cancelled" ]; then
-                echo "::error::The pinned audio model export failed or was cancelled."
-                exit 1
-              fi
-              echo "Waiting for a valid Stable Audio artifact ($attempt/180)..."
-              sleep 60
-            done
-          fi
-          if [ -z "$run_id" ]; then
-            echo "::error::No unexpired Stable Audio model artifact became available within three hours."
-            exit 1
-          fi
-          echo "Using verified model export artifact from run: $run_id"
-          ls -lh app/src/main/assets/audio_model
-          test -s app/src/main/assets/audio_model/conditioners_model.pte
-          test -s app/src/main/assets/audio_model/dit_model.pte
-          test -s app/src/main/assets/audio_model/autoencoder_model.pte
-          test -s app/src/main/assets/audio_model/spiece.model
-          test -s app/src/main/assets/audio_model/LICENSE
+          test -s app/src/main/assets/audio_model/model_config.json
           test -s app/src/main/assets/NOTICE.txt
           grep -qi "Powered by Stability AI" README.md
-
+          echo "AUDIO_MODEL_ARTIFACT_ID=$artifact_id"
+          echo "AUDIO_MODEL_ARTIFACT_DIGEST=$expected_digest"
+          echo "AUDIO_MODEL_EXPORT_SHA=$export_head_sha"
+          find app/src/main/assets/audio_model -maxdepth 1 -type f -printf '%f %s bytes\n' | sort
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -196,7 +156,6 @@ jobs:
           fi
 
       - name: Sign APK with private BARDO upload key
-        if: ${{ inputs.publish_release }}
         env:
           BARDO_KEYSTORE_BASE64: ${{ secrets.BARDO_KEYSTORE_BASE64 }}
           BARDO_KEYSTORE_PASSWORD: ${{ secrets.BARDO_KEYSTORE_PASSWORD }}
@@ -242,7 +201,6 @@ jobs:
           trap - EXIT
 
       - name: Audit APK contents and integrity
-        if: ${{ inputs.publish_release }}
         run: |
           set -euo pipefail
           apk=$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n 1)
@@ -319,11 +277,9 @@ jobs:
           } | tee -a full-apk-audit.txt
 
       - name: Test APK credential scanner
-        if: ${{ inputs.publish_release }}
         run: python3 -m unittest discover -s tools -p 'test_*.py' -v
 
       - name: Audit APK for embedded credentials and signing material
-        if: ${{ inputs.publish_release }}
         run: |
           set -euo pipefail
           python3 tools/audit_apk_secrets.py "$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n 1)"
@@ -333,25 +289,17 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const publishing = "${{ inputs.publish_release }}" === "true";
-            const buildOk = "${{ job.status }}" === "success";
-            const state = buildOk ? "success" : "failure";
-            const description = !buildOk
-              ? "Full offline build failed"
-              : publishing
-                ? "Unit tests, native build, signed APK and release audit passed"
-                : "Build-only run: APK was not signed, audited for release or published";
+            const state = "${{ job.status }}" === "success" ? "success" : "failure";
             await github.rest.repos.createCommitStatus({
               owner: context.repo.owner,
               repo: context.repo.repo,
               sha: context.sha,
               state,
               context: "BARDO / full offline APK audit",
-              description
+              description: state === "success" ? "Unit tests, native build, signed release APK and APK audit passed" : "Full offline build or APK audit failed"
             });
 
       - name: Publish audited APK as a workflow artifact
-        if: ${{ inputs.publish_release }}
         id: publish
         uses: actions/upload-artifact@v4
         with:
@@ -362,8 +310,8 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Publish signed APK as a GitHub Release
-        if: ${{ inputs.publish_release }}
+      - name: Publish signed APK as a GitHub Release (explicit opt-in only)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.publish_release == true
         id: release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -396,7 +344,7 @@ jobs:
 
 
       - name: Report full offline APK release status
-        if: always() && inputs.publish_release
+        if: always() && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.publish_release == true
         uses: actions/github-script@v7
         with:
           script: |

@@ -2,7 +2,7 @@ package com.musicaia.modulos.litert
 
 /** Generación de letras con el modelo local LiteRT-LM; no genera audio. */
 object ConversacionLiteRT {
-    fun solicitarLetra(solicitud: String): String {
+    fun solicitarLetra(solicitud: String, modelPath: String, cacheDir: String): String {
         val prompt = """
             Actúa como compositor profesional. El campo Language/Idioma especifica el idioma obligatorio: español o inglés.
             Escribe toda la letra y los encabezados de sección en el idioma elegido; no mezcles español e inglés salvo que el usuario lo solicite explícitamente.
@@ -16,7 +16,14 @@ object ConversacionLiteRT {
             Datos de la canción:
             $solicitud
         """.trimIndent()
-        val respuesta = EngineLiteRT.generar(prompt, reiniciarConversacion = true).trim()
+        val respuesta = EngineLiteRT.withSession {
+            if (!estaCargado(modelPath)) {
+                check(inicializar(modelPath, cacheDir)) {
+                    "LiteRT-LM no pudo cargar el modelo para generar la letra."
+                }
+            }
+            generar(prompt, reiniciarConversacion = true)
+        }.trim()
         val limpia = respuesta.substringAfter("</think>", respuesta).trim()
         if (limpia.isBlank()) throw IllegalStateException("El modelo local devolvió una respuesta vacía.")
         return limpia

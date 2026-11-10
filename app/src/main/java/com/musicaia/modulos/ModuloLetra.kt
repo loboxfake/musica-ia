@@ -18,10 +18,13 @@ class ModuloLetra(context: Context, private val modoManual: Boolean = false) : M
         if (modoManual) return true
         val modelo = LiteRTLMModule.modelFile(ctx)
         if (!LiteRTLMModule.verificarModelo(modelo)) return false
-        return EngineLiteRT.inicializar(
-            modelo.absolutePath,
-            File(ctx.cacheDir, "litertlm-cache").absolutePath
-        )
+        return EngineLiteRT.withSession {
+            if (estaCargado(modelo.absolutePath)) true
+            else inicializar(
+                modelo.absolutePath,
+                File(ctx.cacheDir, "litertlm-cache").absolutePath
+            )
+        }
     }
 
     override fun ejecutar(entrada: Dato): Dato {
@@ -30,7 +33,17 @@ class ModuloLetra(context: Context, private val modoManual: Boolean = false) : M
         if (modoManual && solicitud.startsWith("[LETRA_USUARIO]")) {
             return Dato.Texto(solicitud.substringAfter("[LETRA_USUARIO]").substringBefore("\n\nTema:").trim())
         }
-        return Dato.Texto(ConversacionLiteRT.solicitarLetra(solicitud))
+        val modelo = LiteRTLMModule.modelFile(ctx)
+        require(LiteRTLMModule.verificarModelo(modelo)) {
+            "El SHA-256 de Gemma no coincide; se conserva el archivo original."
+        }
+        return Dato.Texto(
+            ConversacionLiteRT.solicitarLetra(
+                solicitud,
+                modelo.absolutePath,
+                File(ctx.cacheDir, "litertlm-cache").absolutePath
+            )
+        )
     }
 
     override fun descargar() {

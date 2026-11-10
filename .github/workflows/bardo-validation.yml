@@ -1,10 +1,11 @@
 name: BARDO integration validation
 
 on:
-  pull_request:
+  push:
     branches:
       - main
-  push:
+      - 'bardo/**'
+  pull_request:
     branches:
       - main
   workflow_dispatch:
@@ -13,7 +14,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: bardo-validation-${{ github.ref }}
+  group: bardo-validation-${{ github.event.pull_request.head.sha || github.sha }}
   # Las validaciones completas no deben cancelarse por un push posterior.
   cancel-in-progress: false
 
@@ -47,5 +48,42 @@ jobs:
           set -euo pipefail
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
           "$(go env GOPATH)/bin/actionlint" -color .github/workflows/*.yml
-      - name: Run unit tests and compile debug APK
-        run: ./gradlew testDebugUnitTest assembleDebug --no-daemon --stacktrace
+      - name: Run unit tests and compile Xiaomi ARM64 debug APK
+        run: ./gradlew testDebugUnitTest assembleDebug -PbardoTargetAbi=arm64-v8a --no-daemon --stacktrace
+      - name: Verify candidate APK exists
+        run: test -s app/build/outputs/apk/debug/app-debug.apk
+      - name: Verify APK v2 signature and Android Debug certificate
+        run: |
+          set -euo pipefail
+          BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          test -x "$BUILD_TOOLS/apksigner"
+          "$BUILD_TOOLS/apksigner" verify --verbose "$APK"
+          "$BUILD_TOOLS/apksigner" verify --print-certs --verbose "$APK" | tee bardo-debug-signature.txt
+          grep -Eiq 'Verified using v2 scheme.*true' bardo-debug-signature.txt
+          grep -Eiq 'certificate DN: .*CN=Android Debug' bardo-debug-signature.txt
+      - name: Verify APK contains only ARM64 native libraries
+        run: |
+          python3 - <<'PY'
+          from zipfile import ZipFile
+
+          apk = "app/build/outputs/apk/debug/app-debug.apk"
+          with ZipFile(apk) as archive:
+              native = [
+                  name for name in archive.namelist()
+                  if name.startswith("lib/") and name.endswith(".so")
+              ]
+          if not native:
+              raise SystemExit("El APK no contiene bibliotecas nativas.")
+          wrong = [name for name in native if not name.startswith("lib/arm64-v8a/")]
+          if wrong:
+              raise SystemExit("El APK contiene ABI no autorizadas: " + ", ".join(wrong[:20]))
+          print(f"ABI verificada: arm64-v8a; bibliotecas nativas: {len(native)}")
+          PY
+      - name: Upload Xiaomi ARM64 debug candidate (not a release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: bardo-debug-arm64-candidate-${{ github.run_number }}
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14

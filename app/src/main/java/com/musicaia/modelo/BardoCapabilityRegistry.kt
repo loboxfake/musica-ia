@@ -104,7 +104,7 @@ object BardoCapabilityRegistry {
             Capability("image_recognition_labels", "Reconocimiento visual local por etiquetas", Status.AVAILABLE, "ML Kit bundled offline clasifica categorías generales y devuelve etiquetas con confianza. No es descripción completa de escenas, relaciones complejas ni identificación de personas.", "Clasificar una imagen local, filtrar puntuaciones bajas, conservar el original y explicar que las etiquetas son probabilísticas."),
             Capability("image_ocr_multiscript", "OCR local multiescritura", Status.AVAILABLE, "OCR bundled offline para scripts latino, chino, devanagari, japonés y coreano. No cubre todos los alfabetos ni garantiza reconocer todos los idiomas.", "Extraer solo texto reconocido de imagen/PDF escaneado/vídeo en scripts latino, chino, devanagari, japonés y coreano; cerrar los clientes y conservar el fichero original."),
             Capability("cover_art_procedural", "Creación gráfica de portadas PNG", Status.AVAILABLE, "Genera portadas PNG cuadradas 1024×1024 con cinco estilos gráficos, tipografía y concepto. Es diseño procedural offline, no IA generativa.", "Generar PNG real, comprobar tamaño, previsualizar y exportar mediante el selector de documentos Android."),
-            Capability("user_authorized_learning", "Referencias aportadas para evolución futura", Status.AVAILABLE, "Solo se incorporan a la biblioteca cuando el usuario autoriza expresamente «Analizar y aprender». El autoestudio local puede consultarlas para diagnósticos y propuestas; no reentrena los pesos del modelo ni modifica el núcleo instalado.", "Verificar SHA-256 de cada referencia, conservar procedencia, tratar el contenido como datos no confiables y exigir aprobación separada para cualquier candidato y su integración."),
+            Capability("user_authorized_learning", "Referencias aportadas para evolución futura", Status.AVAILABLE, "Solo se incorporan a la biblioteca cuando el usuario autoriza expresamente «Analizar y aprender». El autoestudio local puede consultarlas para diagnósticos y propuestas; las respuestas de modelos también se guardan en un diario separado como candidatas no verificadas. No se reentrenan los pesos del modelo ni se promueve una respuesta a conocimiento fiable sin un verificador independiente conectado.", "Verificar SHA-256 de cada referencia, conservar procedencia, tratar el contenido como datos no confiables y exigir evidencia independiente para promover cualquier candidato."),
             Capability("research", "Investigación web autorizada", Status.REQUIRES_USER_ACTION, "La investigación web HTTPS con citas aún no está integrada. Actualmente BARDO busca en la biblioteca local importada; el acceso de red permanece deshabilitado.", "Requiere autorización explícita y cliente HTTPS implementado; citar fuentes fechadas y no afirmar que se ha investigado en la web cuando solo se consultó la biblioteca local."),
             Capability(
                 "autonomous_loop", "Bucle autónomo local",
@@ -117,14 +117,26 @@ object BardoCapabilityRegistry {
             Capability(
                 "model_provider_registry", "Proveedores de modelos sustituibles",
                 Status.AVAILABLE,
-                "Contrato común y registro local-first integrados; Gemma/LiteRT es el primer adaptador. Los proveedores adicionales aún no están conectados.",
+                "Contrato común y registro local-first integrados; Gemma/LiteRT es el primer adaptador. BardoAgentFleet ya permite registrar proveedores y perfiles especializados por capacidad; el flujo de autoestudio solo conecta Gemma por ahora.",
                 "Cambiar de proveedor sin cambiar el núcleo; verificar licencia, hash, recursos, versión, inferencia y modo avión."
+            ),
+            Capability(
+                "agent_fleet", "Flota multi-modelo y agentes especializados",
+                Status.REQUIRES_USER_ACTION,
+                "BardoAgentFleet selecciona por capacidad, conserva proveedor/versión y consulta modelos secuencialmente; el autoestudio actual solo registra un agente Gemma local. No hay todavía una flota de proveedores adicionales operativa y los modelos remotos se rechazan por defecto.",
+                "Registrar varios adaptadores/modelos con licencias, SHA, capacidades y límites; asignar tareas a perfiles distintos; demostrar contraste de resultados, uso secuencial por RAM y política de red autorizada."
+            ),
+            Capability(
+                "model_learning_journal", "Memoria de aprendizaje desde otros modelos",
+                Status.REQUIRES_USER_ACTION,
+                "BardoLearningJournal conserva respuestas de agentes como candidatas no verificadas con SHA-256 y procedencia. Todavía no hay un verificador de producción conectado; no se promueven como hechos ni se modifican pesos del modelo.",
+                "Promover una lección solo después de corroboración independiente, evidencia trazable y resultado reproducible; conservar también discrepancias y fallos."
             ),
             Capability(
                 "skill_lifecycle", "Gestor de skills declarativas",
                 Status.REQUIRES_USER_ACTION,
-                "API local para cuarentena, SHA-256, instalación deshabilitada, activación aprobada, deshabilitación y rollback. UI de catálogo y descubrimiento/descarga aún pendiente.",
-                "Importar un paquete, probarlo aislado, exigir permisos mínimos y aprobación del usuario, activar solo acciones tipadas registradas."
+                "API local para cuarentena, SHA-256, instalación deshabilitada, activación aprobada, deshabilitación y rollback. BardoCoreSkillSmokeTestRunner ejecuta pruebas escritas en el APK sobre las acciones registradas; BardoSkillToolHandler permite al planificador invocar solo acciones declaradas en una skill habilitada. El worker integra el runtime. Actualmente solo hay cuatro acciones locales de lectura/estudio registradas; UI de catálogo, importación guiada y descubrimiento/descarga siguen pendientes.",
+                "Importar un paquete a cuarentena, verificar hash/licencia, instalar deshabilitado, ejecutar smoke-tests escritos en el APK con evidencia, exigir aprobación explícita y permisos mínimos; ejecutar solo acciones tipadas declaradas y registradas, pasando cada acción por ToolExecutor."
             ),
             Capability(
                 "jarvis_authority", "Autoridad delegada User/JARVIS",
@@ -135,7 +147,7 @@ object BardoCapabilityRegistry {
             Capability(
                 "independent_evaluator", "Evaluador independiente de evidencias",
                 Status.REQUIRES_USER_ACTION,
-                "Evaluador determinista de CI, seguridad, APK y pruebas de dispositivo integrado como componente; conexión automática a todos los resultados de Actions pendiente.",
+                "Evaluador determinista de CI, seguridad, APK y pruebas de dispositivo integrado como componente; conexión automática a todos los resultados de Actions y al verificador de aprendizaje pendiente.",
                 "No aprobar por puntuación del modelo; exigir evidencia para cada control y prueba física antes de declarar device_verified."
             ),
             Capability(
@@ -146,7 +158,7 @@ object BardoCapabilityRegistry {
                     Status.NEEDS_MODEL -> "Necesita Gemma local verificado para estudiar el snapshot del proyecto."
                     Status.NEEDS_MEMORY -> "Gemma está presente, pero falta RAM libre para realizar autoestudio con seguridad."
                     Status.NEEDS_RESOURCES -> facts.resourceBlockReason.orEmpty()
-                    else -> "BARDO puede analizar estáticamente un snapshot con Gemma, guardar memoria técnica y proponer un único diff en una copia aislada. No ejecuta el código importado ni modifica el proyecto original; la validación se hace en GitHub Actions y la integración exige aprobación humana."
+                    else -> "BARDO puede analizar estáticamente un snapshot mediante la flota (Gemma es el único proveedor conectado actualmente), registrar la respuesta como candidato de aprendizaje no verificado y proponer un diff en una copia aislada. No ejecuta código importado ni modifica el original; validación CI y merge requieren el flujo autorizado."
                 },
                 "Ejecutar autoestudio con Gemma verificado; conservar snapshot original; validar diff y rutas protegidas; no ejecutar código importado; compilar y probar candidato en runner aislado; exigir aprobación explícita antes de integrar."
             ),

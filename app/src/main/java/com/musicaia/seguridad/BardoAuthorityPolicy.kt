@@ -25,6 +25,7 @@ enum class BardoPermissionScope {
     INSTALL_APK,
     EXPORT_USER_DATA,
     DELETE_USER_DATA,
+    MANAGE_BARDO_WORKSPACE,
     MODIFY_PROTECTED_CORE,
     MODIFY_MODO3,
     CHANGE_AUTHORITY_POLICY,
@@ -84,7 +85,8 @@ object BardoAuthorityPolicy {
         BardoPermissionScope.STUDY_LOCAL,
         BardoPermissionScope.PROPOSE_CHANGE,
         BardoPermissionScope.CREATE_LOCAL_CANDIDATE,
-        BardoPermissionScope.RUN_SANDBOX_CI
+        BardoPermissionScope.RUN_SANDBOX_CI,
+        BardoPermissionScope.MANAGE_BARDO_WORKSPACE
     )
 
     private val idPattern = Regex("^[A-Za-z0-9_-]{16,80}$")
@@ -147,6 +149,19 @@ object BardoAuthorityPolicy {
         }
 
         if (principal == BardoPrincipal.BARDO) {
+            if (scope == BardoPermissionScope.RESEARCH_NETWORK) {
+                return if (explicitUserConfirmation) {
+                    BardoAuthorizationDecision(
+                        true,
+                        "Consulta web pública exacta confirmada por el usuario; el handler consumirá además la autorización de un solo uso."
+                    )
+                } else {
+                    BardoAuthorizationDecision(
+                        false,
+                        "BARDO no puede iniciar búsquedas web sin confirmación directa del usuario para la consulta exacta."
+                    )
+                }
+            }
             return if (scope in autonomousSafeScopes) {
                 BardoAuthorizationDecision(true, "Acción autónoma local permitida por la política base.")
             } else {
