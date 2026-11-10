@@ -37,6 +37,12 @@ object BardoLocalStorageDestinationPolicy {
     ): Boolean {
         if (!isBardoRoot(scheme, authority, treeDocumentId, rootDocumentId)) return false
         val destination = destinationDocumentId ?: return false
-        return destination.startsWith(rootDocumentId + "/")
+        if (!destination.startsWith(rootDocumentId + "/")) return false
+        val suffix = destination.removePrefix(rootDocumentId + "/")
+        val segments = suffix.split('/')
+        return segments.isNotEmpty() && segments.all {
+            it.isNotBlank() && it != "." && it != ".." &&
+                it.none { character -> character == '\\' || character == '\u0000' }
+        }
     }
 }
