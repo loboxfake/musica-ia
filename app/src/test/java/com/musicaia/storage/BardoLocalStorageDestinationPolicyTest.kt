@@ -6,7 +6,7 @@ import org.junit.Test
 
 class BardoLocalStorageDestinationPolicyTest {
     @Test
-    fun acceptsOnlyThePrimaryInternalDownloadsTree() {
+    fun acceptsOnlyThePrimaryInternalDownloadsOrBardoTree() {
         assertTrue(
             BardoLocalStorageDestinationPolicy.isLocalDownloadsTree(
                 "content",
@@ -35,6 +35,20 @@ class BardoLocalStorageDestinationPolicyTest {
                 "primary:Download"
             )
         )
+        assertTrue(
+            BardoLocalStorageDestinationPolicy.isLocalDownloadsTree(
+                "content",
+                "com.android.externalstorage.documents",
+                "primary:Download/BARDO"
+            )
+        )
+        assertFalse(
+            BardoLocalStorageDestinationPolicy.isLocalDownloadsTree(
+                "content",
+                "com.android.externalstorage.documents",
+                "primary:Download/Other"
+            )
+        )
     }
 
     @Test
@@ -51,6 +65,18 @@ class BardoLocalStorageDestinationPolicyTest {
         assertFalse(
             BardoLocalStorageDestinationPolicy.isBardoRoot(
                 "content", authority, tree, "primary:Download/DriveMirror/BARDO"
+            )
+        )
+        // SAF también permite que el usuario seleccione directamente Descargas/BARDO.
+        assertTrue(
+            BardoLocalStorageDestinationPolicy.isBardoRoot(
+                "content", authority, root, root
+            )
+        )
+        assertTrue(
+            BardoLocalStorageDestinationPolicy.isLocalBardoDestination(
+                "content", authority, root, root,
+                "primary:Download/BARDO/Canciones/song.wav"
             )
         )
         assertTrue(
