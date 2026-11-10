@@ -5,7 +5,6 @@ on:
   push:
     branches:
       - main
-      - bardo/integral-autonomy-20261109
     paths:
       - .github/workflows/prepare-audio-model.yml
 
