@@ -225,28 +225,27 @@ class BardoModelRegistry(providers: List<BardoModelProvider>) {
             "No hay un proveedor autorizado para la capacidad " + capability + "."
         }
         return BardoResourceCoordinator.withTextModel {
-            val failures = mutableListOf<String>()
             synchronized(executionLock) {
+                val failures = mutableListOf<String>()
                 for (provider in candidates) {
-                try {
-                    val availability = provider.inspect(context)
-                    check(
-                        availability.state == BardoModelState.READY ||
-                            availability.state == BardoModelState.PRESENT_UNVERIFIED
-                    ) { availability.reason }
-                    check(provider.load(context)) {
-                        "El proveedor " + provider.descriptor.id + " no pudo cargarse."
+                    try {
+                        val availability = provider.inspect(context)
+                        check(
+                            availability.state == BardoModelState.READY ||
+                                availability.state == BardoModelState.PRESENT_UNVERIFIED
+                        ) { availability.reason }
+                        check(provider.load(context)) {
+                            "El proveedor " + provider.descriptor.id + " no pudo cargarse."
+                        }
+                        return@synchronized provider.generate(context, request)
+                    } catch (error: OutOfMemoryError) {
+                        throw error
+                    } catch (error: Exception) {
+                        failures += provider.descriptor.id + ": " +
+                            (error.message ?: error.javaClass.simpleName)
+                        runCatching { provider.unload() }
                     }
-                    return@synchronized provider.generate(context, request)
-                } catch (error: OutOfMemoryError) {
-                    throw error
-                } catch (error: Exception) {
-                    failures += provider.descriptor.id + ": " +
-                        (error.message ?: error.javaClass.simpleName)
-                    runCatching { provider.unload() }
                 }
-            }
-        }
                 throw IllegalStateException(
                     "Ningún proveedor pudo completar la petición. " + failures.joinToString("; ")
                 )
@@ -254,8 +253,10 @@ class BardoModelRegistry(providers: List<BardoModelProvider>) {
         }
     }
 
-    fun unloadAll() = synchronized(executionLock) {
-        providersById.values.forEach { provider -> provider.unload() }
+    fun unloadAll() = BardoResourceCoordinator.withTextModel {
+        synchronized(executionLock) {
+            providersById.values.forEach { provider -> provider.unload() }
+        }
     }
 
     companion object {

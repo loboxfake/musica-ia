@@ -48,6 +48,20 @@ class BardoModelRegistryTest {
         assertTrue(registry.orderedCandidates("audio", true).isEmpty())
     }
 
+    @Test fun generateReturnsTheSelectedProvidersResponse() {
+        val provider = StubProvider(BardoModelDescriptor(
+            "local", "1", setOf("chat"), BardoModelLocation.LOCAL, "test", null, null, 1
+        ))
+        val registry = BardoModelRegistry(listOf(provider))
+        val response = registry.generate(
+            object : android.test.mock.MockContext() {},
+            "chat",
+            BardoModelRequest("responde")
+        )
+        assertEquals("ok", response.text)
+        assertEquals("local", response.providerId)
+    }
+
     @Test fun refusesDuplicateProviderIds() {
         val one = StubProvider(BardoModelDescriptor("same", "1", setOf("chat"), BardoModelLocation.LOCAL, "x", null, null))
         val two = StubProvider(BardoModelDescriptor("same", "2", setOf("chat"), BardoModelLocation.LOCAL, "x", null, null))
