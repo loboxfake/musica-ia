@@ -752,7 +752,8 @@ class MainActivity : AppCompatActivity() {
 
  private fun sincronizarEstadoCarpetaBardo() {
      if (uriCarpetaBardo != null && bardoRootDocumentId != null &&
-         runCatching { raizCarpetaBardo() }.isSuccess
+         runCatching { raizCarpetaBardo() }.isSuccess &&
+         BardoSharedStorage.isConfigured(applicationContext)
      ) return
      if (!BardoSharedStorage.isConfigured(applicationContext)) {
          uriCarpetaBardo = null
@@ -858,7 +859,10 @@ private fun crearEstructuraCarpetaBardo() {
 
  private fun requiereCarpetaLocalBardo(onConnected: (() -> Unit)? = null): Boolean {
      sincronizarEstadoCarpetaBardo()
-     if (uriCarpetaBardo != null && runCatching { raizCarpetaBardo() }.isSuccess) return true
+     if (uriCarpetaBardo != null &&
+         runCatching { raizCarpetaBardo() }.isSuccess &&
+         BardoSharedStorage.isConfigured(applicationContext)
+     ) return true
      if (onConnected != null) accionPendienteTrasConectarCarpeta = onConnected
      AlertDialog.Builder(this)
          .setTitle("Conectar almacenamiento local")
