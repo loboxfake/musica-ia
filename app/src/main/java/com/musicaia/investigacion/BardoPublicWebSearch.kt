@@ -32,7 +32,7 @@ object BardoPublicWebSearchPolicy {
     private val allowedCharacters = Regex("^[\\p{L}\\p{N}][\\p{L}\\p{N} .,:_+()\\-]{1,179}$")
     private val privateContent = listOf(
         Regex("(?i)(?:/storage/|/sdcard/|/data/|/home/|/mnt/|/users/|\\\\users\\\\|content://|file://)"),
-        Regex("(?i)\\b(?:github_pat_|gh[pousr]_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9_-]{16,}|bearer\\s+[A-Za-z0-9._-]{16,}|api[_ -]?key)\\b"),
+        Regex("(?i)(?:github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{16,}|bearer\\s+[A-Za-z0-9._-]{16,}|api[_ -]?key)"),
         Regex("(?i)\\b(?:imei|imsi|serial(?: number)?|ssid|bssid|private project|my project|mi proyecto|archivo local|local file|ruta local|file path|device stats|estadísticas del dispositivo|estadisticas del dispositivo|ram libre|available ram|battery percentage|porcentaje de bateria|thermal status|xiaomi|redmi|snapdragon|bardo personal)\\b"),
         Regex("(?i)\\b(?:ram|battery|bater[ií]a|storage|almacenamiento|memory|memoria|cpu|gpu|temperature|temperatura|thermal|porcentaje|percent)\\s+(?:(?:is|es|at|de|al)\\s+)?\\d+(?:[.,]\\d+)?\\b"),
         Regex("(?i)\\b\\d+(?:\\.\\d+)?\\s*(?:gb|mb)\\b"),
