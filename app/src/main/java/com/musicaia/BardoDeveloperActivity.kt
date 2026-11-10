@@ -161,7 +161,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
         btnAnalyze = addButton(root, "Analizar código y generar auditoría", enabled = snapshot != null) { analizarProyecto() }
         btnAsk = addButton(root, "Consultar a BARDO con Gemma local", enabled = false) { consultarModelo() }
         btnApply = addButton(root, "Aplicar propuesta a una copia aislada", enabled = false) { aplicarPropuesta() }
-        btnGithub = addButton(root, "Validar e integrar candidato con GitHub CI", enabled = false) { abrirDesarrolloGitHub() }
+        btnGithub = addButton(root, "Validar candidato aislado con GitHub Actions (solo main)", enabled = false) { abrirDesarrolloGitHub() }
         addButton(root, "Configurar presupuesto por tarea") { configurarPresupuestoAutonomia() }
         addButton(root, "Iniciar autoestudio ahora (Gemma local)") { ejecutarAutoestudioAhora() }
         addButton(root, "Activar autoestudio en segundo plano (cada 6 h, al cargar)") { activarAutoestudio() }
