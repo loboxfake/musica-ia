@@ -18,6 +18,7 @@ import com.musicaia.memoria.BardoActivityStore
 import com.musicaia.modelo.Dato
 import com.musicaia.modelo.ModuloIA
 import com.musicaia.modelo.Orquestador
+import com.musicaia.modelo.BardoCapabilityRegistry
 import com.musicaia.modulos.ModuloInstrumental
 import com.musicaia.modulos.ModuloLetra
 import com.musicaia.modulos.Mp3Exporter
@@ -123,6 +124,17 @@ class BardoTaskService : Service() {
         pruebaRapida = intent.getBooleanExtra(EXTRA_QUICK_TEST, false)
         if (prompt.isBlank()) {
             publicarEstado("failed", "La descripción de la tarea está vacía.")
+            stopSelf(startId)
+            return
+        }
+        if (!BardoCapabilityRegistry.manualLyricsCanProceed(modoSolo, letraManual)) {
+            val mensaje = BardoCapabilityRegistry.manualLyricsBlockReason()
+            val blockedId = java.util.UUID.randomUUID().toString()
+            BardoActivityStore.record(
+                this, blockedId, "cancion", "blocked",
+                "sintesis_vocal_no_disponible", mensaje, 0
+            )
+            publicarEstado("failed", mensaje)
             stopSelf(startId)
             return
         }

@@ -4,9 +4,17 @@ package com.musicaia.modelo
 object BardoCapabilityRegistry {
     enum class Status { AVAILABLE, NEEDS_MODEL, NEEDS_MEMORY, NEEDS_RESOURCES, NEEDS_FULL_APK, REQUIRES_USER_ACTION, NOT_IMPLEMENTED }
 
+    // Se mantiene falso hasta integrar y probar un motor local real de voz cantada.
+    const val VOICE_SYNTHESIS_AVAILABLE = false
     const val MIN_GEMMA_FREE_MEMORY_BYTES = 4_000L * 1024L * 1024L
     const val MIN_QWEN_FREE_MEMORY_BYTES = 1_600L * 1024L * 1024L
     const val MIN_IMAGE_GENERATION_FREE_MEMORY_BYTES = 3_500L * 1024L * 1024L
+
+    fun manualLyricsCanProceed(instrumentalOnly: Boolean, manualLyrics: String): Boolean =
+        instrumentalOnly || manualLyrics.isBlank() || VOICE_SYNTHESIS_AVAILABLE
+
+    fun manualLyricsBlockReason(): String =
+        "La opción «Mi letra» requiere un motor real de voz cantada. Ese motor local aún no está integrado; BARDO no generará un instrumental como sustituto ni marcará la canción como terminada. «Solo instrumental» sigue disponible."
 
     data class Capability(
         val id: String,

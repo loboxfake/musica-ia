@@ -4016,6 +4016,15 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
      return
  }
  val letraManual = if (grupoModo.checkedRadioButtonId == R.id.modoLetra) editLetra.text.toString().trim() else ""
+ if (!BardoCapabilityRegistry.manualLyricsCanProceed(modoSoloInstrumental, letraManual)) {
+     val mensaje = BardoCapabilityRegistry.manualLyricsBlockReason()
+     tvEstado.text = mensaje
+     BardoActivityStore.record(
+         this, java.util.UUID.randomUUID().toString(), "cancion", "blocked",
+         "sintesis_vocal_no_disponible", mensaje, 0
+     )
+     return
+ }
  val modelo = LiteRTLMModule.modelFile(this)
  if (!AudioGenNative.available) {
      tvEstado.text = "Esta compilación no incluye el motor local completo de instrumental. Usa la APK offline."
