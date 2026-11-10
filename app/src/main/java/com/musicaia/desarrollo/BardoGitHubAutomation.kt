@@ -203,23 +203,10 @@ data class BardoGitHubRun(
     val succeeded: Boolean get() = finished && conclusion == "success"
 }
 
-data class BardoGitHubPullRequest(
-    val number: Int,
-    val url: String,
-    val headSha: String
-)
-
-data class BardoGitHubBranchEvaluation(
-    val pullRequest: BardoGitHubPullRequest,
-    val validationRun: BardoGitHubRun?,
-    val evaluation: BardoCandidateEvaluation?
-)
-
 /** Minimal GitHub REST client. It dispatches repository workflows; the app never embeds a token. */
 class BardoGitHubActionsClient(private val token: String) {
     companion object {
         const val VALIDATION_WORKFLOW = "bardo-candidate-validation.yml"
-        const val PR_WORKFLOW = "bardo-commit-candidate.yml"
         const val MAIN_COMMIT_WORKFLOW = "bardo-main-commit-candidate.yml"
         const val FULL_BUILD_WORKFLOW = "full-build.yml"
         private const val API_ROOT = "https://api.github.com/repos/loboxfake/musica-ia"
@@ -236,18 +223,6 @@ class BardoGitHubActionsClient(private val token: String) {
             candidateId,
             packedPatch,
             null
-        )
-    }
-
-    fun dispatchPullRequest(baseSha: String, candidateId: String, packedPatch: String, validationRunId: Long) {
-        BardoGitHubIntegrationPolicy.requireDraftPrWorkflowAvailable()
-        require(validationRunId > 0L) { "Falta la ejecución de validación aprobada." }
-        dispatch(
-            PR_WORKFLOW,
-            baseSha,
-            candidateId,
-            packedPatch,
-            validationRunId
         )
     }
 
@@ -301,9 +276,6 @@ class BardoGitHubActionsClient(private val token: String) {
     }
 
     fun findRun(workflow: String, candidateId: String, baseSha: String): BardoGitHubRun? {
-        if (workflow == PR_WORKFLOW && !BardoGitHubIntegrationPolicy.DRAFT_PR_WORKFLOW_ENABLED) {
-            return null
-        }
         if (workflow == MAIN_COMMIT_WORKFLOW && !BardoGitHubIntegrationPolicy.MAIN_COMMIT_WORKFLOW_ENABLED) {
             return null
         }
@@ -318,7 +290,6 @@ class BardoGitHubActionsClient(private val token: String) {
         val array = JSONObject(response).optJSONArray("workflow_runs") ?: JSONArray()
         val prefix = when (workflow) {
             VALIDATION_WORKFLOW -> "BARDO candidate validation"
-            PR_WORKFLOW -> "BARDO approved PR preparation"
             MAIN_COMMIT_WORKFLOW -> "BARDO main commit"
             else -> ""
         }
@@ -359,98 +330,6 @@ class BardoGitHubActionsClient(private val token: String) {
             }
         }
         return lines.joinToString("\n").take(6000)
-    }
-
-    /** Busca la PR del candidato y vincula su SHA exacto; no modifica ni fusiona main. */
-    fun pullRequestDetailsForCandidate(candidateId: String): BardoGitHubPullRequest? {
-        BardoGitHubPolicy.validateCandidateId(candidateId)
-        val branch = "bardo/$candidateId"
-        val head = java.net.URLEncoder.encode("loboxfake:$branch", "UTF-8")
-        val response = request(
-            "GET",
-            "/pulls?state=all&head=$head&base=main&per_page=100",
-            null,
-            setOf(200)
-        )
-        val pulls = JSONArray(response)
-        for (index in 0 until pulls.length()) {
-            val item = pulls.optJSONObject(index) ?: continue
-            val headObject = item.optJSONObject("head")
-            val baseObject = item.optJSONObject("base")
-            val headRef = headObject?.optString("ref").orEmpty()
-            val baseRef = baseObject?.optString("ref").orEmpty()
-            val headRepository = headObject?.optJSONObject("repo")?.optString("full_name").orEmpty()
-            val baseRepository = baseObject?.optJSONObject("repo")?.optString("full_name").orEmpty()
-            val number = item.optInt("number")
-            val url = item.optString("html_url")
-            val headSha = headObject?.optString("sha").orEmpty()
-            if (headRef == branch && baseRef == "main" &&
-                headRepository == BardoGitHubPolicy.REPOSITORY &&
-                baseRepository == BardoGitHubPolicy.REPOSITORY &&
-                number > 0 &&
-                url == "https://github.com/loboxfake/musica-ia/pull/$number" &&
-                Regex("^[0-9a-f]{40}$").matches(headSha)
-            ) {
-                return BardoGitHubPullRequest(number, url, headSha)
-            }
-        }
-        return null
-    }
-
-    /** Compatibilidad con consumidores que solo necesitan número y URL. */
-    fun pullRequestForCandidate(candidateId: String): Pair<Int, String>? =
-        pullRequestDetailsForCandidate(candidateId)?.let { it.number to it.url }
-
-    /**
-     * Obtiene la validación workflow_dispatch de la rama creada por el workflow
-     * de PR, exige que siga apuntando al SHA actual del PR y ejecuta el evaluador
-     * con las cuatro evidencias locales recalculadas por la aplicación.
-     */
-    fun evaluateCandidateBranch(
-        candidateId: String,
-        localEvidence: List<BardoCheckEvidence>
-    ): BardoGitHubBranchEvaluation? {
-        BardoGitHubPolicy.validateCandidateId(candidateId)
-        require(BardoLocalCandidateEvidenceCollector.isReadyForCiSubmission(localEvidence)) {
-            "La auditoría local no está completa; no se consultará una aprobación CI."
-        }
-        val pullRequest = pullRequestDetailsForCandidate(candidateId) ?: return null
-        val branch = "bardo/$candidateId"
-        val encodedBranch = java.net.URLEncoder.encode(branch, "UTF-8")
-        val response = request(
-            "GET",
-            "/actions/workflows/bardo-validation.yml/runs?branch=$encodedBranch&event=workflow_dispatch&per_page=100",
-            null,
-            setOf(200)
-        )
-        val runs = JSONObject(response).optJSONArray("workflow_runs") ?: JSONArray()
-        val validation = (0 until runs.length()).mapNotNull { runs.optJSONObject(it) }
-            .filter { item ->
-                item.optString("event") == "workflow_dispatch" &&
-                    item.optString("head_branch") == branch &&
-                    item.optString("head_sha").equals(pullRequest.headSha, ignoreCase = true) &&
-                    item.optString("path").substringBefore("@") == ".github/workflows/bardo-validation.yml"
-            }
-            .maxByOrNull { it.optString("created_at") }
-            ?: return BardoGitHubBranchEvaluation(pullRequest, null, null)
-
-        val runId = validation.optLong("id", 0L)
-        require(runId > 0L) { "La validación de la rama no contiene un ID válido." }
-        val runJson = JSONObject(request("GET", "/actions/runs/$runId", null, setOf(200)))
-        val jobsJson = JSONObject(request("GET", "/actions/runs/$runId/jobs?per_page=100", null, setOf(200)))
-        val artifactsJson = JSONObject(request("GET", "/actions/runs/$runId/artifacts?per_page=100", null, setOf(200)))
-        val evaluation = BardoCandidateEvaluationPipeline.evaluate(
-            runJson,
-            jobsJson,
-            artifactsJson,
-            pullRequest.headSha,
-            localEvidence
-        )
-        return BardoGitHubBranchEvaluation(
-            pullRequest = pullRequest,
-            validationRun = parseRun(validation),
-            evaluation = evaluation
-        )
     }
 
     fun integratedCommit(candidateId: String): Pair<String, String>? {
