@@ -23,17 +23,11 @@ import java.util.concurrent.Executors
 
 /** Puente de CI: valida diffs aislados sobre un snapshot exacto de main; no crea ramas ni PR. */
 class BardoGitHubDevelopmentActivity : AppCompatActivity() {
-    private data class CandidateStatus(
-        val pullRequest: com.musicaia.desarrollo.BardoGitHubPullRequest?,
-        val evaluation: com.musicaia.desarrollo.BardoGitHubBranchEvaluation?,
-        val evaluationError: String?
-    )
-
     private lateinit var output: TextView
     private lateinit var tokenInput: EditText
     private lateinit var validateButton: Button
     private lateinit var refreshButton: Button
-    private lateinit var prButton: Button
+    private lateinit var integrateButton: Button
     private val executor = Executors.newSingleThreadExecutor { task ->
         Thread(task, "BARDO-GitHub-CI").apply { isDaemon = true }
     }
@@ -44,11 +38,11 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
     private var patch = ""
     private var changedFiles: List<String> = emptyList()
     private var validationRunId = 0L
-    private var prRunId = 0L
+    private var mainCommitRunId = 0L
     private var validationDispatched = false
     private var validationSucceeded = false
-    private var prDispatched = false
-    private var prCreated = false
+    private var mainCommitDispatched = false
+    private var mainCommitSucceeded = false
     private var busy = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -66,11 +60,11 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
         }.isSuccess
 
         validationRunId = state.getLong(key("validation_run_id"), 0L)
-        prRunId = state.getLong(key("pr_run_id"), 0L)
+        mainCommitRunId = state.getLong(key("main_commit_run_id"), 0L)
         validationDispatched = state.getBoolean(key("validation_dispatched"), validationRunId > 0L)
         validationSucceeded = state.getBoolean(key("validation_succeeded"), false)
-        prDispatched = state.getBoolean(key("pr_dispatched"), prRunId > 0L)
-        prCreated = state.getBoolean(key("pr_created"), false)
+        mainCommitDispatched = state.getBoolean(key("main_commit_dispatched"), mainCommitRunId > 0L)
+        mainCommitSucceeded = state.getBoolean(key("main_commit_succeeded"), false)
 
         buildUi()
         if (!valid) {
@@ -83,7 +77,7 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
                     "CANDIDATO NO VÁLIDO\n\nEste proyecto no contiene el SHA de origen o la propuesta modifica una ruta protegida. No se ha enviado nada a GitHub."
             }
             validateButton.isEnabled = false
-            prButton.isEnabled = false
+            integrateButton.isEnabled = false
             return
         }
 
@@ -102,13 +96,10 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
             appendLine("Token requerido: Fine-grained PAT limitado a este repositorio, con Actions: Read and write y Contents: Read.")
             appendLine("El token se cifra con Android Keystore. No se incluye en el APK ni se transmite al runner.")
             appendLine()
-            if (BardoGitHubIntegrationPolicy.DRAFT_PR_WORKFLOW_ENABLED) {
-                appendLine("INTEGRACIÓN BLOQUEADA: esta versión trabaja solo sobre main. La validación aislada no crea ramas ni PR.")
-                appendLine("La validación se ejecuta en un runner efímero. No modifica main ni publica una Release.")
-            } else {
-                appendLine("INTEGRACIÓN BLOQUEADA: " + BardoGitHubIntegrationPolicy.BLOCK_REASON)
-            }
-            appendLine("La validación y la preparación del PR se ejecutan en runners efímeros. El token personal permanece en el dispositivo; el workflow utiliza su GITHUB_TOKEN limitado por permisos.")
+            appendLine("La validación se ejecuta primero en un runner efímero y no modifica el repositorio.")
+            appendLine("Después de SUCCESS puedes autorizar expresamente un único commit directo a main. El workflow vuelve a comprobar el SHA base, repite tests y APK ARM64 y usa un push normal sin force.")
+            appendLine("Si main se ha movido, el workflow aborta sin sobrescribir commits.")
+            appendLine("El token personal solo necesita Actions: Read and write y Contents: Read. El GITHUB_TOKEN del workflow obtiene Contents: Write exclusivamente para este commit autorizado.")
         }
         renderButtons()
     }
@@ -157,7 +148,7 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
         addButton(root, "Eliminar token guardado") { revokeToken() }
         validateButton = addButton(root, "Enviar candidato a validación aislada") { dispatchValidation() }
         refreshButton = addButton(root, "Consultar CI y resultado") { refreshRuns() }
-        prButton = addButton(root, "Crear PR del candidato") { confirmIntegration() }
+        integrateButton = addButton(root, "Autorizar integración del candidato en main") { confirmMainIntegration() }
         addButton(root, "Volver") { finish() }
 
         val scroll = ScrollView(this).apply { isFillViewport = true }
@@ -248,6 +239,14 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
         }
     }
 
+    private data class RunRefresh(
+        val validation: BardoGitHubRun?,
+        val mainCommit: BardoGitHubRun?,
+        val validationSummary: String,
+        val mainCommitSummary: String,
+        val integratedCommit: Pair<String, String>?
+    )
+
     private fun refreshRuns() {
         if (busy) return
         val token = BardoGitHubCredentialStore.read(this)
@@ -255,75 +254,109 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
             output.text = "No hay un token GitHub guardado."
             return
         }
-        setBusy(true, "Consultando el estado real de las ejecuciones en GitHub Actions…")
+        setBusy(true, "Consultando la validación y el resultado de integración de main…")
         executor.execute {
             val result = runCatching {
                 val client = BardoGitHubActionsClient(token)
                 val validation = if (validationRunId > 0L) client.getRun(validationRunId) else
                     client.findRun(BardoGitHubActionsClient.VALIDATION_WORKFLOW, candidateId, baseSha)
-                val prPreparation = if (BardoGitHubIntegrationPolicy.DRAFT_PR_WORKFLOW_ENABLED) {
-                    if (prRunId > 0L) client.getRun(prRunId) else
-                        client.findRun(BardoGitHubActionsClient.PR_WORKFLOW, candidateId, baseSha)
-                } else null
+                val mainCommit = if (mainCommitRunId > 0L) client.getRun(mainCommitRunId) else {
+                    if (mainCommitDispatched) {
+                        client.findRun(BardoGitHubActionsClient.MAIN_COMMIT_WORKFLOW, candidateId, baseSha)
+                    } else null
+                }
                 if (validation != null && validationRunId == 0L) {
                     validationRunId = validation.id
                     state.edit().putLong(key("validation_run_id"), validation.id).apply()
                 }
-                if (prPreparation != null && prRunId == 0L) {
-                    prRunId = prPreparation.id
-                    state.edit().putLong(key("pr_run_id"), prPreparation.id).apply()
+                if (mainCommit != null && mainCommitRunId == 0L) {
+                    mainCommitRunId = mainCommit.id
+                    state.edit().putLong(key("main_commit_run_id"), mainCommit.id).apply()
                 }
                 val validationSummary = validation?.let { client.jobsSummary(it.id) }.orEmpty()
-                val prSummary = prPreparation?.let { client.jobsSummary(it.id) }.orEmpty()
-                Triple(validation, prPreparation, validationSummary to prSummary)
+                val mainCommitSummary = mainCommit?.let { client.jobsSummary(it.id) }.orEmpty()
+                // The workflow run's head SHA is the base commit. Confirm integration
+                // independently by looking for the unique candidate ID in main history.
+                val integrated = if (mainCommit?.finished == true) {
+                    client.integratedCommit(candidateId)
+                } else null
+                RunRefresh(validation, mainCommit, validationSummary, mainCommitSummary, integrated)
             }
             runOnUiThread {
-                result.onSuccess { (validation, prPreparation, summaries) ->
-                    if (prPreparation != null) {
-                        showRun("PREPARACIÓN DEL PR", prPreparation, summaries.second)
-                        if (prPreparation.succeeded) checkPullRequest(token)
-                    } else if (validation != null) {
-                        showRun("VALIDACIÓN DEL CANDIDATO", validation, summaries.first)
-                        if (validation.succeeded) {
+                result.onSuccess { snapshot ->
+                    if (snapshot.integratedCommit != null) {
+                        mainCommitSucceeded = true
+                        state.edit().putBoolean(key("main_commit_succeeded"), true).apply()
+                        snapshot.mainCommit?.let {
+                            showRun("INTEGRACIÓN EN MAIN", it, snapshot.mainCommitSummary)
+                        }
+                        output.append(
+                            "\n\nCOMMIT CONFIRMADO EN MAIN\nSHA: ${snapshot.integratedCommit.first}" +
+                                "\n${snapshot.integratedCommit.second}" +
+                                "\nLa búsqueda del historial de main confirma que el commit del candidato está incorporado."
+                        )
+                        android.text.util.Linkify.addLinks(output, android.text.util.Linkify.WEB_URLS)
+                    } else if (snapshot.mainCommit != null) {
+                        showRun("INTEGRACIÓN EN MAIN", snapshot.mainCommit, snapshot.mainCommitSummary)
+                        if (snapshot.mainCommit.finished && !snapshot.mainCommit.succeeded) {
+                            output.append(
+                                "\n\nNo se ha encontrado el commit del candidato en main. Revisa el error del workflow; no se intentará forzar ni sobrescribir la rama."
+                            )
+                        } else if (snapshot.mainCommit.succeeded) {
+                            output.append(
+                                "\n\nEl workflow terminó correctamente; la consulta del historial aún no devuelve el commit. Vuelve a consultar para confirmar el SHA definitivo."
+                            )
+                        }
+                    } else if (snapshot.validation != null) {
+                        if (snapshot.validation.succeeded) {
                             validationSucceeded = true
                             state.edit().putBoolean(key("validation_succeeded"), true).apply()
                         }
+                        showRun("VALIDACIÓN DEL CANDIDATO", snapshot.validation, snapshot.validationSummary)
                     } else {
-                        output.text = "No se encontró una ejecución para este candidato. Primero envíalo a validación."
+                        output.text = "No se encontró una ejecución para este candidato. Envíalo primero a validación aislada."
                     }
-                }.onFailure { output.text = "No se pudo consultar GitHub: ${it.message}" }
+                }.onFailure {
+                    output.text = "No se pudo consultar GitHub: ${it.message}"
+                }
                 setBusy(false)
             }
         }
     }
 
-    private fun confirmIntegration() {
-        if (!BardoGitHubIntegrationPolicy.DRAFT_PR_WORKFLOW_ENABLED) {
+    private fun confirmMainIntegration() {
+        if (!BardoGitHubIntegrationPolicy.MAIN_COMMIT_WORKFLOW_ENABLED) {
             output.text = BardoGitHubIntegrationPolicy.BLOCK_REASON
             return
         }
-        if (!validationSucceeded || validationRunId <= 0L || prCreated || prDispatched) {
-            output.text = "Solo se puede preparar un PR para un candidato cuya validación haya terminado en SUCCESS."
+        if (!validationSucceeded || validationRunId <= 0L || mainCommitSucceeded || mainCommitDispatched) {
+            output.text = "Solo puedes integrar un candidato cuya validación aislada haya terminado en SUCCESS y que aún no se haya integrado."
             return
         }
         AlertDialog.Builder(this)
-            .setTitle("Crear PR del candidato")
-            .setMessage("BARDO volverá a ejecutar las pruebas y compilación. Si pasan, creará la rama bardo/$candidateId y abrirá un PR borrador contra main. No modificará main, no fusionará el PR ni publicará una APK. ¿Apruebas crear el PR?")
+            .setTitle("Autorizar commit directo a main")
+            .setMessage(
+                "Candidato: $candidateId\nCommit base: $baseSha\n\n" +
+                    "GitHub comprobará que la validación aislada pertenece exactamente a este candidato y a este SHA. " +
+                    "Después aplicará el mismo parche en un runner efímero, repetirá las pruebas Kotlin y la compilación ARM64, " +
+                    "volverá a comprobar que main no ha cambiado y hará un push normal (sin force). " +
+                    "Si main se ha movido, abortará sin sobrescribir trabajo.\n\n¿Autorizas este commit a main?"
+            )
             .setNegativeButton("Cancelar", null)
-            .setPositiveButton("Crear PR") { _, _ -> dispatchIntegration() }
+            .setPositiveButton("Autorizar commit a main") { _, _ -> dispatchMainIntegration() }
             .show()
     }
 
-    private fun dispatchIntegration() {
+    private fun dispatchMainIntegration() {
         if (!sourceOriginIsTrusted() || !candidatePromptPrivacyIsSafe()) {
-            output.text = "Creación de PR bloqueada por privacidad: la procedencia y el contexto de generación no están certificados como exclusivos de BARDO."
+            output.text = "Integración bloqueada por privacidad: la procedencia o el contexto del candidato no están certificados como exclusivos de BARDO."
             return
         }
-        if (!BardoGitHubIntegrationPolicy.DRAFT_PR_WORKFLOW_ENABLED) {
+        if (!BardoGitHubIntegrationPolicy.MAIN_COMMIT_WORKFLOW_ENABLED) {
             output.text = BardoGitHubIntegrationPolicy.BLOCK_REASON
             return
         }
-        if (busy || prDispatched || prCreated) return
+        if (busy || mainCommitDispatched || mainCommitSucceeded || !validationSucceeded || validationRunId <= 0L) return
         val token = BardoGitHubCredentialStore.read(this)
         if (token == null) {
             output.text = "No hay un token GitHub guardado."
@@ -333,135 +366,60 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
             output.text = "No se pudo empaquetar la propuesta: ${it.message}"
             return
         }
-        setBusy(true, "Aprobación recibida. GitHub volverá a probar el candidato y abrirá un PR sin tocar main.")
+        setBusy(true, "Aprobación recibida. GitHub vuelve a verificar el candidato y solo hará un push normal a main si la base sigue intacta.")
         executor.execute {
             val result = runCatching {
                 val client = BardoGitHubActionsClient(token)
                 val validation = client.getRun(validationRunId)
                 check(validation.succeeded && validation.headSha.equals(baseSha, true)) {
-                    "La validación no corresponde a este commit o no terminó en SUCCESS."
+                    "La validación no terminó en SUCCESS para el SHA base de este candidato."
                 }
                 collectLocalCandidateEvidence()
-                client.dispatchPullRequest(baseSha, candidateId, payload, validationRunId)
+                client.dispatchMainCommit(
+                    baseSha = baseSha,
+                    candidateId = candidateId,
+                    packedPatch = payload,
+                    validationRunId = validationRunId,
+                    explicitlyApprovedByUser = true
+                )
                 var found: BardoGitHubRun? = null
                 repeat(20) {
                     if (found == null) {
-                        found = client.findRun(BardoGitHubActionsClient.PR_WORKFLOW, candidateId, baseSha)
+                        found = client.findRun(BardoGitHubActionsClient.MAIN_COMMIT_WORKFLOW, candidateId, baseSha)
                         if (found == null) Thread.sleep(1500L)
                     }
                 }
                 val summary = found?.let { client.jobsSummary(it.id) }.orEmpty()
-                found to summary
+                val integrated = if (found?.finished == true) client.integratedCommit(candidateId) else null
+                Triple(found, summary, integrated)
             }
             runOnUiThread {
-                result.onSuccess { (run, summary) ->
-                    prDispatched = true
-                    state.edit().putBoolean(key("pr_dispatched"), true).apply()
-                    if (run == null) {
-                        output.text = "GitHub aceptó la solicitud. La ejecución aún no aparece; pulsa «Consultar CI y resultado» para recuperarla."
-                    } else {
-                        prRunId = run.id
-                        state.edit().putLong(key("pr_run_id"), run.id).apply()
-                        showRun("PREPARACIÓN DEL PR", run, summary)
-                        if (run.succeeded) checkPullRequest(token)
+                result.onSuccess { (run, summary, integrated) ->
+                    mainCommitDispatched = true
+                    state.edit().putBoolean(key("main_commit_dispatched"), true).apply()
+                    if (run != null) {
+                        mainCommitRunId = run.id
+                        state.edit().putLong(key("main_commit_run_id"), run.id).apply()
                     }
-                }.onFailure { output.text = "No se pudo iniciar la preparación del PR: ${it.message}" }
-                setBusy(false)
-            }
-        }
-    }
-
-    private fun checkPullRequest(token: String) {
-        executor.execute {
-            val result = runCatching {
-                val client = BardoGitHubActionsClient(token)
-                var pullRequest: com.musicaia.desarrollo.BardoGitHubPullRequest? = null
-                repeat(10) {
-                    if (pullRequest == null) {
-                        pullRequest = client.pullRequestDetailsForCandidate(candidateId)
-                        if (pullRequest == null) Thread.sleep(1500L)
-                    }
-                }
-                val found = pullRequest
-                if (found == null) {
-                    CandidateStatus(null, null, null)
-                } else {
-                    val evaluationAttempt = runCatching {
-                        val localEvidence = collectLocalCandidateEvidence()
-                        client.evaluateCandidateBranch(candidateId, localEvidence)
-                    }
-                    CandidateStatus(
-                        pullRequest = found,
-                        evaluation = evaluationAttempt.getOrNull(),
-                        evaluationError = evaluationAttempt.exceptionOrNull()?.message
-                    )
-                }
-            }
-            runOnUiThread {
-                result.onSuccess { status ->
-                    val pullRequest = status.pullRequest
-                    if (pullRequest == null) {
-                        output.append(
-                            "\n\nEl workflow terminó, pero la PR aún no aparece en GitHub. Pulsa «Consultar CI y resultado» de nuevo. main no se ha modificado."
-                        )
-                    } else {
-                        prCreated = true
-                        state.edit().putBoolean(key("pr_created"), true).apply()
-                        output.append(
-                            "\n\nPR BORRADOR CREADA\nNúmero: #${pullRequest.number}\n${pullRequest.url}" +
-                                "\nSHA de la rama: ${pullRequest.headSha}" +
-                                "\n\nmain sigue sin cambios. BARDO no fusiona el PR ni publica una Release."
-                        )
-                        val evaluation = status.evaluation
-                        when {
-                            status.evaluationError != null -> output.append(
-                                "\n\nEVALUACIÓN AUTOMÁTICA NO DISPONIBLE\n" + status.evaluationError.take(1200) +
-                                    "\nLa PR puede revisarse, pero no se declara CI aprobado por esta pantalla."
+                    when {
+                        integrated != null -> {
+                            mainCommitSucceeded = true
+                            state.edit().putBoolean(key("main_commit_succeeded"), true).apply()
+                            if (run != null) showRun("INTEGRACIÓN EN MAIN", run, summary)
+                            output.append(
+                                "\n\nCOMMIT CONFIRMADO EN MAIN\nSHA: ${integrated.first}\n${integrated.second}"
                             )
-                            evaluation == null || evaluation.validationRun == null -> output.append(
-                                "\n\nVALIDACIÓN DE LA RAMA PENDIENTE\nAún no aparece una ejecución bardo-validation.yml workflow_dispatch asociada al SHA actual del PR."
-                            )
-                            else -> {
-                                val ci = evaluation.evaluation?.ci
-                                val report = evaluation.evaluation?.report
-                                output.append(
-                                    "\n\nVALIDACIÓN DE RAMA\nRun: ${evaluation.validationRun.id}" +
-                                        "\nEstado: ${evaluation.validationRun.status}" +
-                                        "\nConclusión: ${evaluation.validationRun.conclusion ?: "pendiente"}" +
-                                        "\n${evaluation.validationRun.url}"
-                                )
-                                when {
-                                    ci == null || ci.state == com.musicaia.evaluacion.BardoCiEvidenceState.PENDING ->
-                                        output.append("\nCI pendiente; todavía no se emite un informe de evaluación.")
-                                    ci.state == com.musicaia.evaluacion.BardoCiEvidenceState.INVALID ->
-                                        output.append("\nEVIDENCIA CI INVÁLIDA\n" + ci.problems.joinToString("\n"))
-                                    else -> {
-                                        output.append(
-                                            "\nResultado del evaluador independiente: " +
-                                                (report?.status?.name ?: "INCOMPLETE") +
-                                                "\n" + (report?.summary ?: "Faltan evidencias obligatorias.")
-                                        )
-                                        if (report != null) {
-                                            if (report.failedChecks.isNotEmpty()) {
-                                                output.append("\nChecks fallidos: " + report.failedChecks.joinToString())
-                                            }
-                                            if (report.missingChecks.isNotEmpty()) {
-                                                output.append("\nChecks pendientes: " + report.missingChecks.joinToString())
-                                            }
-                                        }
-                                        output.append(
-                                            "\n\nEsta evaluación no acredita instalación, inferencia Gemma, modo offline ni pruebas de audio en el Xiaomi."
-                                        )
-                                    }
-                                }
-                            }
+                            android.text.util.Linkify.addLinks(output, android.text.util.Linkify.WEB_URLS)
                         }
-                        android.text.util.Linkify.addLinks(output, android.text.util.Linkify.WEB_URLS)
+                        run == null -> {
+                            output.text = "GitHub aceptó la solicitud de integración. La ejecución aún no aparece; pulsa «Consultar CI y resultado» para recuperarla."
+                        }
+                        else -> showRun("INTEGRACIÓN EN MAIN", run, summary)
                     }
-                    renderButtons()
                 }.onFailure {
-                    output.append("\nNo se pudo consultar la PR: ${it.message}")
+                    output.text = "No se pudo iniciar la integración a main: ${it.message}"
                 }
+                setBusy(false)
             }
         }
     }
@@ -525,12 +483,12 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
                 appendLine("DETALLE DE CI:")
                 appendLine(jobSummary)
             }
-            if (run.conclusion == "failure") appendLine("\nLa ejecución falló. No se creó ningún PR ni se modificó main. Corrige el problema y prepara un candidato nuevo.")
+            if (run.conclusion == "failure") appendLine("\nLa ejecución falló. Revisa los pasos anteriores. No se ejecutará ningún force-push ni se sobrescribirá main.")
             if (run.succeeded && label.contains("VALIDACIÓN")) {
-                appendLine("\nVALIDACIÓN SUPERADA. La propuesta sigue sin publicarse. Puedes autorizar por separado la creación de un PR borrador.")
+                appendLine("\nVALIDACIÓN SUPERADA. La propuesta sigue aislada. Puedes autorizar por separado un commit directo a main.")
             }
-            if (run.succeeded && label.contains("PR")) {
-                appendLine("\nPreparación del PR terminada. Consultando la rama candidata y el PR; main no se fusiona automáticamente.")
+            if (run.succeeded && label.contains("INTEGRACIÓN")) {
+                appendLine("\nEl workflow terminó. BARDO comprobará por separado el SHA del commit dentro del historial de main.")
             }
         }
         android.text.util.Linkify.addLinks(output, android.text.util.Linkify.WEB_URLS)
@@ -562,11 +520,11 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
         if (!::validateButton.isInitialized) return
         val tokenReady = BardoGitHubCredentialStore.hasToken(this)
         val privacyReady = sourceOriginIsTrusted() && candidatePromptPrivacyIsSafe()
-        validateButton.isEnabled = !busy && tokenReady && privacyReady && !prCreated && !validationDispatched
-        refreshButton.isEnabled = !busy && tokenReady && (validationDispatched || prDispatched)
-        prButton.isEnabled = BardoGitHubIntegrationPolicy.DRAFT_PR_WORKFLOW_ENABLED &&
-            !busy && tokenReady && privacyReady && validationSucceeded && !prCreated && !prDispatched
-        prButton.text = "Ramas y PR desactivados — política de main única"
+        validateButton.isEnabled = !busy && tokenReady && privacyReady && !mainCommitSucceeded && !validationDispatched
+        refreshButton.isEnabled = !busy && tokenReady && (validationDispatched || mainCommitDispatched)
+        integrateButton.isEnabled = BardoGitHubIntegrationPolicy.DRAFT_PR_WORKFLOW_ENABLED &&
+            !busy && tokenReady && privacyReady && validationSucceeded && !mainCommitSucceeded && !mainCommitDispatched
+        integrateButton.text = "Ramas y PR desactivados — política de main única"
     }
 
     private fun setBusy(value: Boolean, message: String = "") {
