@@ -938,8 +938,22 @@ class MainActivity : AppCompatActivity() {
  }
 
  private fun raizCarpetaBardo(): Uri {
-     val tree = uriCarpetaBardo ?: throw IllegalStateException("Primero selecciona la carpeta BARDO.")
-     val rootId = bardoRootDocumentId ?: DocumentsContract.getTreeDocumentId(tree)
+     val tree = uriCarpetaBardo ?: throw IllegalStateException(
+         "Primero selecciona Descargas del almacenamiento interno para conectar BARDO."
+     )
+     val treeId = DocumentsContract.getTreeDocumentId(tree)
+     val rootId = bardoRootDocumentId ?: throw IllegalStateException(
+         "No se ha verificado la raíz local Descargas/BARDO."
+     )
+     require(BardoLocalStorageDestinationPolicy.isBardoRoot(
+         tree.scheme, tree.authority, treeId, rootId
+     )) {
+         "Privacidad protegida: BARDO solo escribe en Descargas/BARDO del almacenamiento interno."
+     }
+     val permission = contentResolver.persistedUriPermissions.any {
+         it.uri == tree && it.isReadPermission && it.isWritePermission
+     }
+     require(permission) { "Android ya no conserva el permiso de escritura local para Descargas/BARDO." }
      return DocumentsContract.buildDocumentUriUsingTree(tree, rootId)
  }
 
@@ -960,11 +974,35 @@ class MainActivity : AppCompatActivity() {
  }
 
   private fun guardarArchivoEnRaizCarpetaBardo(origen: File, nombre: String, mimeType: String) {
-     val destino = DocumentsContract.createDocument(contentResolver, raizCarpetaBardo(), mimeType, nombre)
-         ?: throw IllegalStateException("Android no pudo crear $nombre en la carpeta BARDO.")
-     val output = contentResolver.openOutputStream(destino, "w")
-         ?: throw IllegalStateException("No se pudo abrir el archivo de destino.")
-     output.use { stream -> origen.inputStream().buffered().use { it.copyTo(stream) } }
+     require(origen.isFile && origen.length() > 0L) { "El archivo generado está vacío o no es regular." }
+     require(nombre.matches(Regex("[A-Za-z0-9._ -]{1,180}")) &&
+         !nombre.startsWith(".") && !nombre.contains("..")
+     ) { "El nombre del archivo no es seguro." }
+     val root = raizCarpetaBardo()
+     val destino = DocumentsContract.createDocument(contentResolver, root, mimeType, nombre)
+         ?: throw IllegalStateException("Android no pudo crear $nombre en Descargas/BARDO.")
+     try {
+         exigirDestinoLocalBardo(destino)
+         val output = contentResolver.openOutputStream(destino, "w")
+             ?: throw IllegalStateException("No se pudo abrir el archivo local BARDO.")
+         var copied = 0L
+         output.use { stream ->
+             origen.inputStream().buffered().use { input ->
+                 val buffer = ByteArray(64 * 1024)
+                 while (true) {
+                     val count = input.read(buffer)
+                     if (count < 0) break
+                     if (count == 0) continue
+                     stream.write(buffer, 0, count)
+                     copied += count
+                 }
+             }
+         }
+         require(copied == origen.length()) { "La copia local no coincide con el tamaño original." }
+     } catch (error: Exception) {
+         runCatching { DocumentsContract.deleteDocument(contentResolver, destino) }
+         throw error
+     }
  }
 
 private fun crearEstructuraCarpetaBardo() {
@@ -974,12 +1012,36 @@ private fun crearEstructuraCarpetaBardo() {
  }
 
  private fun guardarArchivoEnCarpetaBardo(origen: File, categoria: String, nombre: String, mimeType: String) {
+     require(origen.isFile && origen.length() > 0L) { "El archivo generado está vacío o no es regular." }
+     require(categoria.matches(Regex("[A-Za-z0-9 _-]{1,64}"))) { "La carpeta de destino no es válida." }
+     require(nombre.matches(Regex("[A-Za-z0-9._ -]{1,180}")) &&
+         !nombre.startsWith(".") && !nombre.contains("..")
+     ) { "El nombre del archivo no es seguro." }
      val folder = buscarOCrearSubcarpetaBardo(raizCarpetaBardo(), categoria)
      val destination = DocumentsContract.createDocument(contentResolver, folder, mimeType, nombre)
-         ?: throw IllegalStateException("Android no pudo crear $nombre en $categoria.")
-     val output = contentResolver.openOutputStream(destination, "w")
-         ?: throw IllegalStateException("No se pudo abrir el archivo de destino.")
-     output.use { stream -> origen.inputStream().buffered().use { it.copyTo(stream) } }
+         ?: throw IllegalStateException("Android no pudo crear $nombre en Descargas/BARDO/$categoria.")
+     try {
+         exigirDestinoLocalBardo(destination)
+         val output = contentResolver.openOutputStream(destination, "w")
+             ?: throw IllegalStateException("No se pudo abrir el archivo local BARDO.")
+         var copied = 0L
+         output.use { stream ->
+             origen.inputStream().buffered().use { input ->
+                 val buffer = ByteArray(64 * 1024)
+                 while (true) {
+                     val count = input.read(buffer)
+                     if (count < 0) break
+                     if (count == 0) continue
+                     stream.write(buffer, 0, count)
+                     copied += count
+                 }
+             }
+         }
+         require(copied == origen.length()) { "La copia local no coincide con el tamaño original." }
+     } catch (error: Exception) {
+         runCatching { DocumentsContract.deleteDocument(contentResolver, destination) }
+         throw error
+     }
  }
 
  private fun crearConversacionNueva() {
