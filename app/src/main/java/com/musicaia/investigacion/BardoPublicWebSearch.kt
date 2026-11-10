@@ -131,7 +131,7 @@ object BardoPublicWebSearch {
         val snippets = Regex(
             "(?is)<(?:a|div)[^>]*class=[\"'][^\"']*result__snippet[^\"']*[\"'][^>]*>(.*?)</(?:a|div)>"
         ).findAll(html).map { cleanHtml(it.groupValues[1]) }.toList()
-        val results = anchor.findAll(html).mapNotNullIndexed { index, match ->
+        val results = anchor.findAll(html).mapIndexedNotNull { index, match ->
             val rawHref = decodeHtml(match.groupValues[1])
             val resolved = resolveResultUrl(rawHref) ?: return@mapNotNullIndexed null
             val title = cleanHtml(match.groupValues[2]).take(240)
