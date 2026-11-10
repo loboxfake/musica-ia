@@ -68,11 +68,10 @@ class BardoGemmaLiteRtProvider : BardoModelProvider {
 
     override fun inspect(context: Context): BardoModelAvailability {
         val model = LiteRTLMModule.modelFile(context)
-        if ((loaded && loadedPath == model.absolutePath) ||
-            EngineLiteRT.estaCargado(model.absolutePath)
-        ) {
-            loaded = true
-            loadedPath = model.absolutePath
+        val runtimeLoaded = EngineLiteRT.estaCargado(model.absolutePath)
+        loaded = runtimeLoaded
+        loadedPath = if (runtimeLoaded) model.absolutePath else null
+        if (runtimeLoaded) {
             return BardoModelAvailability(BardoModelState.READY, "Modelo local verificado y runtime cargado.")
         }
         if (!model.isFile) {
@@ -171,7 +170,10 @@ class BardoGemmaLiteRtProvider : BardoModelProvider {
     }
 
     override fun unload() {
-        EngineLiteRT.cerrar()
+        val path = loadedPath
+        if (!path.isNullOrBlank() && EngineLiteRT.estaCargado(path)) {
+            EngineLiteRT.cerrar()
+        }
         loaded = false
         loadedPath = null
     }
