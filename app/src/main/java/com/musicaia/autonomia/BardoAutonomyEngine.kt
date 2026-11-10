@@ -22,6 +22,24 @@ data class BardoTaskStep(
 
 data class BardoActionPlan(val steps: List<BardoTaskStep>, val correctionBudget: Int = 1)
 
+/**
+ * Presupuesto de una ejecución concreta. Los valores se validan antes de
+ * ejecutar herramientas y pueden ajustarse por tarea sin alterar el motor.
+ */
+data class BardoAutonomyBudget(
+    val maxTaskMillis: Long = 180_000L,
+    val maxSteps: Int = 12,
+    val maxCorrections: Int = 2
+) {
+    init {
+        require(maxTaskMillis in 10_000L..900_000L) {
+            "El tiempo de tarea debe estar entre 10 segundos y 15 minutos."
+        }
+        require(maxSteps in 1..BardoAutonomyEngine.MAX_STEPS)
+        require(maxCorrections in 0..BardoAutonomyEngine.MAX_CORRECTIONS)
+    }
+}
+
 data class BardoTaskObservation(
     val toolId: String,
     val succeeded: Boolean,
@@ -100,7 +118,8 @@ class BardoAutonomyEngine(
     private val journal: BardoTaskJournal,
     private val nowMillis: () -> Long = System::currentTimeMillis,
     private val maxTaskMillis: Long = 180_000L,
-    private val stepVerifier: BardoTaskStepVerifier = BardoDeterministicTaskStepVerifier
+    private val stepVerifier: BardoTaskStepVerifier = BardoDeterministicTaskStepVerifier,
+    private val budget: BardoAutonomyBudget = BardoAutonomyBudget(maxTaskMillis = maxTaskMillis)
 ) {
     fun run(goal: String): BardoAutonomyResult {
         require(goal.isNotBlank() && goal.length <= 4000) {
@@ -118,7 +137,7 @@ class BardoAutonomyEngine(
                 "No se pudo obtener un plan seguro: " + error.message)
         }
 
-        val correctionBudget = plan.correctionBudget
+        val correctionBudget = minOf(plan.correctionBudget, budget.maxCorrections)
         var corrections = 0
         var pending = ArrayDeque(plan.steps)
         var lastStepFailed = false
@@ -130,7 +149,7 @@ class BardoAutonomyEngine(
                 return result(taskId, BardoAutonomyStatus.PARTIAL, observations, corrections, started,
                     "Tarea interrumpida; se conserva el trabajo parcial.")
             }
-            if (nowMillis() - started > maxTaskMillis) {
+            if (nowMillis() - started > budget.maxTaskMillis) {
                 journal.record(taskId, "time_limit", null, false, "Se alcanzó el límite temporal.", nowMillis())
                 return result(taskId, BardoAutonomyStatus.PARTIAL, observations, corrections, started,
                     "Tarea detenida por límite de tiempo.")
@@ -194,7 +213,7 @@ class BardoAutonomyEngine(
     }
 
     private fun validatePlan(plan: BardoActionPlan) {
-        require(plan.steps.isNotEmpty() && plan.steps.size <= MAX_STEPS) {
+        require(plan.steps.isNotEmpty() && plan.steps.size <= minOf(MAX_STEPS, budget.maxSteps)) {
             "El plan debe contener entre 1 y $MAX_STEPS pasos."
         }
         require(plan.correctionBudget in 0..MAX_CORRECTIONS) {

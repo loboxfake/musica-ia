@@ -2,6 +2,7 @@ package com.musicaia
 
 import com.musicaia.autonomia.BardoActionPlan
 import com.musicaia.autonomia.BardoAutonomyEngine
+import com.musicaia.autonomia.BardoAutonomyBudget
 import com.musicaia.autonomia.BardoAutonomyStatus
 import com.musicaia.autonomia.toActivityState
 import com.musicaia.autonomia.BardoTaskJournal
@@ -19,6 +20,34 @@ import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 
 class BardoAutonomyEngineTest {
+    @Test fun perTaskBudgetRejectsUnsafeValuesAndLimitsPlanSteps() {
+        try {
+            BardoAutonomyBudget(maxTaskMillis = 9_999L)
+            throw AssertionError("Expected invalid time budget to be rejected")
+        } catch (_: IllegalArgumentException) { }
+        try {
+            BardoAutonomyBudget(maxSteps = 13)
+            throw AssertionError("Expected invalid step budget to be rejected")
+        } catch (_: IllegalArgumentException) { }
+
+        val root = createTempDir(prefix = "bardo-autonomy-budget")
+        try {
+            val planner = BardoTaskPlanner { _, _, _ ->
+                BardoActionPlan((1..3).map {
+                    BardoTaskStep("test.echo", mapOf("value" to "ok"), "Step $it")
+                }, 2)
+            }
+            val result = BardoAutonomyEngine(
+                planner, tools(), BardoTaskJournal(root),
+                budget = BardoAutonomyBudget(maxTaskMillis = 30_000L, maxSteps = 2, maxCorrections = 0)
+            ).run("Respect per-task budget")
+            assertEquals(BardoAutonomyStatus.BLOCKED, result.status)
+            assertTrue(result.observations.isEmpty())
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
     @Test fun activityStateNeverReportsPartialBlockedOrFailedTasksAsCompleted() {
         assertEquals("completed", BardoAutonomyStatus.COMPLETED.toActivityState())
         assertEquals("partial", BardoAutonomyStatus.PARTIAL.toActivityState())

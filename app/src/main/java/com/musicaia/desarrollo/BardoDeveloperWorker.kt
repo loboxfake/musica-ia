@@ -25,6 +25,7 @@ import com.musicaia.modulos.litert.EngineLiteRT
 import com.musicaia.modulos.litert.LiteRTLMModule
 import com.musicaia.storage.BardoSharedStorage
 import com.musicaia.autonomia.BardoAutonomyEngine
+import com.musicaia.autonomia.BardoAutonomyBudget
 import com.musicaia.autonomia.toActivityState
 import com.musicaia.autonomia.BardoGemmaTaskPlanner
 import com.musicaia.autonomia.BardoTaskJournal
@@ -163,6 +164,11 @@ class BardoDeveloperWorker(
             val toolExecutor = skillRuntime.tools
             val autonomyResult = runCatching {
                 val modelRegistry = BardoModelRegistry(listOf(BardoGemmaLiteRtProvider()))
+                val autonomyBudget = BardoAutonomyBudget(
+                    maxTaskMillis = prefs.getLong("autonomy_budget_task_millis", 180_000L),
+                    maxSteps = prefs.getInt("autonomy_budget_max_steps", 12),
+                    maxCorrections = prefs.getInt("autonomy_budget_max_corrections", 2)
+                )
                 val autonomy = BardoAutonomyEngine(
                     planner = BardoGemmaTaskPlanner(
                         applicationContext,
@@ -171,7 +177,8 @@ class BardoDeveloperWorker(
                         skillManager = skillRuntime.manager
                     ),
                     tools = toolExecutor,
-                    journal = BardoTaskJournal(File(workspace, "diario-autonomia"))
+                    journal = BardoTaskJournal(File(workspace, "diario-autonomia")),
+                    budget = autonomyBudget
                 )
                 autonomy.run(
                     "Estudia el estado real de BARDO. Consulta el inventario propio, revisa estáticamente " +
