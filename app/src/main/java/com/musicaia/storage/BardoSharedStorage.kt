@@ -78,6 +78,21 @@ object BardoSharedStorage {
 
     fun isConfigured(context: Context): Boolean = location(context) != null
 
+    /** True only for a document inside the user's configured on-device BARDO folder. */
+    fun isAuthorizedLocalBardoDestination(context: Context, documentUri: Uri): Boolean = runCatching {
+        val loc = location(context) ?: return@runCatching false
+        val treeId = DocumentsContract.getTreeDocumentId(loc.tree)
+        val rootId = DocumentsContract.getDocumentId(loc.root)
+        val documentId = DocumentsContract.getDocumentId(documentUri)
+        BardoLocalStorageDestinationPolicy.isLocalBardoDestination(
+            documentUri.scheme,
+            documentUri.authority,
+            treeId,
+            rootId,
+            documentId
+        )
+    }.getOrDefault(false)
+
     private fun findChild(
         context: Context,
         location: Location,
