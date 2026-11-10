@@ -1,4 +1,4 @@
-name: BARDO approved candidate draft PR preparation
+name: DISABLED — BARDO branch/PR candidate preparation (main-only policy)
 
 run-name: BARDO approved PR preparation · ${{ inputs.candidate_id }}
 
@@ -23,9 +23,9 @@ on:
         type: string
 
 permissions:
-  actions: write
-  contents: write
-  pull-requests: write
+  actions: read
+  contents: read
+  pull-requests: read
 
 concurrency:
   group: bardo-approved-pr-${{ inputs.candidate_id }}
@@ -33,6 +33,8 @@ concurrency:
 
 jobs:
   prepare-draft-pr:
+    # Permanently disabled: BARDO development is restricted to main; no bardo/* branches or PRs.
+    if: ${{ false }}
     runs-on: ubuntu-22.04
     timeout-minutes: 60
     steps:
