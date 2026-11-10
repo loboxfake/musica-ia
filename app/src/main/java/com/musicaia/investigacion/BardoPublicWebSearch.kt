@@ -76,6 +76,8 @@ object BardoPublicWebSearch {
 
         repeat(3) { attempt ->
             require(current.protocol.equals("https", true) &&
+                current.userInfo == null &&
+                (current.port == -1 || current.port == 443) &&
                 (current.host.equals("html.duckduckgo.com", true) ||
                     current.host.equals("duckduckgo.com", true))) {
                 "La búsqueda intentó salir del dominio del proveedor permitido."
@@ -125,7 +127,7 @@ object BardoPublicWebSearch {
         throw IllegalStateException("No se pudo completar la búsqueda web.")
     }
 
-    private fun parseResults(html: String): List<BardoPublicWebResult> {
+    internal fun parseResults(html: String): List<BardoPublicWebResult> {
         val anchor = Regex(
             "(?is)<a[^>]*class=[\"'][^\"']*result__a[^\"']*[\"'][^>]*href=[\"']([^\"']+)[\"'][^>]*>(.*?)</a>"
         )
@@ -134,7 +136,7 @@ object BardoPublicWebSearch {
         ).findAll(html).map { cleanHtml(it.groupValues[1]) }.toList()
         val results = anchor.findAll(html).mapIndexedNotNull { index, match ->
             val rawHref = decodeHtml(match.groupValues[1])
-            val resolved = resolveResultUrl(rawHref) ?: return@mapNotNullIndexed null
+            val resolved = resolveResultUrl(rawHref) ?: return@mapIndexedNotNull null
             val title = cleanHtml(match.groupValues[2]).take(240)
             if (title.isBlank()) return@mapNotNullIndexed null
             BardoPublicWebResult(
@@ -147,7 +149,12 @@ object BardoPublicWebSearch {
     }
 
     private fun resolveResultUrl(raw: String): String? = runCatching {
-        val parsed = URL(raw)
+        val absoluteRaw = when {
+            raw.startsWith("//") -> "https:$raw"
+            raw.startsWith("/") -> URL(SEARCH_ENDPOINT).let { URL(it, raw).toExternalForm() }
+            else -> raw
+        }
+        val parsed = URL(absoluteRaw)
         val resolved = if (parsed.host.endsWith("duckduckgo.com", true) &&
             parsed.path.contains("/l/")
         ) {
@@ -156,7 +163,7 @@ object BardoPublicWebSearch {
                 ?.substringAfter('=')
                 ?: return@runCatching null
             URLDecoder.decode(encodedTarget, StandardCharsets.UTF_8.name())
-        } else raw
+        } else absoluteRaw
         val target = URL(resolved)
         if (!target.protocol.equals("https", true) || target.host.isBlank() ||
             target.host.endsWith("duckduckgo.com", true)
