@@ -608,12 +608,13 @@ class BardoGitHubActionsClient(private val token: String) {
 }
 
 object BardoGitHubIntegrationPolicy {
-    const val DRAFT_PR_WORKFLOW_ENABLED = true
+    /** BARDO solo trabaja sobre main: no se permite crear ramas auxiliares ni PR. */
+    const val DRAFT_PR_WORKFLOW_ENABLED = false
 
     const val BLOCK_REASON =
-        "Creación de PR disponible: bardo-commit-candidate.yml solo crea una rama bardo/* " +
-        "y un PR borrador después de validar la candidatura y repetir los tests. No hace " +
-        "merge ni push a main. La aprobación, fusión y publicación permanecen separadas."
+        "La creación de ramas bardo/* y PR está desactivada por la política de rama única. " +
+        "Los candidatos pueden validarse de forma aislada, pero cualquier incorporación " +
+        "debe dirigirse a main, comprobar de nuevo su SHA base y contar con autorización explícita."
 
     fun requireDraftPrWorkflowAvailable() {
         check(DRAFT_PR_WORKFLOW_ENABLED) { BLOCK_REASON }
