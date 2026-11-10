@@ -319,23 +319,28 @@ class MainActivity : AppCompatActivity() {
  private val selectorGuardarMasterizado =
      registerForActivityResult(ActivityResultContracts.CreateDocument("audio/wav")) { uri ->
          val origen = rutaMasterizadoPendiente?.let(::File)
-         rutaMasterizadoPendiente = null
-         if (uri == null || origen == null) {
-             origen?.delete()
+         if (origen == null) {
+             tvEstado.text = "No hay un WAV masterizado pendiente."
+         } else if (uri == null) {
+             tvEstado.text = "Guardado cancelado. El WAV masterizado permanece en el almacenamiento privado para reintentar."
          } else {
              Thread({
                  val error = runCatching {
                      val salida = run { exigirDestinoLocalBardo(uri); contentResolver.openOutputStream(uri) }
-                         ?: throw IllegalStateException("No se pudo abrir el destino.")
-                     salida.use { destino ->
+                         ?: throw IllegalStateException("No se pudo abrir el destino local BARDO.")
+                     val written = salida.use { destino ->
                          origen.inputStream().buffered().use { it.copyTo(destino) }
                      }
+                     require(written == origen.length()) { "La copia WAV no coincide con el tamaño original." }
                  }.exceptionOrNull()
-                 origen.delete()
+                 if (error == null) {
+                     origen.delete()
+                     rutaMasterizadoPendiente = null
+                 }
                  runOnUiThread {
                      if (!isFinishing && !isDestroyed) {
-                         tvEstado.text = if (error == null) "WAV masterizado guardado correctamente." else
-                             "No se pudo guardar el WAV: ${error.message}"
+                         tvEstado.text = if (error == null) "WAV masterizado guardado en Descargas/BARDO." else
+                             "No se pudo guardar localmente: ${error.message}. El WAV original se conserva."
                      }
                  }
              }, "BARDO-Save-Mastered-WAV").start()
@@ -551,33 +556,39 @@ class MainActivity : AppCompatActivity() {
                          File(origen).inputStream().buffered().use { it.copyTo(destino) }
                      }
                  }.exceptionOrNull()
-                 if (error != null && borrarOrigenAlCancelar) File(origen).delete()
+                 if (error == null && borrarOrigenAlCancelar) File(origen).delete()
                  runOnUiThread {
-                     if (borrarOrigenAlCancelar && rutaMp3Compartir == origen) {
-                         rutaMp3Compartir = null
-                         btnCompartir.visibility = View.GONE
+                     if (error == null) {
+                         if (borrarOrigenAlCancelar && rutaMp3Compartir == origen) {
+                             rutaMp3Compartir = null
+                             btnCompartir.visibility = View.GONE
+                         }
+                         rutaExportacion = null
+                         rutaExportacionTemporal = false
+                     } else {
+                         rutaExportacion = origen
+                         rutaExportacionTemporal = borrarOrigenAlCancelar
                      }
-                     rutaExportacion = null
-                     rutaExportacionTemporal = false
                      if (!isFinishing && !isDestroyed) {
                          tvEstado.text = if (error == null) {
-                             "Canción exportada en MP3. El archivo de origen se ha conservado."
+                             "Canción MP3 guardada localmente dentro de Descargas/BARDO."
                          } else {
-                             "No se pudo guardar el MP3: ${error.message}"
+                             "No se pudo guardar localmente: ${error.message}. El MP3 original permanece en el almacenamiento del teléfono."
                          }
                      }
                  }
              }, "BARDO-MP3-Save").start()
          } else {
-             if (borrarOrigenAlCancelar) {
-                 origen?.let { File(it).delete() }
-                 if (rutaMp3Compartir == origen) {
-                     rutaMp3Compartir = null
-                     btnCompartir.visibility = View.GONE
-                 }
+             // A canceled or rejected destination must never delete the local MP3.
+             if (origen != null) {
+                 rutaExportacion = origen
+                 rutaExportacionTemporal = borrarOrigenAlCancelar
              }
-             rutaExportacion = null
-             rutaExportacionTemporal = false
+             tvEstado.text = if (origen == null) {
+                 "No hay un MP3 pendiente de guardar."
+             } else {
+                 "Guardado cancelado. El MP3 permanece localmente; no se ha enviado a ningún proveedor."
+             }
          }
      }
 
@@ -4007,7 +4018,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
              rutaInstrumental = audio
              rutaAudio = mp3.takeIf { it.isNotBlank() && File(it).isFile && File(it).length() > 1024L } ?: audio
              rutaMp3Compartir = mp3.takeIf { it.isNotBlank() && File(it).isFile && File(it).length() > 128L }
-             btnCompartir.visibility = if (rutaMp3Compartir != null) View.VISIBLE else View.GONE
+             btnCompartir.visibility = View.GONE
              if (requiereMezclaVozUsuario()) mezclarVozUsuario(audio, letra)
              else archivarTareaEnCarpetaBardo(audio, mp3, letra, solo)
              btnReproducir.visibility = View.VISIBLE
@@ -4124,7 +4135,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
              if (audio.isNotBlank() && File(audio).isFile && File(audio).length() > 44L) {
                  rutaAudio = mp3.takeIf { it.isNotBlank() && File(it).isFile } ?: audio
                  rutaMp3Compartir = mp3.takeIf { it.isNotBlank() && File(it).isFile && File(it).length() > 128L }
-                 btnCompartir.visibility = if (rutaMp3Compartir != null) View.VISIBLE else View.GONE
+                 btnCompartir.visibility = View.GONE
                  if (requiereMezclaVozUsuario()) mezclarVozUsuario(audio, prefs.getString("lyrics", "").orEmpty())
                  else archivarTareaEnCarpetaBardo(audio, mp3, prefs.getString("lyrics", "").orEmpty(), prefs.getBoolean("solo", false))
                  rutaInstrumental = audio
@@ -4488,7 +4499,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
      rutaAudio = archivos.first().absolutePath
      val esMp3 = archivos.first().extension.equals("mp3", ignoreCase = true)
      rutaMp3Compartir = archivos.first().absolutePath.takeIf { esMp3 }
-     btnCompartir.visibility = if (esMp3) View.VISIBLE else View.GONE
+     btnCompartir.visibility = View.GONE
      btnGuardar.visibility = View.VISIBLE
      btnReproducir.visibility = View.VISIBLE
      tvEstado.text = "Reproduciendo lista «$nombre» · ${archivos.size} pistas."
@@ -4644,7 +4655,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                      rutaAudio = archivo.absolutePath
                      val esMp3 = archivo.extension.equals("mp3", ignoreCase = true)
                      rutaMp3Compartir = archivo.absolutePath.takeIf { esMp3 }
-                     btnCompartir.visibility = if (esMp3) View.VISIBLE else View.GONE
+                     btnCompartir.visibility = View.GONE
                      btnGuardar.visibility = View.VISIBLE
                      dialogo.dismiss()
                      reproducir()
@@ -4717,7 +4728,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
      rutaAudio = ultimo.absolutePath
      val esMp3 = ultimo.extension.equals("mp3", ignoreCase = true)
      rutaMp3Compartir = ultimo.absolutePath.takeIf { esMp3 }
-     btnCompartir.visibility = if (esMp3) View.VISIBLE else View.GONE
+     btnCompartir.visibility = View.GONE
      btnGuardar.visibility = View.VISIBLE
      btnReproducir.visibility = View.VISIBLE
      reproducir()
@@ -4775,7 +4786,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                      rutaAudio = siguiente.absolutePath
                      val esMp3Siguiente = siguiente.extension.equals("mp3", ignoreCase = true)
                      rutaMp3Compartir = siguiente.absolutePath.takeIf { esMp3Siguiente }
-                     btnCompartir.visibility = if (esMp3Siguiente) View.VISIBLE else View.GONE
+                     btnCompartir.visibility = View.GONE
                      tvEstado.text = "Reproduciendo siguiente pista de la lista..."
                      handler.post { reproducir() }
                  } else {
@@ -4866,23 +4877,9 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
  }
 
  private fun compartirCancionMp3() {
-     val ruta = rutaMp3Compartir ?: return
-     val archivo = File(ruta)
-     if (!archivo.isFile || archivo.length() <= 128L) {
-         btnCompartir.visibility = View.GONE
-         tvEstado.text = "El MP3 temporal ya no está disponible. Vuelve a exportarlo."
-         return
-     }
-     runCatching {
-         val uri = androidx.core.content.FileProvider.getUriForFile(this, "$packageName.fileprovider", archivo)
-         val compartir = Intent(Intent.ACTION_SEND).apply {
-             type = "audio/mpeg"
-             putExtra(Intent.EXTRA_STREAM, uri)
-             clipData = android.content.ClipData.newUri(contentResolver, archivo.name, uri)
-             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-         }
-         startActivity(Intent.createChooser(compartir, "Compartir canción MP3"))
-     }.onFailure { tvEstado.text = "No se pudo abrir el menú para compartir: ${it.message}" }
+     btnCompartir.visibility = View.GONE
+     tvEstado.text =
+         "Compartición externa desactivada para proteger tus archivos. Las canciones permanecen en el almacenamiento interno de BARDO y no se envían a otras aplicaciones ni servicios cloud."
  }
 
  private fun guardarCancion() {
@@ -4952,7 +4949,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
          }
          if (correcto) {
              rutaMp3Compartir = temporal.absolutePath
-             btnCompartir.visibility = View.VISIBLE
+             btnCompartir.visibility = View.GONE
              if (guardarEnCarpeta && guardado?.isSuccess == true) {
                  tvEstado.text = "Canción MP3 guardada en la carpeta BARDO. Ya puedes compartirla."
              } else {
