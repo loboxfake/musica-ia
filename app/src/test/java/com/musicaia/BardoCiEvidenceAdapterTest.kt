@@ -23,20 +23,22 @@ class BardoCiEvidenceAdapterTest {
     private val stepNames = listOf(
         "Scan complete Git history with redacted findings",
         "Lint all GitHub Actions workflows",
-        "Run unit tests and compile debug APK",
+        "Run unit tests and compile Xiaomi ARM64 debug APK",
         "Verify candidate APK exists",
-        "Upload branch validation APK (not a release)"
+        "Verify APK v2 signature and Android Debug certificate",
+        "Verify APK contains only ARM64 native libraries",
+        "Upload Xiaomi ARM64 debug candidate (not a release)"
     )
 
     private fun run(
         status: String = "completed",
         conclusion: String = "success",
         headSha: String = sha,
-        workflowPath: String = ".github/workflows/bardo-validation.yml@refs/pull/3/merge",
+        workflowPath: String = ".github/workflows/bardo-validation.yml@refs/heads/main",
         repository: String = BardoCiEvidenceAdapter.REPOSITORY,
         headRepository: String = BardoCiEvidenceAdapter.REPOSITORY,
-        branch: String = "bardo/integral-autonomy-20261109",
-        event: String = "pull_request"
+        branch: String = "main",
+        event: String = "push"
     ) = JSONObject()
         .put("id", runId)
         .put("run_number", runNumber)
@@ -81,7 +83,7 @@ class BardoCiEvidenceAdapterTest {
     ): JSONObject {
         val artifact = JSONObject()
             .put("id", 13683878079L)
-            .put("name", "bardo-debug-candidate-" + runNumber)
+            .put("name", "bardo-debug-arm64-candidate-" + runNumber)
             .put("size_in_bytes", 107829709L)
             .put("expired", expired)
             .put("digest", digest)
@@ -117,11 +119,11 @@ class BardoCiEvidenceAdapterTest {
     }
 
     @Test
-    fun acceptsSuccessfulCandidateBranchValidationDispatchedByTheTrustedPrWorkflow() {
+    fun acceptsSuccessfulMainValidationDispatchedManually() {
         val result = collect(
             run = run(
                 event = "workflow_dispatch",
-                workflowPath = ".github/workflows/bardo-validation.yml@refs/heads/bardo/candidate-0123456789abcdef0123456789abcdef"
+                workflowPath = ".github/workflows/bardo-validation.yml@refs/heads/main"
             )
         )
         assertEquals(BardoCiEvidenceState.CI_PASSED, result.state)
@@ -184,14 +186,14 @@ class BardoCiEvidenceAdapterTest {
     }
 
     @Test
-    fun rejectsBranchesOutsideBardoNamespace() {
-        val result = collect(run = run(branch = "main"))
-        assertEquals(BardoCiEvidenceState.INVALID, result.state)
-        assertTrue(result.evidence.isEmpty())
+    fun rejectsNonMainBranchesAndPullRequestEvents() {
+        val oldDevelopmentBranch = collect(run = run(branch = "bardo/old-development"))
+        assertEquals(BardoCiEvidenceState.INVALID, oldDevelopmentBranch.state)
+        assertTrue(oldDevelopmentBranch.evidence.isEmpty())
 
-        val dispatchedFromMain = collect(run = run(branch = "main", event = "workflow_dispatch"))
-        assertEquals(BardoCiEvidenceState.INVALID, dispatchedFromMain.state)
-        assertTrue(dispatchedFromMain.evidence.isEmpty())
+        val pullRequestEvent = collect(run = run(branch = "main", event = "pull_request"))
+        assertEquals(BardoCiEvidenceState.INVALID, pullRequestEvent.state)
+        assertTrue(pullRequestEvent.evidence.isEmpty())
     }
 
     @Test
