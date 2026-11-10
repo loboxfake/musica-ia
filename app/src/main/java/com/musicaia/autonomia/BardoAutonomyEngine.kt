@@ -118,7 +118,8 @@ class BardoAutonomyEngine(
     private val journal: BardoTaskJournal,
     private val nowMillis: () -> Long = System::currentTimeMillis,
     private val maxTaskMillis: Long = 180_000L,
-    private val stepVerifier: BardoTaskStepVerifier = BardoDeterministicTaskStepVerifier
+    private val stepVerifier: BardoTaskStepVerifier = BardoDeterministicTaskStepVerifier,
+    private val budget: BardoAutonomyBudget = BardoAutonomyBudget(maxTaskMillis = maxTaskMillis)
 ) {
     fun run(goal: String): BardoAutonomyResult {
         require(goal.isNotBlank() && goal.length <= 4000) {
