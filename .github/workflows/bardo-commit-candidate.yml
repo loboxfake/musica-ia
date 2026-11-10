@@ -1,6 +1,6 @@
-name: BARDO approved candidate integration
+name: BARDO approved candidate PR preparation
 
-run-name: BARDO approved integration · ${{ inputs.candidate_id }}
+run-name: BARDO approved PR preparation · ${{ inputs.candidate_id }}
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ on:
         required: true
         type: string
       base_sha:
-        description: Exact main commit used for candidate validation
+        description: Exact main commit used to create and validate the candidate
         required: true
         type: string
       patch_gzip_b64:
@@ -25,13 +25,14 @@ on:
 permissions:
   actions: write
   contents: write
+  pull-requests: write
 
 concurrency:
-  group: bardo-approved-integration-main
+  group: bardo-pr-candidate-${{ inputs.candidate_id }}
   cancel-in-progress: false
 
 jobs:
-  integrate:
+  prepare-pr:
     runs-on: ubuntu-22.04
     timeout-minutes: 60
     steps:
@@ -56,7 +57,6 @@ jobs:
             exit 1
           fi
           validation="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$VALIDATION_RUN_ID")"
-          # Bind approval to the exact workflow, event, branch, candidate and source commit.
           test "$(jq -r '.path' <<< "$validation")" = ".github/workflows/bardo-candidate-validation.yml"
           test "$(jq -r '.event' <<< "$validation")" = "workflow_dispatch"
           test "$(jq -r '.head_branch' <<< "$validation")" = "main"
@@ -65,7 +65,7 @@ jobs:
           test "$(jq -r '.head_sha' <<< "$validation")" = "$BASE_SHA"
           test "$(jq -r '.display_title' <<< "$validation")" = "BARDO candidate validation · $CANDIDATE_ID"
 
-      - name: Retrieve the immutable report from the validated run
+      - name: Retrieve immutable report from successful validation
         uses: actions/download-artifact@v4
         with:
           name: bardo-candidate-validation-${{ inputs.candidate_id }}
@@ -74,7 +74,7 @@ jobs:
           repository: ${{ github.repository }}
           run-id: ${{ inputs.validation_run_id }}
 
-      - name: Checkout main without exposing credentials to candidate code
+      - name: Checkout the exact main snapshot without persisting credentials
         uses: actions/checkout@v4
         with:
           ref: main
@@ -87,7 +87,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$BASE_SHA" || {
-            echo "::error::main moved after validation; candidate integration refused."
+            echo "::error::main moved after validation; candidate PR preparation refused."
             exit 1
           }
 
@@ -97,7 +97,7 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Reapply and revalidate exact candidate
+      - name: Reapply exact candidate and enforce protected paths
         env:
           PATCH_GZIP_B64: ${{ inputs.patch_gzip_b64 }}
           CANDIDATE_ID: ${{ inputs.candidate_id }}
@@ -114,20 +114,16 @@ jobs:
           PY
           expected_patch_sha256="$(sed -nE 's/^Patch SHA-256: ([0-9a-f]{64})$/\1/p' "$RUNNER_TEMP/bardo-validation/candidate-validation-report.txt")"
           actual_patch_sha256="$(sha256sum "$RUNNER_TEMP/bardo-approved.patch" | awk '{print $1}')"
-          test -n "$expected_patch_sha256" || {
-            echo "::error::Validation report has no exact patch digest."
-            exit 1
-          }
+          test -n "$expected_patch_sha256"
           test "$actual_patch_sha256" = "$expected_patch_sha256" || {
-            echo "::error::The integration patch differs from the patch that passed validation."
+            echo "::error::Candidate differs from the patch that passed validation."
             exit 1
           }
-          echo "Exact patch digest matches the successful validation artifact."
           git apply --check "$RUNNER_TEMP/bardo-approved.patch"
           git apply "$RUNNER_TEMP/bardo-approved.patch"
           python3 - <<'PY'
           import subprocess
-          allowed = ("app/src/main/java/", "app/src/test/java/", "app/src/main/res/", "docs/")
+          allowed = ("app/src/main/java/", "app/src/main/res/", "docs/")
           protected = {
               "app/src/main/java/com/musicaia/MainActivity.kt",
               "app/src/main/java/com/musicaia/BardoDeveloperActivity.kt",
@@ -135,6 +131,8 @@ jobs:
               "app/src/main/java/com/musicaia/desarrollo/BardoDeveloperCore.kt",
               "app/src/main/java/com/musicaia/desarrollo/BardoDeveloperWorker.kt",
               "app/src/main/java/com/musicaia/desarrollo/BardoPatchApplier.kt",
+              "app/src/main/java/com/musicaia/desarrollo/BardoProtectedPathPolicy.kt",
+              "app/src/main/java/com/musicaia/desarrollo/BardoWorkspaceManager.kt",
               "app/src/main/java/com/musicaia/desarrollo/BardoGitHubAutomation.kt",
               "app/src/main/java/com/musicaia/modelo/BardoCapabilityRegistry.kt",
               "app/src/main/java/com/musicaia/modelo/BardoIntentRouter.kt",
@@ -151,54 +149,88 @@ jobs:
           changed = []
           for row in rows:
               status, path = row.split("\t", 1)
-              if status != "M" or (path not in allowed and not path.startswith(allowed)):
-                  raise SystemExit(f"BARDO_PATH_OR_CHANGE_NOT_ALLOWED: {status} {path}")
-              if path in protected or path.endswith("Modo3MezclaVozUsuario.kt") or path.startswith((".github/", "gradle/")) or ".." in path.split("/"):
+              if status != "M":
+                  raise SystemExit(f"BARDO_PATCH_MUST_MODIFY_EXISTING_FILES: {status} {path}")
+              if path not in allowed and not path.startswith(allowed):
+                  raise SystemExit(f"BARDO_PATH_OUTSIDE_ALLOWLIST: {path}")
+              if path in protected or path.endswith("Modo3MezclaVozUsuario.kt") or path.startswith((".github/", "gradle/")):
                   raise SystemExit(f"BARDO_PROTECTED_PATH: {path}")
+              if ".." in path.split("/") or path.startswith("/"):
+                  raise SystemExit(f"BARDO_UNSAFE_PATH: {path}")
               changed.append(path)
           if len(changed) > 30:
               raise SystemExit("BARDO_TOO_MANY_CHANGED_FILES")
-          print("Approved candidate files:")
+          pathlib = __import__("pathlib")
+          pathlib.Path("candidate-validation-changed-files.txt").write_text("\n".join(changed) + "\n")
+          print("Candidate paths accepted:")
           print("\n".join(changed))
           PY
           git diff --check
 
-      - name: Run tests again before integration
+      - name: Run the complete debug test suite again before opening the PR
         run: |
           set -euo pipefail
           ./gradlew testDebugUnitTest assembleDebug --no-daemon --stacktrace
 
-      - name: Commit approved candidate to main
+      - name: Create isolated bardo branch and draft pull request
         env:
           GH_TOKEN: ${{ github.token }}
           CANDIDATE_ID: ${{ inputs.candidate_id }}
+          BASE_SHA: ${{ inputs.base_sha }}
         run: |
           set -euo pipefail
+          branch="bardo/$CANDIDATE_ID"
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            echo "::error::Candidate branch already exists; refusing to overwrite it."
+            exit 1
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git diff --cached --check
-          git commit -m "BARDO: integrate approved candidate $CANDIDATE_ID"
-          commit_sha="$(git rev-parse HEAD)"
+          git commit -m "BARDO: propose candidate $CANDIDATE_ID"
+          candidate_sha="$(git rev-parse HEAD)"
           gh auth setup-git
-          git push origin HEAD:refs/heads/main
-          echo "BARDO_COMMIT_SHA=$commit_sha" >> "$GITHUB_STEP_SUMMARY"
-          echo "Integrated approved candidate $CANDIDATE_ID as $commit_sha"
+          git push origin "HEAD:refs/heads/$branch"
 
-      - name: Dispatch full signed offline APK build for the new main commit
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          gh workflow run full-build.yml --ref main
+          body="$RUNNER_TEMP/bardo-pr-body.md"
+          cat > "$body" <<EOF
+          ## BARDO candidate — human review required
+
+          - Candidate ID: $CANDIDATE_ID
+          - Base commit: $BASE_SHA
+          - Candidate commit: $candidate_sha
+          - Source branch: $branch
+
+          ### Validation
+          - Isolated candidate validation: SUCCESS
+          - Repeated unit tests and debug APK compilation: SUCCESS
+          - Changed paths were checked against BARDO's protected-path rules.
+          - Existing tests, workflows, build configuration, signing data and Modo3 were not changed by this candidate.
+
+          ### Governance
+          This draft PR does not modify main, does not merge itself, and does not publish an APK. A human must review the diff and CI results and decide whether to merge it. The full signed APK workflow runs only after a separately authorised merge to main.
+          EOF
+          pr_url="$(gh pr create --draft --base main --head "$branch" --title "BARDO: candidate $CANDIDATE_ID" --body-file "$body")"
+          pr_number="$(gh pr view "$pr_url" --json number --jq '.number')"
+
+          # GITHUB_TOKEN-created PR events do not reliably start downstream workflows.
+          # Dispatch the PR validation explicitly against the immutable candidate branch.
+          gh workflow run bardo-validation.yml --ref "$branch"
           sleep 3
-          run_id="$(gh run list --workflow full-build.yml --branch main --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId')"
-          if [ -z "$run_id" ] || [ "$run_id" = "null" ]; then
-            echo "::error::Candidate was committed, but the full APK workflow run ID could not be located."
-            exit 1
-          fi
+          validation_run_id="$(gh run list --workflow bardo-validation.yml --branch "$branch" --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId')"
+
           {
-            echo
-            echo "Full offline APK workflow run: $run_id"
-            echo "https://github.com/$GITHUB_REPOSITORY/actions/runs/$run_id"
+            echo "Candidate branch: $branch"
+            echo "Candidate commit: $candidate_sha"
+            echo "Draft PR: $pr_url"
+            echo "PR number: $pr_number"
+            echo "PR validation run: ${validation_run_id:-pending}"
+            echo "main was not modified."
           } >> "$GITHUB_STEP_SUMMARY"
+          echo "Created draft PR #$pr_number: $pr_url"
+          if [ -n "$validation_run_id" ] && [ "$validation_run_id" != "null" ]; then
+            echo "PR validation: https://github.com/$GITHUB_REPOSITORY/actions/runs/$validation_run_id"
+          else
+            echo "PR created; validation dispatch accepted but run ID is not yet visible."
+          fi

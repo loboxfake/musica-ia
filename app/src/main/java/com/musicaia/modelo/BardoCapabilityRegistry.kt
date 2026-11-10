@@ -105,7 +105,39 @@ object BardoCapabilityRegistry {
             Capability("image_ocr_multiscript", "OCR local multiescritura", Status.AVAILABLE, "OCR bundled offline para scripts latino, chino, devanagari, japonés y coreano. No cubre todos los alfabetos ni garantiza reconocer todos los idiomas.", "Extraer solo texto reconocido de imagen/PDF escaneado/vídeo en scripts latino, chino, devanagari, japonés y coreano; cerrar los clientes y conservar el fichero original."),
             Capability("cover_art_procedural", "Creación gráfica de portadas PNG", Status.AVAILABLE, "Genera portadas PNG cuadradas 1024×1024 con cinco estilos gráficos, tipografía y concepto. Es diseño procedural offline, no IA generativa.", "Generar PNG real, comprobar tamaño, previsualizar y exportar mediante el selector de documentos Android."),
             Capability("user_authorized_learning", "Referencias aportadas para evolución futura", Status.AVAILABLE, "Solo se incorporan a la biblioteca cuando el usuario autoriza expresamente «Analizar y aprender». El autoestudio local puede consultarlas para diagnósticos y propuestas; no reentrena los pesos del modelo ni modifica el núcleo instalado.", "Verificar SHA-256 de cada referencia, conservar procedencia, tratar el contenido como datos no confiables y exigir aprobación separada para cualquier candidato y su integración."),
-            Capability("research", "Investigación web autorizada", Status.REQUIRES_USER_ACTION, "Solo tras pulsar investigar; HTTPS y dominios de documentación permitidos.", "Acción explícita del usuario, fuentes citadas y ninguna afirmación de investigación sin conexión."),
+            Capability("research", "Investigación web autorizada", Status.REQUIRES_USER_ACTION, "La investigación web HTTPS con citas aún no está integrada. Actualmente BARDO busca en la biblioteca local importada; el acceso de red permanece deshabilitado.", "Requiere autorización explícita y cliente HTTPS implementado; citar fuentes fechadas y no afirmar que se ha investigado en la web cuando solo se consultó la biblioteca local."),
+            Capability(
+                "autonomous_loop", "Bucle autónomo local",
+                localModelStatus,
+                if (localModelStatus == Status.AVAILABLE)
+                    "Planificar→actuar→observar→evaluar→corregir está conectado al autoestudio en segundo plano. Solo inventario BARDO, biblioteca importada y auditoría estática; no ejecuta código ni accede a la red."
+                else localModelDetail,
+                "Completar una tarea local con pasos, límites, corrección medida y diario privado; bloquear herramientas fuera de los scopes autorizados."
+            ),
+            Capability(
+                "model_provider_registry", "Proveedores de modelos sustituibles",
+                Status.AVAILABLE,
+                "Contrato común y registro local-first integrados; Gemma/LiteRT es el primer adaptador. Los proveedores adicionales aún no están conectados.",
+                "Cambiar de proveedor sin cambiar el núcleo; verificar licencia, hash, recursos, versión, inferencia y modo avión."
+            ),
+            Capability(
+                "skill_lifecycle", "Gestor de skills declarativas",
+                Status.REQUIRES_USER_ACTION,
+                "API local para cuarentena, SHA-256, instalación deshabilitada, activación aprobada, deshabilitación y rollback. UI de catálogo y descubrimiento/descarga aún pendiente.",
+                "Importar un paquete, probarlo aislado, exigir permisos mínimos y aprobación del usuario, activar solo acciones tipadas registradas."
+            ),
+            Capability(
+                "jarvis_authority", "Autoridad delegada User/JARVIS",
+                Status.REQUIRES_USER_ACTION,
+                "Verificación ECDSA, scopes, caducidad, nonce y ledger de revocación disponibles; falta emparejar las claves y conectar el transporte seguro PC↔Android.",
+                "Aceptar solo órdenes firmadas y delegadas por el usuario; permitir revocación y prioridad de la instrucción directa del usuario."
+            ),
+            Capability(
+                "independent_evaluator", "Evaluador independiente de evidencias",
+                Status.REQUIRES_USER_ACTION,
+                "Evaluador determinista de CI, seguridad, APK y pruebas de dispositivo integrado como componente; conexión automática a todos los resultados de Actions pendiente.",
+                "No aprobar por puntuación del modelo; exigir evidencia para cada control y prueba física antes de declarar device_verified."
+            ),
             Capability(
                 "autonomous_developer",
                 "Autoestudio local y propuesta de correcciones",
@@ -133,14 +165,14 @@ object BardoCapabilityRegistry {
             ),
             Capability(
                 "github_development",
-                "Integración autónoma aprobada en main",
+                "Propuestas autónomas mediante ramas y PR",
                 if (facts.githubActionsConfigured) Status.AVAILABLE else Status.REQUIRES_USER_ACTION,
                 if (facts.githubActionsConfigured) {
-                    "BARDO puede solicitar validación y, tras tu aprobación en la aplicación, integrar un candidato mediante commit fast-forward en main. El token permanece cifrado en Android Keystore; el runner usa su GITHUB_TOKEN temporal."
+                    "La conexión GitHub está configurada; BARDO valida el candidato y puede crear una rama bardo/* y PR borrador tras una aprobación explícita. No escribe ni fusiona main. La protección de rama debe comprobarse en GitHub."
                 } else {
-                    "Necesita configurar la conexión GitHub en BARDO. No se incrustan credenciales en el APK ni se crean ramas paralelas."
+                    "Requiere configurar la conexión GitHub. No se incrustan credenciales en la APK ni se realizan pushes directos a main."
                 },
-                "No integrar sin validación SUCCESS; exigir aprobación explícita; revalidar en el workflow; exigir que main siga en el SHA base; commit fast-forward y disparar full-build.yml para generar la APK firmada."
+                "Validar el SHA base exacto, ejecutar tests y compilación en runner sin secretos, exigir aprobación explícita para crear un PR borrador y no fusionar ni publicar APK automáticamente."
             ),
             Capability("voice_synthesis", "Generación de voz cantada", Status.NOT_IMPLEMENTED, "Todavía no está integrada; el antiguo módulo de tonos se ha desactivado para evitar simular voz.", "Modelo de voz legítimo, consentimiento, WAV real reproducible y pruebas de calidad; MiVoz sigue pendiente."),
             Capability("mix_master", "Mezcla multipista y masterización profesional", Status.NOT_IMPLEMENTED, "La mezcla multipista, automatización, ecualización avanzada y masterización profesional siguen pendientes. Existe por separado un procesador básico offline para un WAV mono PCM 16-bit; no se presenta como estudio profesional.", "Cadena multipista no destructiva, EQ dinámica, compresión, limitador true-peak, métricas, A/B, exportación validada y pruebas auditivas."),

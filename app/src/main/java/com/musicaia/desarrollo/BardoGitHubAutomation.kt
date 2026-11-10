@@ -101,28 +101,7 @@ object BardoGitHubPolicy {
         "app/src/main/res/",
         "docs/"
     )
-    private val protectedPaths = setOf(
-        "app/src/main/java/com/musicaia/MainActivity.kt",
-        "app/src/main/java/com/musicaia/BardoDeveloperActivity.kt",
-        "app/src/main/java/com/musicaia/BardoGitHubDevelopmentActivity.kt",
-        "app/src/main/java/com/musicaia/desarrollo/BardoDeveloperCore.kt",
-        "app/src/main/java/com/musicaia/desarrollo/BardoDeveloperWorker.kt",
-        "app/src/main/java/com/musicaia/desarrollo/BardoPatchApplier.kt",
-        "app/src/main/java/com/musicaia/desarrollo/BardoGitHubAutomation.kt",
-        "app/src/main/java/com/musicaia/modelo/BardoCapabilityRegistry.kt",
-        "app/src/main/java/com/musicaia/modelo/BardoIntentRouter.kt",
-        "app/src/main/java/com/musicaia/modelo/BardoResourceBudget.kt",
-        "app/src/main/java/com/musicaia/modelo/Orquestador.kt",
-        "app/src/main/java/com/musicaia/modelo/Catalogo.kt",
-        "app/src/main/java/com/musicaia/modelo/ManifiestoModelo.kt",
-        "app/src/main/java/com/musicaia/modulos/litert/EngineLiteRT.kt",
-        "app/src/main/java/com/musicaia/modulos/litert/LiteRTLMModule.kt",
-        "app/src/main/AndroidManifest.xml",
-        "app/build.gradle.kts",
-        "build.gradle.kts",
-        "settings.gradle.kts",
-        "gradle/wrapper/gradle-wrapper.properties"
-    )
+
 
     fun newCandidateId(): String = UUID.randomUUID().toString().replace("-", "")
 
@@ -145,21 +124,35 @@ object BardoGitHubPolicy {
     }
 
     fun validateChangedPaths(paths: List<String>) {
-        require(paths.isNotEmpty() && paths.size <= 30) { "El candidato debe modificar entre 1 y 30 archivos." }
-        require(paths.distinct().size == paths.size) { "El candidato contiene rutas duplicadas." }
+        require(paths.isNotEmpty() && paths.size <= 30) {
+            "El candidato debe modificar entre 1 y 30 archivos."
+        }
+        require(paths.distinct().size == paths.size) {
+            "El candidato contiene rutas duplicadas."
+        }
         paths.forEach { raw ->
-            val path = raw.replace('\\', '/')
-            require(path == raw && path.isNotBlank() && !path.startsWith("/") &&
-                !path.contains(':') && path.split('/').none { it.isBlank() || it == "." || it == ".." }) {
-                "Ruta no permitida en el candidato: $raw"
-            }
+            val path = BardoProtectedPathPolicy.normalize(raw)
+                ?: throw IllegalArgumentException("Ruta no permitida en el candidato: $raw")
             require(allowedPrefixes.any { path.startsWith(it) }) {
                 "Solo se validan cambios en código, pruebas, recursos y documentación: $path"
             }
-            require(path !in protectedPaths &&
-                !path.endsWith("Modo3MezclaVozUsuario.kt", ignoreCase = true) &&
-                !path.startsWith(".github/") && !path.startsWith("gradle/")) {
+            require(
+                BardoProtectedPathPolicy.classify(path) !in setOf(
+                    BardoProtectedPathPolicy.PathClass.HUMAN_REVIEW_REQUIRED,
+                    BardoProtectedPathPolicy.PathClass.FORBIDDEN
+                )
+            ) {
                 "Archivo protegido por BARDO: $path"
+            }
+        }
+    }
+
+    /** Más estricta que la validación genérica: bloquea también cambios sobre pruebas existentes. */
+    fun validateAutonomousChangedPaths(paths: List<String>) {
+        validateChangedPaths(paths)
+        paths.forEach { path ->
+            require(BardoProtectedPathPolicy.canModifyExisting(path)) {
+                "BARDO no puede modificar pruebas existentes ni rutas de revisión humana: $path"
             }
         }
     }
@@ -193,7 +186,7 @@ data class BardoGitHubRun(
 class BardoGitHubActionsClient(private val token: String) {
     companion object {
         const val VALIDATION_WORKFLOW = "bardo-candidate-validation.yml"
-        const val COMMIT_WORKFLOW = "bardo-commit-candidate.yml"
+        const val PR_WORKFLOW = "bardo-commit-candidate.yml"
         const val FULL_BUILD_WORKFLOW = "full-build.yml"
         private const val API_ROOT = "https://api.github.com/repos/loboxfake/musica-ia"
     }
@@ -212,10 +205,10 @@ class BardoGitHubActionsClient(private val token: String) {
         )
     }
 
-    fun dispatchIntegration(baseSha: String, candidateId: String, packedPatch: String, validationRunId: Long) {
+    fun dispatchPullRequest(baseSha: String, candidateId: String, packedPatch: String, validationRunId: Long) {
         require(validationRunId > 0L) { "Falta la ejecución de validación aprobada." }
         dispatch(
-            COMMIT_WORKFLOW,
+            PR_WORKFLOW,
             baseSha,
             candidateId,
             packedPatch,
@@ -254,7 +247,7 @@ class BardoGitHubActionsClient(private val token: String) {
         val array = JSONObject(response).optJSONArray("workflow_runs") ?: JSONArray()
         val prefix = when (workflow) {
             VALIDATION_WORKFLOW -> "BARDO candidate validation"
-            COMMIT_WORKFLOW -> "BARDO approved integration"
+            PR_WORKFLOW -> "BARDO approved PR preparation"
             else -> ""
         }
         val matches = mutableListOf<BardoGitHubRun>()
@@ -294,6 +287,33 @@ class BardoGitHubActionsClient(private val token: String) {
             }
         }
         return lines.joinToString("\n").take(6000)
+    }
+
+    /** Busca la PR del candidato; no modifica ni fusiona main. */
+    fun pullRequestForCandidate(candidateId: String): Pair<Int, String>? {
+        BardoGitHubPolicy.validateCandidateId(candidateId)
+        val branch = "bardo/$candidateId"
+        val head = java.net.URLEncoder.encode("loboxfake:$branch", "UTF-8")
+        val response = request(
+            "GET",
+            "/pulls?state=all&head=$head&base=main&per_page=100",
+            null,
+            setOf(200)
+        )
+        val pulls = JSONArray(response)
+        for (index in 0 until pulls.length()) {
+            val item = pulls.optJSONObject(index) ?: continue
+            val headRef = item.optJSONObject("head")?.optString("ref").orEmpty()
+            val baseRef = item.optJSONObject("base")?.optString("ref").orEmpty()
+            if (headRef == branch && baseRef == "main") {
+                val number = item.optInt("number")
+                val url = item.optString("html_url")
+                if (number > 0 && url.startsWith("https://github.com/")) {
+                    return number to url
+                }
+            }
+        }
+        return null
     }
 
     fun integratedCommit(candidateId: String): Pair<String, String>? {
