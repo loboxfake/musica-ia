@@ -28,7 +28,7 @@ on:
         type: boolean
 
 permissions:
-  actions: read
+  actions: write
   contents: write
 
 # Serialize every integration to avoid concurrent writers. No force-push is ever used.
@@ -242,6 +242,7 @@ jobs:
           fi
 
       - name: Recheck main and create a normal fast-forward-only commit
+        id: integrate
         env:
           BASE_SHA: ${{ inputs.base_sha }}
           CANDIDATE_ID: ${{ inputs.candidate_id }}
@@ -287,3 +288,21 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           echo "BARDO_MAIN_COMMIT_SHA=$candidate_commit"
           echo "BARDO_MAIN_TIP_AFTER_PUSH=$actual_main"
+          echo "commit_sha=$candidate_commit" >> "$GITHUB_OUTPUT"
+          echo "main_tip_sha=$actual_main" >> "$GITHUB_OUTPUT"
+
+      - name: Trigger explicit validation of the committed main tip
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_MAIN_SHA: ${{ steps.integrate.outputs.main_tip_sha }}
+        run: |
+          set -euo pipefail
+          current_main="$(gh api "repos/$GITHUB_REPOSITORY/branches/main" --jq '.commit.sha')"
+          test "$current_main" = "$EXPECTED_MAIN_SHA" || {
+            echo "::error::main advanced again before validation dispatch. The commit remains in history; validate the current main tip manually."
+            exit 1
+          }
+          gh api --method POST "repos/$GITHUB_REPOSITORY/actions/workflows/bardo-validation.yml/dispatches" -f ref=main
+          echo "Triggered BARDO integration validation for main SHA $EXPECTED_MAIN_SHA."
+          echo "- Main commit: ${{ steps.integrate.outputs.commit_sha }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Validation workflow: https://github.com/$GITHUB_REPOSITORY/actions/workflows/bardo-validation.yml" >> "$GITHUB_STEP_SUMMARY"
