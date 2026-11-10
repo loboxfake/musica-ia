@@ -10,12 +10,6 @@ import java.util.Locale
 import org.json.JSONArray
 import org.json.JSONObject
 
-data class BardoExportReceipt(
-    val relativePath: String,
-    val bytes: Long,
-    val sha256: String
-)
-
 data class BardoMobileFileDeletionRequest(
     val id: String,
     val relativePath: String,
