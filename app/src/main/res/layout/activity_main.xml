@@ -30,7 +30,6 @@
             android:paddingEnd="18dp"
             android:paddingTop="16dp"
             android:paddingBottom="30dp">
-inearLayout>
 
             <LinearLayout android:id="@+id/seccionOrquestador" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingTop="20dp">
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="01 · ASISTENTE Y ORQUESTACIÓN" android:textColor="#4ED1F1" android:textSize="10sp" android:textStyle="bold" android:letterSpacing="0.16"/>
