@@ -3445,10 +3445,18 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                  anexarChat("\nBARDO ($providerLabel): ${parsed.reply}")
                  tvEstado.text = "Respuesta local con $providerLabel; ${parsed.updates.size} campo(s) guardado(s) con evidencia."
              } else {
-                 val error = resultado.exceptionOrNull()?.message
-                     ?: "El modelo no devolvió una respuesta estructurada verificable."
-                 anexarChat("\nBARDO: No he podido generar una respuesta local verificable. No he simulado una conversación generativa.\nBARDO · modo guiado: $respuestaGuiada\nDetalle: $error")
-                 tvEstado.text = "Modo guiado disponible; no hay inferencia local válida."
+                 val freeformReply = generated?.second?.let {
+                     com.musicaia.modelo.BardoGuidedResponseParser.extractFreeformReply(it)
+                 }
+                 if (!freeformReply.isNullOrBlank()) {
+                     anexarChat("\nBARDO ($providerLabel): $freeformReply")
+                     tvEstado.text = "Respuesta local con $providerLabel; no se modificaron campos creativos sin evidencia estructurada."
+                 } else {
+                     val error = resultado.exceptionOrNull()?.message
+                         ?: "El modelo no devolvió una respuesta conversacional verificable."
+                     anexarChat("\nBARDO: No he podido generar una respuesta local verificable. No he simulado una conversación generativa.\nBARDO · modo guiado: $respuestaGuiada\nDetalle: $error")
+                     tvEstado.text = "Modo guiado disponible; no hay inferencia local válida."
+                 }
              }
          }
      }, "BARDO-Orquestador-Chat").start()
