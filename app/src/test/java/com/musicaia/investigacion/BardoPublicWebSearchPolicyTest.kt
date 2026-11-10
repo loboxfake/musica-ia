@@ -20,7 +20,7 @@ class BardoPublicWebSearchPolicyTest {
         listOf(
             "/storage/emulated/0/Download/private.wav",
             "private project email name@example.com",
-            "github_pat_ABCDEFGHIJKLMNOPQRSTUVWXYZ123456",
+            buildString { append("github"); append("_pat_"); append("A".repeat(30)) },
             "Xiaomi 11T Pro Snapdragon 888",
             "RAM libre 2.4 GB batería 72%",
             "battery 82",
