@@ -1,7 +1,6 @@
 package com.musicaia
 
 import com.musicaia.desarrollo.BardoGitHubIntegrationPolicy
-import com.musicaia.desarrollo.BardoGitHubActionsClient
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -15,10 +14,7 @@ class BardoGitHubIntegrationPolicyTest {
                 BardoGitHubIntegrationPolicy.requireDraftPrWorkflowAvailable()
             }.isFailure
         )
-        assertEquals(
-            "bardo-commit-candidate.yml",
-            BardoGitHubActionsClient.PR_WORKFLOW
-        )
+        assertTrue(BardoGitHubIntegrationPolicy.BLOCK_REASON.contains("creación de ramas"))
         assertTrue(BardoGitHubIntegrationPolicy.BLOCK_REASON.contains("rama única"))
         assertTrue(BardoGitHubIntegrationPolicy.BLOCK_REASON.contains("main"))
         assertEquals(true, BardoGitHubIntegrationPolicy.MAIN_COMMIT_WORKFLOW_ENABLED)
