@@ -70,6 +70,11 @@ fun interface BardoTaskStepVerifier {
     fun verify(step: BardoTaskStep, output: com.musicaia.herramientas.BardoToolOutput): BardoTaskStepVerification
 }
 
+/** Comprueba condiciones externas justo antes de cada herramienta. Devuelve un motivo de bloqueo o null. */
+fun interface BardoTaskExecutionGuard {
+    fun blockingReason(): String?
+}
+
 object BardoDeterministicTaskStepVerifier : BardoTaskStepVerifier {
     override fun verify(
         step: BardoTaskStep,
@@ -119,7 +124,8 @@ class BardoAutonomyEngine(
     private val nowMillis: () -> Long = System::currentTimeMillis,
     private val maxTaskMillis: Long = 180_000L,
     private val stepVerifier: BardoTaskStepVerifier = BardoDeterministicTaskStepVerifier,
-    private val budget: BardoAutonomyBudget = BardoAutonomyBudget(maxTaskMillis = maxTaskMillis)
+    private val budget: BardoAutonomyBudget = BardoAutonomyBudget(maxTaskMillis = maxTaskMillis),
+    private val executionGuard: BardoTaskExecutionGuard = BardoTaskExecutionGuard { null }
 ) {
     fun run(goal: String): BardoAutonomyResult {
         require(goal.isNotBlank() && goal.length <= 4000) {
@@ -164,6 +170,37 @@ class BardoAutonomyEngine(
                 journal.record(taskId, "time_limit", null, false, "Se alcanzó el límite temporal.", nowMillis())
                 return result(taskId, BardoAutonomyStatus.PARTIAL, observations, corrections, started,
                     "Tarea detenida por límite de tiempo.")
+            }
+
+            val resourceBlock = runCatching { executionGuard.blockingReason() }
+                .getOrElse { error ->
+                    "No se pudieron comprobar los recursos antes del paso: " +
+                        (error.message ?: error.javaClass.simpleName)
+                }
+            if (resourceBlock != null) {
+                val blockedStatus = if (observations.isEmpty()) {
+                    BardoAutonomyStatus.BLOCKED
+                } else {
+                    BardoAutonomyStatus.PARTIAL
+                }
+                journal.record(
+                    taskId,
+                    "resource_blocked",
+                    null,
+                    false,
+                    resourceBlock.take(1000),
+                    nowMillis()
+                )
+                return result(
+                    taskId,
+                    blockedStatus,
+                    observations,
+                    corrections,
+                    started,
+                    "Tarea detenida antes de ejecutar la siguiente herramienta: " +
+                        resourceBlock.take(700) +
+                        if (observations.isEmpty()) "" else " Se conserva el trabajo parcial."
+                )
             }
 
             val step = pending.removeFirst()
