@@ -57,7 +57,7 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
         patch = intent.getStringExtra(EXTRA_PATCH).orEmpty()
         changedFiles = intent.getStringArrayListExtra(EXTRA_CHANGED_FILES).orEmpty()
 
-        val valid = runCatching {
+        val valid = sourceOriginIsTrusted() && runCatching {
             BardoGitHubPolicy.validateBaseSha(baseSha)
             BardoGitHubPolicy.validateCandidateId(candidateId)
             BardoGitHubPolicy.validatePatch(patch)
@@ -73,7 +73,11 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
 
         buildUi()
         if (!valid) {
-            output.text = "CANDIDATO NO VÁLIDO\n\nEste proyecto no contiene el SHA de origen o la propuesta modifica una ruta protegida. No se ha enviado nada a GitHub."
+            output.text = if (!sourceOriginIsTrusted()) {
+                "ENVÍO BLOQUEADO POR PRIVACIDAD\n\nEste snapshot procede de un proyecto importado o no tiene procedencia BARDO verificada. Puede analizarse y modificarse localmente, pero no se enviará ningún archivo ni diff a GitHub."
+            } else {
+                "CANDIDATO NO VÁLIDO\n\nEste proyecto no contiene el SHA de origen o la propuesta modifica una ruta protegida. No se ha enviado nada a GitHub."
+            }
             validateButton.isEnabled = false
             prButton.isEnabled = false
             return
@@ -104,6 +108,12 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
         }
         renderButtons()
     }
+
+    private fun sourceOriginIsTrusted(): Boolean =
+        BardoSnapshotOriginPolicy.allowsPrivateRepositoryCi(
+            getSharedPreferences("bardo_developer", MODE_PRIVATE)
+                .getString(BardoSnapshotOriginPolicy.PREF_KEY, null)
+        )
 
     private fun buildUi() {
         val white = android.graphics.Color.rgb(235, 243, 255)
@@ -183,6 +193,10 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
     }
 
     private fun dispatchValidation() {
+        if (!sourceOriginIsTrusted()) {
+            output.text = "Envío bloqueado: los proyectos importados permanecen solo en el dispositivo."
+            return
+        }
         if (busy || validationDispatched) return
         val token = BardoGitHubCredentialStore.read(this)
         if (token == null) {
@@ -293,6 +307,10 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
     }
 
     private fun dispatchIntegration() {
+        if (!sourceOriginIsTrusted()) {
+            output.text = "Creación de PR bloqueada: solo el código propio de BARDO con procedencia verificada puede enviarse al repositorio privado."
+            return
+        }
         if (!BardoGitHubIntegrationPolicy.DRAFT_PR_WORKFLOW_ENABLED) {
             output.text = BardoGitHubIntegrationPolicy.BLOCK_REASON
             return
@@ -442,6 +460,9 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
 
     /** Recalcula la auditoría desde el workspace privado; no reutiliza el booleano como evidencia. */
     private fun collectLocalCandidateEvidence(): List<BardoCheckEvidence> {
+        check(sourceOriginIsTrusted()) {
+            "La candidatura no procede del código propio de BARDO; no puede enviarse a GitHub."
+        }
         val prefs = getSharedPreferences("bardo_developer", MODE_PRIVATE)
         check(prefs.getBoolean("candidate_local_audit_passed", false)) {
             "La candidatura no conserva un resultado local de auditoría superado."
