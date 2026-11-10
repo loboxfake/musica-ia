@@ -66,7 +66,8 @@ jobs:
         run: |
           set -euo pipefail
           validation="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$VALIDATION_RUN_ID")"
-          test "$(jq -r '.path' <<< "$validation")" = ".github/workflows/bardo-candidate-validation.yml"
+          validation_path="$(jq -r '.path' <<< "$validation" | cut -d@ -f1)"
+          test "$validation_path" = ".github/workflows/bardo-candidate-validation.yml"
           test "$(jq -r '.event' <<< "$validation")" = "workflow_dispatch"
           test "$(jq -r '.head_branch' <<< "$validation")" = "main"
           test "$(jq -r '.status' <<< "$validation")" = "completed"
