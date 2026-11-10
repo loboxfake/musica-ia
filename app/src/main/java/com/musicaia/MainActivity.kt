@@ -181,6 +181,7 @@ class MainActivity : AppCompatActivity() {
  private var activeConversationId: String? = null
  private var creacionMusicalEnCurso = false
  private var uriCarpetaBardo: Uri? = null
+ private var accionPendienteTrasConectarCarpeta: (() -> Unit)? = null
  private var bardoRootDocumentId: String? = null
  private lateinit var btnEnviar: Button
  private lateinit var editLetra: EditText
@@ -346,10 +347,25 @@ class MainActivity : AppCompatActivity() {
              crearEstructuraCarpetaBardo()
              actualizarEtiquetaCarpetaBardo()
              tvEstado.text = "Almacenamiento local conectado y permiso persistente verificado. Buscando Gemma en Modelos…"
+             actualizarEtiquetaCarpetaBardo()
              detectarGemmaEnCarpetaBardo()
-         }.onFailure {
-             uriCarpetaBardo = null
-             tvEstado.text = "No se pudo conservar el permiso de la carpeta: ${it.message}"
+             val accionPendiente = accionPendienteTrasConectarCarpeta
+             accionPendienteTrasConectarCarpeta = null
+             accionPendiente?.invoke()
+         }.onFailure { error ->
+             if (BardoSharedStorage.isConfigured(applicationContext)) {
+                 val prefs = getSharedPreferences("bardo_storage", MODE_PRIVATE)
+                 uriCarpetaBardo = prefs.getString("tree_uri", null)
+                     ?.let { runCatching { Uri.parse(it) }.getOrNull() }
+                 bardoRootDocumentId = prefs.getString("root_document_id", null)
+                 actualizarEtiquetaCarpetaBardo()
+                 tvEstado.text = "El permiso SAF local sí está guardado, pero no se pudo completar alguna carpeta inicial: " + (error.message ?: "error desconocido")
+             } else {
+                 uriCarpetaBardo = null
+                 bardoRootDocumentId = null
+                 actualizarEtiquetaCarpetaBardo()
+                 tvEstado.text = "No se pudo conservar el permiso de la carpeta: " + (error.message ?: "error desconocido")
+             }
          }
      }
 
@@ -738,7 +754,19 @@ class MainActivity : AppCompatActivity() {
      )
  }
 
+ private fun sincronizarEstadoCarpetaBardo() {
+     if (uriCarpetaBardo != null && bardoRootDocumentId != null &&
+         runCatching { raizCarpetaBardo() }.isSuccess
+     ) return
+     if (!BardoSharedStorage.isConfigured(applicationContext)) return
+     val prefs = getSharedPreferences("bardo_storage", MODE_PRIVATE)
+     uriCarpetaBardo = prefs.getString("tree_uri", null)
+         ?.let { runCatching { Uri.parse(it) }.getOrNull() }
+     bardoRootDocumentId = prefs.getString("root_document_id", null)
+ }
+
  private fun actualizarEtiquetaCarpetaBardo() {
+     sincronizarEstadoCarpetaBardo()
      val label = findViewById<TextView>(R.id.tvCarpetaBardo)
      label.text = when {
          uriCarpetaBardo == null -> "Descargas/BARDO: permiso de carpeta pendiente. Conéctalo una vez para localizar tu Gemma y guardar el trabajo."
@@ -828,12 +856,14 @@ private fun crearEstructuraCarpetaBardo() {
      )
  }
 
- private fun requiereCarpetaLocalBardo(): Boolean {
+ private fun requiereCarpetaLocalBardo(onConnected: (() -> Unit)? = null): Boolean {
+     sincronizarEstadoCarpetaBardo()
      if (uriCarpetaBardo != null && runCatching { raizCarpetaBardo() }.isSuccess) return true
+     if (onConnected != null) accionPendienteTrasConectarCarpeta = onConnected
      AlertDialog.Builder(this)
          .setTitle("Conectar almacenamiento local")
          .setMessage("Para guardar archivos, BARDO necesita Descargas/BARDO del almacenamiento interno. No abrirá Google Drive, OneDrive ni otros proveedores cloud.")
-         .setNegativeButton("Cancelar", null)
+         .setNegativeButton("Cancelar") { _, _ -> accionPendienteTrasConectarCarpeta = null }
          .setPositiveButton("Elegir Descargas local") { _, _ ->
              selectorElegirCarpetaBardo.launch(null)
          }
@@ -1743,11 +1773,7 @@ private fun crearConversacionNueva() {
 
 
  private fun crearCopiaSeguridadBardo() {
-     if (uriCarpetaBardo == null) {
-         tvEstado.text = "Primero selecciona Descargas/bardo para guardar la copia."
-         selectorElegirCarpetaBardo.launch(null)
-         return
-     }
+     if (!requiereCarpetaLocalBardo { crearCopiaSeguridadBardo() }) return
      val taskId = java.util.UUID.randomUUID().toString()
      BardoActivityStore.record(this, taskId, "copia_seguridad", "running", "preparacion", "Preparando una copia local de conversaciones, conocimiento y registros.", 5)
      tvEstado.text = "BARDO está preparando la copia de seguridad..."
@@ -1880,7 +1906,7 @@ private fun crearConversacionNueva() {
  }
 
  private fun exportarTextoDiagnostico(contenido: String, nombreBase: String) {
-     if (!requiereCarpetaLocalBardo()) return
+     if (!requiereCarpetaLocalBardo { exportarTextoDiagnostico(contenido, nombreBase) }) return
      val nombre = nombreBase + "_" + System.currentTimeMillis() + ".txt"
      val temporal = File(File(filesDir, "exports"), nombre)
      tvEstado.text = "Exportando diagnóstico local y verificando el archivo..."
