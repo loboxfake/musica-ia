@@ -93,13 +93,13 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
             appendLine("Archivos propuestos:")
             changedFiles.forEach { appendLine("• $it") }
             appendLine()
-            appendLine("Token requerido: Fine-grained PAT limitado a este repositorio, con Actions: Read and write y Contents: Read.")
-            appendLine("El token se cifra con Android Keystore. No se incluye en el APK ni se transmite al runner.")
+            appendLine("PAT fine-grained necesario: Actions: Read and write y Contents: Read, limitado a este repositorio.")
+            appendLine("El PAT se cifra con Android Keystore. No se incluye en el APK ni se transmite al runner.")
             appendLine()
             appendLine("La validación se ejecuta primero en un runner efímero y no modifica el repositorio.")
             appendLine("Después de SUCCESS puedes autorizar expresamente un único commit directo a main. El workflow vuelve a comprobar el SHA base, repite tests y APK ARM64 y usa un push normal sin force.")
             appendLine("Si main se ha movido, el workflow aborta sin sobrescribir commits.")
-            appendLine("El token personal solo necesita Actions: Read and write y Contents: Read. El GITHUB_TOKEN del workflow obtiene Contents: Write exclusivamente para este commit autorizado.")
+            appendLine("Solo el GITHUB_TOKEN del job de integración obtiene Contents: Write; el PAT personal permanece con Contents: Read.")
         }
         renderButtons()
     }
