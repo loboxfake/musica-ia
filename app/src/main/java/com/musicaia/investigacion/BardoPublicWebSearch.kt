@@ -138,7 +138,7 @@ object BardoPublicWebSearch {
             val rawHref = decodeHtml(match.groupValues[1])
             val resolved = resolveResultUrl(rawHref) ?: return@mapIndexedNotNull null
             val title = cleanHtml(match.groupValues[2]).take(240)
-            if (title.isBlank()) return@mapNotNullIndexed null
+            if (title.isBlank()) return@mapIndexedNotNull null
             BardoPublicWebResult(
                 title = title,
                 url = resolved,
