@@ -33,9 +33,11 @@ object BardoCiEvidenceAdapter {
     private const val JOB_NAME = "validate"
     private const val GITLEAKS_STEP = "Scan complete Git history with redacted findings"
     private const val ACTIONLINT_STEP = "Lint all GitHub Actions workflows"
-    private const val GRADLE_STEP = "Run unit tests and compile debug APK"
+    private const val GRADLE_STEP = "Run unit tests and compile Xiaomi ARM64 debug APK"
     private const val VERIFY_APK_STEP = "Verify candidate APK exists"
-    private const val UPLOAD_APK_STEP = "Upload branch validation APK (not a release)"
+    private const val VERIFY_SIGNATURE_STEP = "Verify APK v2 signature and Android Debug certificate"
+    private const val VERIFY_ARM64_STEP = "Verify APK contains only ARM64 native libraries"
+    private const val UPLOAD_APK_STEP = "Upload Xiaomi ARM64 debug candidate (not a release)"
 
     private val shaPattern = Regex("^[0-9a-f]{40}$")
 
@@ -74,11 +76,11 @@ object BardoCiEvidenceAdapter {
         if (workflowPath != WORKFLOW_PATH) {
             return invalid("La ejecución no procede del workflow BARDO de validación esperado.", runId, headSha)
         }
-        if (!branch.startsWith("bardo/")) {
-            return invalid("La rama de origen no pertenece al espacio bardo/.", runId, headSha)
+        if (branch != "main") {
+            return invalid("La evidencia de desarrollo solo se admite desde la rama única main.", runId, headSha)
         }
-        if (event !in setOf("push", "pull_request", "workflow_dispatch")) {
-            return invalid("El evento de GitHub no está permitido para esta evidencia.", runId, headSha)
+        if (event !in setOf("push", "workflow_dispatch")) {
+            return invalid("Solo se admiten ejecuciones directas o manuales sobre main.", runId, headSha)
         }
         if (htmlUrl != expectedUrl) {
             return invalid("La URL de la ejecución no coincide con su ID y repositorio.", runId, headSha)
@@ -143,7 +145,7 @@ object BardoCiEvidenceAdapter {
                 step.optString("conclusion", "") == "success"
         }
 
-        val artifactName = "bardo-debug-candidate-" + runNumber
+        val artifactName = "bardo-debug-arm64-candidate-" + runNumber
         val artifacts = artifactsJson.optJSONArray("artifacts") ?: JSONArray()
         val matchingArtifacts = (0 until artifacts.length()).mapNotNull {
             artifacts.optJSONObject(it)
@@ -167,6 +169,8 @@ object BardoCiEvidenceAdapter {
             stepSucceeded(ACTIONLINT_STEP) &&
             stepSucceeded(GRADLE_STEP) &&
             stepSucceeded(VERIFY_APK_STEP) &&
+            stepSucceeded(VERIFY_SIGNATURE_STEP) &&
+            stepSucceeded(VERIFY_ARM64_STEP) &&
             stepSucceeded(UPLOAD_APK_STEP) &&
             artifactVerified
 
@@ -233,6 +237,8 @@ object BardoCiEvidenceAdapter {
                 pipelineSucceeded &&
                     stepSucceeded(GRADLE_STEP) &&
                     stepSucceeded(VERIFY_APK_STEP) &&
+                    stepSucceeded(VERIFY_SIGNATURE_STEP) &&
+                    stepSucceeded(VERIFY_ARM64_STEP) &&
                     stepSucceeded(UPLOAD_APK_STEP) &&
                     artifactVerified,
                 "verify_apk=" + stepSucceeded(VERIFY_APK_STEP) +
@@ -248,6 +254,8 @@ object BardoCiEvidenceAdapter {
             if (!stepSucceeded(ACTIONLINT_STEP)) add("actionlint no terminó en SUCCESS.")
             if (!stepSucceeded(GRADLE_STEP)) add("Los tests unitarios y/o la compilación debug no terminaron en SUCCESS.")
             if (!stepSucceeded(VERIFY_APK_STEP)) add("La verificación de existencia del APK no terminó en SUCCESS.")
+            if (!stepSucceeded(VERIFY_SIGNATURE_STEP)) add("La comprobación de firma v2 no terminó en SUCCESS.")
+            if (!stepSucceeded(VERIFY_ARM64_STEP)) add("La comprobación exclusiva ARM64 no terminó en SUCCESS.")
             if (!stepSucceeded(UPLOAD_APK_STEP)) add("La subida del artefacto debug no terminó en SUCCESS.")
             if (!artifactVerified) add("No se ha verificado la presencia/formato del digest de GitHub y la asociación del artefacto no expirado al mismo run y commit.")
         }
