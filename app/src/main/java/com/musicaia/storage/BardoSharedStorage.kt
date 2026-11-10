@@ -687,15 +687,16 @@ object BardoSharedStorage {
         require(mimeType.isNotBlank()) { "El tipo MIME no puede estar vacío." }
         val directory = BardoMobileFilePolicy.normalizeRelativePath(relativeDirectory)
             ?: throw IllegalArgumentException("La carpeta de destino no es válida.")
-        require(directory.isNotEmpty()) { "Indica una carpeta dentro de Descargas/BARDO." }
-        val directoryDecision = BardoMobileFilePolicy.authorize(
-            BardoMobileFileOperation.CREATE_DIRECTORY, directory
-        )
-        require(directoryDecision.allowed) { directoryDecision.reason }
-        createDirectory(app, directory)
+        if (directory.isNotEmpty()) {
+            val directoryDecision = BardoMobileFilePolicy.authorize(
+                BardoMobileFileOperation.CREATE_DIRECTORY, directory
+            )
+            require(directoryDecision.allowed) { directoryDecision.reason }
+            createDirectory(app, directory)
+        }
 
         val name = validateName(destinationName, allowExtension = true)
-        val relativePath = "$directory/$name"
+        val relativePath = if (directory.isEmpty()) name else "$directory/$name"
         val fileDecision = BardoMobileFilePolicy.authorize(
             BardoMobileFileOperation.CREATE_FILE, relativePath
         )
@@ -703,7 +704,7 @@ object BardoSharedStorage {
         val loc = location(app) ?: throw IllegalStateException(
             "No existe permiso SAF persistente y verificable para Descargas/BARDO."
         )
-        val parent = resolveDirectory(app, loc, directory)
+        val parent = if (directory.isEmpty()) loc.root else resolveDirectory(app, loc, directory)
         val target = DocumentsContract.createDocument(
             app.contentResolver, parent, mimeType, name
         ) ?: throw IllegalStateException("Android no pudo crear BARDO/$relativePath.")

@@ -794,35 +794,13 @@ class MainActivity : AppCompatActivity() {
  }
 
   private fun guardarArchivoEnRaizCarpetaBardo(origen: File, nombre: String, mimeType: String) {
-     require(origen.isFile && origen.length() > 0L) { "El archivo generado está vacío o no es regular." }
-     require(nombre.matches(Regex("[A-Za-z0-9._ -]{1,180}")) &&
-         !nombre.startsWith(".") && !nombre.contains("..")
-     ) { "El nombre del archivo no es seguro." }
-     val root = raizCarpetaBardo()
-     val destino = DocumentsContract.createDocument(contentResolver, root, mimeType, nombre)
-         ?: throw IllegalStateException("Android no pudo crear $nombre en Descargas/BARDO.")
-     try {
-         exigirDestinoLocalBardo(destino)
-         val output = contentResolver.openOutputStream(destino, "w")
-             ?: throw IllegalStateException("No se pudo abrir el archivo local BARDO.")
-         var copied = 0L
-         output.use { stream ->
-             origen.inputStream().buffered().use { input ->
-                 val buffer = ByteArray(64 * 1024)
-                 while (true) {
-                     val count = input.read(buffer)
-                     if (count < 0) break
-                     if (count == 0) continue
-                     stream.write(buffer, 0, count)
-                     copied += count
-                 }
-             }
-         }
-         require(copied == origen.length()) { "La copia local no coincide con el tamaño original." }
-     } catch (error: Exception) {
-         runCatching { DocumentsContract.deleteDocument(contentResolver, destino) }
-         throw error
-     }
+     val receipt = BardoSharedStorage.exportGeneratedFile(
+         applicationContext, "", origen, nombre, mimeType
+     )
+     Log.i(
+         etiqueta,
+         "Exportación SAF verificada: \${receipt.relativePath} · \${receipt.bytes} bytes · SHA-256 \${receipt.sha256}"
+     )
  }
 
 private fun crearEstructuraCarpetaBardo() {
