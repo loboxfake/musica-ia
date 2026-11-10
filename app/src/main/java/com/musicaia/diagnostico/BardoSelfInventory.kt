@@ -214,7 +214,7 @@ object BardoSelfInventory {
                     else "Código integrado; falta Gemma local verificado."
                 spec.id == "developer_agent" -> if (gemmaPresent) "Código integrado; autoestudio requiere Gemma cargable, snapshot, recursos y validación aislada."
                     else "Código integrado; necesita Gemma local y recursos suficientes."
-                spec.id == "autonomy_loop" -> "Bucle local integrado al autoestudio: Gemma planifica y las acciones pasan por herramientas locales tipadas; investigación web y multiagente distribuido siguen pendientes."
+                spec.id == "autonomy_loop" -> "Bucle local integrado al autoestudio: Gemma planifica y las acciones pasan por herramientas locales tipadas. Investigación web pública disponible mediante web.search_public solo tras autorización y con filtro que bloquea archivos, proyectos, rutas, credenciales e inventario privado; flota con proveedores locales adicionales todavía pendiente."
                 spec.id == "model_registry" -> "Contrato neutro de proveedor y registro local-first integrados; Gemma/LiteRT es el primer adaptador. No se declara una flota de modelos adicionales."
                 spec.id == "skill_manager" -> "Cuarentena, integridad, instalación deshabilitada, activación aprobada, desactivación y rollback disponibles como API local; interfaz de catálogo/descarga pendiente."
                 spec.id == "authority" -> "Verificación ECDSA, scopes, nonce y revocación persistente integrados; emparejamiento de claves y transporte JARVIS-PC↔Android todavía pendientes."
