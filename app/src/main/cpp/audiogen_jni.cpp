@@ -75,3 +75,15 @@ Java_com_musicaia_modulos_AudioGenNative_generateNative(
         return nullptr;
     }
 }
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_musicaia_modulos_AudioGenNative_releaseNative(
+    JNIEnv* /* env */,
+    jobject /* instance */
+) {
+    try {
+        audiogen_release_models();
+    } catch (...) {
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "Failed to release Stable Audio model memory");
+    }
+}

@@ -191,6 +191,8 @@ class ModuloInstrumental(
                 error
             )
         } finally {
+            runCatching { AudioGenNative.releaseNative() }
+                .onFailure { android.util.Log.e("BARDO-AudioGen", "No se pudieron liberar los modelos nativos de audio", it) }
             informeDiagnostico.writeText(diagnosticos.joinToString("\n") + "\n", Charsets.UTF_8)
             if (generacionCompleta) {
                 workDir.deleteRecursively()

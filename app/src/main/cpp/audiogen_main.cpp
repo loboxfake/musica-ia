@@ -34,10 +34,28 @@
 #include <chrono>
 #include <random>
 #include <fstream>
+#include <memory>
+#include <mutex>
 #include <unistd.h>
 
 using executorch::aten::ScalarType;
 using executorch::extension::Module;
+
+/*
+ * Stable Audio weights are kept between segments of one song, then released
+ * explicitly at the end of the task so Gemma and other modules can reclaim RAM.
+ */
+static std::unique_ptr<Module> g_t5_module;
+static std::unique_ptr<Module> g_dit_module;
+static std::unique_ptr<Module> g_autoencoder_module;
+static std::mutex g_audio_model_mutex;
+
+void audiogen_release_models() {
+    std::lock_guard<std::mutex> guard(g_audio_model_mutex);
+    g_autoencoder_module.reset();
+    g_dit_module.reset();
+    g_t5_module.reset();
+}
 using executorch::runtime::TensorInfo;
 using executorch::runtime::etensor::Tensor;
 using executorch::extension::randn;
@@ -238,6 +256,7 @@ static void dry_run(std::unique_ptr<executorch::extension::Module>& module) {
 }
 
 int audiogen_cli_main(int32_t argc, char** argv) {
+    std::lock_guard<std::mutex> model_guard(g_audio_model_mutex);
 
     // Required arguments
     std::string models_base_path = "";
@@ -298,35 +317,32 @@ int audiogen_cli_main(int32_t argc, char** argv) {
 
     // ----- Load the models
     // ----------------------------------
-    static std::unique_ptr<executorch::extension::Module> t5_module;
-    if (!t5_module) t5_module = std::make_unique<Module>(t5_model, Module::LoadMode::File);
+    if (!g_t5_module) g_t5_module = std::make_unique<Module>(t5_model, Module::LoadMode::File);
     ET_LOG(Info, "Model (%s) loaded", t5_model.c_str());
 
-    static std::unique_ptr<executorch::extension::Module> dit_module;
-    if (!dit_module) dit_module = std::make_unique<Module>(dit_model, Module::LoadMode::File);
+    if (!g_dit_module) g_dit_module = std::make_unique<Module>(dit_model, Module::LoadMode::File);
     ET_LOG(Info, "Model (%s) loaded", dit_model.c_str());
 
-    static std::unique_ptr<executorch::extension::Module> autoencoder_module;
-    if (!autoencoder_module) autoencoder_module = std::make_unique<Module>(autoencoder_model, Module::LoadMode::File);
+    if (!g_autoencoder_module) g_autoencoder_module = std::make_unique<Module>(autoencoder_model, Module::LoadMode::File);
     ET_LOG(Info, "Model (%s) loaded", autoencoder_model.c_str());
 
     // ----- Get models forward methods meta
     // ----------------------------------
-    auto t5_forward_meta_res = t5_module->method_meta("forward");
+    auto t5_forward_meta_res = g_t5_module->method_meta("forward");
     if (!t5_forward_meta_res.ok()) {
         ET_LOG(Error, "Failed to get method meta for t5 'forward'");
         return EXIT_FAILURE;
     }
     auto t5_forward_meta = t5_forward_meta_res.get();
 
-    auto dit_forward_meta_res = dit_module->method_meta("forward");
+    auto dit_forward_meta_res = g_dit_module->method_meta("forward");
     if (!dit_forward_meta_res.ok()) {
         ET_LOG(Error, "Failed to get method meta for dit 'forward'");
         return EXIT_FAILURE;
     }
     auto dit_forward_meta = dit_forward_meta_res.get();
 
-    auto autoencoder_forward_meta_res = autoencoder_module->method_meta("forward");
+    auto autoencoder_forward_meta_res = g_autoencoder_module->method_meta("forward");
     if (!autoencoder_forward_meta_res.ok()) {
         ET_LOG(Error, "Failed to get method meta for autoencoder 'forward'");
         return EXIT_FAILURE;
@@ -345,9 +361,9 @@ int audiogen_cli_main(int32_t argc, char** argv) {
     // Dummy run if needed
     if (run_dummy_run) {
         ET_LOG(Info, "Running dummy forward pass for all models...");
-        dry_run(t5_module);
-        dry_run(dit_module);
-        dry_run(autoencoder_module);
+        dry_run(g_t5_module);
+        dry_run(g_dit_module);
+        dry_run(g_autoencoder_module);
         ET_LOG(Info, "Dummy Run finished.");
     }
 
@@ -407,7 +423,7 @@ int audiogen_cli_main(int32_t argc, char** argv) {
 
     // Run t5 forward
     auto t5_start = time_in_ms();
-    auto condintioners_result = t5_module->forward(condintioners_inputs);
+    auto condintioners_result = g_t5_module->forward(condintioners_inputs);
     auto t5_end = time_in_ms();
     if (condintioners_result.error() != executorch::runtime::Error::Ok) {
         ET_LOG(Error, "failed to run t5 forward function");
@@ -454,7 +470,7 @@ int audiogen_cli_main(int32_t argc, char** argv) {
             cross_attn_cond_tensor,
             global_cond_tensor,
         };
-        auto dit_result = dit_module->forward(dit_inputs);
+        auto dit_result = g_dit_module->forward(dit_inputs);
         if (dit_result.error() != executorch::runtime::Error::Ok) {
             ET_LOG(Error, "failed to run dit forward function");
             return 1;
@@ -471,7 +487,7 @@ int audiogen_cli_main(int32_t argc, char** argv) {
     // (3) Run AutoEncoder to convert the output to waveform
     std::vector<executorch::runtime::EValue> autoencoder_inputs = { x_tensor };
     auto autoencoder_start = time_in_ms();
-    auto autoencoder_result = autoencoder_module->forward(autoencoder_inputs);
+    auto autoencoder_result = g_autoencoder_module->forward(autoencoder_inputs);
     auto autoencoder_end = time_in_ms();
     if (autoencoder_result.error() != executorch::runtime::Error::Ok) {
         ET_LOG(Error, "failed to run autoencoder forward function");

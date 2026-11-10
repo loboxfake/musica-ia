@@ -12,4 +12,7 @@ object AudioGenNative {
         outputPath: String,
         seed: Int
     ): String?
+
+    /** Releases the cached ExecuTorch modules after a complete song/task. */
+    external fun releaseNative()
 }
