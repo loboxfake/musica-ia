@@ -247,7 +247,7 @@ class MainActivity : AppCompatActivity() {
  private val reloj = object : Runnable {
  override fun run() {
  segundos++
- tvTiempo.text = "Tiempo: ${segundos}s"
+ tvTiempo.text = "Tiempo transcurrido: ${formatearTiempoTranscurrido(segundos)}"
  handler.postDelayed(this, 1000)
  }
  }
@@ -4247,7 +4247,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
  tvEstado.text = "Creando..."
  tvResultado.text = ""
  segundos = 0
- tvTiempo.text = "Tiempo: 0s"
+ tvTiempo.text = "Tiempo transcurrido: 00:00"
  tvEstadoVoz.text = if (rutaVoz != null) "Voz seleccionada. El perfil y el canto IA aún no están integrados." else if (AudioGenNative.available) "Instrumental IA local disponible; canto IA pendiente." else "Instrumental y canto IA local pendientes en esta compilación."
  handler.removeCallbacks(reloj)
  handler.postDelayed(reloj, 1000)
@@ -4477,7 +4477,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                  }
                  segundos = ((System.currentTimeMillis() - inicio).coerceAtLeast(0L) / 1000L).toInt()
                  tvTiempo.visibility = View.VISIBLE
-                 tvTiempo.text = "Tiempo: ${segundos}s"
+                 tvTiempo.text = "Tiempo transcurrido: ${formatearTiempoTranscurrido(segundos)}"
                  handler.removeCallbacks(reloj)
                  handler.postDelayed(reloj, 1000L)
              }
@@ -4507,6 +4507,12 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
          "failed", "cancelled", "interrupted" -> tvEstado.text =
              prefs.getString(BardoTaskService.KEY_MESSAGE, "La última tarea no terminó.")
      }
+ }
+
+ private fun formatearTiempoTranscurrido(totalSegundos: Int): String {
+     val minutos = totalSegundos.coerceAtLeast(0) / 60
+     val segundosRestantes = totalSegundos.coerceAtLeast(0) % 60
+     return String.format(java.util.Locale.ROOT, "%02d:%02d", minutos, segundosRestantes)
  }
 
  private fun detenerReloj() {
