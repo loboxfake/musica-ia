@@ -162,6 +162,11 @@ jobs:
           PY
           git diff --check
 
+      - name: Set up Go for Gitleaks
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
       - name: Scan the exact candidate commit for secrets before validation
         env:
           CANDIDATE_ID: ${{ inputs.candidate_id }}
