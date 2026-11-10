@@ -92,6 +92,23 @@ object BardoGitHubCredentialStore {
     }
 }
 
+/**
+ * Trust label for the active source snapshot. Arbitrary projects imported by the
+ * user are always local-only; only BARDO's own source obtained from its bundled
+ * snapshot or the configured private repository may be sent to that repository's CI.
+ *
+ * Missing/legacy values fail closed.
+ */
+object BardoSnapshotOriginPolicy {
+    const val PREF_KEY = "source_snapshot_origin"
+    const val BUNDLED_BARDO = "bundled_bardo"
+    const val PRIVATE_GITHUB_MAIN = "private_github_main"
+    const val USER_IMPORTED_PROJECT = "user_imported_project"
+
+    fun allowsPrivateRepositoryCi(origin: String?): Boolean =
+        origin == BUNDLED_BARDO || origin == PRIVATE_GITHUB_MAIN
+}
+
 /** Shared local policy; the two CI workflows enforce the same rules again on the runner. */
 object BardoGitHubPolicy {
     const val REPOSITORY = "loboxfake/musica-ia"
