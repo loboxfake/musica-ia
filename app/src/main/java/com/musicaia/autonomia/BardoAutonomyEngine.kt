@@ -172,11 +172,12 @@ class BardoAutonomyEngine(
                     "Tarea detenida por límite de tiempo.")
             }
 
-            val resourceBlock = runCatching { executionGuard.blockingReason() }
-                .getOrElse { error ->
-                    "No se pudieron comprobar los recursos antes del paso: " +
-                        (error.message ?: error.javaClass.simpleName)
-                }
+            val resourceBlock = try {
+                executionGuard.blockingReason()
+            } catch (error: Exception) {
+                "No se pudieron comprobar los recursos antes del paso: " +
+                    (error.message ?: error.javaClass.simpleName)
+            }
             if (resourceBlock != null) {
                 val blockedStatus = if (observations.isEmpty()) {
                     BardoAutonomyStatus.BLOCKED
