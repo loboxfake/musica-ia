@@ -559,9 +559,9 @@ class MainActivity : AppCompatActivity() {
  findViewById<Button>(R.id.btnActualizarBiblioteca).setOnClickListener { actualizarBiblioteca() }
  findViewById<Button>(R.id.btnBibliotecaReproducir).setOnClickListener { reproducirUltimoDeBiblioteca() }
  findViewById<Button>(R.id.btnBibliotecaGestionar).setOnClickListener { abrirGestorBiblioteca() }
- findViewById<Button>(R.id.btnBibliotecaImportar).setOnClickListener { selectorImportarAudioBiblioteca.launch(arrayOf("audio/*", "application/octet-stream")) }
+ findViewById<Button>(R.id.btnBibliotecaImportar).setOnClickListener { selectorImportarAudioBiblioteca.launch(arrayOf("audio/*", "audio/wav", "audio/x-wav", "audio/wave", "audio/vnd.wave", "application/wav", "application/octet-stream")) }
  findViewById<Button>(R.id.btnMasterizarWav).setOnClickListener {
-     selectorMasterizarWav.launch(arrayOf("audio/wav", "audio/x-wav", "audio/*"))
+     selectorMasterizarWav.launch(arrayOf("audio/*", "audio/wav", "audio/x-wav", "audio/wave", "audio/vnd.wave", "application/wav", "application/octet-stream"))
  }
  findViewById<Button>(R.id.btnCrearPortada).setOnClickListener { mostrarGeneradorPortada() }
  findViewById<Button>(R.id.btnCrearPortadaIA).setOnClickListener { mostrarGeneradorPortadaIA() }
@@ -572,7 +572,7 @@ class MainActivity : AppCompatActivity() {
      } else {
          val pendiente = mezclaPistasPendiente
          if (pendiente == null) {
-             selectorMezclarPistasWav.launch(arrayOf("audio/wav", "audio/x-wav"))
+             selectorMezclarPistasWav.launch(arrayOf("audio/*", "audio/wav", "audio/x-wav", "audio/wave", "audio/vnd.wave", "application/wav", "application/octet-stream"))
          } else {
              AlertDialog.Builder(this)
                  .setTitle("Hay una mezcla pendiente")
@@ -584,7 +584,7 @@ class MainActivity : AppCompatActivity() {
                  .setNeutralButton("Descartar y crear otra") { _, _ ->
                      pendiente.parentFile?.deleteRecursively()
                      mezclaPistasPendiente = null
-                     selectorMezclarPistasWav.launch(arrayOf("audio/wav", "audio/x-wav"))
+                     selectorMezclarPistasWav.launch(arrayOf("audio/*", "audio/wav", "audio/x-wav", "audio/wave", "audio/vnd.wave", "application/wav", "application/octet-stream"))
                  }
                  .show()
          }
@@ -3106,6 +3106,8 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                      output.fd.sync()
                  }
              } ?: throw IllegalStateException("No se pudo abrir el WAV seleccionado.")
+             val cabecera = BardoWavHeaderValidator.inspect(entrada)
+             require(cabecera.dataBytes > 0L) { "El WAV no contiene muestras PCM válidas." }
              val procesado = com.musicaia.modulos.BardoWavMastering.process(entrada, salida)
              entrada.delete()
              procesado
