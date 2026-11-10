@@ -59,7 +59,10 @@ class BardoDeveloperWorker(
         const val UNIQUE_WORK = "bardo_autonomous_developer"
         private const val CHANNEL_ID = "bardo_developer_background"
         private const val NOTIFICATION_ID = 8732
+        // El umbral de 4 GiB se reserva para cargar Gemma. Durante la ejecución,
+        // el modelo ya ocupa memoria; se conserva un margen mínimo adicional de 768 MiB.
         private const val MIN_FREE_MEMORY_BYTES = BardoCapabilityRegistry.MIN_GEMMA_FREE_MEMORY_BYTES
+        private const val MIN_AUTONOMY_STEP_FREE_MEMORY_BYTES = 768L * 1024L * 1024L
     }
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
@@ -197,7 +200,7 @@ class BardoDeveloperWorker(
                     executionGuard = BardoTaskExecutionGuard {
                         BardoResourceBudget.blockingReason(
                             applicationContext,
-                            MIN_FREE_MEMORY_BYTES
+                            MIN_AUTONOMY_STEP_FREE_MEMORY_BYTES
                         )
                     }
                 )
