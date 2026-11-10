@@ -3617,7 +3617,149 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
 
  private fun seleccionarModeloLocal() {
      if (descargaEnCurso) return
-     selectorImportarModelo.launch(arrayOf("*/*"))
+     val gemma = LiteRTLMModule.modelFile(this)
+     val qwen = BardoQwen2LiteRtModule.modelFile(this)
+     val root = LinearLayout(this).apply {
+         orientation = LinearLayout.VERTICAL
+         setPadding(dp(18), dp(10), dp(18), dp(8))
+     }
+     val estadoGemma = TextView(this).apply {
+         text = if (gemma.isFile && gemma.length() == LiteRTLMModule.EXPECTED_SIZE_BYTES) {
+             "Gemma 4 E2B-it: archivo presente (" + (gemma.length() / (1024L * 1024L)) + " MiB). Se verifica SHA-256 antes de cargar; requiere 4 GiB de RAM libre."
+         } else "Gemma 4 E2B-it: no instalado o archivo incompleto. Puedes importar el archivo original que ya tengas."
+         setTextColor(android.graphics.Color.WHITE)
+         textSize = 12f
+     }
+     val importarGemma = Button(this).apply {
+         text = "Importar Gemma 4 E2B-it existente"
+         isAllCaps = false
+     }
+     val estadoQwen = TextView(this).apply {
+         text = if (qwen.isFile && qwen.length() == BardoQwen2LiteRtModule.EXPECTED_SIZE_BYTES) {
+             "Qwen2-0.5B-Instruct: archivo presente (" + (qwen.length() / (1024L * 1024L)) + " MiB). SHA-256 se verifica antes de cargar; umbral preventivo 1,6 GiB."
+         } else "Qwen2-0.5B-Instruct: no instalado. Modelo local opcional de 647 MB, licencia Apache-2.0; después de instalarlo funciona sin conexión."
+         setTextColor(android.graphics.Color.WHITE)
+         textSize = 12f
+         setPadding(0, dp(12), 0, dp(4))
+     }
+     val progreso = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+         max = 1000
+         visibility = View.GONE
+     }
+     val estadoDescarga = TextView(this).apply {
+         text = "Las descargas solo se inician cuando pulsas Descargar y confirmas."
+         setTextColor(android.graphics.Color.LTGRAY)
+         textSize = 11f
+     }
+     val qwenButton = Button(this).apply {
+         text = if (qwen.isFile && qwen.length() == BardoQwen2LiteRtModule.EXPECTED_SIZE_BYTES) {
+             "Verificar Qwen2 local"
+         } else "Descargar Qwen2 · 647 MB"
+         isAllCaps = false
+     }
+     root.addView(estadoGemma)
+     root.addView(importarGemma)
+     root.addView(estadoQwen)
+     root.addView(qwenButton)
+     root.addView(progreso)
+     root.addView(estadoDescarga)
+     val dialog = AlertDialog.Builder(this)
+         .setTitle("Gestor de modelos locales")
+         .setView(root)
+         .setPositiveButton("Cerrar", null)
+         .create()
+     importarGemma.setOnClickListener {
+         dialog.dismiss()
+         selectorImportarModelo.launch(arrayOf("*/*"))
+     }
+     qwenButton.setOnClickListener {
+         if (qwen.isFile && qwen.length() == BardoQwen2LiteRtModule.EXPECTED_SIZE_BYTES) {
+             estadoDescarga.text = "Verificando SHA-256 de Qwen2..."
+             qwenButton.isEnabled = false
+             Thread({
+                 val valid = BardoQwen2LiteRtModule.verificarModelo(qwen)
+                 runOnUiThread {
+                     qwenButton.isEnabled = true
+                     estadoDescarga.text = if (valid) {
+                         "SHA-256 correcto. Qwen2 queda disponible cuando haya al menos 1,6 GiB de RAM libre."
+                     } else {
+                         "SHA-256 incorrecto. BARDO no cargará ni borrará el archivo; puedes revisar el origen."
+                     }
+                 }
+             }, "BARDO-Qwen2-Verify").start()
+         } else {
+             AlertDialog.Builder(this)
+                 .setTitle("Descargar Qwen2-0.5B-Instruct")
+                 .setMessage(
+                     "Descarga única de 647 MB desde Hugging Face. Licencia Apache-2.0, SHA-256 fijado y verificado. El modelo se ejecuta localmente después de instalarse; no envía conversaciones a la nube. Umbral preventivo: 1,6 GiB de RAM libre. El rendimiento en este Xiaomi todavía debe probarse. ¿Quieres descargarlo ahora?"
+                 )
+                 .setNegativeButton("Cancelar", null)
+                 .setPositiveButton("Descargar") { _, _ ->
+                     iniciarDescargaQwen(estadoDescarga, progreso, qwenButton, estadoQwen)
+                 }
+                 .show()
+         }
+     }
+     dialog.show()
+ }
+
+ private fun iniciarDescargaQwen(
+     estado: TextView,
+     progreso: ProgressBar,
+     boton: Button,
+     estadoModeloQwen: TextView
+ ) {
+     if (descargaEnCurso || ocupado || gemmaInferenceEnCurso) {
+         estado.text = "Espera a que terminen las tareas actuales antes de descargar el modelo."
+         return
+     }
+     descargaEnCurso = true
+     btnDescargarModelo.isEnabled = false
+     boton.isEnabled = false
+     progreso.visibility = View.VISIBLE
+     progreso.progress = 0
+     estado.text = "Conectando con el repositorio HTTPS fijado..."
+     val destino = BardoQwen2LiteRtModule.modelFile(applicationContext)
+     Thread({
+         var errorDescarga: String? = null
+         val correcto = DescargadorModelos.descargar(
+             url = BardoQwen2LiteRtModule.DOWNLOAD_URL,
+             destino = destino,
+             shaEsperado = BardoQwen2LiteRtModule.EXPECTED_SHA256,
+             confirmar = true,
+             progreso = { descargados, total ->
+                 runOnUiThread {
+                     val valor = if (total > 0L) {
+                         ((descargados.toDouble() / total.toDouble()) * 1000.0).toInt().coerceIn(0, 1000)
+                     } else 0
+                     progreso.progress = valor
+                     estado.text = "Descargando Qwen2: " +
+                         (descargados / (1024L * 1024L)) + " / " +
+                         (total / (1024L * 1024L)) + " MiB"
+                 }
+             },
+             tamanoEsperadoBytes = BardoQwen2LiteRtModule.EXPECTED_SIZE_BYTES,
+             onError = { mensaje ->
+                 errorDescarga = mensaje
+                 runOnUiThread { estado.text = mensaje }
+             }
+         )
+         runOnUiThread {
+             descargaEnCurso = false
+             btnDescargarModelo.isEnabled = true
+             boton.isEnabled = true
+             progreso.visibility = View.GONE
+             if (correcto) {
+                 estado.text = "Qwen2 descargado y SHA-256 verificado. Puede ejecutarse sin conexión cuando haya RAM suficiente."
+                 estadoModeloQwen.text = "Qwen2-0.5B-Instruct: instalado y verificado (" +
+                     (destino.length() / (1024L * 1024L)) + " MiB)."
+                 boton.text = "Verificar Qwen2 local"
+                 estadoModelo.text = "Modelos locales: Gemma y Qwen2 detectados; BARDO seleccionará según RAM."
+             } else {
+                 estado.text = errorDescarga ?: "La descarga no se completó o no superó la verificación SHA-256."
+             }
+         }
+     }, "BARDO-Qwen2-Download").start()
  }
 
  private fun importarModeloSeleccionado(uri: Uri) {
