@@ -86,6 +86,7 @@ object BardoAuthorityPolicy {
         BardoPermissionScope.PROPOSE_CHANGE,
         BardoPermissionScope.CREATE_LOCAL_CANDIDATE,
         BardoPermissionScope.RUN_SANDBOX_CI,
+        BardoPermissionScope.RESEARCH_NETWORK,
         BardoPermissionScope.MANAGE_BARDO_WORKSPACE
     )
 
