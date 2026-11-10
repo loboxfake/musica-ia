@@ -78,11 +78,21 @@ object BardoPublicWebSearchPolicy {
             .remove(AUTHORIZED_QUERY_HASH_KEY)
             .remove(AUTHORIZATION_EXPIRY_KEY)
             .commit()
-        cleared && expectedHash != null &&
-            expiresAt >= nowMillis &&
-            expiresAt - nowMillis <= AUTHORIZATION_TTL_MILLIS &&
-            constantTimeEquals(expectedHash, querySha256(query))
+        cleared && authorizationMatches(expectedHash, expiresAt, query, nowMillis)
     }
+
+    internal fun authorizationMatches(
+        storedHash: String?,
+        expiresAtMillis: Long,
+        rawQuery: String,
+        nowMillis: Long
+    ): Boolean = runCatching {
+        val query = validateQuery(rawQuery)
+        storedHash != null &&
+            expiresAtMillis > nowMillis &&
+            expiresAtMillis - nowMillis <= AUTHORIZATION_TTL_MILLIS &&
+            constantTimeEquals(storedHash, querySha256(query))
+    }.getOrDefault(false)
 
     internal fun querySha256(query: String): String =
         java.security.MessageDigest.getInstance("SHA-256")
