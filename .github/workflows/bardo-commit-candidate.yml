@@ -4,16 +4,14 @@ on:
   workflow_dispatch:
 
 permissions:
-  actions: read
   contents: read
-  pull-requests: read
 
-# BARDO now follows a single-branch policy. The historical implementation remains
-# in Git history, but this workflow intentionally has no executable job.
 jobs:
-  disabled:
-    if: ${{ false }}
+  main_only_policy:
     runs-on: ubuntu-22.04
+    timeout-minutes: 2
     steps:
-      - name: Explain main-only policy
-        run: echo "Disabled: BARDO no longer creates bardo/* branches or pull requests."
+      - name: Explain disabled legacy workflow
+        run: |
+          echo "Ramas y PR están desactivados. Valida candidatos de forma aislada y trabaja exclusivamente en main."
+          echo "No se han creado ramas, PR, commits ni cambios en main."
