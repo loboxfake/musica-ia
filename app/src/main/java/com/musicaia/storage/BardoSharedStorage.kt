@@ -308,8 +308,14 @@ object BardoSharedStorage {
                     ) ?: throw IllegalStateException("El proveedor SAF no pudo crear BARDO/$traversed.")
                     recordAudit(context, "CREATE_DIRECTORY", traversed, "SUCCESS")
                 }
+            } else if (existing != null) {
+                val info = metadata(context, existing)
+                require(info?.isDirectory == true) {
+                    "La ruta BARDO/$traversed ya existe como archivo."
+                }
+                // La estructura BARDO se prepara al conectar SAF. Las exportaciones
+                // posteriores deben reutilizar esa carpeta, no fallar por existir.
             } else {
-                require(existing == null) { "Ya existe BARDO/$traversed." }
                 DocumentsContract.createDocument(
                     context.contentResolver,
                     parent,
