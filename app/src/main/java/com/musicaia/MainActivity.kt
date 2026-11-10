@@ -40,6 +40,7 @@ import com.musicaia.modelo.Orquestador
 import com.musicaia.modelo.BardoIntentRouter
 import com.musicaia.modelo.BardoCapabilityRegistry
 import com.musicaia.modelo.BardoResourceBudget
+import com.musicaia.modelo.BardoResourceCoordinator
 import com.musicaia.desarrollo.BardoGitHubCredentialStore
 import com.musicaia.memoria.BardoConversationStore
 import com.musicaia.memoria.BardoKnowledgeStore
@@ -3440,6 +3441,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
      tvEstado.text = "BARDO está preparando una respuesta con el modelo local..."
      Thread({
          val resultado = runCatching {
+             BardoResourceCoordinator.withTextModel {
              val conocimiento = (conocimientoAntiguo + "\n" + knowledgeStore.search(textoUsuario, 9000)).takeLast(12000)
              if (!modeloChatVerificado && !LiteRTLMModule.verificarModelo(modelo)) {
                  throw IllegalStateException("La verificación SHA-256 del modelo no coincide.")
@@ -3471,6 +3473,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
               }.substringAfter("</think>").trim()
                  .takeIf { it.isNotBlank() }
                  ?: throw IllegalStateException("El modelo local devolvió una respuesta vacía.")
+             }
          }
          resultado.exceptionOrNull()?.let {
              Log.e(etiqueta, "Falló el chat general local", it)

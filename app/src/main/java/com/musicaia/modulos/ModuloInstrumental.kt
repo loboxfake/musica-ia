@@ -88,7 +88,12 @@ class ModuloInstrumental(
         }
     }
 
-    override fun ejecutar(entrada: Dato): Dato {
+    override fun ejecutar(entrada: Dato): Dato =
+        com.musicaia.modelo.BardoResourceCoordinator.withAudioModel {
+            AudioGenNative.withGenerationSession { ejecutarConSesion(entrada) }
+        }
+
+    private fun ejecutarConSesion(entrada: Dato): Dato {
         if (!AudioGenNative.available) {
             throw IllegalStateException("El motor local de audio no está incluido en esta compilación.")
         }
@@ -137,7 +142,7 @@ class ModuloInstrumental(
                 val previousSection = sectionNames.getOrNull(index - 1)
                 val prompt = buildPrompt(section, lyrics, previousSection)
                 val segment = File(workDir, "segment_%02d.wav".format(index + 1))
-                val generated = AudioGenNative.generateNative(
+                val generated = AudioGenNative.generate(
                     modelDir.absolutePath,
                     prompt,
                     segment.absolutePath,
@@ -191,7 +196,7 @@ class ModuloInstrumental(
                 error
             )
         } finally {
-            runCatching { AudioGenNative.releaseNative() }
+            runCatching { AudioGenNative.releaseCachedModels() }
                 .onFailure { android.util.Log.e("BARDO-AudioGen", "No se pudieron liberar los modelos nativos de audio", it) }
             informeDiagnostico.writeText(diagnosticos.joinToString("\n") + "\n", Charsets.UTF_8)
             if (generacionCompleta) {

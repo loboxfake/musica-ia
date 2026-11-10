@@ -23,6 +23,7 @@ import com.musicaia.diagnostico.BardoSelfInventory
 import com.musicaia.modelo.BardoCapabilityRegistry
 import com.musicaia.modelo.BardoResourceBudget
 import com.musicaia.modulos.litert.EngineLiteRT
+import com.musicaia.modelo.BardoResourceCoordinator
 import com.musicaia.modulos.litert.LiteRTLMModule
 import com.musicaia.storage.BardoSharedStorage
 import com.musicaia.autonomia.BardoAutonomyEngine
@@ -168,11 +169,13 @@ class BardoDeveloperWorker(
                 35, model.absolutePath
             )
             setForeground(foregroundInfo("BARDO está cargando Gemma local…"))
+            BardoResourceCoordinator.withTextModel {
             check(EngineLiteRT.inicializar(
                 model.absolutePath,
                 File(applicationContext.cacheDir, "bardo-litert-cache").absolutePath
             )) { "LiteRT-LM no pudo inicializar el modelo local." }
             modelStarted = true
+            }
 
             BardoActivityStore.record(
                 applicationContext, taskId, "autoestudio", "running",

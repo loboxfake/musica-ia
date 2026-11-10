@@ -3,6 +3,7 @@ package com.musicaia.modelos
 import android.content.Context
 import com.musicaia.modelo.BardoCapabilityRegistry
 import com.musicaia.modelo.BardoResourceBudget
+import com.musicaia.modelo.BardoResourceCoordinator
 import com.musicaia.modulos.litert.EngineLiteRT
 import com.musicaia.modulos.litert.LiteRTLMModule
 import java.io.File
@@ -223,9 +224,10 @@ class BardoModelRegistry(providers: List<BardoModelProvider>) {
         require(candidates.isNotEmpty()) {
             "No hay un proveedor autorizado para la capacidad " + capability + "."
         }
-        val failures = mutableListOf<String>()
-        synchronized(executionLock) {
-            for (provider in candidates) {
+        return BardoResourceCoordinator.withTextModel {
+            val failures = mutableListOf<String>()
+            synchronized(executionLock) {
+                for (provider in candidates) {
                 try {
                     val availability = provider.inspect(context)
                     check(
@@ -235,7 +237,7 @@ class BardoModelRegistry(providers: List<BardoModelProvider>) {
                     check(provider.load(context)) {
                         "El proveedor " + provider.descriptor.id + " no pudo cargarse."
                     }
-                    return provider.generate(context, request)
+                    return@synchronized provider.generate(context, request)
                 } catch (error: OutOfMemoryError) {
                     throw error
                 } catch (error: Exception) {
@@ -245,9 +247,11 @@ class BardoModelRegistry(providers: List<BardoModelProvider>) {
                 }
             }
         }
-        throw IllegalStateException(
-            "Ningún proveedor pudo completar la petición. " + failures.joinToString("; ")
-        )
+                throw IllegalStateException(
+                    "Ningún proveedor pudo completar la petición. " + failures.joinToString("; ")
+                )
+            }
+        }
     }
 
     fun unloadAll() = synchronized(executionLock) {
