@@ -103,6 +103,14 @@ class BardoGemmaLiteRtProvider : BardoModelProvider {
         check(actualHash == LiteRTLMModule.EXPECTED_SHA256) {
             "El SHA-256 de Gemma no coincide. El archivo original se conserva sin borrarlo."
         }
+        // El cálculo del hash puede tardar; volver a medir justo antes de reservar memoria nativa.
+        val postHashResourceBlock = BardoResourceBudget.blockingReason(
+            context,
+            BardoCapabilityRegistry.MIN_GEMMA_FREE_MEMORY_BYTES
+        )
+        check(postHashResourceBlock == null) {
+            postHashResourceBlock ?: "Los recursos del dispositivo cambiaron durante la verificación."
+        }
         val cache = File(context.cacheDir, "bardo-litert-cache")
         check(EngineLiteRT.inicializar(model.absolutePath, cache.absolutePath)) {
             "LiteRT-LM no pudo cargar Gemma en el runtime."
@@ -131,6 +139,14 @@ class BardoGemmaLiteRtProvider : BardoModelProvider {
                 }
                 check(sha256(model) == LiteRTLMModule.EXPECTED_SHA256) {
                     "El SHA-256 de Gemma no coincide. El archivo original se conserva."
+                }
+                // Revalidación final: RAM, batería y temperatura pueden variar durante el hash.
+                val postHashResourceBlock = BardoResourceBudget.blockingReason(
+                    context,
+                    BardoCapabilityRegistry.MIN_GEMMA_FREE_MEMORY_BYTES
+                )
+                check(postHashResourceBlock == null) {
+                    postHashResourceBlock ?: "Los recursos del dispositivo cambiaron durante la verificación."
                 }
                 check(inicializar(
                     model.absolutePath,
