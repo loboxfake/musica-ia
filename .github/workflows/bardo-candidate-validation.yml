@@ -162,6 +162,20 @@ jobs:
           PY
           git diff --check
 
+      - name: Scan the exact candidate commit for secrets before validation
+        env:
+          CANDIDATE_ID: ${{ inputs.candidate_id }}
+        run: |
+          set -euo pipefail
+          mapfile -t changed < candidate-validation-changed-files.txt
+          git config user.name "BARDO Candidate Validation"
+          git config user.email "bardo-candidate-validation@users.noreply.github.com"
+          git add -- "${changed[@]}"
+          git diff --cached --check
+          git commit -m "BARDO isolated candidate validation $CANDIDATE_ID"
+          go install github.com/zricethezav/gitleaks/v8@v8.24.3
+          "$(go env GOPATH)/bin/gitleaks" git . --log-opts="--all" --redact --exit-code 1 --no-banner
+
       - name: Run unit tests and compile candidate debug APK
         run: |
           set -euo pipefail
