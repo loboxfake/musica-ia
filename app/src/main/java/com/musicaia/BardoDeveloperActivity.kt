@@ -226,7 +226,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
 
         val dialog = AlertDialog.Builder(this)
             .setTitle("Presupuesto de autoestudio")
-            .setMessage("Los límites se aplican a cada tarea nueva. Si se alcanza un límite, BARDO conserva el resultado parcial y detiene esa ejecución. Los cambios no interrumpen una tarea que ya esté en marcha.")
+            .setMessage("Los límites se aplican a cada tarea nueva. El tiempo se comprueba entre pasos: no puede interrumpir una herramienta bloqueada mientras se ejecuta. Al alcanzar un límite, BARDO conserva el resultado parcial y detiene la tarea en el siguiente punto de control. Los cambios no interrumpen una tarea que ya esté en marcha.")
             .setView(container)
             .setNegativeButton("Cancelar", null)
             .setPositiveButton("Guardar", null)
