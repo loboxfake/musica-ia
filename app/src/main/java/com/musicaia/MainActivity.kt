@@ -831,14 +831,38 @@ class MainActivity : AppCompatActivity() {
          ?: throw IllegalStateException("No se pudo crear la carpeta $nombre.")
  }
 
-  private fun guardarArchivoEnRaizCarpetaBardo(origen: File, nombre: String, mimeType: String) {
-     val receipt = BardoSharedStorage.exportGeneratedFile(
-         applicationContext, "", origen, nombre, mimeType
+  private fun exportarArchivoVerificadoBardo(
+     origen: File, categoria: String, nombre: String, mimeType: String
+ ) {
+     val taskId = java.util.UUID.randomUUID().toString()
+     BardoActivityStore.record(
+         applicationContext, taskId, "exportacion_archivo", "running",
+         "escritura_saf", "Guardando $nombre en Descargas/BARDO/$categoria y verificando la copia.", 10
      )
-     Log.i(
-         etiqueta,
-         "Exportación SAF verificada: ${receipt.relativePath} · ${receipt.bytes} bytes · SHA-256 ${receipt.sha256}"
-     )
+     try {
+         val receipt = BardoSharedStorage.exportGeneratedFile(
+             applicationContext, categoria, origen, nombre, mimeType
+         )
+         BardoActivityStore.record(
+             applicationContext, taskId, "exportacion_archivo", "completed",
+             "lectura_sha256", "Archivo guardado y verificado: ${receipt.bytes} bytes; SHA-256 ${receipt.sha256}.",
+             100, receipt.relativePath
+         )
+         Log.i(
+             etiqueta,
+             "Exportación SAF verificada: ${receipt.relativePath} · ${receipt.bytes} bytes · SHA-256 ${receipt.sha256}"
+         )
+     } catch (error: Throwable) {
+         BardoActivityStore.record(
+             applicationContext, taskId, "exportacion_archivo", "failed",
+             "escritura_verificacion", error.message ?: error.javaClass.simpleName, null, nombre
+         )
+         throw error
+     }
+ }
+
+ private fun guardarArchivoEnRaizCarpetaBardo(origen: File, nombre: String, mimeType: String) {
+     exportarArchivoVerificadoBardo(origen, "", nombre, mimeType)
  }
 
 private fun crearEstructuraCarpetaBardo() {
@@ -848,13 +872,7 @@ private fun crearEstructuraCarpetaBardo() {
  }
 
  private fun guardarArchivoEnCarpetaBardo(origen: File, categoria: String, nombre: String, mimeType: String) {
-     val receipt = BardoSharedStorage.exportGeneratedFile(
-         applicationContext, categoria, origen, nombre, mimeType
-     )
-     Log.i(
-         etiqueta,
-         "Exportación SAF verificada: ${receipt.relativePath} · ${receipt.bytes} bytes · SHA-256 ${receipt.sha256}"
-     )
+     exportarArchivoVerificadoBardo(origen, categoria, nombre, mimeType)
  }
 
  private fun requiereCarpetaLocalBardo(onConnected: (() -> Unit)? = null): Boolean {
