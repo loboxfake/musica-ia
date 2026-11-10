@@ -263,14 +263,14 @@ class BardoGitHubActionsClient(private val token: String) {
         require(explicitlyApprovedByUser) {
             "La integración a main requiere una aprobación explícita en la interfaz."
         }
+        BardoGitHubPolicy.validateBaseSha(baseSha)
+        BardoGitHubPolicy.validateCandidateId(candidateId)
+        require(packedPatch.length in 1..BardoGitHubPolicy.MAX_PACKED_PATCH_CHARS)
         require(validationRunId > 0L) { "Falta la ejecución de validación aislada." }
         val validation = getRun(validationRunId)
         check(validation.succeeded && validation.headSha.equals(baseSha, ignoreCase = true)) {
             "La validación aislada no terminó en SUCCESS para el SHA base de este candidato."
         }
-        BardoGitHubPolicy.validateBaseSha(baseSha)
-        BardoGitHubPolicy.validateCandidateId(candidateId)
-        require(packedPatch.length in 1..BardoGitHubPolicy.MAX_PACKED_PATCH_CHARS)
         val inputs = JSONObject()
             .put("candidate_id", candidateId)
             .put("base_sha", baseSha)
