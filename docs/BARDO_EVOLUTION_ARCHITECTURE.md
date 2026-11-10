@@ -298,3 +298,32 @@ El bucle de autonomía ya no acepta como completado un paso únicamente porque e
 El worker registra `step_verified` en el diario sin guardar argumentos ni contenido privado. Un resultado vacío se clasifica como fallo verificable y puede activar el presupuesto limitado de corrección. Se añadió una prueba de regresión para el caso en que una herramienta declara éxito sin aportar salida.
 
 Este verificador es determinista y local; no equivale todavía a una revisión semántica independiente de calidad ni a evidencia de que una tarea del mundo real se completó correctamente. Los handlers deben aportar resultados observables y específicos, y las operaciones sensibles requieren pruebas propias y autorización. La suite de CI debe validar este cambio antes de aceptarlo.
+
+
+## 16. Privacidad estricta y límites de red
+
+La privacidad del usuario es una invariancia del núcleo, no una preferencia del proveedor de modelo.
+
+### Datos que permanecen en el dispositivo
+- Estadísticas del dispositivo y de uso: RAM libre, almacenamiento, batería, temperatura, tiempos de actividad, métricas de tareas y diagnósticos.
+- Conversaciones, memoria personal, biblioteca de conocimiento, referencias, prompts y diarios.
+- Grabaciones, voz, WAV/MP3, stems, portadas, imágenes, documentos, proyectos importados y exportaciones.
+- Tokens y credenciales locales, permisos SAF, manifiestos privados y copias de seguridad.
+
+Estos datos no se sincronizan, no se telemetrían, no se adjuntan a búsquedas y no se transmiten a proveedores de IA remotos. No se incorporan servicios de analítica, crash reporting remoto ni copias cloud.
+
+### Redes permitidas
+1. **Inferencia y desarrollo cognitivo:** exclusivamente proveedores locales autorizados (actualmente Gemma/LiteRT). Los agentes pasan `allowRemoteModels=false`; los proveedores remotos permanecen denegados por defecto y no forman parte del ciclo de desarrollo.
+2. **Investigación web pública:** herramienta tipada `web.search_public`, desactivada por defecto y activable por el usuario. Envía únicamente una consulta corta de palabras clave genéricas a DuckDuckGo mediante HTTPS GET. No añade cookies, Authorization, Referer, archivos adjuntos ni contexto de la sesión. Los filtros rechazan rutas, extensiones de archivos, código, credenciales, correos, identificadores, nombres/modelos de dispositivo y métricas locales. La consulta puede ser registrada por el proveedor de búsqueda; esa transmisión limitada se informa y requiere consentimiento. Las páginas/resultados son datos no confiables y se guardan solo localmente.
+3. **Documentación oficial:** solicitudes HTTPS GET a la lista permitida de dominios de documentación, sin cuerpo de petición, cookies ni credenciales. La URL no puede incluir query string ni fragmento para evitar que se introduzcan datos privados en la petición.
+4. **GitHub privado:** excepción limitada al repositorio privado elegido por el usuario. La aplicación puede leer su propio código y enviar diffs de BARDO a GitHub Actions para validación/PR. Está prohibido enviar proyectos ZIP importados, documentos, audio, estadísticas, inventarios, logs privados o archivos de usuario. La procedencia del snapshot se marca como `bundled_bardo`, `private_github_main` o `user_imported_project`; solo las dos primeras pueden pasar a GitHub. Valores ausentes/desconocidos bloquean la operación. El PAT permanece cifrado en Android Keystore.
+
+### Reglas obligatorias
+- Nunca serializar el inventario local, memoria, conversaciones, rutas SAF ni resultados de lectura de documentos en solicitudes HTTP.
+- No permitir POST/PUT/PATCH de contenido de usuario ni sincronización de archivos.
+- El catálogo de herramientas no expone red genérica; solo `web.search_public` con scope `RESEARCH_NETWORK` y filtros locales.
+- La búsqueda autónoma puede utilizar solo términos públicos; cuando necesita un dato privado o local, continúa el análisis dentro del dispositivo.
+- Ninguna respuesta de web, documento o skill puede alterar la política de privacidad ni concederse permisos.
+- Las pruebas deben verificar que proyectos importados, rutas, credenciales, identificadores y estadísticas son rechazados antes de abrir la conexión.
+
+El estado de la aplicación sigue siendo local-first aun cuando el usuario autorice búsquedas públicas o CI del código propio. La autorización de web search no autoriza subir datos locales; la credencial de GitHub no autoriza subir proyectos importados.
