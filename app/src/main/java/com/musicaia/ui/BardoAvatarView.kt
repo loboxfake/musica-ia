@@ -22,7 +22,7 @@ enum class BardoAvatarState(
     internal val pulseDurationMs: Long
 ) {
     IDLE("En reposo", false, 0f, 0f, 0L),
-    LISTENING("Escuchando", true, 0.008f, 0.45f, 1900L),
+    LISTENING("Recibiendo texto", true, 0.008f, 0.45f, 1900L),
     READING("Leyendo", true, 0.010f, 0.20f, 2100L),
     STUDYING("Estudiando", true, 0.014f, 0.30f, 1750L),
     THINKING("Pensando", true, 0.012f, 0.65f, 2300L),
