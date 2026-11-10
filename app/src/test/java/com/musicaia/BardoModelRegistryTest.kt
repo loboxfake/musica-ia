@@ -54,7 +54,7 @@ class BardoModelRegistryTest {
         ))
         val registry = BardoModelRegistry(listOf(provider))
         val response = registry.generate(
-            object : android.test.mock.MockContext() {},
+            android.content.ContextWrapper(null),
             "chat",
             BardoModelRequest("responde")
         )
