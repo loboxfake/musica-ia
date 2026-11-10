@@ -60,6 +60,7 @@ import org.json.JSONObject
 import org.json.JSONArray
 import com.musicaia.modulos.ModuloMezcla
 import com.musicaia.modulos.AudioGenNative
+import com.musicaia.modulos.BardoWavHeaderValidator
 import com.musicaia.modulos.Mp3Exporter
 import com.musicaia.modulos.ModuloInstrumental
 import com.musicaia.modulos.litert.EngineLiteRT
