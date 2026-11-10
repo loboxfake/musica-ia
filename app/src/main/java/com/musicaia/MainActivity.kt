@@ -533,7 +533,7 @@ class MainActivity : AppCompatActivity() {
  findViewById<Button>(R.id.btnActualizarBiblioteca).setOnClickListener { actualizarBiblioteca() }
  findViewById<Button>(R.id.btnBibliotecaReproducir).setOnClickListener { reproducirUltimoDeBiblioteca() }
  findViewById<Button>(R.id.btnBibliotecaGestionar).setOnClickListener { abrirGestorBiblioteca() }
- findViewById<Button>(R.id.btnBibliotecaImportar).setOnClickListener { selectorImportarAudioBiblioteca.launch(arrayOf("audio/mpeg", "audio/wav")) }
+ findViewById<Button>(R.id.btnBibliotecaImportar).setOnClickListener { selectorImportarAudioBiblioteca.launch(arrayOf("audio/*", "application/octet-stream")) }
  findViewById<Button>(R.id.btnMasterizarWav).setOnClickListener {
      selectorMasterizarWav.launch(arrayOf("audio/wav", "audio/x-wav", "audio/*"))
  }
@@ -4597,6 +4597,10 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                  }
              } ?: throw IllegalStateException("No se pudo abrir el archivo de audio.")
              require(destino.isFile && destino.length() > 128L) { "El audio está vacío o incompleto." }
+             if (extension == "wav") {
+                 val header = BardoWavHeaderValidator.inspect(destino)
+                 require(header.dataBytes > 0L) { "El WAV no contiene muestras PCM." }
+             }
              destino
          }
          runOnUiThread {
@@ -4674,12 +4678,40 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                  gravity = Gravity.CENTER_VERTICAL
                  setPadding(0, 5, 0, 5)
              }
+             val infoPista = LinearLayout(this).apply {
+                 orientation = LinearLayout.VERTICAL
+                 gravity = Gravity.CENTER_VERTICAL
+             }
              val titulo = TextView(this).apply {
                  text = archivo.nameWithoutExtension
                  setTextColor(android.graphics.Color.WHITE)
                  textSize = 12f
                  maxLines = 2
              }
+             val detallePista = TextView(this).apply {
+                 val duracion = runCatching {
+                     MediaMetadataRetriever().let { retriever ->
+                         try {
+                             retriever.setDataSource(archivo.absolutePath)
+                             retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+                                 ?.toLongOrNull()?.takeIf { it > 0L }?.let { formatearTiempo(it) }
+                         } finally {
+                             retriever.release()
+                         }
+                     }
+                 }.getOrNull()
+                 val mb = archivo.length() / (1024.0 * 1024.0)
+                 text = listOfNotNull(
+                     archivo.extension.uppercase(),
+                     duracion,
+                     "%.1f MB".format(mb)
+                 ).joinToString(" · ")
+                 setTextColor(android.graphics.Color.LTGRAY)
+                 textSize = 10f
+                 maxLines = 1
+             }
+             infoPista.addView(titulo)
+             infoPista.addView(detallePista)
              val favorito = CheckBox(this).apply {
                  text = "★"
                  isChecked = archivo.absolutePath in favoritos
@@ -4710,7 +4742,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                  isAllCaps = false
                  setOnClickListener { agregarArchivoAPlaylist(archivo) }
              }
-             fila.addView(titulo, LinearLayout.LayoutParams(0, -2, 1f))
+             fila.addView(infoPista, LinearLayout.LayoutParams(0, -2, 1f))
              fila.addView(favorito)
              fila.addView(reproducirPista)
              fila.addView(agregar)
@@ -4737,8 +4769,11 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
      val todos = directorioBiblioteca().listFiles { file ->
          file.isFile && file.extension.lowercase() in setOf("mp3", "wav")
      }?.sortedByDescending { it.lastModified() }.orEmpty()
-     val mp3s = todos.filter { it.extension.equals("mp3", ignoreCase = true) }
-     val archivos = (if (mp3s.isNotEmpty()) mp3s else todos).distinctBy { it.nameWithoutExtension }
+     val archivos = todos
+         .groupBy { it.nameWithoutExtension.lowercase(java.util.Locale.ROOT) }
+         .values
+         .map { grupo -> grupo.firstOrNull { it.extension.equals("mp3", ignoreCase = true) } ?: grupo.maxBy { it.lastModified() } }
+         .sortedByDescending { it.lastModified() }
      if (archivos.isEmpty()) {
          vista.text = "Todavía no hay creaciones guardadas. Cuando generes un instrumental, aparecerá aquí."
          reproducirUltimo.visibility = View.GONE
