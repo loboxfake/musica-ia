@@ -1146,7 +1146,16 @@ class BardoDeveloperActivity : AppCompatActivity() {
         var current = URL(address)
         val permitidos = setOf("developer.android.com", "kotlinlang.org", "docs.gradle.org", "ai.google.dev", "github.com", "docs.github.com", "raw.githubusercontent.com", "pytorch.org", "executorch.ai")
         repeat(4) { attempt ->
-            require(current.protocol == "https" && current.host.lowercase() in permitidos) { "Dominio no incluido en la lista de documentación oficial permitida." }
+            require(
+                current.protocol == "https" &&
+                    current.host.lowercase() in permitidos &&
+                    current.userInfo == null &&
+                    current.query == null &&
+                    current.ref == null &&
+                    (current.port == -1 || current.port == 443)
+            ) {
+                "La documentación debe usar HTTPS en un dominio permitido y no puede incluir parámetros, fragmentos ni credenciales en la URL."
+            }
             val connection = (current.openConnection() as HttpURLConnection).apply {
                 connectTimeout = 12000; readTimeout = 15000; instanceFollowRedirects = false
                 setRequestProperty("User-Agent", "BARDO-Developer/1.0")
