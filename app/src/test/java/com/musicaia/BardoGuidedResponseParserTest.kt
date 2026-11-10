@@ -60,7 +60,7 @@ class BardoGuidedResponseParserTest {
     }
 
     @Test fun preservesConversationReplyWhenNoCreativeFieldsAreReturned() {
-        val json = """{\"reply\":\"La armonía menor aporta un carácter introspectivo.\"}"""
+        val json = """{"reply":"La armonía menor aporta un carácter introspectivo."}"""
         val parsed = BardoGuidedResponseParser.parse(json, "Explícame la armonía menor", emptyMap())!!
         assertTrue(parsed.updates.isEmpty())
         assertEquals("La armonía menor aporta un carácter introspectivo.", parsed.reply)
