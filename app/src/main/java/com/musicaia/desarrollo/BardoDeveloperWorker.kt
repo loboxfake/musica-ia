@@ -25,6 +25,7 @@ import com.musicaia.modulos.litert.EngineLiteRT
 import com.musicaia.modulos.litert.LiteRTLMModule
 import com.musicaia.storage.BardoSharedStorage
 import com.musicaia.autonomia.BardoAutonomyEngine
+import com.musicaia.autonomia.toActivityState
 import com.musicaia.autonomia.BardoGemmaTaskPlanner
 import com.musicaia.autonomia.BardoTaskJournal
 import com.musicaia.evaluacion.BardoLocalCandidateAuditInput
@@ -189,9 +190,13 @@ class BardoDeveloperWorker(
                     "Bucle autónomo no completado: ${error.message ?: error.javaClass.simpleName}"
                 }
             )
+            val autonomyActivityState = autonomyResult.fold(
+                onSuccess = { it.status.toActivityState() },
+                onFailure = { "partial" }
+            )
             BardoActivityStore.record(
                 applicationContext, taskId, "autoestudio",
-                if (autonomyResult.isSuccess) "completed" else "partial",
+                autonomyActivityState,
                 "bucle_autonomo", autonomySummary, 52
             )
             val skillRecords = skillRuntime.manager.list()
