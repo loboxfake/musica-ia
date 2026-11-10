@@ -101,6 +101,7 @@ class BardoDeveloperWorker(
                 prefs.edit()
                     .putString("snapshot_path", snapshot.absolutePath)
                     .putString("source_snapshot_path", snapshot.absolutePath)
+                    .putString(BardoSnapshotOriginPolicy.PREF_KEY, BardoSnapshotOriginPolicy.BUNDLED_BARDO)
                     .apply()
             } else if (snapshot.name.startsWith("snapshot-")) {
                 prefs.edit().putString("source_snapshot_path", snapshot.absolutePath).apply()
@@ -396,6 +397,11 @@ a pasar validación en otro runner.
                 )
 
                 val githubEligibility = runCatching {
+                    check(BardoSnapshotOriginPolicy.allowsPrivateRepositoryCi(
+                        prefs.getString(BardoSnapshotOriginPolicy.PREF_KEY, null)
+                    )) {
+                        "Proyecto importado: se conserva el análisis local, pero el envío a GitHub está prohibido por privacidad."
+                    }
                     BardoGitHubPolicy.validateBaseSha(sourceCommit)
                     BardoGitHubPolicy.validateCandidateId(candidateId)
                     BardoGitHubPolicy.validatePatch(patch)
