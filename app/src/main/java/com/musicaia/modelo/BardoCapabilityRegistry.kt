@@ -18,8 +18,6 @@ object BardoCapabilityRegistry {
 
     data class RuntimeFacts(
         val gemmaFilePresent: Boolean,
-        val qwenFilePresent: Boolean = false,
-        val qwenResourceBlockReason: String? = null,
         val audioEnginePresent: Boolean,
         val mp3EncoderPresent: Boolean,
         val availableMemoryBytes: Long = Long.MAX_VALUE,
@@ -31,7 +29,9 @@ object BardoCapabilityRegistry {
         val imageResourceBlockReason: String? = null,
         val installedModelCount: Int = 0,
         val availableHelperCount: Int = 0,
-        val registeredModuleCount: Int = 0
+        val registeredModuleCount: Int = 0,
+        val qwenFilePresent: Boolean = false,
+        val qwenResourceBlockReason: String? = null
     )
 
     private fun gemmaStatus(facts: RuntimeFacts): Status = when {

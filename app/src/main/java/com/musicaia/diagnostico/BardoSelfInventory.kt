@@ -13,6 +13,7 @@ import com.musicaia.modulos.AudioGenNative
 import com.musicaia.modulos.BardoOfflineAsr
 import com.musicaia.modulos.Mp3Exporter
 import com.musicaia.modulos.litert.LiteRTLMModule
+import com.musicaia.modulos.litert.BardoQwen2LiteRtModule
 import com.musicaia.modulos.imagen.BardoBonsaiModelInstaller
 
 /**
@@ -71,8 +72,9 @@ object BardoSelfInventory {
     )
 
     private val helperSpecs = listOf(
-        HelperSpec("local_text_ai", "Asistente local Gemma / LiteRT-LM", listOf(
+        HelperSpec("local_text_ai", "Asistente local Gemma / Qwen2 · LiteRT-LM", listOf(
             "com.musicaia.modulos.litert.LiteRTLMModule",
+            "com.musicaia.modulos.litert.BardoQwen2LiteRtModule",
             "com.musicaia.modulos.litert.ConversacionLiteRT"
         )),
         HelperSpec("orchestrator", "Orquestador e interpretación de intenciones", listOf(
@@ -95,7 +97,12 @@ object BardoSelfInventory {
         HelperSpec("model_registry", "Registro de proveedores de modelos sustituibles", listOf(
             "com.musicaia.modelos.BardoModelProvider",
             "com.musicaia.modelos.BardoModelRegistry",
-            "com.musicaia.modelos.BardoGemmaLiteRtProvider"
+            "com.musicaia.modelos.BardoGemmaLiteRtProvider",
+            "com.musicaia.modelos.BardoQwen2LiteRtProvider"
+        )),
+        HelperSpec("resource_manager", "Gestor de RAM y exclusión de motores pesados", listOf(
+            "com.musicaia.modelo.BardoResourceCoordinator",
+            "com.musicaia.modelo.BardoResourceBudget"
         )),
         HelperSpec("skill_manager", "Gestión segura de skills declarativas", listOf(
             "com.musicaia.skills.BardoSkillManifestValidator",
@@ -163,6 +170,12 @@ object BardoSelfInventory {
         val stat = StatFs(app.filesDir.absolutePath)
         val gemma = LiteRTLMModule.modelFile(app)
         val gemmaPresent = gemma.isFile && gemma.length() == LiteRTLMModule.EXPECTED_SIZE_BYTES
+        val qwen = BardoQwen2LiteRtModule.modelFile(app)
+        val qwenPresent = qwen.isFile && qwen.length() == BardoQwen2LiteRtModule.EXPECTED_SIZE_BYTES
+        val qwenResourceBlock = BardoResourceBudget.blockingReason(
+            resources,
+            BardoCapabilityRegistry.MIN_QWEN_FREE_MEMORY_BYTES
+        )
 
         val audioAssets = app.assets.list("audio_model")?.toSet().orEmpty()
         val audioAssetsPresent = expectedAudioAssets.all { it in audioAssets }
@@ -186,8 +199,14 @@ object BardoSelfInventory {
                     !gemmaPresent -> "El archivo existe, pero su tamaño no coincide con el modelo fijado (" + LiteRTLMModule.EXPECTED_SIZE_BYTES + " bytes). No se declara instalado."
                     else -> "Archivo y tamaño correctos en almacenamiento privado. SHA-256 esperado: " + LiteRTLMModule.EXPECTED_SHA256 + ". El inventario no recalcula 2,6 GB; la carga/autoestudio debe validar la huella antes de inferir."
                 }, if (gemma.isFile) gemma.length() else 0L),
+            ModelEntry("qwen2_0_5b", "Qwen2-0.5B-Instruct · asistente local ligero", qwenPresent,
+                when {
+                    !qwen.isFile -> "No instalado. Descarga opcional de 647.377.840 bytes, licencia Apache-2.0; después funciona sin conexión. Umbral preventivo de RAM: 1,6 GiB."
+                    !qwenPresent -> "El archivo existe, pero el tamaño no coincide con el manifiesto fijado. No se cargará."
+                    else -> "Archivo y tamaño correctos. SHA-256 se verifica antes de cada carga: " + BardoQwen2LiteRtModule.EXPECTED_SHA256 + ". Umbral RAM 1,6 GiB; prueba real en Xiaomi pendiente."
+                }, if (qwen.isFile) qwen.length() else 0L),
             ModelEntry("stable_audio", "Stable Audio Open Small · modelo instrumental", audioReady,
-                if (audioReady) "Los cuatro artefactos PTE/tokenizer están incluidos en assets/audio_model y libaudiogen se ha cargado. El éxito de inferencia y la calidad WAV aún requieren prueba real."
+                if (audioReady) "Los cuatro artefactos PTE/tokenizer están incluidos en assets/audio_model y libaudiogen se ha cargado. En Xiaomi 11T Pro, BARDO 1.0.1366 generó un segmento en modo avión y el resultado se reprodujo desde Archivo; revalidación tras cambios del motor nativo y prueba de canciones largas/calidad pendientes."
                 else "Falta algún artefacto interno de audio o la biblioteca nativa no se pudo cargar.", 876_975_464L),
             ModelEntry("vosk_es", "Vosk small · español", spanishAsr,
                 if (spanishAsr) "Modelo descargado; estructura detectada en " + BardoOfflineAsr.modelDirectory(app, BardoOfflineAsr.Language.SPANISH).absolutePath + ". La prueba de transcripción real sigue pendiente."
@@ -210,17 +229,21 @@ object BardoSelfInventory {
             val present = spec.classes.all { classPresent(app, it) }
             val detail = when {
                 !present -> "Falta al menos una clase requerida en esta APK."
-                spec.id == "local_text_ai" -> if (gemmaPresent) "Código integrado; Gemma tiene tamaño esperado. SHA/carga real pendientes."
-                    else "Código integrado; falta Gemma local verificado."
+                spec.id == "local_text_ai" -> when {
+                    gemmaPresent -> "Código integrado; Gemma tiene tamaño esperado. Qwen2 ligero también está registrado como alternativa; SHA/carga real se verifican antes de inferir."
+                    qwenPresent -> "Código integrado; Qwen2-0.5B presente como modelo ligero. SHA/carga real se verifican antes de inferir."
+                    else -> "Código integrado; falta instalar Gemma o Qwen2 local."
+                }
                 spec.id == "developer_agent" -> if (gemmaPresent) "Código integrado; autoestudio requiere Gemma cargable, snapshot, recursos y validación aislada."
                     else "Código integrado; necesita Gemma local y recursos suficientes."
                 spec.id == "autonomy_loop" -> "Bucle local integrado al autoestudio: Gemma planifica y las acciones pasan por herramientas locales tipadas. Investigación web pública disponible mediante web.search_public solo con aprobación exacta, de un solo uso y 120 s para cada consulta, con filtro que bloquea archivos, proyectos, rutas, credenciales e inventario privado; flota con proveedores locales adicionales todavía pendiente."
-                spec.id == "model_registry" -> "Contrato neutro de proveedor y registro local-first integrados; Gemma/LiteRT es el primer adaptador. No se declara una flota de modelos adicionales."
+                spec.id == "model_registry" -> "Registro local-first con proveedores Gemma y Qwen2 LiteRT; el enrutamiento usa umbrales de RAM y no permite proveedores remotos por defecto."
+                spec.id == "resource_manager" -> "Serializa los motores pesados de texto/audio, libera el runtime opuesto y limpia cargas parciales tras errores. Android conserva el control de la RAM global; BARDO no cierra otras aplicaciones."
                 spec.id == "skill_manager" -> "Cuarentena, integridad, instalación deshabilitada, activación aprobada, desactivación y rollback disponibles como API local; interfaz de catálogo/descarga pendiente."
                 spec.id == "authority" -> "Verificación ECDSA, scopes, nonce y revocación persistente integrados; emparejamiento de claves y transporte JARVIS-PC↔Android todavía pendientes."
                 spec.id == "github_agent" -> if (githubConfigured) "Código integrado; credencial local detectada. La operación exige aprobación humana."
                     else "Código integrado; falta configurar la credencial GitHub dentro de BARDO."
-                spec.id == "audio_generation" -> if (audioReady) "Código, artefactos y biblioteca nativa presentes; inferencia de audio aún por probar."
+                spec.id == "audio_generation" -> if (audioReady) "Código, artefactos y biblioteca nativa presentes; generación instrumental offline de un segmento y reproducción desde Archivo fueron verificadas físicamente en Xiaomi 11T Pro con BARDO 1.0.1366. Revalidación tras cambios recientes y canción larga/calidad pendientes."
                     else "Código integrado; falta artefacto o biblioteca nativa de audio."
                 spec.id == "mp3" -> if (mp3Ready) "Biblioteca nativa MP3 cargada; exportación real aún pendiente."
                     else "Código integrado; biblioteca MP3 no disponible en runtime."
@@ -248,7 +271,9 @@ object BardoSelfInventory {
             imageResourceBlockReason = BardoResourceBudget.blockingReason(resources, BardoCapabilityRegistry.MIN_IMAGE_GENERATION_FREE_MEMORY_BYTES),
             installedModelCount = models.count { it.installed },
             availableHelperCount = helpers.count { it.integrated },
-            registeredModuleCount = modules.size
+            registeredModuleCount = modules.size,
+            qwenFilePresent = qwenPresent,
+            qwenResourceBlockReason = qwenResourceBlock
         )
 
         val activityManager = app.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
