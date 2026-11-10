@@ -2,11 +2,7 @@ name: Export unified BARDO APK for verified download
 # Candidate 21 is pinned to immutable run 42716917671 / artifact 13719172906; do not retarget without a successful audited build.
 
 on:
-  push:
-    branches:
-      - bardo/integral-autonomy-20261109
-    paths:
-      - .github/workflows/bardo-unified-apk-chunk-export.yml
+  # Legacy export is retained for history but disabled; use main-only full build artifacts.
   workflow_dispatch:
 
 permissions:
@@ -19,7 +15,7 @@ concurrency:
 
 jobs:
   split-verified-apk:
-    if: github.ref == 'refs/heads/bardo/integral-autonomy-20261109'
+    if: ${{ false }}
     runs-on: ubuntu-22.04
     timeout-minutes: 90
     steps:
