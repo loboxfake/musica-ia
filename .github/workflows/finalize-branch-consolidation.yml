@@ -1,65 +1,17 @@
 name: DISABLED — legacy branch consolidation check
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - .github/workflows/finalize-branch-consolidation.yml
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  retire-legacy-refs:
-    # Historical refs are preserved as backups; this workflow must never remove or reject them.
-    if: ${{ false }}
+  main_only_policy:
     runs-on: ubuntu-22.04
-    timeout-minutes: 10
+    timeout-minutes: 2
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Verify consolidated history and protected Modo 3
-        env:
-          EXPECTED_MERGE: 28332da4b4706758600bd25f63bc2e67c840b377
-          EXPECTED_MODO3_BLOB: 8f2745fa841a06af43bf909732fba834474bf7dc
+      - name: Explain disabled legacy workflow
         run: |
-          set -euo pipefail
-          git merge-base --is-ancestor "$EXPECTED_MERGE" "$GITHUB_SHA"
-          actual_modo3=$(git rev-parse "$GITHUB_SHA:app/src/main/java/com/musicaia/modulos/Modo3MezclaVozUsuario.kt")
-          if [ "$actual_modo3" != "$EXPECTED_MODO3_BLOB" ]; then
-            echo "::error::Protected Modo 3 blob changed; refusing to remove any branch refs."
-            exit 1
-          fi
-          echo "Consolidated merge is an ancestor of main."
-          echo "Protected Modo 3 blob is unchanged: $actual_modo3"
-
-      - name: Verify legacy branch names are already retired
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          branches=$(gh api "repos/$GITHUB_REPOSITORY/branches?per_page=100" --jq '.[].name')
-          for branch in bardo-unified-core bardo-device-fixes bardo-worker-hardening base-verde ruta-a-compile; do
-            if printf '%s\\n' "$branches" | grep -Fxq "$branch"; then
-              echo "::error::Legacy branch $branch still exists. No branch is deleted automatically."
-              exit 1
-            fi
-            echo "Verified absent: $branch"
-          done
-
-      - name: Verify only canonical main remains
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          branches=$(gh api "repos/$GITHUB_REPOSITORY/branches?per_page=100" --jq '.[].name')
-          printf '%s\n' "$branches"
-          count=$(printf '%s\n' "$branches" | sed '/^$/d' | wc -l)
-          if [ "$count" -ne 1 ] || [ "$branches" != "main" ]; then
-            echo "::error::Expected exactly one branch named main after consolidation."
-            exit 1
-          fi
-          echo "BRANCH_CONSOLIDATION: PASS (main only)"
+          echo "Las ramas históricas se conservan como respaldo. No se borran ni se modifican automáticamente."
+          echo "No se han creado ramas, PR, commits ni cambios en main."
