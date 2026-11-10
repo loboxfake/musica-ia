@@ -71,5 +71,17 @@ class BardoLocalStorageDestinationPolicyTest {
                 "primary:Download/BARDO-OTHER/song.wav"
             )
         )
+        assertFalse(
+            BardoLocalStorageDestinationPolicy.isLocalBardoDestination(
+                "content", authority, tree, root,
+                "primary:Download/BARDO/../song.wav"
+            )
+        )
+        assertFalse(
+            BardoLocalStorageDestinationPolicy.isLocalBardoDestination(
+                "content", authority, tree, root,
+                "primary:Download/BARDO/Canciones//song.wav"
+            )
+        )
     }
 }
