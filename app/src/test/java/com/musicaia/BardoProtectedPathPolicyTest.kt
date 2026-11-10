@@ -57,11 +57,42 @@ class BardoProtectedPathPolicyTest {
     @Test fun protectsAuthorityModelsSkillsToolsAndEvaluatorPolicies() {
         val protected = listOf(
             "app/src/main/java/com/musicaia/seguridad/BardoAuthorityPolicy.kt",
+            "app/src/main/java/com/musicaia/actualizaciones/BardoIncrementalUpdateManifest.kt",
             "app/src/main/java/com/musicaia/seguridad/BardoAuthorityLedger.kt",
             "app/src/main/java/com/musicaia/modelos/BardoModelProvider.kt",
             "app/src/main/java/com/musicaia/skills/BardoSkillManifest.kt",
             "app/src/main/java/com/musicaia/herramientas/BardoToolExecutor.kt",
-            "app/src/main/java/com/musicaia/evaluacion/BardoIndependentEvaluator.kt"
+            "app/src/main/java/com/musicaia/evaluacion/BardoIndependentEvaluator.kt",
+            "app/src/main/java/com/musicaia/evaluacion/BardoLocalCandidateEvidenceCollector.kt",
+            "app/src/main/java/com/musicaia/evaluacion/BardoCiEvidenceAdapter.kt",
+            "app/src/main/java/com/musicaia/skills/BardoSkillActivationGate.kt",
+            "app/src/main/java/com/musicaia/storage/BardoExportSourcePolicy.kt"
+        )
+        protected.forEach { path ->
+            assertEquals(
+                BardoProtectedPathPolicy.PathClass.HUMAN_REVIEW_REQUIRED,
+                BardoProtectedPathPolicy.classify(path)
+            )
+        }
+    }
+
+    @Test fun protectsMobileStorageAndSkillLifecycleSecurityPaths() {
+        val protected = listOf(
+            "app/src/main/java/com/musicaia/storage/BardoMobileFilePolicy.kt",
+            "app/src/main/java/com/musicaia/storage/BardoSharedStorage.kt",
+            "app/src/main/java/com/musicaia/modelo/BardoModuleCatalog.kt",
+            "app/src/main/java/com/musicaia/modulos/DescargadorModelos.kt",
+            "app/src/main/java/com/musicaia/servicios/BardoTaskService.kt",
+            "app/src/main/java/com/musicaia/memoria/BardoActivityStore.kt",
+            "app/src/main/java/com/musicaia/memoria/BardoBackupManager.kt",
+            "app/src/main/java/com/musicaia/memoria/BardoKnowledgeStore.kt",
+            "app/src/main/java/com/musicaia/memoria/BardoConversationStore.kt",
+            "app/src/main/java/com/musicaia/skills/BardoSkillManager.kt",
+            "app/src/main/java/com/musicaia/skills/BardoSkillWorkflowExecutor.kt",
+            "app/src/main/java/com/musicaia/skills/BardoSkillMaintenancePlanner.kt",
+            "app/src/main/java/com/musicaia/skills/BardoSkillDraftBuilder.kt",
+            "app/src/main/java/com/musicaia/skills/BardoSkillDraftToolHandler.kt",
+            "app/src/main/java/com/musicaia/skills/BardoCoreSkillSmokeTestRunner.kt"
         )
         protected.forEach { path ->
             assertEquals(

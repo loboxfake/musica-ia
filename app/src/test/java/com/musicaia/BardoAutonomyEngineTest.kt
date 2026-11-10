@@ -45,6 +45,23 @@ class BardoAutonomyEngineTest {
         }
     }
 
+    @Test fun toolSuccessWithoutOutputEvidenceIsRejected() {
+        val root = createTempDir(prefix = "bardo-autonomy-empty-output")
+        try {
+            val planner = BardoTaskPlanner { _, _, _ ->
+                BardoActionPlan(listOf(BardoTaskStep(
+                    "test.echo", mapOf("value" to ""), "Require observable evidence"
+                )), 0)
+            }
+            val result = BardoAutonomyEngine(planner, tools(), BardoTaskJournal(root)).run("Verify output")
+            assertEquals(BardoAutonomyStatus.PARTIAL, result.status)
+            assertTrue(!result.observations.single().succeeded)
+            assertTrue(result.observations.single().error.orEmpty().contains("evidencia"))
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
     @Test fun failedCriterionInvokesOneCorrectionAndCanComplete() {
         val root = createTempDir(prefix = "bardo-autonomy-correction")
         try {

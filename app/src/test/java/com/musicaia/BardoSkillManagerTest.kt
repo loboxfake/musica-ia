@@ -2,6 +2,8 @@ package com.musicaia
 
 import com.musicaia.skills.BardoSkillLifecycle
 import com.musicaia.skills.BardoSkillManager
+import com.musicaia.skills.BardoSkillSmokeTestRunner
+import com.musicaia.skills.BardoSkillSmokeTestReport
 import com.musicaia.skills.BardoSkillManifest
 import com.musicaia.skills.BardoSkillPackageKind
 import com.musicaia.skills.BardoSkillPermission
@@ -38,9 +40,21 @@ class BardoSkillManagerTest {
         )
     )
 
-    private fun manager(root: File) = BardoSkillManager(root) {
-        BardoSkillManifestValidator.supportedActionIds()
-    }
+    private fun manager(
+        root: File,
+        runner: BardoSkillSmokeTestRunner? = BardoSkillSmokeTestRunner { _, _ ->
+            BardoSkillSmokeTestReport(
+                passed = true,
+                verifierId = "core-smoke-runner-v1",
+                evidenceRefs = listOf("test://skill/audio-mix/verified"),
+                note = "Las acciones registradas superaron el smoke-test."
+            )
+        }
+    ) = BardoSkillManager(
+        root,
+        registeredActionIds = { BardoSkillManifestValidator.supportedActionIds() },
+        smokeTestRunner = runner
+    )
 
     @Test fun importRequiresLicenseAndPreservesPackageInQuarantineBeforeInstall() {
         val root = createTempDir(prefix = "bardo-skill-import")
@@ -70,10 +84,14 @@ class BardoSkillManagerTest {
             assertEquals(BardoSkillLifecycle.INSTALLED_DISABLED, installed.record?.lifecycle)
 
             val permissions = manifest(bytes).permissions
-            assertFalse(manager.enable("skill.audio.helper", "1.0.0", true, permissions, false).succeeded)
-            val enabled = manager.enable("skill.audio.helper", "1.0.0", true, permissions, true)
-            assertTrue(enabled.succeeded)
+            val enabled = manager.enable("skill.audio.helper", "1.0.0", true, permissions)
+            assertTrue(enabled.message, enabled.succeeded)
             assertEquals(BardoSkillLifecycle.ENABLED, enabled.record?.lifecycle)
+            assertEquals("core-smoke-runner-v1", enabled.record?.lastTestVerifierId)
+            assertEquals(listOf("test://skill/audio-mix/verified"), enabled.record?.lastTestEvidenceRefs)
+            val restored = manager(root)
+            assertEquals(1, restored.enabled().size)
+            assertEquals("core-smoke-runner-v1", restored.enabled().single().lastTestVerifierId)
         } finally {
             root.deleteRecursively()
         }
@@ -88,7 +106,7 @@ class BardoSkillManagerTest {
             manager.importToQuarantine(manifest(bytes), source.inputStream(), true)
             manager.install("skill.audio.helper", "1.0.0", true)
             val permissions = manifest(bytes).permissions
-            manager.enable("skill.audio.helper", "1.0.0", true, permissions, true)
+            manager.enable("skill.audio.helper", "1.0.0", true, permissions)
             assertTrue(manager.disable("skill.audio.helper", "1.0.0").succeeded)
             assertTrue(manager.remove("skill.audio.helper", "1.0.0", true).succeeded)
             assertTrue(source.isFile)
@@ -121,5 +139,57 @@ class BardoSkillManagerTest {
         } finally {
             root.deleteRecursively()
         }
+    } 
+    @Test fun activationIsBlockedWhenNoTrustedSmokeRunnerIsConnected() {
+        val root = createTempDir(prefix = "bardo-skill-no-runner")
+        try {
+            val manager = manager(root, runner = null)
+            val bytes = "declarative-skill-v1".toByteArray()
+            manager.importToQuarantine(manifest(bytes), ByteArrayInputStream(bytes), true)
+            manager.install("skill.audio.helper", "1.0.0", true)
+
+            val result = manager.enable(
+                "skill.audio.helper", "1.0.0", true, manifest(bytes).permissions
+            )
+
+            assertFalse(result.succeeded)
+            assertTrue(result.message.contains("ejecutor de pruebas independiente"))
+            assertTrue(manager.enabled().isEmpty())
+        } finally {
+            root.deleteRecursively()
+        }
     }
+
+    @Test fun activationIsBlockedWhenRunnerFailsOrProvidesNoEvidence() {
+        val root = createTempDir(prefix = "bardo-skill-invalid-evidence")
+        try {
+            val failingRunner = BardoSkillSmokeTestRunner { _, _ ->
+                BardoSkillSmokeTestReport(false, "core-smoke-v1", listOf("test://failed"), "Falló.")
+            }
+            val manager = manager(root, failingRunner)
+            val bytes = "declarative-skill-v1".toByteArray()
+            manager.importToQuarantine(manifest(bytes), ByteArrayInputStream(bytes), true)
+            manager.install("skill.audio.helper", "1.0.0", true)
+            val failed = manager.enable("skill.audio.helper", "1.0.0", true, manifest(bytes).permissions)
+            assertFalse(failed.succeeded)
+
+            val noEvidenceRoot = createTempDir(prefix = "bardo-skill-missing-evidence")
+            try {
+                val noEvidenceRunner = BardoSkillSmokeTestRunner { _, _ ->
+                    BardoSkillSmokeTestReport(true, "core-smoke-v1", emptyList(), "No hay evidencia.")
+                }
+                val second = manager(noEvidenceRoot, noEvidenceRunner)
+                second.importToQuarantine(manifest(bytes), ByteArrayInputStream(bytes), true)
+                second.install("skill.audio.helper", "1.0.0", true)
+                val result = second.enable("skill.audio.helper", "1.0.0", true, manifest(bytes).permissions)
+                assertFalse(result.succeeded)
+                assertTrue(second.enabled().isEmpty())
+            } finally {
+                noEvidenceRoot.deleteRecursively()
+            }
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
 }

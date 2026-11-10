@@ -8,26 +8,29 @@ import android.widget.ImageView
 import com.musicaia.R
 
 /**
- * El avatar ES el icono oficial completo de BARDO.
+ * El avatar conserva el artwork oficial de BARDO sin redibujarlo ni añadirle
+ * marcos u ornamentos. La animación comunica el estado real del asistente:
+ * escucha, lectura, estudio, razonamiento, respuesta o espera.
  *
- * No dibuja marcos, puntos, fondos ni ornamentos nuevos. La actividad solo
- * cambia el texto accesible y aplica un pulso de escala casi imperceptible
- * al artwork original. En reposo el icono permanece completamente estático.
+ * En reposo y con las animaciones del sistema desactivadas permanece estático.
  */
 enum class BardoAvatarState(
     val label: String,
-    val animated: Boolean
+    val animated: Boolean,
+    internal val pulseScale: Float,
+    internal val pulseRotation: Float,
+    internal val pulseDurationMs: Long
 ) {
-    IDLE("En reposo", false),
-    LISTENING("Recibiendo texto", true),
-    READING("Leyendo", true),
-    STUDYING("Estudiando", true),
-    THINKING("Pensando", true),
-    RESPONDING("Respondiendo", true),
-    GENERATING("Creando", true),
-    WAITING("En espera", true),
-    SUCCESS("Completado", false),
-    ERROR("Atención", false)
+    IDLE("En reposo", false, 0f, 0f, 0L),
+    LISTENING("Recibiendo texto", true, 0.008f, 0.45f, 1900L),
+    READING("Leyendo", true, 0.010f, 0.20f, 2100L),
+    STUDYING("Estudiando", true, 0.014f, 0.30f, 1750L),
+    THINKING("Pensando", true, 0.012f, 0.65f, 2300L),
+    RESPONDING("Respondiendo", true, 0.020f, 0.15f, 1050L),
+    GENERATING("Creando", true, 0.022f, 0.10f, 950L),
+    WAITING("En espera", true, 0.006f, 0f, 2800L),
+    SUCCESS("Completado", false, 0f, 0f, 0L),
+    ERROR("Atención", false, 0f, 0f, 0L)
 }
 
 class BardoAvatarView @JvmOverloads constructor(
@@ -58,17 +61,7 @@ class BardoAvatarView @JvmOverloads constructor(
         currentState = next
         contentDescription = "Icono original de BARDO · ${next.label}"
         animate().cancel()
-
-        if (next.animated) {
-            syncPulse()
-        } else {
-            stopPulse()
-            animate()
-                .scaleX(1f)
-                .scaleY(1f)
-                .setDuration(160L)
-                .start()
-        }
+        syncPulse()
     }
 
     override fun onAttachedToWindow() {
@@ -103,14 +96,17 @@ class BardoAvatarView @JvmOverloads constructor(
 
     private fun startPulse() {
         if (pulseAnimator?.isStarted == true) return
-        pulseAnimator = ValueAnimator.ofFloat(1f, 1.018f).apply {
-            duration = 1450L
+        val state = currentState
+        pulseAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = state.pulseDurationMs
             repeatCount = ValueAnimator.INFINITE
             repeatMode = ValueAnimator.REVERSE
             addUpdateListener { animator ->
-                val scale = animator.animatedValue as Float
-                scaleX = scale
-                scaleY = scale
+                if (currentState != state) return@addUpdateListener
+                val progress = animator.animatedValue as Float
+                scaleX = 1f + state.pulseScale * progress
+                scaleY = 1f + state.pulseScale * progress
+                rotation = (progress * 2f - 1f) * state.pulseRotation
             }
             start()
         }
@@ -122,5 +118,8 @@ class BardoAvatarView @JvmOverloads constructor(
         animate().cancel()
         scaleX = 1f
         scaleY = 1f
+        rotation = 0f
+        translationX = 0f
+        alpha = 1f
     }
 }

@@ -38,9 +38,35 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.musicaia.desarrollo.BardoDeveloperWorker
 import com.musicaia.desarrollo.BardoGitHubPolicy
+import com.musicaia.desarrollo.BardoSnapshotOriginPolicy
+import com.musicaia.storage.BardoSharedStorage
+import com.musicaia.evaluacion.BardoLocalCandidateAuditInput
+import com.musicaia.evaluacion.BardoLocalCandidateEvidenceCollector
+import com.musicaia.herramientas.BardoCoreToolCatalog
+import com.musicaia.herramientas.BardoToolExecutor
+import com.musicaia.herramientas.BardoToolRequest
+import com.musicaia.seguridad.BardoPrincipal
+import com.musicaia.skills.BardoSkillRuntimeFactory
+import com.musicaia.skills.BardoSkillMaintenancePlanner
+import com.musicaia.skills.BardoSkillMaintenanceFinding
+import com.musicaia.skills.BardoSkillMaintenanceAction
+import com.musicaia.skills.BardoSkillManager
+import com.musicaia.skills.BardoSkillRecord
+import com.musicaia.skills.BardoSkillLifecycle
+import com.musicaia.skills.BardoSkillArchiveReader
+import com.musicaia.skills.BardoSkillActivationGate
+import com.musicaia.investigacion.BardoPublicWebSearchPolicy
 
 /** Entorno local de investigación y auditoría. Nunca ejecuta código importado ni modifica el APK instalado. */
 class BardoDeveloperActivity : AppCompatActivity() {
+    private data class CandidatePreparation(
+        val applied: BardoPatchApplier.Result,
+        val sourceCommit: String,
+        val candidateId: String,
+        val localAuditPassed: Boolean,
+        val localAuditDetails: String
+    )
+
     private lateinit var output: TextView
     private lateinit var urlInput: EditText
     private lateinit var btnAnalyze: Button
@@ -75,15 +101,21 @@ class BardoDeveloperActivity : AppCompatActivity() {
     private val importProject = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) importarProyecto(uri)
     }
-    private val exportFile = registerForActivityResult(ActivityResultContracts.CreateDocument("text/markdown")) { uri: Uri? ->
-        if (uri != null) exportar(uri)
+    private val importSkillArchive = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri != null) importarPaqueteSkill(uri)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         workspace.mkdirs()
-        snapshot = getSharedPreferences("bardo_developer", MODE_PRIVATE)
-            .getString("snapshot_path", null)?.let { File(it) }?.takeIf { it.isDirectory }
+        val developerPrefs = getSharedPreferences("bardo_developer", MODE_PRIVATE)
+        snapshot = developerPrefs.getString("source_snapshot_path", null)
+            ?.takeIf { it.isNotBlank() }
+            ?.let { File(it) }
+            ?.takeIf { it.isDirectory && it.name.startsWith("snapshot-") }
+            ?: developerPrefs.getString("snapshot_path", null)
+                ?.let { File(it) }
+                ?.takeIf { it.isDirectory && it.name.startsWith("snapshot-") }
         construirInterfaz()
         val savedReport = runCatching { reportFile.readText() }.getOrDefault("")
         val responseMarker = listOf("## Respuesta del modelo\n\n", "## RESPUESTA AUTOESTUDIO\n\n")
@@ -116,13 +148,15 @@ class BardoDeveloperActivity : AppCompatActivity() {
             textSize = 13f; setTextColor(blanco); setPadding(0, 0, 0, 12)
         })
         root.addView(TextView(this).apply {
-            text = "SEGURIDAD: el código importado se analiza como texto. BARDO no lo ejecuta, no modifica el APK instalado y no publica cambios automáticamente."
+            text = "PRIVACIDAD: los proyectos ZIP que importes se analizan y trabajan solo en el teléfono. Nunca se envían a GitHub ni a servicios de IA. GitHub Actions solo puede recibir diffs del código propio de BARDO procedentes de su snapshot oficial; no se envían estadísticas, grabaciones, archivos personales ni proyectos importados. La inferencia de Gemma es local."
             textSize = 12f; setTextColor(android.graphics.Color.rgb(235, 190, 125)); setPadding(0, 0, 0, 12)
         })
         addButton(root, "Configurar acceso GitHub limitado") { configurarAccesoGithub() }
         addButton(root, "Actualizar fuentes desde main (GitHub)") { actualizarFuentesDesdeMain() }
         addButton(root, "Autoanalizar el propio código de BARDO") { importarCodigoPropio() }
         addButton(root, "Importar código del proyecto (.zip)") { importProject.launch(arrayOf("application/zip", "application/octet-stream", "application/x-zip-compressed")) }
+        addButton(root, "Importar skill declarativa (.bskill)") { importSkillArchive.launch(arrayOf("application/zip", "application/octet-stream", "application/x-zip-compressed")) }
+        addButton(root, "Revisar borradores de skills creados por BARDO") { revisarBorradoresSkills() }
         btnAnalyze = addButton(root, "Analizar código y generar auditoría", enabled = snapshot != null) { analizarProyecto() }
         btnAsk = addButton(root, "Consultar a BARDO con Gemma local", enabled = false) { consultarModelo() }
         btnApply = addButton(root, "Aplicar propuesta a una copia aislada", enabled = false) { aplicarPropuesta() }
@@ -130,15 +164,18 @@ class BardoDeveloperActivity : AppCompatActivity() {
         addButton(root, "Iniciar autoestudio ahora (Gemma local)") { ejecutarAutoestudioAhora() }
         addButton(root, "Activar autoestudio en segundo plano (cada 6 h, al cargar)") { activarAutoestudio() }
         addButton(root, "Pausar autoestudio automático") { pausarAutoestudio() }
+        addButton(root, "Revisar solicitudes de eliminación de BARDO") { revisarSolicitudesEliminacion() }
+        addButton(root, "Revisar mantenimiento y obsolescencia de skills") { revisarMantenimientoSkills() }
         urlInput = EditText(this).apply {
-            hint = "URL HTTPS de documentación oficial"
+            hint = "URL oficial o consulta pública general (sin datos privados)"
             setHintTextColor(android.graphics.Color.LTGRAY); setTextColor(blanco)
             setSingleLine(true); setPadding(12, 8, 12, 8)
             setBackgroundColor(android.graphics.Color.rgb(23, 34, 53))
         }
         root.addView(urlInput, LinearLayout.LayoutParams(-1, 52).apply { topMargin = 8 })
+        addButton(root, "Buscar en web (aprobar consulta exacta antes del envío)") { buscarEnWeb() }
         addButton(root, "Investigar documentación oficial") { investigarDocumentacion() }
-        btnExport = addButton(root, "Exportar auditoría / propuesta") { exportFile.launch("bardo-developer-informe.md") }
+        btnExport = addButton(root, "Guardar informe en Descargas/BARDO/Informes") { exportarInformeLocal() }
         addButton(root, "Volver a BARDO") { finish() }
         val scroll = ScrollView(this).apply { isFillViewport = true }
         output = TextView(this).apply {
@@ -154,6 +191,442 @@ class BardoDeveloperActivity : AppCompatActivity() {
         val button = Button(this).apply { text = label; isAllCaps = false; isEnabled = enabled; setOnClickListener { action() } }
         parent.addView(button, LinearLayout.LayoutParams(-1, 48).apply { topMargin = 5 })
         return button
+    }
+
+    /** Preflight del workflow almacenado antes de activar; el gestor conserva la comprobación de hash y smoke-tests. */
+    private fun habilitarSkillConPreflight(
+        manager: BardoSkillManager,
+        skillId: String,
+        version: String,
+        approvedPermissions: Set<com.musicaia.skills.BardoSkillPermission>
+    ) = BardoSkillActivationGate(
+        manager,
+        BardoSkillRuntimeFactory.create(applicationContext).registeredActionIds
+    ).enable(
+        skillId = skillId,
+        version = version,
+        explicitlyApproved = true,
+        approvedPermissions = approvedPermissions
+    )
+
+    private fun solicitarInstalacionSkill(
+        manager: BardoSkillManager,
+        record: BardoSkillRecord
+    ) {
+        val manifest = record.manifest
+        val details = buildString {
+            appendLine(manifest.name + " · " + manifest.id + "@" + manifest.version)
+            appendLine()
+            appendLine("Acciones: " + manifest.actions.sorted().joinToString())
+            appendLine("Permisos: " + manifest.permissions.map { it.name }.sorted().joinToString())
+            appendLine("Licencia aceptada: " + manifest.license)
+            appendLine()
+            append("La instalación copiará el paquete verificado al almacén privado y lo dejará DESHABILITADO. No se ejecutará ninguna acción.")
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Aprobar instalación deshabilitada")
+            .setMessage(details)
+            .setPositiveButton("Instalar deshabilitada") { _, _ ->
+                worker.execute {
+                    val installed = runCatching {
+                        manager.install(manifest.id, manifest.version, explicitUserApproval = true)
+                    }
+                    runOnUiThread {
+                        if (isFinishing || isDestroyed) return@runOnUiThread
+                        installed.fold(
+                            { result ->
+                                output.text = result.message
+                                if (result.succeeded && result.record != null) {
+                                    solicitarActivacionSkill(manager, result.record)
+                                }
+                            },
+                            { error ->
+                                output.text = "No se pudo instalar: " + (error.message ?: error.javaClass.simpleName)
+                            }
+                        )
+                    }
+                }
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
+    private fun solicitarActivacionSkill(
+        manager: BardoSkillManager,
+        record: BardoSkillRecord
+    ) {
+        val manifest = record.manifest
+        val details = buildString {
+            appendLine(manifest.name + " · " + manifest.id + "@" + manifest.version)
+            appendLine()
+            appendLine("Acciones que podrá invocar:")
+            manifest.actions.sorted().forEach { appendLine("• " + it) }
+            appendLine()
+            appendLine("Permisos que autorizas:")
+            manifest.permissions.map { it.name }.sorted().forEach { appendLine("• " + it) }
+            appendLine()
+            append("Antes de habilitar, BARDO volverá a comprobar el hash y ejecutará el preflight del workflow almacenado contra el catálogo actual. Después el gestor repetirá permisos, dependencias y smoke-tests de confianza escritos en la APK. Si falta evidencia, permanecerá deshabilitada.")
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Revisar permisos y habilitar")
+            .setMessage(details)
+            .setPositiveButton("Autorizar permisos y pruebas") { _, _ ->
+                worker.execute {
+                    val enabled = runCatching {
+                        habilitarSkillConPreflight(
+                            manager,
+                            manifest.id,
+                            manifest.version,
+                            manifest.permissions
+                        )
+                    }
+                    runOnUiThread {
+                        if (isFinishing || isDestroyed) return@runOnUiThread
+                        output.text = enabled.fold(
+                            { it.message },
+                            { "La skill permanece deshabilitada: " + (it.message ?: it.javaClass.simpleName) }
+                        )
+                    }
+                }
+            }
+            .setNegativeButton("Mantener deshabilitada", null)
+            .show()
+    }
+
+    private fun importarPaqueteSkill(uri: Uri) {
+        importarPaqueteSkillDesde { contentResolver.openInputStream(uri) }
+    }
+
+    private fun revisarBorradoresSkills() {
+        val root = File(filesDir, "bardo_skill_drafts")
+        val drafts = root.listFiles()
+            ?.filter { it.isFile && it.extension.equals("bskill", true) }
+            ?.sortedByDescending { it.lastModified() }
+            .orEmpty()
+        if (drafts.isEmpty()) {
+            AlertDialog.Builder(this)
+                .setTitle("Borradores de skills")
+                .setMessage("BARDO todavía no ha creado borradores .bskill. Puede proponerlos con skills.create_draft; nada se instala automáticamente.")
+                .setPositiveButton("Aceptar", null)
+                .show()
+            return
+        }
+        val labels = drafts.map { file ->
+            file.name + " · " + file.length() + " bytes"
+        }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("Revisar borradores locales")
+            .setItems(labels) { _, index ->
+                importarPaqueteSkillDesde { drafts[index].inputStream() }
+            }
+            .setNegativeButton("Cerrar", null)
+            .show()
+    }
+
+    private fun importarPaqueteSkillDesde(openInput: () -> java.io.InputStream?) {
+        output.text = "BARDO está verificando el paquete .bskill en modo local; no se ejecutará código del archivo…"
+        worker.execute {
+            val result = runCatching {
+                val runtime = BardoSkillRuntimeFactory.create(applicationContext)
+                val registered = runtime.registeredActionIds
+                val archive = openInput()?.use { input ->
+                    BardoSkillArchiveReader.read(input, registered)
+                } ?: throw IllegalStateException("No se pudo abrir el paquete .bskill seleccionado.")
+                runtime to archive
+            }
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                result.onSuccess { (runtime, archive) ->
+                    val manifest = archive.manifest
+                    val details = buildString {
+                        appendLine(manifest.name + " · " + manifest.id + "@" + manifest.version)
+                        appendLine()
+                        appendLine(manifest.description)
+                        appendLine()
+                        appendLine("Licencia: " + manifest.license)
+                        appendLine("Origen declarado: " + manifest.source)
+                        appendLine("Acciones: " + manifest.actions.sorted().joinToString())
+                        appendLine("Permisos declarados: " + manifest.permissions.map { it.name }.sorted().joinToString())
+                        appendLine("Pasos del workflow: " + archive.workflowValidation.stepCount)
+                        appendLine("Entradas requeridas: " + archive.workflowValidation.requiredInputs.sorted().joinToString())
+                        appendLine()
+                        append("Integridad SHA-256 y estructura declarativa verificadas. El paquete se importará deshabilitado, en cuarentena. No se instalará ni ejecutará todavía.")
+                    }
+                    AlertDialog.Builder(this)
+                        .setTitle("Revisar skill y licencia")
+                        .setMessage(details)
+                        .setPositiveButton("Acepto la licencia e importar a cuarentena") { _, _ ->
+                            worker.execute {
+                                val imported = runCatching {
+                                    runtime.manager.importToQuarantine(
+                                        manifest = manifest,
+                                        input = java.io.ByteArrayInputStream(archive.workflowBytes),
+                                        userAcceptedLicense = true
+                                    )
+                                }
+                                runOnUiThread {
+                                    if (isFinishing || isDestroyed) return@runOnUiThread
+                                    output.text = imported.fold(
+                                        { operation ->
+                                            if (operation.succeeded) {
+                                                "PAQUETE IMPORTADO A CUARENTENA\n" + operation.message +
+                                                    "\n\nLa skill no está instalada, habilitada ni ejecutada. Revisa el informe de mantenimiento para continuar con la instalación y las pruebas."
+                                            } else {
+                                                "Importación rechazada: " + operation.message
+                                            }
+                                        },
+                                        { "No se pudo importar el paquete: " + (it.message ?: it.javaClass.simpleName) }
+                                    )
+                                }
+                            }
+                        }
+                        .setNegativeButton("Cancelar", null)
+                        .show()
+                }.onFailure {
+                    output.text = "Paquete .bskill rechazado: " + (it.message ?: it.javaClass.simpleName) +
+                        "\nNo se instaló ni ejecutó ningún contenido."
+                }
+            }
+        }
+    }
+
+    private fun revisarMantenimientoSkills() {
+        output.text = "BARDO está comprobando compatibilidad, acciones registradas y evidencia de prueba de las skills locales…"
+        worker.execute {
+            val result = runCatching {
+                val runtime = BardoSkillRuntimeFactory.create(applicationContext)
+                val registered = BardoCoreToolCatalog.create(applicationContext)
+                    .map { it.descriptor.id }.toSet()
+                val records = runtime.manager.list()
+                val findings = BardoSkillMaintenancePlanner.evaluate(records, registered)
+                Triple(runtime.manager, findings, records.associateBy {
+                    it.manifest.id + "@" + it.manifest.version
+                })
+            }
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                result.onSuccess { (manager, findings, records) ->
+                    mostrarHallazgosMantenimientoSkills(manager, findings, records)
+                }.onFailure {
+                    output.text = "No se pudo revisar el almacén de skills: " +
+                        (it.message ?: it.javaClass.simpleName)
+                }
+            }
+        }
+    }
+
+    private fun mostrarHallazgosMantenimientoSkills(
+        manager: BardoSkillManager,
+        findings: List<BardoSkillMaintenanceFinding>,
+        records: Map<String, BardoSkillRecord>
+    ) {
+        if (findings.isEmpty()) {
+            AlertDialog.Builder(this)
+                .setTitle("Mantenimiento de skills")
+                .setMessage("No hay skills instaladas. No se ha realizado ninguna modificación.")
+                .setPositiveButton("Aceptar", null)
+                .show()
+            output.text = "Skills instaladas: 0."
+            return
+        }
+        val labels = findings.map { finding ->
+            finding.skillId + "@" + finding.version + " · " + finding.action.name +
+                if (finding.reasons.isEmpty()) "" else "\n" + finding.reasons.joinToString("; ")
+        }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("Informe de BARDO · " + findings.size + " versión(es)")
+            .setItems(labels) { _, index ->
+                val finding = findings[index]
+                val key = finding.skillId + "@" + finding.version
+                val record = records[key] ?: return@setItems
+                val detail = if (finding.reasons.isEmpty()) {
+                    "No se han detectado incidencias en las comprobaciones realizadas."
+                } else finding.reasons.joinToString("\n• ", prefix = "Motivos:\n• ")
+                when (finding.action) {
+                    BardoSkillMaintenanceAction.PROPOSE_DISABLE -> {
+                        AlertDialog.Builder(this)
+                            .setTitle("Deshabilitar skill")
+                            .setMessage(
+                                finding.skillId + "@" + finding.version + "\n\n" + detail +
+                                    "\n\nDeshabilitar es reversible y no elimina el paquete."
+                            )
+                            .setPositiveButton("Deshabilitar") { _, _ ->
+                                worker.execute {
+                                    val operation = runCatching { manager.disable(finding.skillId, finding.version) }
+                                    runOnUiThread {
+                                        output.text = operation.fold(
+                                            { it.message },
+                                            { "No se pudo deshabilitar: " + (it.message ?: it.javaClass.simpleName) }
+                                        )
+                                    }
+                                }
+                            }
+                            .setNegativeButton("Conservar", null)
+                            .show()
+                    }
+                    BardoSkillMaintenanceAction.PROPOSE_REMOVE -> {
+                        val warning = if (record.lifecycle.name == "ENABLED") {
+                            "La versión está habilitada. Retirarla eliminará su paquete y su registro. " +
+                                "La operación no se puede deshacer."
+                        } else {
+                            "Se eliminarán el paquete local de esta versión y su registro. La operación no se puede deshacer."
+                        }
+                        AlertDialog.Builder(this)
+                            .setTitle("Retirada definitiva · confirmación")
+                            .setMessage(
+                                finding.skillId + "@" + finding.version + "\n\n" + detail +
+                                    "\n\n" + warning
+                            )
+                            .setPositiveButton("Retirar definitivamente") { _, _ ->
+                                worker.execute {
+                                    val operation = runCatching {
+                                        manager.remove(finding.skillId, finding.version, explicitUserApproval = true)
+                                    }
+                                    runOnUiThread {
+                                        output.text = operation.fold(
+                                            { it.message },
+                                            { "No se pudo retirar: " + (it.message ?: it.javaClass.simpleName) }
+                                        )
+                                    }
+                                }
+                            }
+                            .setNegativeButton("Conservar", null)
+                            .show()
+                    }
+                    BardoSkillMaintenanceAction.REVIEW_COMPATIBILITY -> {
+                        when (record.lifecycle) {
+                            BardoSkillLifecycle.QUARANTINED -> solicitarInstalacionSkill(manager, record)
+                            BardoSkillLifecycle.INSTALLED_DISABLED,
+                            BardoSkillLifecycle.DISABLED -> solicitarActivacionSkill(manager, record)
+                            else -> AlertDialog.Builder(this)
+                                .setTitle(finding.skillId + "@" + finding.version + " · revisión")
+                                .setMessage(detail + "\n\nNo se ha modificado esta skill.")
+                                .setPositiveButton("Aceptar", null)
+                                .show()
+                        }
+                    }
+                    BardoSkillMaintenanceAction.RETEST_REQUIRED -> {
+                        AlertDialog.Builder(this)
+                            .setTitle("Volver a probar skill")
+                            .setMessage(
+                                finding.skillId + "@" + finding.version + "\n\n" + detail +
+                                    "\n\nBARDO deshabilitará esta versión y ejecutará de nuevo las pruebas de confianza solo después de tu aprobación."
+                            )
+                            .setPositiveButton("Deshabilitar y volver a probar") { _, _ ->
+                                worker.execute {
+                                    val disabled = runCatching { manager.disable(finding.skillId, finding.version) }
+                                    val activated = disabled.mapCatching {
+                                        habilitarSkillConPreflight(
+                                            manager,
+                                            finding.skillId,
+                                            finding.version,
+                                            record.manifest.permissions
+                                        )
+                                    }
+                                    runOnUiThread {
+                                        output.text = activated.fold(
+                                            { it.message },
+                                            { "No se completó la revalidación: " + (it.message ?: it.javaClass.simpleName) }
+                                        )
+                                    }
+                                }
+                            }
+                            .setNegativeButton("Conservar deshabilitada", null)
+                            .show()
+                    }
+                    else -> {
+                        AlertDialog.Builder(this)
+                            .setTitle(finding.skillId + "@" + finding.version + " · " + finding.action.name)
+                            .setMessage(detail + "\n\nBARDO no ha modificado esta skill.")
+                            .setPositiveButton("Aceptar", null)
+                            .show()
+                    }
+                }
+            }
+            .setNegativeButton("Cerrar", null)
+            .show()
+        output.text = findings.joinToString("\n") { item ->
+            item.skillId + "@" + item.version + " → " + item.action.name +
+                if (item.reasons.isEmpty()) "" else ": " + item.reasons.joinToString("; ")
+        }
+    }
+
+    private fun revisarSolicitudesEliminacion() {
+        val pending = runCatching { BardoSharedStorage.pendingDeletionRequests(this) }
+            .getOrElse {
+                output.text = "No se pudieron leer las solicitudes pendientes: " + (it.message ?: it.javaClass.simpleName)
+                return
+            }
+        if (pending.isEmpty()) {
+            AlertDialog.Builder(this)
+                .setTitle("Solicitudes de eliminación")
+                .setMessage("No hay solicitudes pendientes. BARDO no ha movido ni eliminado ningún archivo.")
+                .setPositiveButton("Aceptar", null)
+                .show()
+            return
+        }
+        val labels = pending.map { request ->
+            val action = if (request.permanent) "ELIMINAR PERMANENTEMENTE" else "Mover a Papelera"
+            action + "\n" + request.relativePath + "\nMotivo: " + request.reason
+        }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("BARDO solicita revisar " + pending.size + " elemento(s)")
+            .setItems(labels) { _, index ->
+                val request = pending[index]
+                val action = if (request.permanent) "ELIMINACIÓN PERMANENTE" else "MOVER A LA PAPELERA"
+                val warning = if (request.permanent) {
+                    "\n\nEsta acción no tiene deshacer. Solo se permiten archivos o carpetas vacías."
+                } else {
+                    "\n\nBARDO intentará mover el elemento a su carpeta Papelera. Si el proveedor SAF no permite moverlo, no lo eliminará."
+                }
+                val identitySummary = buildString {
+                    append("Elemento: ").append(request.name ?: "no disponible")
+                    append("\nTipo: ").append(request.mimeType ?: "desconocido")
+                    request.sizeBytes?.let { append("\nTamaño: ").append(it).append(" bytes") }
+                    if (request.documentId.isNullOrBlank()) {
+                        append("\n\nEsta solicitud antigua no conserva la identidad SAF del documento. ")
+                        append("No puede aprobarse; recházala y crea una nueva solicitud si sigue siendo necesaria.")
+                    }
+                }
+                val confirmation = AlertDialog.Builder(this)
+                    .setTitle("Confirmación del usuario")
+                    .setMessage(
+                        action + "\n\nRuta: Descargas/BARDO/" + request.relativePath +
+                            "\n\n" + identitySummary +
+                            "\n\nMotivo indicado por BARDO: " + request.reason + warning
+                    )
+                    .setPositiveButton(if (request.permanent) "Eliminar permanentemente" else "Mover a Papelera") { _, _ ->
+                        worker.execute {
+                            val result = runCatching {
+                                BardoSharedStorage.approveDeletionRequest(this, request.id)
+                            }
+                            runOnUiThread {
+                                if (isFinishing || isDestroyed) return@runOnUiThread
+                                output.text = result.fold(
+                                    { it + "\n\nSolicitud revisada y cerrada." },
+                                    { "No se completó la operación: " + (it.message ?: it.javaClass.simpleName) }
+                                )
+                            }
+                        }
+                    }
+                    .setNegativeButton("Rechazar") { _, _ ->
+                        val removed = BardoSharedStorage.rejectDeletionRequest(this, request.id)
+                        output.text = if (removed) {
+                            "Solicitud rechazada. No se ha movido ni eliminado el archivo."
+                        } else {
+                            "La solicitud ya no estaba pendiente. No se ha ejecutado ninguna acción."
+                        }
+                    }
+                    .setNeutralButton("Cancelar", null)
+                    .create()
+                confirmation.setOnShowListener {
+                    confirmation.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled =
+                        !request.documentId.isNullOrBlank()
+                }
+                confirmation.show()
+            }
+            .setNegativeButton("Cerrar", null)
+            .show()
     }
 
     private fun activarAutoestudio() {
@@ -268,6 +741,8 @@ class BardoDeveloperActivity : AppCompatActivity() {
                     getSharedPreferences("bardo_developer", MODE_PRIVATE).edit()
                         .putString("snapshot_path", imported.directory.absolutePath)
                         .putString("source_snapshot_path", imported.directory.absolutePath)
+                        .putString(BardoSnapshotOriginPolicy.PREF_KEY, BardoSnapshotOriginPolicy.PRIVATE_GITHUB_MAIN)
+                        .putBoolean("candidate_prompt_privacy_safe", false)
                         .remove("candidate_path")
                         .remove("candidate_patch")
                         .remove("candidate_base_sha")
@@ -275,6 +750,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
                         .remove("candidate_id")
                         .remove("candidate_validation_succeeded")
                         .remove("candidate_validation_run_id")
+                        .remove("candidate_local_audit_passed")
                         .apply()
                     candidatePatch = ""
                     lastReport = ""
@@ -302,6 +778,8 @@ class BardoDeveloperActivity : AppCompatActivity() {
                     getSharedPreferences("bardo_developer", MODE_PRIVATE).edit()
                         .putString("snapshot_path", it.directory.absolutePath)
                         .putString("source_snapshot_path", it.directory.absolutePath)
+                        .putString(BardoSnapshotOriginPolicy.PREF_KEY, BardoSnapshotOriginPolicy.BUNDLED_BARDO)
+                        .putBoolean("candidate_prompt_privacy_safe", false)
                         .remove("candidate_path")
                         .remove("candidate_patch").remove("candidate_base_sha").remove("candidate_files").remove("candidate_id").apply()
                     candidatePatch = ""
@@ -331,6 +809,8 @@ class BardoDeveloperActivity : AppCompatActivity() {
                     snapshot = it.directory
                     getSharedPreferences("bardo_developer", MODE_PRIVATE).edit().putString("snapshot_path", it.directory.absolutePath)
                         .putString("source_snapshot_path", it.directory.absolutePath)
+                        .putString(BardoSnapshotOriginPolicy.PREF_KEY, BardoSnapshotOriginPolicy.USER_IMPORTED_PROJECT)
+                        .putBoolean("candidate_prompt_privacy_safe", false)
                         .remove("candidate_path")
                         .remove("candidate_patch").remove("candidate_base_sha").remove("candidate_files").remove("candidate_id").apply()
                     candidatePatch = ""
@@ -418,7 +898,15 @@ class BardoDeveloperActivity : AppCompatActivity() {
                     una corrección respaldada por evidencia. No afirmes que el arreglo está probado
                     hasta que el siguiente workflow termine correctamente.
                 """.trimIndent()
-                EngineLiteRT.generar(prompt, reiniciarConversacion = true).substringAfter("</think>").trim()
+                EngineLiteRT.withSession {
+                    if (!estaCargado(model.absolutePath)) {
+                        check(inicializar(
+                            model.absolutePath,
+                            File(cacheDir, "litert-cache").absolutePath
+                        )) { "LiteRT-LM no pudo cargar Gemma para BARDO Developer." }
+                    }
+                    generar(prompt, reiniciarConversacion = true)
+                }.substringAfter("</think>").trim()
                     .ifBlank { throw IllegalStateException("Gemma devolvió una propuesta vacía.") }
             }
             runOnUiThread {
@@ -443,34 +931,95 @@ class BardoDeveloperActivity : AppCompatActivity() {
             output.text = "Gemma no devolvió un diff unificado aplicable."
             return
         }
-        setBusy(true, "Aplicando la propuesta únicamente a una copia aislada…")
+        setBusy(true, "Aplicando la propuesta únicamente a una copia aislada y auditando el diff…")
         worker.execute {
-            val result = runCatching { BardoPatchApplier.aplicar(original, patch, workspace) }
+            val result = runCatching {
+                val applied = BardoPatchApplier.aplicar(original, patch, workspace)
+                val sourceCommit = File(original, "BARDO_SOURCE_COMMIT.txt")
+                    .takeIf { it.isFile }?.readText(Charsets.UTF_8)?.trim().orEmpty()
+                val candidateId = BardoGitHubPolicy.newCandidateId()
+                val auditAttempt = runCatching {
+                    BardoLocalCandidateEvidenceCollector.collect(
+                        BardoLocalCandidateAuditInput(
+                            workspaceRoot = workspace,
+                            snapshotDirectory = original,
+                            candidateDirectory = applied.directory,
+                            expectedBaseSha = sourceCommit,
+                            patchText = patch,
+                            changedFiles = applied.changedFiles,
+                            auditId = "candidate-" + candidateId
+                        )
+                    )
+                }
+                val evidence = auditAttempt.getOrDefault(emptyList())
+                val auditPassed = BardoLocalCandidateEvidenceCollector.isReadyForCiSubmission(evidence)
+                val auditDetails = buildString {
+                    appendLine("Resultado: " + if (auditPassed) "SUPERADA" else "BLOQUEADA")
+                    auditAttempt.exceptionOrNull()?.let {
+                        appendLine("Error del productor: " + (it.message ?: it.javaClass.simpleName).take(500))
+                    }
+                    evidence.forEach { item ->
+                        appendLine(
+                            "- " + item.check.name + ": " +
+                                (if (item.passed) "PASS" else "FAIL") +
+                                " · " + item.detail.take(1200)
+                        )
+                    }
+                }
+                CandidatePreparation(applied, sourceCommit, candidateId, auditPassed, auditDetails)
+            }
             runOnUiThread {
-                result.onSuccess { applied ->
-                    val sourceCommit = File(original, "BARDO_SOURCE_COMMIT.txt")
-                        .takeIf { it.isFile }?.readText(Charsets.UTF_8)?.trim().orEmpty()
-                    val candidateId = BardoGitHubPolicy.newCandidateId()
+                result.onSuccess { prepared ->
+                    val applied = prepared.applied
                     candidatePatch = patch
-                    snapshot = applied.directory
-                    getSharedPreferences("bardo_developer", MODE_PRIVATE).edit()
-                        .putString("snapshot_path", applied.directory.absolutePath)
+                    // Keep the immutable source snapshot as the next proposal base.
+                    // The candidate remains separately addressable for review.
+                    snapshot = original
+                    val prefs = getSharedPreferences("bardo_developer", MODE_PRIVATE)
+                    val editor = prefs.edit()
+                        .putString("snapshot_path", original.absolutePath)
                         .putString("source_snapshot_path", original.absolutePath)
-                        .putString("candidate_path", applied.directory.absolutePath)
-                        .putString("candidate_patch", patch)
-                        .putString("candidate_base_sha", sourceCommit)
-                        .putString("candidate_files", applied.changedFiles.joinToString("\n"))
-                        .putString("candidate_id", candidateId)
+                        .putString("last_candidate_path", applied.directory.absolutePath)
+                        .putBoolean("candidate_prompt_privacy_safe", false)
+                        .putBoolean("candidate_local_audit_passed", prepared.localAuditPassed)
                         .putBoolean("candidate_validation_succeeded", false)
-                        .apply()
+                        .remove("candidate_validation_run_id")
+                    if (prepared.localAuditPassed) {
+                        editor
+                            .putString("candidate_path", applied.directory.absolutePath)
+                            .putString("candidate_patch", patch)
+                            .putString("candidate_base_sha", prepared.sourceCommit)
+                            .putString("candidate_files", applied.changedFiles.joinToString("\n"))
+                            .putString("candidate_id", prepared.candidateId)
+                    } else {
+                        editor
+                            .remove("candidate_path")
+                            .remove("candidate_patch")
+                            .remove("candidate_base_sha")
+                            .remove("candidate_files")
+                            .remove("candidate_id")
+                    }
+                    editor.apply()
                     val report = BardoDeveloperCore.analizar(applied.directory)
                     lastReport = report.render()
-                    reportFile.writeText(lastReport)
+                    val completeReport = lastReport +
+                        "\n\n## Verificación local independiente\n\n" + prepared.localAuditDetails
+                    reportFile.writeText(completeReport, Charsets.UTF_8)
                     btnApply.isEnabled = false
                     actualizarBotonGithub()
-                    output.text = "PROPUESTA APLICADA A UNA COPIA AISLADA, NO AL CÓDIGO INSTALADO\n\nArchivos: " +
-                        applied.changedFiles.joinToString() + "\n\n" + lastReport +
-                        "\n\nLa copia original se conserva. La compilación se realizará en un runner efímero cuando envíes el candidato a GitHub."
+                    output.text = if (prepared.localAuditPassed) {
+                        "PROPUESTA APLICADA A UNA COPIA AISLADA, NO AL CÓDIGO INSTALADO\n\n" +
+                            "Auditoría local independiente superada.\nCandidato: " + prepared.candidateId +
+                            "\nArchivos: " + applied.changedFiles.joinToString() +
+                            "\n\n" + completeReport +
+                            "\n\nLa copia original se conserva. La compilación se realizará en un runner efímero cuando envíes el candidato a GitHub."
+                    } else {
+                        "CANDIDATO CONSERVADO SOLO PARA REVISIÓN LOCAL\n\n" +
+                            "La auditoría local no ha superado todos los controles. No se habilita el envío a GitHub.\n" +
+                            "Archivos: " + applied.changedFiles.joinToString() +
+                            "\n\n" + completeReport +
+                            "\n\nLa copia original se conserva; no se ha cambiado el código instalado."
+                    }
                 }.onFailure {
                     output.text = "BARDO rechazó la propuesta: " + it.message +
                         "\n\nNo se modificó el snapshot original."
@@ -478,6 +1027,59 @@ class BardoDeveloperActivity : AppCompatActivity() {
                 setBusy(false)
             }
         }
+    }
+
+    private fun buscarEnWeb() {
+        if (isBusy) return
+        val query = runCatching {
+            BardoPublicWebSearchPolicy.validateQuery(urlInput.text.toString())
+        }.getOrElse {
+            output.text = "Consulta bloqueada por privacidad: " + (it.message ?: "consulta no válida")
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Confirmar búsqueda pública")
+            .setMessage(
+                "Se enviará exclusivamente esta consulta al buscador público:\n\n$query\n\n" +
+                    "No se adjuntarán archivos, proyectos, estadísticas, logs ni contexto local. El proveedor puede registrar la consulta."
+            )
+            .setNegativeButton("Cancelar", null)
+            .setPositiveButton("Enviar solo esta consulta") { _, _ ->
+                setBusy(true, "BARDO ejecuta la búsqueda pública aprobada; solo se transmite la consulta mostrada…")
+                worker.execute {
+                    val result = runCatching {
+                        // Approval is bound to the exact normalized query, expires quickly,
+                        // and is consumed by the network tool before it opens the connection.
+                        BardoPublicWebSearchPolicy.authorizeExactQuery(applicationContext, query)
+                        val executor = BardoToolExecutor(BardoCoreToolCatalog.create(applicationContext))
+                        val toolResult = executor.execute(
+                            BardoToolRequest(
+                                toolId = "web.search_public",
+                                arguments = mapOf("query" to query),
+                                principal = BardoPrincipal.BARDO,
+                                explicitUserConfirmation = true
+                            ),
+                            System.currentTimeMillis()
+                        )
+                        check(toolResult.succeeded) {
+                            toolResult.error ?: "BARDO no pudo completar la búsqueda pública."
+                        }
+                        toolResult.content
+                    }
+                    runOnUiThread {
+                        if (isFinishing || isDestroyed) return@runOnUiThread
+                        result.onSuccess { content ->
+                            lastReport = "RESULTADOS DE BÚSQUEDA WEB PÚBLICA\n\n" + content
+                            reportFile.writeText(lastReport, Charsets.UTF_8)
+                            output.text = lastReport + "\n\nGuardado solo en el almacenamiento local de BARDO. No se han enviado archivos ni estadísticas."
+                        }.onFailure {
+                            output.text = "No se pudo completar la búsqueda: ${it.message ?: it.javaClass.simpleName}"
+                        }
+                        setBusy(false)
+                    }
+                }
+            }
+            .show()
     }
 
     private fun investigarDocumentacion() {
@@ -508,7 +1110,16 @@ class BardoDeveloperActivity : AppCompatActivity() {
         var current = URL(address)
         val permitidos = setOf("developer.android.com", "kotlinlang.org", "docs.gradle.org", "ai.google.dev", "github.com", "docs.github.com", "raw.githubusercontent.com", "pytorch.org", "executorch.ai")
         repeat(4) { attempt ->
-            require(current.protocol == "https" && current.host.lowercase() in permitidos) { "Dominio no incluido en la lista de documentación oficial permitida." }
+            require(
+                current.protocol == "https" &&
+                    current.host.lowercase() in permitidos &&
+                    current.userInfo == null &&
+                    current.query == null &&
+                    current.ref == null &&
+                    (current.port == -1 || current.port == 443)
+            ) {
+                "La documentación debe usar HTTPS en un dominio permitido y no puede incluir parámetros, fragmentos ni credenciales en la URL."
+            }
             val connection = (current.openConnection() as HttpURLConnection).apply {
                 connectTimeout = 12000; readTimeout = 15000; instanceFollowRedirects = false
                 setRequestProperty("User-Agent", "BARDO-Developer/1.0")
@@ -548,12 +1159,29 @@ class BardoDeveloperActivity : AppCompatActivity() {
         memoryFile.writeText((previous + "\n- [${System.currentTimeMillis()}] " + entry).takeLast(100000))
     }
 
-    private fun exportar(uri: Uri) {
-        val text = if (lastProposal.isNotBlank()) lastReport + "\n\n# Propuesta (no aplicada)\n\n" + lastProposal else lastReport.ifBlank { "BARDO Developer: todavía no hay auditoría." }
+    private fun exportarInformeLocal() {
+        val report = if (lastProposal.isNotBlank()) {
+            lastReport + "\n\n# Propuesta (no aplicada)\n\n" + lastProposal
+        } else {
+            lastReport.ifBlank { "BARDO Developer: todavía no hay auditoría." }
+        }
+        val name = "bardo-developer-informe-${System.currentTimeMillis()}.md"
+        val temporary = File(workspace, name)
         runCatching {
-            contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { it.write(text) }
-                ?: throw IllegalStateException("No se pudo abrir el archivo de destino.")
-        }.onFailure { output.text = "Error al exportar: ${it.message}" }
+            temporary.writeText(report, Charsets.UTF_8)
+            BardoSharedStorage.copyFile(
+                this,
+                "Informes",
+                temporary,
+                name,
+                "text/markdown"
+            )
+        }.onSuccess {
+            output.text = "Informe guardado en Descargas/BARDO/Informes. No se abrió ningún proveedor externo."
+        }.onFailure {
+            output.text = "No se pudo guardar localmente: ${it.message}. El informe permanece dentro del almacenamiento privado de BARDO."
+        }
+        temporary.delete()
     }
 
     private fun setBusy(busy: Boolean, message: String = "") {
@@ -577,7 +1205,13 @@ class BardoDeveloperActivity : AppCompatActivity() {
         val candidateId = prefs.getString("candidate_id", "").orEmpty()
         val patch = prefs.getString("candidate_patch", "").orEmpty()
         val paths = prefs.getString("candidate_files", "").orEmpty().lines().filter { it.isNotBlank() }
-        btnGithub.isEnabled = !isBusy && runCatching {
+        val trustedSource = BardoSnapshotOriginPolicy.allowsPrivateRepositoryCi(
+            prefs.getString(BardoSnapshotOriginPolicy.PREF_KEY, null)
+        )
+        btnGithub.isEnabled = !isBusy && trustedSource &&
+            prefs.getBoolean("candidate_prompt_privacy_safe", false) &&
+            prefs.getBoolean("candidate_local_audit_passed", false) &&
+            runCatching {
             BardoGitHubPolicy.validateBaseSha(baseSha)
             BardoGitHubPolicy.validateCandidateId(candidateId)
             BardoGitHubPolicy.validatePatch(patch)
@@ -586,28 +1220,76 @@ class BardoDeveloperActivity : AppCompatActivity() {
     }
 
     private fun abrirDesarrolloGitHub() {
+        if (isBusy) return
         val prefs = getSharedPreferences("bardo_developer", MODE_PRIVATE)
+        if (!prefs.getBoolean("candidate_prompt_privacy_safe", false)) {
+            output.text = "ENVÍO BLOQUEADO POR PRIVACIDAD: esta propuesta no dispone de evidencia de que Gemma la haya generado exclusivamente a partir del código BARDO. Puede conservarse y revisarse localmente."
+            return
+        }
         val baseSha = prefs.getString("candidate_base_sha", "").orEmpty()
         val candidateId = prefs.getString("candidate_id", "").orEmpty()
         val patch = prefs.getString("candidate_patch", "").orEmpty()
         val paths = prefs.getString("candidate_files", "").orEmpty().lines().filter { it.isNotBlank() }
-        runCatching {
-            BardoGitHubPolicy.validateBaseSha(baseSha)
-            BardoGitHubPolicy.validateCandidateId(candidateId)
-            BardoGitHubPolicy.validatePatch(patch)
-            BardoGitHubPolicy.validateChangedPaths(paths)
-        }.onFailure {
-            output.text = "Este candidato no puede enviarse a GitHub: ${it.message}"
-            actualizarBotonGithub()
-            return
+        setBusy(true, "Recalculando la auditoría local antes de habilitar la consulta a GitHub…")
+        worker.execute {
+            val validation = runCatching {
+                check(BardoSnapshotOriginPolicy.allowsPrivateRepositoryCi(
+                    prefs.getString(BardoSnapshotOriginPolicy.PREF_KEY, null)
+                )) {
+                    "Privacidad protegida: los proyectos importados solo pueden estudiarse localmente y nunca se envían a GitHub."
+                }
+                check(prefs.getBoolean("candidate_prompt_privacy_safe", false)) {
+                    "Privacidad protegida: falta la certificación de contexto de Gemma libre de datos privados."
+                }
+                check(prefs.getBoolean("candidate_local_audit_passed", false)) {
+                    "La auditoría local anterior no está superada."
+                }
+                BardoGitHubPolicy.validateBaseSha(baseSha)
+                BardoGitHubPolicy.validateCandidateId(candidateId)
+                BardoGitHubPolicy.validatePatch(patch)
+                BardoGitHubPolicy.validateAutonomousChangedPaths(paths)
+
+                val snapshotPath = prefs.getString("source_snapshot_path", "").orEmpty()
+                val candidatePath = prefs.getString("candidate_path", "").orEmpty()
+                check(snapshotPath.isNotBlank() && candidatePath.isNotBlank()) {
+                    "Falta el snapshot o la carpeta candidata privada."
+                }
+                val evidence = BardoLocalCandidateEvidenceCollector.collect(
+                    BardoLocalCandidateAuditInput(
+                        workspaceRoot = workspace,
+                        snapshotDirectory = File(snapshotPath),
+                        candidateDirectory = File(candidatePath),
+                        expectedBaseSha = baseSha,
+                        patchText = patch,
+                        changedFiles = paths,
+                        auditId = "candidate-" + candidateId
+                    )
+                )
+                check(BardoLocalCandidateEvidenceCollector.isReadyForCiSubmission(evidence)) {
+                    "La auditoría local recalculada no ha superado todos los controles. Se bloquea el envío."
+                }
+            }
+            runOnUiThread {
+                validation.onSuccess {
+                    setBusy(false)
+                    if (!isFinishing && !isDestroyed) {
+                        startActivity(
+                            Intent(this, BardoGitHubDevelopmentActivity::class.java)
+                                .putExtra(BardoGitHubDevelopmentActivity.EXTRA_BASE_SHA, baseSha)
+                                .putExtra(BardoGitHubDevelopmentActivity.EXTRA_CANDIDATE_ID, candidateId)
+                                .putExtra(BardoGitHubDevelopmentActivity.EXTRA_PATCH, patch)
+                                .putStringArrayListExtra(
+                                    BardoGitHubDevelopmentActivity.EXTRA_CHANGED_FILES,
+                                    ArrayList(paths)
+                                )
+                        )
+                    }
+                }.onFailure {
+                    output.text = "Este candidato no puede enviarse a GitHub: ${it.message}"
+                    setBusy(false)
+                }
+            }
         }
-        startActivity(
-            Intent(this, BardoGitHubDevelopmentActivity::class.java)
-                .putExtra(BardoGitHubDevelopmentActivity.EXTRA_BASE_SHA, baseSha)
-                .putExtra(BardoGitHubDevelopmentActivity.EXTRA_CANDIDATE_ID, candidateId)
-                .putExtra(BardoGitHubDevelopmentActivity.EXTRA_PATCH, patch)
-                .putStringArrayListExtra(BardoGitHubDevelopmentActivity.EXTRA_CHANGED_FILES, ArrayList(paths))
-        )
     }
 
     override fun onResume() {

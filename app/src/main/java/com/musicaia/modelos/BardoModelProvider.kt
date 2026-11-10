@@ -113,13 +113,38 @@ class BardoGemmaLiteRtProvider : BardoModelProvider {
     }
 
     override fun generate(context: Context, request: BardoModelRequest): BardoModelResponse {
-        check(load(context)) { "Gemma local no está disponible." }
         val started = System.nanoTime()
-        val text = EngineLiteRT.generar(
-            request.prompt,
-            reiniciarConversacion = request.resetConversation
-        ).trim()
+        // Load + inferencia se ejecutan en una transacción atómica del executor LiteRT.
+        // Un cierre solicitado por otro módulo queda en cola antes o después de esta sesión.
+        val text = EngineLiteRT.withSession {
+            val model = LiteRTLMModule.modelFile(context)
+            if (!estaCargado(model.absolutePath)) {
+                check(model.isFile && model.length() == LiteRTLMModule.EXPECTED_SIZE_BYTES) {
+                    "Gemma no está instalado o el tamaño del archivo no coincide."
+                }
+                val resourceBlock = BardoResourceBudget.blockingReason(
+                    context,
+                    BardoCapabilityRegistry.MIN_GEMMA_FREE_MEMORY_BYTES
+                )
+                check(resourceBlock == null) {
+                    resourceBlock ?: "Los recursos del dispositivo no permiten cargar Gemma."
+                }
+                check(sha256(model) == LiteRTLMModule.EXPECTED_SHA256) {
+                    "El SHA-256 de Gemma no coincide. El archivo original se conserva."
+                }
+                check(inicializar(
+                    model.absolutePath,
+                    File(context.cacheDir, "bardo-litert-cache").absolutePath
+                )) { "LiteRT-LM no pudo cargar Gemma." }
+            }
+            generar(
+                request.prompt,
+                reiniciarConversacion = request.resetConversation
+            ).trim()
+        }
         check(text.isNotBlank()) { "Gemma devolvió una respuesta vacía." }
+        loadedPath = LiteRTLMModule.modelFile(context).absolutePath
+        loaded = true
         return BardoModelResponse(
             text = text,
             providerId = descriptor.id,

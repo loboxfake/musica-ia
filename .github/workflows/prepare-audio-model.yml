@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - bardo/integral-autonomy-20261109
     paths:
       - .github/workflows/prepare-audio-model.yml
 
@@ -102,4 +103,4 @@ jobs:
           path: /tmp/audio-export/models/
           compression-level: 0
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 90

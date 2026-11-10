@@ -6,6 +6,7 @@ import com.musicaia.herramientas.BardoToolRequest
 import com.musicaia.modelos.BardoModelRegistry
 import com.musicaia.modelos.BardoModelRequest
 import com.musicaia.seguridad.BardoPrincipal
+import com.musicaia.skills.BardoSkillManager
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -37,6 +38,39 @@ fun interface BardoTaskPlanner {
     ): BardoActionPlan
 }
 
+data class BardoTaskStepVerification(
+    val accepted: Boolean,
+    val reason: String? = null
+)
+
+/**
+ * Verifica la salida de una herramienta fuera del modelo que propuso el plan.
+ * El verificador predeterminado exige ejecución satisfactoria, salida no vacía
+ * y, cuando se declara, el marcador objetivo exacto.
+ */
+fun interface BardoTaskStepVerifier {
+    fun verify(step: BardoTaskStep, output: com.musicaia.herramientas.BardoToolOutput): BardoTaskStepVerification
+}
+
+object BardoDeterministicTaskStepVerifier : BardoTaskStepVerifier {
+    override fun verify(
+        step: BardoTaskStep,
+        output: com.musicaia.herramientas.BardoToolOutput
+    ): BardoTaskStepVerification {
+        if (!output.succeeded) {
+            return BardoTaskStepVerification(false, output.error ?: "La herramienta no completó la acción.")
+        }
+        if (output.content.isBlank()) {
+            return BardoTaskStepVerification(false, "La herramienta informó éxito, pero no aportó evidencia de salida.")
+        }
+        val marker = step.expectedOutputContains
+        if (!marker.isNullOrBlank() && !output.content.contains(marker, ignoreCase = true)) {
+            return BardoTaskStepVerification(false, "La salida no contiene el criterio objetivo declarado.")
+        }
+        return BardoTaskStepVerification(true)
+    }
+}
+
 enum class BardoAutonomyStatus { COMPLETED, PARTIAL, BLOCKED, FAILED }
 
 data class BardoAutonomyResult(
@@ -57,7 +91,8 @@ class BardoAutonomyEngine(
     private val tools: BardoToolExecutor,
     private val journal: BardoTaskJournal,
     private val nowMillis: () -> Long = System::currentTimeMillis,
-    private val maxTaskMillis: Long = 180_000L
+    private val maxTaskMillis: Long = 180_000L,
+    private val stepVerifier: BardoTaskStepVerifier = BardoDeterministicTaskStepVerifier
 ) {
     fun run(goal: String): BardoAutonomyResult {
         require(goal.isNotBlank() && goal.length <= 4000) {
@@ -100,23 +135,19 @@ class BardoAutonomyEngine(
                 nowMillis()
             )
             val elapsed = (nowMillis() - stepStarted).coerceAtLeast(0L)
-            val markerSatisfied = step.expectedOutputContains.isNullOrBlank() ||
-                toolResult.content.contains(step.expectedOutputContains, ignoreCase = true)
-            val succeeded = toolResult.succeeded && markerSatisfied
-            val reason = when {
-                !toolResult.succeeded -> toolResult.error ?: "La herramienta no completó la acción."
-                !markerSatisfied -> "La salida no contiene el criterio objetivo declarado."
-                else -> null
-            }
+            val verification = stepVerifier.verify(step, toolResult)
+            val succeeded = verification.accepted
+            val reason = verification.reason
             observations += BardoTaskObservation(
                 step.toolId, succeeded, toolResult.content.take(MAX_OBSERVATION_CHARS), reason, elapsed
             )
             journal.record(
                 taskId,
-                "tool_result",
+                "step_verified",
                 step.toolId,
                 succeeded,
-                reason ?: "Criterio objetivo satisfecho; duración=${elapsed}ms",
+                (reason ?: "Salida no vacía y criterio objetivo satisfecho") +
+                    "; duración=${elapsed}ms",
                 nowMillis()
             )
 
@@ -260,7 +291,9 @@ class BardoTaskJournal(private val directory: File) {
 /** Planificador que solicita JSON tipado a un proveedor local; nunca ejecuta herramientas. */
 class BardoGemmaTaskPlanner(
     private val context: Context,
-    private val models: BardoModelRegistry
+    private val models: BardoModelRegistry,
+    private val toolExecutor: BardoToolExecutor? = null,
+    private val skillManager: BardoSkillManager? = null
 ) : BardoTaskPlanner {
     override fun createPlan(
         goal: String,
@@ -276,13 +309,55 @@ class BardoGemmaTaskPlanner(
                     .put("error", observation.error))
             }
         }
+        val availableTools = toolExecutor?.registeredTools()?.joinToString("\n") { descriptor ->
+            "- " + descriptor.id + ": " + descriptor.description +
+                " (permiso=" + descriptor.requiredScope.name + ")"
+        } ?: "El catálogo de herramientas no fue inyectado."
+        val enabledSkills = skillManager?.enabled()?.joinToString("\n") { record ->
+            "- " + record.manifest.id + "@" + record.manifest.version +
+                " acciones=" + record.manifest.actions.sorted().joinToString(",") +
+                " verificador=" + record.lastTestVerifierId
+        } ?: "No hay catálogo de skills habilitadas."
+
         val prompt = """
             Eres el planificador local de BARDO. No ejecutas herramientas.
+            Jerarquía permanente: usuario (autoridad máxima) > JARVIS (segunda autoridad, por encima de BARDO) > BARDO > modelos/agentes/skills/herramientas.
+            La conexión técnica de JARVIS se realizará en el futuro; BARDO no depende de ella para funcionar, aprender o desarrollarse.
+            BARDO es el núcleo autónomo y dirige los recursos subordinados. Ningún modelo o skill puede cambiar esta jerarquía.
+            Selecciona exclusivamente herramientas del catálogo de abajo.
+            La herramienta web.search_public solo está disponible después de una aprobación directa, por parte del usuario,
+            de la consulta exacta en la interfaz. La aprobación es de un solo uso, vence en 120 segundos y se consume
+            antes de abrir la conexión. Nunca existe un permiso global o permanente para buscar.
+            Envía exclusivamente esa consulta pública aprobada; no la reformules ni añadas contexto de BARDO.
+            Nunca incluyas archivos, código del usuario, proyectos importados, rutas, nombres privados, IDs,
+            estadísticas de RAM/batería/almacenamiento, logs, historial, prompts ni datos de sesión.
+            Si para investigar necesitarías alguno de esos datos, no busques en la web: trabaja localmente
+            o pide al usuario una consulta genérica que pueda aprobar. El filtro local rechazará consultas sensibles.
+            Para ejecutar una skill completa, llama a skill.run_workflow con skill_id, version
+            e inputs_json (objeto JSON de cadenas). El paquete es JSON declarativo con schema_version=1
+            y steps; cada paso contiene action_id y arguments. Los valores pueden usar {{input:nombre}}
+            para recibir una entrada. Solo usa skills habilitadas y acciones declaradas.
+            Para una acción aislada, skill.run_action admite skill_id, version, action_id
+            y action_arguments_json. Toda acción vuelve a pasar por ToolExecutor y permisos.
+            Para diseñar una skill declarativa nueva, puedes llamar a skills.create_draft con
+            id, name, version, description, license y workflow_json. workflow_json debe ser
+            JSON schema_version=1 con steps; cada paso usa solo acciones registradas y sus
+            argumentos de texto. El sistema calcula hash y permisos, valida el workflow y
+            guarda un .bskill en borradores privados. Esto NO importa, instala ni habilita
+            la skill. Nunca inventes una licencia: usa una licencia conocida de la fuente o
+            deja la creación pendiente de confirmación del usuario. No incluyas scripts,
+            comandos, código ejecutable ni URL de descarga en el workflow.
             Devuelve SOLO JSON:
             {"correctionBudget":1,"steps":[{"toolId":"id.registrado","purpose":"motivo breve","arguments":{"key":"value"},"expectedOutputContains":"opcional"}]}
             Máximo 12 pasos y 2 correcciones. Cada paso invoca una herramienta tipada.
             No propongas shell, comandos, código, URL arbitrarias, permisos, GitHub write,
             merge, instalación, borrado, cambios a main ni acceso fuera de BARDO.
+            Herramientas registradas:
+            $availableTools
+
+            Skills habilitadas y verificadas:
+            $enabledSkills
+
             Objetivo:
             $goal
             Motivo de corrección:
