@@ -21,5 +21,15 @@ class BardoGitHubIntegrationPolicyTest {
         )
         assertTrue(BardoGitHubIntegrationPolicy.BLOCK_REASON.contains("rama única"))
         assertTrue(BardoGitHubIntegrationPolicy.BLOCK_REASON.contains("main"))
+        assertEquals(true, BardoGitHubIntegrationPolicy.MAIN_COMMIT_WORKFLOW_ENABLED)
+        assertEquals(
+            "bardo-main-commit-candidate.yml",
+            BardoGitHubActionsClient.MAIN_COMMIT_WORKFLOW
+        )
+        assertTrue(
+            runCatching {
+                BardoGitHubIntegrationPolicy.requireMainCommitWorkflowAvailable()
+            }.isSuccess
+        )
     }
 }
