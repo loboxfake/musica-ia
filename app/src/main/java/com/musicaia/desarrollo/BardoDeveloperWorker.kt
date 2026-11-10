@@ -210,30 +210,25 @@ class BardoDeveloperWorker(
             val auditText = audit.render()
             val sourceText = BardoDeveloperCore.extractos(snapshot, audit, 16000)
 
-            // A candidate eligible for GitHub CI must be generated from BARDO source only.
-            // Do not even load the user's knowledge base, private technical memory, CI details,
-            // device inventory or resource statistics into a submission-capable model context.
-            // Imported projects may still use these materials locally, but their origin policy
-            // prevents the resulting diff from ever reaching GitHub.
+            // This policy does not invoke the private-context supplier for snapshots
+            // eligible for GitHub. Imported projects may use local memory/references, but
+            // their generated candidates are permanently local-only.
             val snapshotOrigin = prefs.getString(BardoSnapshotOriginPolicy.PREF_KEY, null)
-            val githubPromptPrivacySafe =
-                BardoSnapshotOriginPolicy.allowsPrivateRepositoryCi(snapshotOrigin)
-            val authorizedReferences = if (githubPromptPrivacySafe) "" else {
-                BardoKnowledgeStore(applicationContext).allForPrompt(10000)
+            val promptPrivacyContext = BardoCandidatePromptPrivacyPolicy.create(snapshotOrigin) {
+                BardoLocalOnlyModelContext(
+                    deviceInventory = selfInventoryText,
+                    authorizedReferences = BardoKnowledgeStore(applicationContext).allForPrompt(10000),
+                    previousTechnicalMemory = if (memoryFile.isFile) {
+                        runCatching { memoryFile.readText(Charsets.UTF_8).takeLast(7000) }.getOrDefault("")
+                    } else "",
+                    latestCiDiagnostics = prefs.getString("latest_ci_diagnostics", "").orEmpty().takeLast(10000)
+                )
             }
-            val previousMemory = if (!githubPromptPrivacySafe && memoryFile.isFile) {
-                runCatching { memoryFile.readText(Charsets.UTF_8).takeLast(7000) }.getOrDefault("")
-            } else ""
-            val latestCiDiagnostics = if (!githubPromptPrivacySafe) {
-                prefs.getString("latest_ci_diagnostics", "").orEmpty().takeLast(10000)
-            } else ""
-            val modelInventoryContext = if (githubPromptPrivacySafe) {
-                "Contexto privado omitido deliberadamente. Para una propuesta que pueda enviarse al CI privado " +
-                    "solo se considera el snapshot de código BARDO y su auditoría estática. No se incluyen " +
-                    "dispositivo, métricas, memoria, referencias, documentos, proyectos ni diagnósticos locales."
-            } else {
-                selfInventoryText
-            }
+            val githubPromptPrivacySafe = promptPrivacyContext.githubSubmissionEligible
+            val authorizedReferences = promptPrivacyContext.authorizedReferences
+            val previousMemory = promptPrivacyContext.previousTechnicalMemory
+            val latestCiDiagnostics = promptPrivacyContext.latestCiDiagnostics
+            val modelInventoryContext = promptPrivacyContext.inventoryContext
 
             val prompt = """
 Eres BARDO, una única IA con identidad y memoria compartidas. El autoestudio de código es una capacidad interna de BARDO, no otro agente ni una identidad separada.
