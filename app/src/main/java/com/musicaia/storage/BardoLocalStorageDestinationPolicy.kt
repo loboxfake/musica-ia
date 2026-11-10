@@ -10,6 +10,10 @@ object BardoLocalStorageDestinationPolicy {
     const val PRIMARY_DOWNLOADS_TREE_ID = "primary:Download"
     const val BARDO_ROOT_DOCUMENT_ID = "primary:Download/BARDO"
 
+    /**
+     * Acepta el árbol Descargas o directamente su subcarpeta BARDO.
+     * Android puede devolver cualquiera de los dos según la selección del usuario.
+     */
     fun isLocalDownloadsTree(
         scheme: String?,
         authority: String?,
@@ -17,7 +21,7 @@ object BardoLocalStorageDestinationPolicy {
     ): Boolean =
         scheme.equals("content", ignoreCase = true) &&
             authority == EXTERNAL_STORAGE_AUTHORITY &&
-            treeDocumentId == PRIMARY_DOWNLOADS_TREE_ID
+            treeDocumentId in setOf(PRIMARY_DOWNLOADS_TREE_ID, BARDO_ROOT_DOCUMENT_ID)
 
     fun isBardoRoot(
         scheme: String?,
