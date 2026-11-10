@@ -1,4 +1,4 @@
-name: Finalize BARDO branch consolidation
+name: DISABLED — legacy branch consolidation check
 
 on:
   push:
@@ -8,10 +8,12 @@ on:
       - .github/workflows/finalize-branch-consolidation.yml
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   retire-legacy-refs:
+    # Historical refs are preserved as backups; this workflow must never remove or reject them.
+    if: ${{ false }}
     runs-on: ubuntu-22.04
     timeout-minutes: 10
     steps:
