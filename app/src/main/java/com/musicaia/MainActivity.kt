@@ -1031,13 +1031,13 @@ private fun crearConversacionNueva() {
      val formato = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").withZone(ZoneId.systemDefault())
      val titulos = conversaciones.map { conversacion ->
          val cantidad = conversationStore.messages(conversacion.id).size
-         "\${conversacion.title} · $cantidad mensajes · " + formato.format(Instant.ofEpochMilli(conversacion.updatedAtEpochMillis))
+         "${conversacion.title} · $cantidad mensajes · " + formato.format(Instant.ofEpochMilli(conversacion.updatedAtEpochMillis))
      }.toTypedArray()
      AlertDialog.Builder(this)
          .setTitle("Historial de BARDO")
          .setItems(titulos) { _, indice ->
-             cargarMemoriaLocal()
              activeConversationId = conversaciones[indice].id
+             cargarMemoriaLocal()
              getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE).edit()
                  .putString("active_conversation_id", activeConversationId).apply()
              chatLog.text = ""
