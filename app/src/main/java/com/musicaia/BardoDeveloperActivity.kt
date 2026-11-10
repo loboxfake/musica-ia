@@ -1052,7 +1052,8 @@ class BardoDeveloperActivity : AppCompatActivity() {
                             BardoToolRequest(
                                 toolId = "web.search_public",
                                 arguments = mapOf("query" to query),
-                                principal = BardoPrincipal.BARDO
+                                principal = BardoPrincipal.BARDO,
+                                explicitUserConfirmation = true
                             ),
                             System.currentTimeMillis()
                         )
