@@ -62,6 +62,57 @@ class BardoModelRegistryTest {
         assertEquals("local", response.providerId)
     }
 
+    @Test fun fallsBackToSecondaryLocalProviderWhenPrimaryIsMemoryBlocked() {
+        val blocked = object : BardoModelProvider {
+            override val descriptor = BardoModelDescriptor(
+                "gemma", "1", setOf("chat"), BardoModelLocation.LOCAL, "test", null, null, 100
+            )
+            override fun inspect(context: Context) =
+                BardoModelAvailability(BardoModelState.RESOURCE_BLOCKED, "RAM insuficiente")
+            override fun load(context: Context) = false
+            override fun generate(context: Context, request: BardoModelRequest): BardoModelResponse =
+                error("No debe ejecutarse el proveedor bloqueado")
+            override fun unload() = Unit
+        }
+        val qwen = object : BardoModelProvider {
+            override val descriptor = BardoModelDescriptor(
+                "qwen", "1", setOf("chat"), BardoModelLocation.LOCAL, "Apache-2.0", null, null, 80
+            )
+            override fun inspect(context: Context) =
+                BardoModelAvailability(BardoModelState.PRESENT_UNVERIFIED, "modelo presente")
+            override fun load(context: Context) = true
+            override fun generate(context: Context, request: BardoModelRequest) =
+                BardoModelResponse("respuesta local", descriptor.id, descriptor.version, 2L)
+            override fun unload() = Unit
+        }
+        val response = BardoModelRegistry(listOf(blocked, qwen)).generate(
+            android.content.ContextWrapper(null), "chat", BardoModelRequest("hola")
+        )
+        assertEquals("qwen", response.providerId)
+        assertEquals("respuesta local", response.text)
+    }
+
+    @Test fun fallsBackAfterPrimaryProviderOutOfMemory() {
+        val exhausted = object : BardoModelProvider {
+            override val descriptor = BardoModelDescriptor(
+                "large", "1", setOf("chat"), BardoModelLocation.LOCAL, "test", null, null, 100
+            )
+            override fun inspect(context: Context) =
+                BardoModelAvailability(BardoModelState.PRESENT_UNVERIFIED, "modelo presente")
+            override fun load(context: Context) = true
+            override fun generate(context: Context, request: BardoModelRequest): BardoModelResponse =
+                throw OutOfMemoryError("test")
+            override fun unload() = Unit
+        }
+        val fallback = StubProvider(BardoModelDescriptor(
+            "small", "1", setOf("chat"), BardoModelLocation.LOCAL, "test", null, null, 80
+        ))
+        val response = BardoModelRegistry(listOf(exhausted, fallback)).generate(
+            android.content.ContextWrapper(null), "chat", BardoModelRequest("hola")
+        )
+        assertEquals("small", response.providerId)
+    }
+
     @Test fun refusesDuplicateProviderIds() {
         val one = StubProvider(BardoModelDescriptor("same", "1", setOf("chat"), BardoModelLocation.LOCAL, "x", null, null))
         val two = StubProvider(BardoModelDescriptor("same", "2", setOf("chat"), BardoModelLocation.LOCAL, "x", null, null))

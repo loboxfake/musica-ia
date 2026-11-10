@@ -18,6 +18,8 @@ object BardoCapabilityRegistry {
 
     data class RuntimeFacts(
         val gemmaFilePresent: Boolean,
+        val qwenFilePresent: Boolean = false,
+        val qwenResourceBlockReason: String? = null,
         val audioEnginePresent: Boolean,
         val mp3EncoderPresent: Boolean,
         val availableMemoryBytes: Long = Long.MAX_VALUE,
@@ -37,6 +39,24 @@ object BardoCapabilityRegistry {
         facts.availableMemoryBytes < MIN_GEMMA_FREE_MEMORY_BYTES -> Status.NEEDS_MEMORY
         !facts.resourceBlockReason.isNullOrBlank() -> Status.NEEDS_RESOURCES
         else -> Status.AVAILABLE
+    }
+
+    private fun localTextStatus(facts: RuntimeFacts): Status = when {
+        gemmaStatus(facts) == Status.AVAILABLE -> Status.AVAILABLE
+        facts.qwenFilePresent && facts.qwenResourceBlockReason.isNullOrBlank() -> Status.AVAILABLE
+        facts.qwenFilePresent -> Status.NEEDS_RESOURCES
+        else -> gemmaStatus(facts)
+    }
+
+    private fun localTextDetail(facts: RuntimeFacts): String = when {
+        gemmaStatus(facts) == Status.AVAILABLE ->
+            "Gemma 4 E2B-it local está presente y supera el umbral preventivo de RAM. SHA-256 obligatorio antes de inferir."
+        facts.qwenFilePresent && facts.qwenResourceBlockReason.isNullOrBlank() ->
+            "Qwen2-0.5B-Instruct local está instalado y supera el umbral preventivo de 1,6 GiB. Se usa como alternativa ligera cuando Gemma no cabe; SHA-256 obligatorio antes de inferir. Calidad y rendimiento en este Xiaomi aún requieren prueba."
+        facts.qwenFilePresent ->
+            facts.qwenResourceBlockReason ?: "Qwen2 está instalado, pero los recursos actuales no permiten cargarlo."
+        facts.gemmaFilePresent -> gemmaDetail(facts)
+        else -> "No hay un modelo de texto local disponible. Importa Gemma o instala Qwen2-0.5B desde el gestor de modelos."
     }
 
     private fun gemmaDetail(facts: RuntimeFacts): String = when (gemmaStatus(facts)) {
@@ -63,18 +83,15 @@ object BardoCapabilityRegistry {
     fun snapshot(facts: RuntimeFacts): List<Capability> {
         val localModelStatus = gemmaStatus(facts)
         val localModelDetail = gemmaDetail(facts)
+        val localTextModelStatus = localTextStatus(facts)
+        val localTextModelDetail = localTextDetail(facts)
         return listOf(
-            Capability("general_chat", "Conversación general local", localModelStatus, localModelDetail, "Gemma verificado por SHA-256; conversación real sin Internet en el Xiaomi, sin cierres ni respuestas simuladas."),
+            Capability("general_chat", "Conversación general local", localTextModelStatus, localTextModelDetail, "Gemma o Qwen2 local verificado por SHA-256; conversación real sin Internet en el Xiaomi, sin cierres ni respuestas simuladas."),
             Capability(
                 "lyrics", "Generación de letras",
-                localModelStatus,
-                when (localModelStatus) {
-                    Status.NEEDS_MODEL -> "Necesita importar Gemma local desde Descargas/BARDO/Modelos; no hace falta volver a descargarlo si ya está allí."
-                    Status.NEEDS_MEMORY -> "Necesita más memoria RAM libre para cargar Gemma de forma prudente."
-                    Status.NEEDS_RESOURCES -> facts.resourceBlockReason.orEmpty()
-                    else -> "Generación local condicionada a que Gemma supere la verificación y pueda ejecutarse."
-                },
-                "Crear letra nueva y coherente con los datos; no usar plantillas fijas; reproducir y revisar el resultado."
+                localTextModelStatus,
+                localTextModelDetail,
+                "Generar texto local coherente con los datos; no usar plantillas fijas. La síntesis vocal cantada es una capacidad separada y todavía no está implementada."
             ),
             Capability(
                 "instrumental", "Generación instrumental",

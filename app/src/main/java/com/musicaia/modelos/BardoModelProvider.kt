@@ -241,7 +241,9 @@ class BardoModelRegistry(providers: List<BardoModelProvider>) {
                         }
                         return@synchronized provider.generate(context, request)
                     } catch (error: OutOfMemoryError) {
-                        throw error
+                        failures += provider.descriptor.id + ": memoria insuficiente durante carga o inferencia."
+                        runCatching { provider.unload() }
+                        runCatching { System.gc() }
                     } catch (error: Exception) {
                         failures += provider.descriptor.id + ": " +
                             (error.message ?: error.javaClass.simpleName)
