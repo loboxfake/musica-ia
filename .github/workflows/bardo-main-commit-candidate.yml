@@ -231,32 +231,17 @@ jobs:
           PY
           git diff --check
 
-      - name: Run unit tests and compile ARM64 candidate again
-        run: |
-          set -euo pipefail
-          ./gradlew testDebugUnitTest assembleDebug -PbardoTargetAbi=arm64-v8a --no-daemon --stacktrace 2>&1 | tee "$RUNNER_TEMP/bardo-main-commit-tests.log"
-          status=${PIPESTATUS[0]}
-          if [ "$status" -ne 0 ]; then
-            grep -E "FAILED|Exception|error:|What went wrong" "$RUNNER_TEMP/bardo-main-commit-tests.log" | tail -100 || true
-            exit "$status"
-          fi
-
-      - name: Recheck main and create a normal fast-forward-only commit
-        id: integrate
+      - name: Prepare the candidate commit locally and scan its complete history
+        id: prepare
         env:
-          BASE_SHA: ${{ inputs.base_sha }}
           CANDIDATE_ID: ${{ inputs.candidate_id }}
+          BASE_SHA: ${{ inputs.base_sha }}
           VALIDATION_RUN_ID: ${{ inputs.validation_run_id }}
         run: |
           set -euo pipefail
-          current_main="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
-          test "$current_main" = "$BASE_SHA" || {
-            echo "::error::main moved during candidate revalidation. No commit was pushed."
-            exit 1
-          }
+          mapfile -t changed < bardo-validated-changed-files.txt
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          mapfile -t changed < bardo-validated-changed-files.txt
           git add -- "${changed[@]}"
           git diff --cached --check
           git diff --cached --quiet && {
@@ -267,6 +252,37 @@ jobs:
             -m "Validated base: $BASE_SHA" \
             -m "Isolated validation run: $VALIDATION_RUN_ID"
           candidate_commit="$(git rev-parse HEAD)"
+          echo "commit_sha=$candidate_commit" >> "$GITHUB_OUTPUT"
+
+          # The candidate is committed only in this ephemeral runner. Scan it before any remote push.
+          go install github.com/zricethezav/gitleaks/v8@v8.24.3
+          "$(go env GOPATH)/bin/gitleaks" git . --log-opts="--all" --redact --exit-code 1 --no-banner
+
+      - name: Run unit tests and compile ARM64 candidate again
+        run: |
+          set -euo pipefail
+          ./gradlew testDebugUnitTest assembleDebug -PbardoTargetAbi=arm64-v8a --no-daemon --stacktrace 2>&1 | tee "$RUNNER_TEMP/bardo-main-commit-tests.log"
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            grep -E "FAILED|Exception|error:|What went wrong" "$RUNNER_TEMP/bardo-main-commit-tests.log" | tail -100 || true
+            exit "$status"
+          fi
+
+      - name: Recheck main and push the prevalidated candidate using a normal fast-forward
+        id: integrate
+        env:
+          BASE_SHA: ${{ inputs.base_sha }}
+          CANDIDATE_ID: ${{ inputs.candidate_id }}
+          VALIDATION_RUN_ID: ${{ inputs.validation_run_id }}
+          CANDIDATE_COMMIT: ${{ steps.prepare.outputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_COMMIT"
+          current_main="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          test "$current_main" = "$BASE_SHA" || {
+            echo "::error::main moved during candidate revalidation. No commit was pushed."
+            exit 1
+          }
 
           # Deliberately no --force/--force-with-lease: if main moves after the check,
           # a normal push is rejected rather than overwriting someone else's work.
@@ -274,21 +290,22 @@ jobs:
 
           git fetch origin main
           actual_main="$(git rev-parse FETCH_HEAD)"
-          git merge-base --is-ancestor "$candidate_commit" "$actual_main"
+          git merge-base --is-ancestor "$CANDIDATE_COMMIT" "$actual_main"
           {
             echo "## BARDO · integración en main"
             echo
             echo "- Candidato: $CANDIDATE_ID"
             echo "- Base validada: $BASE_SHA"
-            echo "- Commit incorporado: $candidate_commit"
+            echo "- Commit incorporado: $CANDIDATE_COMMIT"
             echo "- main tras el push: $actual_main"
             echo "- Validación aislada: https://github.com/$GITHUB_REPOSITORY/actions/runs/$VALIDATION_RUN_ID"
-            echo "- Revalidación local en runner: tests Kotlin + APK ARM64"
+            echo "- Escaneo Gitleaks sobre el candidato antes del push: SUCCESS"
+            echo "- Revalidación en runner: tests Kotlin + APK ARM64"
             echo "- Push: avance rápido normal; sin force-push, ramas auxiliares ni PR"
           } >> "$GITHUB_STEP_SUMMARY"
-          echo "BARDO_MAIN_COMMIT_SHA=$candidate_commit"
+          echo "BARDO_MAIN_COMMIT_SHA=$CANDIDATE_COMMIT"
           echo "BARDO_MAIN_TIP_AFTER_PUSH=$actual_main"
-          echo "commit_sha=$candidate_commit" >> "$GITHUB_OUTPUT"
+          echo "commit_sha=$CANDIDATE_COMMIT" >> "$GITHUB_OUTPUT"
           echo "main_tip_sha=$actual_main" >> "$GITHUB_OUTPUT"
 
       - name: Trigger explicit validation of the committed main tip
