@@ -104,9 +104,6 @@ class BardoDeveloperActivity : AppCompatActivity() {
     private val importSkillArchive = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) importarPaqueteSkill(uri)
     }
-    private val exportFile = registerForActivityResult(ActivityResultContracts.CreateDocument("text/markdown")) { uri: Uri? ->
-        if (uri != null) exportar(uri)
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -178,7 +175,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
         root.addView(urlInput, LinearLayout.LayoutParams(-1, 52).apply { topMargin = 8 })
         addButton(root, "Buscar en web (aprobar consulta exacta antes del envío)") { buscarEnWeb() }
         addButton(root, "Investigar documentación oficial") { investigarDocumentacion() }
-        btnExport = addButton(root, "Exportar auditoría / propuesta") { exportFile.launch("bardo-developer-informe.md") }
+        btnExport = addButton(root, "Guardar informe en Descargas/BARDO/Informes") { exportarInformeLocal() }
         addButton(root, "Volver a BARDO") { finish() }
         val scroll = ScrollView(this).apply { isFillViewport = true }
         output = TextView(this).apply {
@@ -1157,19 +1154,29 @@ class BardoDeveloperActivity : AppCompatActivity() {
         memoryFile.writeText((previous + "\n- [${System.currentTimeMillis()}] " + entry).takeLast(100000))
     }
 
-    private fun exportar(uri: Uri) {
-        val text = if (lastProposal.isNotBlank()) lastReport + "\n\n# Propuesta (no aplicada)\n\n" + lastProposal else lastReport.ifBlank { "BARDO Developer: todavía no hay auditoría." }
-        runCatching {
-            require(BardoSharedStorage.isAuthorizedLocalBardoDestination(this, uri)) {
-                "Privacidad protegida: los informes solo se exportan a Descargas/BARDO del almacenamiento interno. No se escribe en proveedores cloud ni destinos externos."
-            }
-            contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { it.write(text) }
-                ?: throw IllegalStateException("No se pudo abrir el destino local BARDO.")
-        }.onSuccess {
-            output.text = "Informe exportado localmente en Descargas/BARDO."
-        }.onFailure {
-            output.text = "Exportación bloqueada o fallida: ${it.message}. El informe permanece en el almacenamiento privado de BARDO."
+    private fun exportarInformeLocal() {
+        val report = if (lastProposal.isNotBlank()) {
+            lastReport + "\n\n# Propuesta (no aplicada)\n\n" + lastProposal
+        } else {
+            lastReport.ifBlank { "BARDO Developer: todavía no hay auditoría." }
         }
+        val name = "bardo-developer-informe-${System.currentTimeMillis()}.md"
+        val temporary = File(workspace, name)
+        runCatching {
+            temporary.writeText(report, Charsets.UTF_8)
+            BardoSharedStorage.copyFile(
+                this,
+                "Informes",
+                temporary,
+                name,
+                "text/markdown"
+            )
+        }.onSuccess {
+            output.text = "Informe guardado en Descargas/BARDO/Informes. No se abrió ningún proveedor externo."
+        }.onFailure {
+            output.text = "No se pudo guardar localmente: ${it.message}. El informe permanece dentro del almacenamiento privado de BARDO."
+        }
+        temporary.delete()
     }
 
     private fun setBusy(busy: Boolean, message: String = "") {
