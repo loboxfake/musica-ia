@@ -66,6 +66,47 @@ class BardoConversationStore internal constructor(private val directory: File) {
             conversation
         }
 
+    /**
+     * Migra el antiguo transcript de SharedPreferences cuando el almacén nuevo
+     * aún no contiene mensajes. Conserva el texto íntegro y no inventa fechas.
+     */
+    fun importLegacyTranscript(
+        transcript: String,
+        now: Long = System.currentTimeMillis(),
+        zoneId: String = ZoneId.systemDefault().id
+    ): Conversation? = synchronized(lock) {
+        val legacy = transcript.trim()
+        if (legacy.isEmpty()) return@synchronized null
+        val root = readRoot()
+        val messages = root.getJSONArray("messages")
+        if (messages.length() > 0) return@synchronized null
+
+        val conversation = Conversation(
+            id = UUID.randomUUID().toString(),
+            title = "Historial anterior",
+            createdAtEpochMillis = now,
+            updatedAtEpochMillis = now
+        )
+        root.getJSONArray("conversations").put(
+            JSONObject()
+                .put("id", conversation.id)
+                .put("title", conversation.title)
+                .put("createdAtEpochMillis", now)
+                .put("updatedAtEpochMillis", now)
+        )
+        val message = Message(
+            id = UUID.randomUUID().toString(),
+            conversationId = conversation.id,
+            role = "system",
+            content = "Transcripción heredada del formato anterior. Se conserva íntegra; las marcas horarias originales no contienen fecha completa y no se han reinterpretado.\n\n$legacy",
+            timestampEpochMillis = now,
+            zoneId = zoneId
+        )
+        messages.put(message.toJson())
+        writeRoot(root)
+        conversation
+    }
+
     fun append(
         conversationId: String,
         role: String,

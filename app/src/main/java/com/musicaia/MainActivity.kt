@@ -673,21 +673,21 @@ class MainActivity : AppCompatActivity() {
  private fun prepararHistorialConversaciones() {
      val prefs = getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE)
      var conversaciones = conversationStore.listConversations()
+     val historialAnterior = prefs.getString("historial_chat", null).orEmpty()
+     val mensajesPersistidos = conversaciones.any { conversationStore.messages(it.id).isNotEmpty() }
+     val heredada = if (historialAnterior.isNotBlank() && !mensajesPersistidos) {
+         conversationStore.importLegacyTranscript(historialAnterior)
+     } else {
+         null
+     }
+     conversaciones = conversationStore.listConversations()
      if (conversaciones.isEmpty()) {
-         val historialAnterior = prefs.getString("historial_chat", null).orEmpty()
-         if (historialAnterior.isNotBlank()) {
-             val heredada = conversationStore.createConversation("Historial anterior")
-             conversationStore.append(
-                 heredada.id,
-                 role = "system",
-                 content = "Transcripción heredada del formato anterior. Se conserva íntegra; no se han inferido ni separado sus mensajes.\n\n$historialAnterior"
-             )
-         }
          val nueva = conversationStore.createConversation("Nueva conversación")
          activeConversationId = nueva.id
      } else {
          val guardada = prefs.getString("active_conversation_id", null)
-         activeConversationId = conversaciones.firstOrNull { it.id == guardada }?.id
+         activeConversationId = heredada?.id
+             ?: conversaciones.firstOrNull { it.id == guardada }?.id
              ?: conversaciones.first().id
      }
      prefs.edit().putString("active_conversation_id", activeConversationId).apply()
@@ -978,13 +978,15 @@ private fun crearConversacionNueva() {
 
  private fun mostrarHistorialConversaciones() {
      val conversaciones = conversationStore.listConversations()
+         .filter { conversationStore.messages(it.id).isNotEmpty() }
      if (conversaciones.isEmpty()) {
-         tvEstado.text = "Todavía no hay conversaciones guardadas."
+         tvEstado.text = "Todavía no hay conversaciones con mensajes guardados."
          return
      }
      val formato = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").withZone(ZoneId.systemDefault())
      val titulos = conversaciones.map { conversacion ->
-         "${conversacion.title} · " + formato.format(Instant.ofEpochMilli(conversacion.updatedAtEpochMillis))
+         val cantidad = conversationStore.messages(conversacion.id).size
+         "\${conversacion.title} · $cantidad mensajes · " + formato.format(Instant.ofEpochMilli(conversacion.updatedAtEpochMillis))
      }.toTypedArray()
      AlertDialog.Builder(this)
          .setTitle("Historial de BARDO")
@@ -995,7 +997,7 @@ private fun crearConversacionNueva() {
                  .putString("active_conversation_id", activeConversationId).apply()
              chatLog.text = ""
              renderizarConversacionActiva()
-             if (chatLog.text.isBlank()) chatLog.text = "BARDO: Conversación recuperada. ¿En qué puedo ayudarte?"
+             if (chatLog.text.isBlank()) chatLog.text = "BARDO: Conversación recuperada."
              tvEstado.text = "Conversación recuperada."
          }
          .setNegativeButton("Cerrar", null)

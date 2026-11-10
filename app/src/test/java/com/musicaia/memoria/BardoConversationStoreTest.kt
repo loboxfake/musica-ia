@@ -39,6 +39,39 @@ class BardoConversationStoreTest {
     }
 
     @Test
+    fun migratesLegacyTranscriptWhenOnlyEmptyConversationRecordsExist() {
+        val (store, directory) = newStore()
+        try {
+            store.createConversation("Sesión vacía")
+            val legacy = "[19:42] Tú: Hola BARDO\n[19:42] BARDO: Hola, ¿en qué puedo ayudarte?"
+            val migrated = store.importLegacyTranscript(legacy, now = 1_800_000_000_000L)
+
+            assertEquals("Historial anterior", migrated?.title)
+            val messages = store.messages(migrated!!.id)
+            assertEquals(1, messages.size)
+            assertEquals("system", messages.single().role)
+            assertTrue(messages.single().content.contains(legacy))
+            assertEquals(null, store.importLegacyTranscript(legacy, now = 1_800_000_000_001L))
+            assertEquals(1, store.messages(migrated.id).size)
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun doesNotImportLegacyTranscriptOverExistingMessages() {
+        val (store, directory) = newStore()
+        try {
+            val existing = store.createConversation("Actual")
+            store.append(existing.id, "user", "Conservar este mensaje")
+            assertEquals(null, store.importLegacyTranscript("historial antiguo"))
+            assertEquals("Conservar este mensaje", store.messages(existing.id).single().content)
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
     fun importingSameExportTwiceDoesNotDuplicateRecords() {
         val (source, sourceDir) = newStore()
         val (target, targetDir) = newStore()
