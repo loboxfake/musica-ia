@@ -3,6 +3,7 @@ package com.musicaia
 import com.musicaia.autonomia.BardoActionPlan
 import com.musicaia.autonomia.BardoAutonomyEngine
 import com.musicaia.autonomia.BardoAutonomyStatus
+import com.musicaia.autonomia.toActivityState
 import com.musicaia.autonomia.BardoTaskJournal
 import com.musicaia.autonomia.BardoTaskPlanner
 import com.musicaia.autonomia.BardoTaskStep
@@ -18,6 +19,13 @@ import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 
 class BardoAutonomyEngineTest {
+    @Test fun activityStateNeverReportsPartialBlockedOrFailedTasksAsCompleted() {
+        assertEquals("completed", BardoAutonomyStatus.COMPLETED.toActivityState())
+        assertEquals("partial", BardoAutonomyStatus.PARTIAL.toActivityState())
+        assertEquals("blocked", BardoAutonomyStatus.BLOCKED.toActivityState())
+        assertEquals("failed", BardoAutonomyStatus.FAILED.toActivityState())
+    }
+
     private class EchoTool : BardoToolHandler {
         override val descriptor = BardoToolDescriptor(
             "test.echo", "Returns a fixed response", BardoPermissionScope.READ_OWN_PROJECT
