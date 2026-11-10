@@ -1,11 +1,8 @@
 name: BARDO integration validation
 
 on:
+  # All integrated development and validation runs directly from main.
   push:
-    branches:
-      - main
-      - 'bardo/**'
-  pull_request:
     branches:
       - main
   workflow_dispatch:
