@@ -14,6 +14,7 @@ import com.musicaia.desarrollo.BardoGitHubActionsClient
 import com.musicaia.desarrollo.BardoGitHubCredentialStore
 import com.musicaia.desarrollo.BardoGitHubIntegrationPolicy
 import com.musicaia.desarrollo.BardoGitHubPolicy
+import com.musicaia.desarrollo.BardoSnapshotOriginPolicy
 import com.musicaia.desarrollo.BardoGitHubRun
 import com.musicaia.evaluacion.BardoCheckEvidence
 import com.musicaia.evaluacion.BardoLocalCandidateAuditInput
