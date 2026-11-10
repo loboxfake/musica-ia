@@ -60,6 +60,13 @@ import org.json.JSONObject
 import org.json.JSONArray
 import com.musicaia.modulos.ModuloMezcla
 import com.musicaia.modulos.AudioGenNative
+import com.musicaia.modulos.DescargadorModelos
+import com.musicaia.modulos.litert.BardoQwen2LiteRtModule
+import com.musicaia.modelos.BardoModelRegistry
+import com.musicaia.modelos.BardoModelRequest
+import com.musicaia.modelos.BardoGemmaLiteRtProvider
+import com.musicaia.modelos.BardoQwen2LiteRtProvider
+
 import com.musicaia.modulos.BardoWavHeaderValidator
 import com.musicaia.modulos.Mp3Exporter
 import com.musicaia.modulos.ModuloInstrumental
@@ -3341,8 +3348,8 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
      val normalizado = Normalizer.normalize(
          texto.lowercase(java.util.Locale.ROOT), Normalizer.Form.NFD
      ).replace(Regex("\\p{M}+"), "")
-     val consultaGemma = Regex(
-         "\\b(gemma|modelo local|modelo de ia|modelo de inteligencia artificial|que modelo|cual modelo|tienes.*instalad|modelo.*instalad)\\b"
+     val consultaModelo = Regex(
+         "\\b(gemma|qwen|modelo local|modelo de ia|modelo de inteligencia artificial|que modelo|cual modelo|tienes.*instalad|modelo.*instalad)\\b"
      ).containsMatchIn(normalizado)
      val consultaDesarrollo = Regex(
          "\\b(apk|actualizacion|actualizar la aplicacion|compilar|firmar una aplicacion)\\b"
@@ -3352,103 +3359,78 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
 
      if (consultaDesarrollo) {
          anexarChat(
-             "\nTú: $texto\nBARDO: Consulta local de capacidades (sin inferencia generativa): esta versión contiene un módulo de autoestudio que puede analizar un snapshot del proyecto y preparar propuestas aisladas. No está demostrado que BARDO pueda compilar, firmar, instalar y publicar una APK completa por sí sola desde el teléfono. Para afirmar esa capacidad tendría que existir y superar una cadena de compilación, evaluación, firma y actualización verificable. No voy a presentar una propuesta de código como una APK terminada."
+             "\nTú: " + texto + "\nBARDO: Consulta local de capacidades (sin inferencia generativa): esta versión contiene un módulo de autoestudio que puede analizar un snapshot del proyecto y preparar propuestas aisladas. No está demostrado que BARDO pueda compilar, firmar, instalar y publicar una APK completa por sí sola desde el teléfono. Para afirmar esa capacidad tendría que existir y superar una cadena de compilación, evaluación, firma y actualización verificable. No voy a presentar una propuesta de código como una APK terminada."
          )
          tvEstado.text = "Capacidad de desarrollo explicada con el estado local verificado."
          return true
      }
+     if (!consultaModelo) return false
 
-     if (!consultaGemma) return false
-
-     anexarChat("\nTú: $texto")
-     tvEstado.text = "Consultando el estado local de Gemma, sin cargar el modelo..."
-     val modelo = LiteRTLMModule.modelFile(this)
-     val inferenciaActiva = gemmaInferenceEnCurso
+     anexarChat("\nTú: " + texto)
+     tvEstado.text = "Consultando el estado local de Gemma y Qwen2 sin cargar modelos..."
+     val gemma = LiteRTLMModule.modelFile(this)
+     val qwen = BardoQwen2LiteRtModule.modelFile(this)
      Thread({
-         val existe = modelo.isFile
-         val tamanoCorrecto = existe && modelo.length() == LiteRTLMModule.EXPECTED_SIZE_BYTES
-         val memoriaLibre = memoriaLibreActualBytes()
-         val umbral = BardoCapabilityRegistry.MIN_GEMMA_FREE_MEMORY_BYTES
-         val cargado = if (!tamanoCorrecto) {
-             false
-         } else if (inferenciaActiva) {
-             true
-         } else {
-             runCatching { EngineLiteRT.estaCargado(modelo.absolutePath) }.getOrDefault(false)
+         val ram = memoriaLibreActualBytes()
+         val gemmaPresent = gemma.isFile && gemma.length() == LiteRTLMModule.EXPECTED_SIZE_BYTES
+         val qwenPresent = qwen.isFile && qwen.length() == BardoQwen2LiteRtModule.EXPECTED_SIZE_BYTES
+         val gemmaLoaded = gemmaPresent && runCatching {
+             EngineLiteRT.estaCargado(gemma.absolutePath)
+         }.getOrDefault(false)
+         val qwenLoaded = qwenPresent && runCatching {
+             EngineLiteRT.estaCargado(qwen.absolutePath)
+         }.getOrDefault(false)
+         val gemmaRamOk = ram >= BardoCapabilityRegistry.MIN_GEMMA_FREE_MEMORY_BYTES
+         val qwenRamOk = ram >= BardoCapabilityRegistry.MIN_QWEN_FREE_MEMORY_BYTES
+         val gemmaState = when {
+             !gemma.isFile -> "Gemma 4 E2B-it: NO INSTALADO."
+             !gemmaPresent -> "Gemma 4 E2B-it: archivo presente, tamaño incorrecto; no se cargará."
+             gemmaLoaded -> "Gemma 4 E2B-it: instalado y runtime cargado."
+             gemmaRamOk -> "Gemma 4 E2B-it: instalado; RAM supera el umbral preventivo de 4.000 MiB, pero esta consulta no lo carga."
+             else -> "Gemma 4 E2B-it: instalado, pero no cargado; RAM por debajo de 4.000 MiB."
          }
-         val estado = when {
-             !existe -> "Gemma no está instalado en el almacenamiento privado de esta aplicación."
-             !tamanoCorrecto -> "El archivo de Gemma existe, pero su tamaño no coincide con el esperado. No se utilizará hasta repararlo y verificar su SHA-256."
-             cargado -> "Gemma 4 E2B-it está presente y el runtime local figura cargado."
-             else -> "Gemma 4 E2B-it está presente en el almacenamiento privado, pero el runtime no está cargado."
+         val qwenState = when {
+             !qwen.isFile -> "Qwen2-0.5B-Instruct: NO INSTALADO; descarga opcional de 647 MB desde el gestor de modelos."
+             !qwenPresent -> "Qwen2-0.5B-Instruct: archivo presente, tamaño incorrecto; no se cargará."
+             qwenLoaded -> "Qwen2-0.5B-Instruct: instalado y runtime cargado."
+             qwenRamOk -> "Qwen2-0.5B-Instruct: instalado; RAM supera el umbral preventivo de 1.600 MiB, disponible como alternativa ligera."
+             else -> "Qwen2-0.5B-Instruct: instalado, pero la RAM actual está por debajo de 1.600 MiB."
          }
-         val tamano = if (existe) "Tamaño del archivo: " + modelo.length() + " bytes." else ""
-         val ram = "RAM disponible ahora: " + (memoriaLibre / (1024L * 1024L)) +
-             " MiB; umbral preventivo configurado: " + (umbral / (1024L * 1024L)) + " MiB."
-         val disponibilidad = when {
-             !tamanoCorrecto -> "No disponible para inferencia: archivo no validado."
-             cargado -> "El runtime ya está cargado; esta consulta no ha iniciado otra inferencia."
-             memoriaLibre < umbral -> "No disponible para inferencia ahora: BARDO no forzará la carga porque la RAM está por debajo del umbral."
-             else -> "El archivo está presente y la RAM supera el umbral, pero esta consulta no ha cargado el modelo."
+         val activo = when {
+             gemmaLoaded -> "Modelo de texto actualmente cargado: Gemma 4 E2B-it."
+             qwenLoaded -> "Modelo de texto actualmente cargado: Qwen2-0.5B-Instruct."
+             else -> "No hay ningún modelo de texto cargado ahora mismo."
          }
-         val respuesta = estado + " " + tamano + " " + ram + " " + disponibilidad +
-             " La verificación SHA-256 se exige antes de inferir; esta consulta de estado no recalcula el hash ni genera texto con Gemma."
+         val respuesta = gemmaState + " " + qwenState + " " + activo +
+             " RAM disponible: " + (ram / (1024L * 1024L)) +
+             " MiB. La presencia del archivo no equivale a inferencia: el SHA-256 se verifica antes de cada carga. Esta consulta no descarga, carga ni ejecuta modelos."
          runOnUiThread {
              if (isFinishing || isDestroyed) return@runOnUiThread
              anexarChat("\nBARDO: Consulta local de estado (sin inferencia generativa): " + respuesta)
-             tvEstado.text = "Estado de Gemma consultado sin cargar ni descargar modelos."
+             tvEstado.text = "Estado de modelos consultado sin cargarlos ni descargarlos."
          }
-     }, "BARDO-Consulta-Estado-Gemma").start()
+     }, "BARDO-Consulta-Estado-Modelos").start()
      return true
  }
 
  private fun responderChatLibre(textoUsuario: String, activityTaskId: String? = null) {
      actualizarAvatar(if (activityTaskId == null) BardoAvatarState.THINKING else BardoAvatarState.STUDYING)
      val idActividad = activityTaskId ?: java.util.UUID.randomUUID().toString()
-     BardoActivityStore.record(this, idActividad, if (activityTaskId == null) "conversacion" else "analisis_documental", "running", "preparacion_contexto", textoUsuario.take(500), 0)
-     anexarChat("\nTú: $textoUsuario")
-     val modelo = LiteRTLMModule.modelFile(this)
-     if (!modelo.isFile || modelo.length() != LiteRTLMModule.EXPECTED_SIZE_BYTES) {
-         BardoActivityStore.record(this, idActividad, "analisis_documental", "blocked", "modelo_no_disponible", "No se puede ejecutar análisis generativo local: Gemma no está instalado.")
-         anexarChat(if (idiomaConversacionUi == "en") {
-             "\\nBARDO: General chat and multilingual document analysis need the local Gemma 4 E2B model (about 2.6 GB), which is not installed. I will not pretend to generate an AI response."
-         } else {
-             "\\nBARDO: El chat general libre todavía necesita el modelo local Gemma 4 E2B (2,6 GB), que no está disponible en la aplicación. No voy a simular una respuesta de IA ni activar la creación musical cuando no la has pedido."
-         })
-         tvEstado.text = "Chat general: modelo local no instalado. El flujo musical guiado sigue disponible."
-         return
-     }
-     val bloqueoAudio = bloqueoPorTareaAudio()
-     if (bloqueoAudio != null) {
-         BardoActivityStore.record(this, idActividad, "analisis_documental", "blocked", "audio_en_segundo_plano", bloqueoAudio)
-         anexarChat("\nBARDO: $bloqueoAudio")
-         tvEstado.text = "Chat generativo en espera; la tarea de audio continúa."
-         return
-     }
-     val bloqueoMemoria = bloqueoGemmaPorMemoria()
-     if (bloqueoMemoria != null) {
-         BardoActivityStore.record(this, idActividad, "analisis_documental", "blocked", "proteccion_ram", bloqueoMemoria)
-         anexarChat("\nBARDO: $bloqueoMemoria")
-         tvEstado.text = "Chat general detenido preventivamente: RAM libre inferior a 4 GB."
-         return
-     }
-
+     val tipoActividad = if (activityTaskId == null) "conversacion" else "analisis_documental"
+     BardoActivityStore.record(this, idActividad, tipoActividad, "running", "preparacion_contexto", textoUsuario.take(500), 0)
+     anexarChat("\nTú: " + textoUsuario)
      val contexto = chatLog.text.toString().takeLast(10000)
      val conocimientoAntiguo = getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE)
          .getString("conocimiento_importado", "").orEmpty().takeLast(3000)
+
      btnEnviar.isEnabled = false
      gemmaInferenceEnCurso = true
      marcarInferenciaGemma(true)
-     tvEstado.text = "BARDO está preparando una respuesta con el modelo local..."
+     tvEstado.text = "BARDO está buscando un modelo local disponible; no se usará la nube..."
      Thread({
          val resultado = runCatching {
-             BardoResourceCoordinator.withTextModel {
-             val conocimiento = (conocimientoAntiguo + "\n" + knowledgeStore.search(textoUsuario, 9000)).takeLast(12000)
-             if (!modeloChatVerificado && !LiteRTLMModule.verificarModelo(modelo)) {
-                 throw IllegalStateException("La verificación SHA-256 del modelo no coincide.")
-             }
-             modeloChatVerificado = true
-             EngineLiteRT.inicializar(modelo.absolutePath, File(cacheDir, "litert-cache").absolutePath)
+             val conocimiento = (conocimientoAntiguo + "\n" +
+                 knowledgeStore.search(textoUsuario, 9000)).takeLast(12000)
              val prompt = """
                  Eres BARDO, un asistente personal general, útil y natural.
                  Detecta el idioma del mensaje más reciente y responde en ese mismo idioma cuando puedas manejarlo. Comprende texto Unicode y documentos en los idiomas que puedas interpretar. Si no entiendes una lengua o fragmento, dilo y pide aclaración en vez de inventar.
@@ -3463,21 +3445,21 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                  $contexto
                  Responde al último mensaje del usuario.
              """.trimIndent()
-             EngineLiteRT.withSession {
-                  if (!estaCargado(modelo.absolutePath)) {
-                      check(inicializar(
-                          modelo.absolutePath,
-                          File(cacheDir, "litert-cache").absolutePath
-                      )) { "LiteRT-LM no pudo cargar Gemma para esta petición." }
-                  }
-                  generar(prompt, reiniciarConversacion = true)
-              }.substringAfter("</think>").trim()
-                 .takeIf { it.isNotBlank() }
-                 ?: throw IllegalStateException("El modelo local devolvió una respuesta vacía.")
-             }
+             val registry = BardoModelRegistry(
+                 listOf(BardoGemmaLiteRtProvider(), BardoQwen2LiteRtProvider())
+             )
+             val response = registry.generate(
+                 applicationContext,
+                 "general_chat",
+                 BardoModelRequest(prompt, resetConversation = true),
+                 allowRemoteModels = false
+             )
+             val clean = response.text.substringAfter("</think>").trim()
+             check(clean.isNotBlank()) { "El modelo local devolvió una respuesta vacía." }
+             response.copy(text = clean)
          }
          resultado.exceptionOrNull()?.let {
-             Log.e(etiqueta, "Falló el chat general local", it)
+             Log.e(etiqueta, "Falló el chat local sin nube", it)
          }
          runOnUiThread {
              gemmaInferenceEnCurso = false
@@ -3485,17 +3467,34 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
              btnEnviar.isEnabled = true
              if (isFinishing || isDestroyed) return@runOnUiThread
              actualizarInsigniaNucleo()
-             val respuesta = resultado.getOrNull()
-             BardoActivityStore.record(this@MainActivity, idActividad, if (activityTaskId == null) "conversacion" else "analisis_documental", if (respuesta != null) "completed" else "failed", "respuesta_local", respuesta?.take(1000) ?: (resultado.exceptionOrNull()?.message ?: "No se obtuvo respuesta local."), if (respuesta != null) 100 else null)
-             if (respuesta != null) {
-                 anexarChat("\nBARDO: $respuesta")
-                 tvEstado.text = "Respuesta generada localmente."
+             val response = resultado.getOrNull()
+             val providerLabel = when (response?.providerId) {
+                 "gemma_litert_local" -> "Gemma local"
+                 "qwen2_0_5b_litert_local" -> "Qwen2 0.5B local"
+                 else -> response?.providerId ?: "modelo local"
+             }
+             val detalle = if (response != null) {
+                 "proveedor=" + response.providerId + "; versión=" + response.modelVersion +
+                     "; tiempo=" + response.elapsedMillis + "ms"
              } else {
-                 anexarChat("\nBARDO: No he podido generar la respuesta con el modelo local: ${resultado.exceptionOrNull()?.message ?: "error desconocido"}.")
-                 tvEstado.text = "No se pudo completar la respuesta local."
+                 resultado.exceptionOrNull()?.message ?: "No hay un modelo local cargable."
+             }
+             BardoActivityStore.record(
+                 this@MainActivity, idActividad, tipoActividad,
+                 if (response != null) "completed" else "blocked",
+                 "respuesta_local_" + providerLabel, detalle,
+                 if (response != null) 100 else null
+             )
+             if (response != null) {
+                 anexarChat("\nBARDO · " + providerLabel + ": " + response.text)
+                 tvEstado.text = "Respuesta generada localmente con " + providerLabel + "."
+             } else {
+                 val error = resultado.exceptionOrNull()?.message ?: "No hay un modelo local disponible."
+                 anexarChat("\nBARDO: No he podido generar una respuesta local y no he simulado ninguna. Detalle: " + error)
+                 tvEstado.text = "No hay un proveedor local que pueda cargar con la RAM disponible."
              }
          }
-     }, "BARDO-General-Chat").start()
+     }, "BARDO-Local-Chat").start()
  }
 
  private fun siguienteCampoPendiente(): String? {
