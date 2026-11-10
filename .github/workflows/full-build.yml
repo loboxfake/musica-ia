@@ -84,16 +84,17 @@ jobs:
         run: |
           set -euo pipefail
           artifact_name="stable-audio-open-small-executorch"
-          export_run_id="42770159088"
-          export_head_sha="3d7ee6b779f068a4b63f0a9781433d0a749d15c9"
-          artifact_id="13741387696"
-          expected_digest="sha256:16bb1c8274496878c9f7b4983aa08a09c66b7b7e80063eeff5a5559b7b4a3152"
+          export_run_id="42810217557"
+          export_head_sha="a6f98dc6f454e8013b7de2b6390eed96f38a7a3c"
+          artifact_id="13761239811"
+          expected_digest="sha256:a37ac29dfe3ecdb897b1618490a425601885cf8215a0e9705c749680e720addf"
           metadata="$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id")"
           test "$(printf '%s' "$metadata" | jq -r '.name')" = "$artifact_name"
           test "$(printf '%s' "$metadata" | jq -r '.expired')" = "false"
           test "$(printf '%s' "$metadata" | jq -r '.digest')" = "$expected_digest"
           test "$(printf '%s' "$metadata" | jq -r '.workflow_run.id')" = "$export_run_id"
           test "$(printf '%s' "$metadata" | jq -r '.workflow_run.head_sha')" = "$export_head_sha"
+          test "$(printf '%s' "$metadata" | jq -r '.workflow_run.head_branch')" = "main"
           run_info="$(gh run view "$export_run_id" --json status,conclusion,headSha)"
           test "$(printf '%s' "$run_info" | jq -r '.status')" = "completed"
           test "$(printf '%s' "$run_info" | jq -r '.conclusion')" = "success"
@@ -215,7 +216,7 @@ jobs:
           set -euo pipefail
           apk=$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n 1)
           test -n "$apk"
-          python3 - "$apk" <<'PY'
+          python3 - "$apk" "$GITHUB_SHA" <<'PY'
           import hashlib, pathlib, sys, zipfile
           apk = pathlib.Path(sys.argv[1])
           required = [
@@ -225,12 +226,19 @@ jobs:
               "assets/audio_model/spiece.model",
               "assets/audio_model/LICENSE",
               "assets/audio_model/model_config.json",
+              "assets/bardo_source_snapshot.zip",
               "assets/NOTICE.txt",
               "AndroidManifest.xml",
               "resources.arsc",
               "lib/arm64-v8a/libaudiogen.so",
               "lib/arm64-v8a/libmp3encoder.so",
               "lib/arm64-v8a/libmp3lame.so",
+              "lib/arm64-v8a/libLiteRt.so",
+              "lib/arm64-v8a/libLiteRtClGlAccelerator.so",
+              "lib/arm64-v8a/liblitertlm_jni.so",
+              "lib/arm64-v8a/libvosk.so",
+              "lib/arm64-v8a/libmlkit_google_ocr_pipeline.so",
+              "lib/arm64-v8a/libmlkitcommonpipeline.so",
           ]
           report = [f"APK: {apk.name}", f"APK_BYTES: {apk.stat().st_size}"]
           digest = hashlib.sha256()
@@ -247,6 +255,28 @@ jobs:
               missing = [name for name in required if name not in names]
               if missing:
                   raise SystemExit("MISSING_APK_ENTRIES: " + ", ".join(missing))
+              native = sorted(name for name in names if name.startswith("lib/") and name.endswith(".so"))
+              wrong_abi = [name for name in native if not name.startswith("lib/arm64-v8a/")]
+              if not native or wrong_abi:
+                  raise SystemExit("NATIVE_ABI_MISMATCH: " + ", ".join(wrong_abi[:20]))
+              print(f"ARM64_NATIVE_LIBRARIES: PASS ({len(native)} libraries)")
+              import io
+              with zipfile.ZipFile(io.BytesIO(z.read("assets/bardo_source_snapshot.zip"))) as source:
+                  source_names = set(source.namelist())
+                  source_required = {
+                      "BARDO_SOURCE_COMMIT.txt",
+                      "app/src/main/java/com/musicaia/modulos/Modo3MezclaVozUsuario.kt",
+                      "app/src/main/java/com/musicaia/modulos/ModuloInstrumental.kt",
+                      "app/src/main/java/com/musicaia/desarrollo/BardoDeveloperWorker.kt",
+                  }
+                  missing_source = sorted(source_required - source_names)
+                  if missing_source:
+                      raise SystemExit("SOURCE_SNAPSHOT_MISSING: " + ", ".join(missing_source))
+                  source_commit = source.read("BARDO_SOURCE_COMMIT.txt").decode("utf-8").strip()
+                  if source_commit != sys.argv[2]:
+                      raise SystemExit(f"SOURCE_SNAPSHOT_COMMIT_MISMATCH: {source_commit} != {sys.argv[2]}")
+                  report.append(f"SOURCE_SNAPSHOT_COMMIT: {source_commit}")
+                  report.append("SOURCE_SNAPSHOT_REQUIRED_FILES: PASS")
               for name in required:
                   info = z.getinfo(name)
                   if info.file_size <= 0:
