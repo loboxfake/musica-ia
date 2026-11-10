@@ -123,7 +123,7 @@ Flujo acordado:
 
 Nunca se hace push automático a `main`, force-push, reset destructivo ni borrado de ramas/remotos. Un candidato obsoleto se rechaza y debe regenerarse desde el nuevo commit base.
 
-**Bloqueo de seguridad vigente (9-11-2026):** la auditoría del workflow heredado `.github/workflows/bardo-commit-candidate.yml` encontró que ejecuta `git push origin HEAD:refs/heads/main`. Esto contradice el flujo de rama + PR. La app añade una política que bloquea la llamada de integración antes de cualquier petición de red y deshabilita el botón de PR. La validación aislada del candidato permanece permitida. El workflow heredado no se ha ejecutado desde esta corrección. La integración seguirá cerrada hasta disponer de un workflow auditado que cree una rama y un PR borrador sin escribir en `main`.
+**Hallazgo histórico, corregido el 10-11-2026:** una versión fundacional del workflow intentaba escribir directamente en `main`. La rama integral reemplazó ese flujo: `.github/workflows/bardo-commit-candidate.yml` comprueba que `main` no haya cambiado, crea exclusivamente `bardo/<id>`, hace push a esa rama y abre un PR borrador. El código de la app bloquea candidatos sin procedencia propia BARDO. La revisión actual de workflows no encuentra ningún `git push` dirigido a `refs/heads/main`; la fusión de PR sigue siendo una acción separada y humana. `main` aún no tiene ruleset/protección activa en GitHub, por lo que el propietario debe configurarla para que GitHub imponga esta política frente a otros clientes.
 
 El workflow de validación usa un runner efímero y no recibe el PAT del dispositivo. El PAT guardado en el teléfono se cifra con Android Keystore y permite iniciar/consultar validaciones; la integración no se habilita mientras el flujo de PR sea inseguro.
 
@@ -196,7 +196,7 @@ Las capacidades musicales actuales se mantienen como especialidades. La generaci
 - El snapshot incrustado de esa candidata contiene 211 archivos, 1.662.530 bytes descomprimidos. Incluye los modelos Stable Audio: conditioners `415fa3a6e5e235f6b37045de1655272deec5af80a155cb70d9c90e9e82b4440f`, DiT `3ad4bd2aac6b8705e86886e1d4d2b6f2647f9abd806267e86146dfdaff8de19d`, autoencoder `8cf1d70f3c6442c25adb8c9ca9d037d7c6d4c3aec970cfefcb82a35ca61b7069` y SentencePiece `d60acb128cf7b7f2536e8f38a5b18a05535c9e14c7a355904270e15b0945ea86`.
 - La candidata #18 corresponde al commit de aplicación 712ee. Después se actualizó el pin de Stable Audio de full-build al artefacto verificado run #5 (ID `13713725273`, digest `sha256:c0e6773df66ceedca06dc694239a79ad559ff372a3193e05e063f9a6d11d9c1a`) y se amplió el disparador de snapshot para cambios de workflows/documentación.
 - Por ello, la candidata #19, run `42716313686`, se está construyendo sobre el HEAD más reciente `d9262c716d9e71959734dbaff0a7308dae9c8745`; la validación push #947 también está en curso. Se usará #19 si termina correctamente, ya que incorpora el snapshot de workflows actualizado.
-- El exportador por fragmentos todavía está fijado a la candidata anterior; se actualizará al artefacto de #19 solo tras comprobar éxito y digest. No se declara APK final descargable hasta reconstruirla y verificar localmente todos los fragmentos y el SHA-256 interno.
+- El pin del exportador por fragmentos se debe actualizar siempre al run/artifact/digest de la candidata unificada que haya pasado la auditoría correspondiente. Las ejecuciones antiguas citadas en esta auditoría son registros históricos, no candidatas vigentes. No se declara APK final descargable hasta reconstruir y verificar los fragmentos y el SHA-256 interno.
 
 ### Lo que esta fase no puede certificar
 
@@ -266,7 +266,7 @@ La revisión de PR #3 confirma que el workflow de candidatos crea una rama bardo
 - GitHub confirma que el repositorio es privado y la conexión de trabajo puede leer PR, ramas, ejecuciones y artefactos.
 - `main` continúa en `386dc7fd23629b5620b6907272ca7d0fc19c6404`; no se ha escrito en ella.
 - GitHub informa que `main` tiene `protected=false` y no tiene reglas de protección activas. Esto no cambia la regla operativa acordada: BARDO y este flujo no escribirán directamente en `main`. Para que GitHub haga cumplir la regla incluso ante otros clientes, el propietario debe activar protección de rama/ruleset, exigir PR y checks.
-- PR #2 y PR #3 siguen abiertas, en borrador y sin fusionar. PR #2 conserva la base fundacional. PR #3 es la candidata integral. La comparación de historial entre ambas sigue divergida: PR #3 está 296 commits por delante y 29 por detrás de PR #2. No se deben encadenar merges ni cherry-picks automáticos.
+- PR #2 y PR #3 permanecen abiertas en borrador hasta superar la validación final y ejecutar la reconciliación de historial. PR #2 conserva la base fundacional y PR #3 es la rama integral. La comparación de historial actual (10-11-2026) está divergida: PR #3 está 348 commits por delante y 29 por detrás de PR #2; las 34 rutas de PR #2 están presentes en las 90 rutas actuales de PR #3. No se debe encadenar merges ni cherry-picks ciegos.
 - Los 34 archivos de PR #2 están presentes en el diff de PR #3; 10 parches son idénticos y 24 difieren. Las diferencias tienen mayor tamaño de parche en PR #3, pero el tamaño no demuestra equivalencia semántica completa. La reconciliación se considera funcionalmente cubierta en rutas, pero la equivalencia de cada cambio exclusivo sigue requiriendo revisión de comportamiento y pruebas; no se declara equivalencia matemática de commits.
 
 ### Candidata integral y exportación
@@ -338,3 +338,31 @@ El estado de la aplicación sigue siendo local-first aun cuando el usuario autor
 - La compartición externa de canciones mediante `ACTION_SEND` está deshabilitada para impedir que otro servicio suba archivos por elección accidental del destino.
 - La importación de archivos desde otros proveedores puede leerlos para incorporarlos al dispositivo, pero la app no escribe ni sincroniza hacia el proveedor de origen.
 - La investigación web no usa contexto del modelo como consulta implícita. Cada consulta exacta debe aprobarse en la interfaz y se consume una sola vez; no hay autorización persistente.
+
+
+## 17. Cierre previo a instalación — revisión del 10 de noviembre de 2026
+
+### Privacidad y red
+- La aplicación ya no declara ningún contrato `ActivityResultContracts.CreateDocument` en `MainActivity` ni en `BardoDeveloperActivity`. Los informes, historial, configuración, WAV, MP3 y portadas se copian directamente a `Descargas/BARDO` mediante el árbol SAF interno previamente validado.
+- Cada escritura comprueba proveedor Android externo local, raíz exacta `primary:Download/BARDO`, permiso persistente actual, ruta descendiente segura y tamaño copiado. Se rechazan proveedores cloud y traversal. Los archivos de origen solo se eliminan tras una copia local verificada; si falla, se conservan.
+- La compartición externa `ACTION_SEND` de canciones está deshabilitada. `android:allowBackup=false` permanece configurado.
+- Los selectores `OpenDocument` que quedan son para leer/importar datos hacia el dispositivo; no son destinos de exportación y no sincronizan ni escriben en el proveedor de origen.
+- Los proyectos ZIP importados reciben procedencia `user_imported_project`. El botón, la Activity de integración y el Worker comprueban la procedencia antes de cualquier envío GitHub. Solo el snapshot oficial empaquetado y el código propio de la rama privada pueden producir una candidatura CI.
+- Las llamadas de inferencia/codificación usan proveedor local Gemma/LiteRT y `allowRemoteModels=false`. No hay fallback a Claude, Gemini, ChatGPT, OpenRouter ni otra API de modelo remoto.
+- La búsqueda pública utiliza únicamente HTTPS GET a DuckDuckGo con consultas cortas y genéricas aprobadas exactamente por el usuario. La aprobación se guarda como hash, expira en 120 segundos y se consume una sola vez antes de abrir red. El proveedor de búsqueda recibe la consulta autorizada y metadatos de conexión como la IP; puede registrar esa consulta. No recibe documentos, proyectos, grabaciones, inventario, estadísticas, logs ni contexto de sesión.
+- Las descargas de modelos/documentación son solicitudes entrantes GET autorizadas. GitHub recibe diffs únicamente del código propio de BARDO para CI/PR, no archivos o proyectos personales.
+
+### Historial de ramas
+- PR #2: `bardo/autonomy-foundation-20261109`, HEAD `7c4ed90cb2ae3fd9b0f16428d860999a5ae8a071`.
+- PR #3: `bardo/integral-autonomy-20261109`, HEAD sujeto a la última revisión CI.
+- La comparación actual detecta 348 commits exclusivos de PR #3 y 29 exclusivos de PR #2. Todas las 34 rutas de PR #2 aparecen en PR #3; 8 parches son idénticos y 26 han evolucionado. La integración de historia se realizará conservando ambos commits como padres del merge, con el árbol de la rama integral revisada; no se aplicarán encima las versiones antiguas por cherry-pick.
+- `main` permanece sin cambios hasta que la rama integral complete CI y su PR se fusione explícitamente. GitHub informa `protected=false`; activar el ruleset de main sigue siendo tarea del propietario del repositorio.
+- Modo3 conserva el mismo blob Git en `main` y PR #3: `8f2745fa841a06af43bf909732fba834474bf7dc`; no está en las rutas modificadas.
+
+### Limitaciones funcionales aún no verificadas
+- Gemma/LiteRT es el único proveedor local conectado al autoestudio; la flota de varios proveedores tiene arquitectura extensible, pero no varios modelos locales independientes operativos.
+- La importación, hash, carga e inferencia real del archivo Gemma de 2,588,147,712 bytes todavía deben comprobarse en el Xiaomi 11T Pro.
+- El manifiesto incremental y la política generan/validan propuestas con hashes, evidencia y rollback referenciado. Skills declarativas se pueden instalar/activar/desactivar con controles locales; no existe instalación en caliente de cambios Kotlin. Los cambios de código Android requieren una APK nueva y el instalador Android normal. No se ha demostrado una restauración transaccional binaria en dispositivo.
+- El evaluador independiente verifica procedencia y criterios deterministas; no reemplaza revisión semántica general ni la prueba real del usuario.
+- Ningún estado CI equivale a instalación, operación en modo avión, reproducción/escucha WAV ni uso de memoria/temperatura reales.
+- La fase de instalación/pruebas físicas no comienza hasta que la versión final de la rama integral pase los checks, se genere la APK unificada y se verifique su integridad.
