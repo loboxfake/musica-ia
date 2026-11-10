@@ -149,6 +149,27 @@ class BardoAuthorityPolicyTest {
         ).allowed)
     }
 
+    @Test fun publicWebSearchRequiresDirectUserConfirmation() {
+        val payload = "BARDO-TOOL-V1\\nweb.search_public\\nquery=Android"
+        assertFalse(
+            BardoAuthorityPolicy.authorize(
+                BardoPrincipal.BARDO,
+                BardoPermissionScope.RESEARCH_NETWORK,
+                payload,
+                100L
+            ).allowed
+        )
+        assertTrue(
+            BardoAuthorityPolicy.authorize(
+                BardoPrincipal.BARDO,
+                BardoPermissionScope.RESEARCH_NETWORK,
+                payload,
+                100L,
+                explicitUserConfirmation = true
+            ).allowed
+        )
+    }
+
     @Test fun bardoCanReadItsOwnInventoryAndLocalStudyData() {
         assertTrue(BardoAuthorityPolicy.authorize(
             BardoPrincipal.BARDO,
