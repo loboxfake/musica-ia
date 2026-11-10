@@ -144,6 +144,17 @@ class BardoAutonomyEngine(
         journal.record(taskId, "plan_created", null, true, "Pasos=${plan.steps.size}", nowMillis())
 
         while (pending.isNotEmpty()) {
+            if (observations.size >= budget.maxSteps) {
+                journal.record(
+                    taskId, "step_limit", null, false,
+                    "Se alcanzó el máximo total de ${budget.maxSteps} pasos de esta tarea.",
+                    nowMillis()
+                )
+                return result(
+                    taskId, BardoAutonomyStatus.PARTIAL, observations, corrections, started,
+                    "Tarea detenida por el límite total de pasos; se conserva el trabajo parcial."
+                )
+            }
             if (Thread.currentThread().isInterrupted) {
                 journal.record(taskId, "cancelled", null, false, "Interrupción solicitada.", nowMillis())
                 return result(taskId, BardoAutonomyStatus.PARTIAL, observations, corrections, started,
