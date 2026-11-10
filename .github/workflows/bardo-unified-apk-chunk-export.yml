@@ -1,151 +1,17 @@
-name: Export unified BARDO APK for verified download
-# Candidate 21 is pinned to immutable run 42716917671 / artifact 13719172906; do not retarget without a successful audited build.
+name: DISABLED — legacy branch-specific APK chunk export
 
 on:
-  # Legacy export is retained for history but disabled; use main-only full build artifacts.
   workflow_dispatch:
 
 permissions:
-  actions: read
   contents: read
 
-concurrency:
-  group: bardo-apk-download-export-${{ github.sha }}
-  cancel-in-progress: false
-
 jobs:
-  split-verified-apk:
-    if: ${{ false }}
+  main_only_policy:
     runs-on: ubuntu-22.04
-    timeout-minutes: 90
+    timeout-minutes: 2
     steps:
-      - name: Verify source APK artifact identity and run
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Explain disabled legacy workflow
         run: |
-          set -euo pipefail
-          artifact_id="13719172906"
-          source_run_id="42716917671"
-          source_head_sha="96498e5acdb998cbe8ca4c93dbc5c03d19b758ce"
-          expected_digest="sha256:cd5248f108c52d825123fbb173062508d3dc66080b690c554d315fb2c2a33078"
-          metadata="$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id")"
-          test "$(printf '%s' "$metadata" | jq -r '.name')" = "bardo-unified-offline-arm64-candidate-21"
-          test "$(printf '%s' "$metadata" | jq -r '.expired')" = "false"
-          test "$(printf '%s' "$metadata" | jq -r '.digest')" = "$expected_digest"
-          test "$(printf '%s' "$metadata" | jq -r '.workflow_run.id')" = "$source_run_id"
-          test "$(printf '%s' "$metadata" | jq -r '.workflow_run.head_sha')" = "$source_head_sha"
-          run_info="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$source_run_id")"
-          test "$(printf '%s' "$run_info" | jq -r '.status')" = "completed"
-          test "$(printf '%s' "$run_info" | jq -r '.conclusion')" = "success"
-          test "$(printf '%s' "$run_info" | jq -r '.head_sha')" = "$source_head_sha"
-
-      - name: Download and independently verify the unified APK
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          mkdir -p source
-          gh run download 42716917671 --repo "$GITHUB_REPOSITORY" --name bardo-unified-offline-arm64-candidate-21 --dir source
-          python3 - source <<'PY'
-          import hashlib, json, pathlib, sys
-          root = pathlib.Path(sys.argv[1])
-          apks = list(root.rglob("app-debug.apk"))
-          audits = list(root.rglob("unified-apk-audit.txt"))
-          if len(apks) != 1 or len(audits) != 1:
-              raise SystemExit(f"EXPECTED_ONE_APK_AND_AUDIT: apk={len(apks)} audit={len(audits)}")
-          apk, audit = apks[0], audits[0]
-          expected = None
-          for line in audit.read_text(errors="replace").splitlines():
-              if line.startswith("APK_SHA256:"):
-                  expected = line.split(":", 1)[1].strip()
-                  break
-          if not expected or len(expected) != 64:
-              raise SystemExit("APK_SHA256_MISSING_FROM_AUDIT")
-          digest = hashlib.sha256()
-          with apk.open("rb") as stream:
-              for block in iter(lambda: stream.read(8 * 1024 * 1024), b""):
-                  digest.update(block)
-          actual = digest.hexdigest()
-          if actual != expected:
-              raise SystemExit(f"APK_SHA256_MISMATCH: expected={expected} actual={actual}")
-          out = pathlib.Path("split")
-          out.mkdir(exist_ok=True)
-          chunk_bytes = 300 * 1024 * 1024
-          chunks = []
-          with apk.open("rb") as source:
-              index = 1
-              while True:
-                  target = out / f"part-{index:02d}.bin"
-                  remaining = chunk_bytes
-                  written = 0
-                  part_hash = hashlib.sha256()
-                  with target.open("wb") as destination:
-                      while remaining:
-                          block = source.read(min(8 * 1024 * 1024, remaining))
-                          if not block:
-                              break
-                          destination.write(block)
-                          part_hash.update(block)
-                          written += len(block)
-                          remaining -= len(block)
-                  if written == 0:
-                      target.unlink(missing_ok=True)
-                      break
-                  chunks.append({"name": target.name, "size_bytes": written, "sha256": part_hash.hexdigest()})
-                  index += 1
-          if not 1 <= len(chunks) <= 4 or any(item["size_bytes"] > chunk_bytes for item in chunks):
-              raise SystemExit(f"UNSUPPORTED_APK_CHUNK_COUNT_OR_SIZE: {chunks}")
-          manifest = {
-              "source_run_id": 42716917671,
-              "source_head_sha": "96498e5acdb998cbe8ca4c93dbc5c03d19b758ce",
-              "source_artifact_id": 13719172906,
-              "source_artifact_digest": "sha256:cd5248f108c52d825123fbb173062508d3dc66080b690c554d315fb2c2a33078",
-              "apk_file_name": "BARDO-unified-offline-ARM64-candidate-21.apk",
-              "apk_size_bytes": apk.stat().st_size,
-              "apk_sha256": actual,
-              "chunks": chunks
-          }
-          (out / "chunk-manifest.json").write_text(json.dumps(manifest, indent=2))
-          print(json.dumps(manifest, indent=2))
-          PY
-
-      - name: Upload APK transport chunk 1
-        uses: actions/upload-artifact@v4
-        with:
-          name: bardo-unified-apk-part-01
-          path: |
-            split/part-01.bin
-            split/chunk-manifest.json
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 14
-
-      - name: Upload APK transport chunk 2
-        if: hashFiles('split/part-02.bin') != ''
-        uses: actions/upload-artifact@v4
-        with:
-          name: bardo-unified-apk-part-02
-          path: split/part-02.bin
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 14
-
-      - name: Upload APK transport chunk 3
-        if: hashFiles('split/part-03.bin') != ''
-        uses: actions/upload-artifact@v4
-        with:
-          name: bardo-unified-apk-part-03
-          path: split/part-03.bin
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 14
-
-      - name: Upload APK transport chunk 4
-        if: hashFiles('split/part-04.bin') != ''
-        uses: actions/upload-artifact@v4
-        with:
-          name: bardo-unified-apk-part-04
-          path: split/part-04.bin
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 14
+          echo "Usa los artefactos de la compilación vigente en main. Este exportador histórico queda inactivo."
+          echo "No se han creado ramas, PR, commits ni cambios en main."
