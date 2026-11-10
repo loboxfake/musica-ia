@@ -1,25 +1,7 @@
 name: BARDO unified offline APK candidate
 
 on:
-  # Legacy branch-specific candidate is retained for history but disabled.
-  workflow_dispatch:
-
-      - .github/workflows/bardo-unified-apk-candidate.yml
-      - .github/workflows/bardo-commit-candidate.yml
-      - .github/workflows/bardo-candidate-validation.yml
-      - .github/workflows/bardo-validation.yml
-      - .github/workflows/full-build.yml
-      - .github/workflows/prepare-audio-model.yml
-      - app/**
-      - build.gradle.kts
-      - settings.gradle.kts
-      - gradle/**
-      - gradle.properties
-      - tools/**
-      - catalogo/**
-      - docs/**
-      - README.md
-      - ESPECIFICACION.md
+  # Retained for historical reference; the old branch-specific build is disabled.
   workflow_dispatch:
 
 permissions:
