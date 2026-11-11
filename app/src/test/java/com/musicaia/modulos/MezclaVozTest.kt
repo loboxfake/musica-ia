@@ -78,6 +78,34 @@ class MezclaVozTest {
     }
 
     @Test
+    fun mode3AlignsDifferentDurationsAndLimitsPcmClipping() {
+        val dir = createTempDir(prefix = "bardo-mode3-levels-")
+        try {
+            val voice = File(dir, "voz_usuario.wav")
+            val instrumental = File(dir, "instrumental.wav")
+            val output = File(dir, "modo3_mezcla.wav")
+            AudioUtil.escribirWavMono16(voice.absolutePath, 44100, 44_100) { _, count ->
+                ShortArray(count) { 30_000 }
+            }
+            AudioUtil.escribirWavMono16(instrumental.absolutePath, 44100, 22_050) { _, count ->
+                ShortArray(count) { 30_000 }
+            }
+
+            val result = Modo3MezclaVozUsuario(TestAudioContext(dir)).ejecutar(Dato.Texto("mezclar"))
+
+            assertTrue("Modo 3 debe aceptar duraciones distintas: $result", result is Dato.Audio)
+            val mixed = LectorWav.leer(output.absolutePath)
+            assertEquals(44_100, mixed.muestras.size)
+            assertEquals(29_000, mixed.muestras[0].toInt())
+            assertTrue(mixed.muestras.all { kotlin.math.abs(it.toInt()) <= 29_000 })
+            // Tras terminar el instrumental, permanece la voz sin superar el límite.
+            assertTrue(mixed.muestras[30_000].toInt() in 19_300..19_400)
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+    @Test
     fun mode3DoesNotReplacePreviousMixWhenAnInputWavIsInvalid() {
         val dir = createTempDir(prefix = "bardo-mode3-invalid-")
         try {
