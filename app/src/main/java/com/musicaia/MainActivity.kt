@@ -4206,7 +4206,13 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
  handler.removeCallbacks(reloj)
  handler.removeCallbacks(relojReproductor)
  try { player?.release() } catch (_: Exception) { }
- EngineLiteRT.cerrarAsync()
+ val autoestudioActivo = getSharedPreferences("bardo_developer", MODE_PRIVATE)
+     .getString("last_auto_study_status", "").orEmpty() == "running"
+ val audioActivo = getSharedPreferences(BardoTaskService.PREFS, MODE_PRIVATE)
+     .getString(BardoTaskService.KEY_STATE, "").orEmpty() == "running"
+ // El runtime LiteRT es compartido con WorkManager. No cerrar el modelo
+ // mientras un trabajador autónomo o una tarea de audio siga ejecutándose.
+ if (!autoestudioActivo && !audioActivo) EngineLiteRT.cerrarAsync()
  }
 
  private fun crearCancion() {
