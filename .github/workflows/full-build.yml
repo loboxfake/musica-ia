@@ -14,6 +14,16 @@ on:
       - main
     paths:
       - .github/workflows/full-build.yml
+      - .github/workflows/**
+      - app/**
+      - build.gradle.kts
+      - settings.gradle.kts
+      - gradle.properties
+      - gradle/**
+      - catalogo/**
+      - tools/**
+      - README.md
+      - ESPECIFICACION.md
   workflow_dispatch:
     inputs:
       publish_release:
