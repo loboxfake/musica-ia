@@ -47,7 +47,7 @@ object AudioUtil {
                 val n = minOf(16_384, totalMuestras - escritas)
                 val datos = generador(escritas, n)
                 require(datos.size == n) {
-                    "El generador devolvió \${datos.size} muestras; se esperaban $n."
+                    "El generador devolvió " + datos.size + " muestras; se esperaban " + n + "."
                 }
                 val bb = ByteBuffer.allocate(n * 2).order(ByteOrder.LITTLE_ENDIAN)
                 for (i in 0 until n) bb.putShort(datos[i])

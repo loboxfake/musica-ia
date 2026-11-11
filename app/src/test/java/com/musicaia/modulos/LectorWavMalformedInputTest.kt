@@ -138,7 +138,7 @@ class LectorWavMalformedInputTest {
             chunks.write(id.toByteArray(Charsets.US_ASCII))
             writeInt(chunks, body.size)
             chunks.write(body)
-            if (body.size and 1 == 1) chunks.write(0)
+            if ((body.size and 1) == 1) chunks.write(0)
         }
 
         val format = ByteBuffer.allocate(16).order(ByteOrder.LITTLE_ENDIAN)

@@ -58,7 +58,7 @@ object LectorWav {
             val inicioLong = pos.toLong() + 8L
             val finLong = inicioLong + tamLong
             require(finLong <= riffEndLong && finLong <= Int.MAX_VALUE.toLong()) {
-                "chunk WAV truncado o fuera de los límites RIFF: \${id}"
+                "chunk WAV truncado o fuera de los límites RIFF: " + id
             }
             val inicio = inicioLong.toInt()
 
