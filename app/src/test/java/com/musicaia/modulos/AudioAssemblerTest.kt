@@ -36,7 +36,7 @@ class AudioAssemblerTest {
             val header = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
             assertEquals(1, header.getShort(20).toInt())
             assertEquals(1, header.getShort(22).toInt())
-            assertEquals(1000, header.getInt(24))
+            assertEquals(8000, header.getInt(24))
             assertEquals(16, header.getShort(34).toInt())
             assertEquals(30400, header.getInt(40))
             assertEquals(44 + 30400, bytes.size)
@@ -132,7 +132,7 @@ class AudioAssemblerTest {
             val first = File(directory, "first.wav")
             val second = File(directory, "second.wav")
             val output = File(directory, "joined.wav")
-            writeTestWav(first, ShortArray(1000) { index -> if (index < 700) 1000 else 0 })
+            writeTestWav(first, ShortArray(8000) { index -> if (index < 5600) 1000 else 0 })
             writeTestWav(second, ShortArray(8000) { index -> if (index < 2800) 0 else 1000 })
 
             try {
@@ -159,8 +159,8 @@ class AudioAssemblerTest {
             val first = File(directory, "first.wav")
             val second = File(directory, "second.wav")
             val output = File(directory, "joined.wav")
-            writeTestWav(first, ShortArray(1000) { 1000 })
-            writeTestWav(second, ShortArray(1000) { -1000 })
+            writeTestWav(first, ShortArray(8000) { 1000 })
+            writeTestWav(second, ShortArray(8000) { -1000 })
             val corrupt = second.readBytes()
             ByteBuffer.wrap(corrupt).order(ByteOrder.LITTLE_ENDIAN).putInt(4, Int.MAX_VALUE)
             second.writeBytes(corrupt)
@@ -187,8 +187,8 @@ class AudioAssemblerTest {
         try {
             val first = File(directory, "first.wav")
             val second = File(directory, "second.wav")
-            writeTestWav(first, ShortArray(1000) { 1000 })
-            writeTestWav(second, ShortArray(1000) { -1000 })
+            writeTestWav(first, ShortArray(8000) { 1000 })
+            writeTestWav(second, ShortArray(8000) { -1000 })
             val originalFirst = first.readBytes()
 
             try {
