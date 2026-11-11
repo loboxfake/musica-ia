@@ -48,13 +48,23 @@ object BardoGuidedResponseParser {
             val value = normalizeValue(spec.jsonName, valueRaw) ?: return@forEach
             val existing = existingFields[spec.appName].orEmpty().trim()
             val isChange = item.optBoolean("change", false)
-            if (existing.isNotBlank() && !existing.equals(value, ignoreCase = true) && !isChange) {
-                return@forEach
+            if (existing.isNotBlank() && !existing.equals(value, ignoreCase = true)) {
+                if (!isChange || !containsExplicitCorrection(latestUserMessage)) return@forEach
             }
             if (value.length > spec.maxLength) return@forEach
             updates[spec.appName] = value
         }
         return ParsedResponse(updates, reply)
+    }
+
+    private fun containsExplicitCorrection(message: String): Boolean {
+        val normalized = java.text.Normalizer.normalize(
+            message.lowercase(Locale.ROOT),
+            java.text.Normalizer.Form.NFD
+        ).replace(Regex("""\p{Mn}+"""), "")
+        return Regex(
+            """\b(?:change|switch|modify|replace|instead|rather|actually|prefer|i prefer|no|cambiar|cambia|modificar|modifica|reemplazar|sustituir|mejor|prefiero|en vez de|en lugar de|mas bien)\b"""
+        ).containsMatchIn(normalized)
     }
 
     /** Recupera texto libre si el modelo no respeta JSON; no expone JSON malformado. */

@@ -38,6 +38,33 @@ class BardoGuidedResponseParserTest {
         assertEquals("rock", BardoGuidedResponseParser.parse(withChange, "Actually change it to rock", existing)!!.updates["estilo"])
     }
 
+    @Test fun modelCannotInventAChangeFlagToOverwriteAnExistingField() {
+        val existing = mapOf("estilo" to "pop")
+        val json = """{"fields":{"style":{"value":"rock","evidence":"rock","change":true}},"reply":"Got it."}"""
+        val parsed = BardoGuidedResponseParser.parse(
+            json, "I want a rock song", existing
+        )!!
+        assertTrue(parsed.updates.isEmpty())
+    }
+
+    @Test fun explicitCorrectionLanguageAllowsAChangeFlagToReplaceAnExistingField() {
+        val existing = mapOf("estilo" to "pop")
+        val json = """{"fields":{"style":{"value":"rock","evidence":"rock","change":true}},"reply":"Got it."}"""
+        val parsed = BardoGuidedResponseParser.parse(
+            json, "Actually change it to rock", existing
+        )!!
+        assertEquals("rock", parsed.updates["estilo"])
+    }
+
+    @Test fun rejectsChangeFlagWithoutExplicitCorrectionEvenWhenEvidenceMatches() {
+        val existing = mapOf("estilo" to "pop")
+        val json = """{"fields":{"style":{"value":"rock","evidence":"rock","change":false}},"reply":"Got it."}"""
+        val parsed = BardoGuidedResponseParser.parse(
+            json, "No, I prefer rock", existing
+        )!!
+        assertTrue(parsed.updates.isEmpty())
+    }
+
     @Test fun normalizesSongLanguageAndRejectsUnsupportedSongLanguages() {
         val spanish = """{"fields":{"language":{"value":"Spanish","evidence":"Spanish"}},"reply":"¿Qué estilo?"}"""
         val french = """{"fields":{"language":{"value":"French","evidence":"French"}},"reply":"Choose Spanish or English."}"""
