@@ -227,6 +227,59 @@ class AudioAssemblerTest {
         }
     }
 
+
+    @Test
+    fun preservesInterleavedStereoChannelsWhenJoiningSegments() {
+        val directory = createTempDir(prefix = "audio-assembler-stereo-test")
+        try {
+            val first = File(directory, "first-stereo.wav")
+            val second = File(directory, "second-stereo.wav")
+            val output = File(directory, "joined-stereo.wav")
+            val samples = ShortArray(20_000) { index ->
+                if (index % 2 == 0) 1000 else -1000
+            }
+            writeTestStereoWav(first, samples)
+            writeTestStereoWav(second, samples)
+
+            AudioAssembler.assemble(
+                inputFiles = listOf(first, second),
+                outputFile = output,
+                crossfadeMs = 0,
+                fadeOutMs = 0
+            )
+
+            val bytes = output.readBytes()
+            val header = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
+            assertEquals(2, header.getShort(22).toInt())
+            assertEquals(4, header.getShort(32).toInt())
+            val sampleOffset = 44 + 9000 * 4
+            assertEquals(1000, header.getShort(sampleOffset).toInt())
+            assertEquals(-1000, header.getShort(sampleOffset + 2).toInt())
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    private fun writeTestStereoWav(file: File, samples: ShortArray) {
+        val dataBytes = samples.size * 2
+        val output = ByteBuffer.allocate(44 + dataBytes).order(ByteOrder.LITTLE_ENDIAN)
+        output.put("RIFF".toByteArray(Charsets.US_ASCII))
+        output.putInt(36 + dataBytes)
+        output.put("WAVE".toByteArray(Charsets.US_ASCII))
+        output.put("fmt ".toByteArray(Charsets.US_ASCII))
+        output.putInt(16)
+        output.putShort(1)
+        output.putShort(2)
+        output.putInt(44100)
+        output.putInt(44100 * 4)
+        output.putShort(4)
+        output.putShort(16)
+        output.put("data".toByteArray(Charsets.US_ASCII))
+        output.putInt(dataBytes)
+        samples.forEach { output.putShort(it) }
+        file.writeBytes(output.array())
+    }
+
     private fun writeLargeTestWav(file: File, frames: Int) {
         val dataBytes = frames.toLong() * 2L
         RandomAccessFile(file, "rw").use { output ->
