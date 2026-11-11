@@ -161,7 +161,9 @@ class BardoConversationStore internal constructor(private val directory: File) {
                 item.getLong("timestampEpochMillis"),
                 item.optString("zoneId", "UTC")
             )
-        }.sortedWith(compareBy<Message> { it.timestampEpochMillis }.thenBy { it.id })
+        // The JSON array is append-ordered. Keep that order for equal timestamps;
+        // random UUIDs must never reorder messages written within the same millisecond.
+        }.sortedBy { it.timestampEpochMillis }
     }
 
     data class SearchResult(val conversation: Conversation, val message: Message)
