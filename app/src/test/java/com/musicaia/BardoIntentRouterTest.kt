@@ -118,13 +118,8 @@ class BardoIntentRouterTest {
     @Test
     fun recognizesAllConfiguredCreationConfirmationAliases() {
         listOf("adelante", "crear musica", "crear canción", "continuar", "yes").forEach { message ->
-            assertEquals(
-                message,
-                BardoIntentRouter.classify(message, true).let {
-                    assertEquals(BardoIntentRouter.Intent.CONFIRM_CREATION, it)
-                    message
-                }
-            )
+            assertEquals(BardoIntentRouter.Intent.CONFIRM_CREATION,
+                BardoIntentRouter.classify(message, true))
         }
     }
 

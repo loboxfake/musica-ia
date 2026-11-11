@@ -3323,8 +3323,9 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
         val faltan = camposRequeridos.filter {
             datosConver[it].isNullOrBlank() || (it == "idioma" && !BardoIntentRouter.isSupportedSongLanguage(datosConver[it].orEmpty()))
         } + listOfNotNull(if ((datosConver["tipo"].orEmpty().contains("voz", true) || datosConver["tipo"].orEmpty().contains("ambas", true)) && datosConver["vozFuente"].isNullOrBlank()) "vozFuente" else null)
-        if (faltan.isNotEmpty()) {
-            responderConOrquestador(texto, if (idiomaConversacionUi == "en") "Before creating the song I still need: ${faltan.joinToString(", ")}. ${preguntaParaCampo(faltan.first())}" else "Antes necesito: ${faltan.joinToString(", ")}. ${preguntaParaCampo(faltan.first())}")
+        val siguientePendiente = siguienteCampoPendiente() ?: faltan.firstOrNull()
+        if (siguientePendiente != null) {
+            responderConOrquestador(texto, if (idiomaConversacionUi == "en") "Before creating the song I still need: ${faltan.joinToString(", ")}. ${preguntaParaCampo(siguientePendiente)}" else "Antes necesito: ${faltan.joinToString(", ")}. ${preguntaParaCampo(siguientePendiente)}")
             return
         }
         camposOpcionales.filter { datosConver[it].isNullOrBlank() }.forEach { datosConver[it] = if (it == "vozFuente") "ninguna" else "no especificado" }
@@ -3339,7 +3340,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
     val etiqueta = Regex("(?i)^(tema|theme|estilo|style|genre|ambiente|mood|ritmo|rhythm|idioma|language|tipo|type|voz|voice)\\s*[:=]\\s*(.+)$").matchEntire(texto)
     val cambio = Regex("(?i)^(?:cambiar|cambia|modificar|modifica|change|switch)\\s+(?:(?:el|la|the)\\s+)?(tema|theme|estilo|style|genre|ambiente|mood|ritmo|rhythm|idioma|language|tipo|type|voz|voice)\\s+(?:a|por|to|:)\\s+(.+)$").matchEntire(texto)
     if (intent == BardoIntentRouter.Intent.CHANGE_CREATION && cambio == null) {
-        anexarChat("\\nTú: $texto\\nBARDO: Indica el nuevo valor, por ejemplo «cambiar estilo a rock» o «change style to rock».")
+        anexarChat("\nTú: $texto\nBARDO: Indica el nuevo valor, por ejemplo «cambiar estilo a rock» o «change style to rock».")
         actualizarAvatar(BardoAvatarState.IDLE)
         return
     }

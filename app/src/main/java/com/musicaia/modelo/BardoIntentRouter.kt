@@ -23,14 +23,14 @@ object BardoIntentRouter {
     fun extractProvidedFields(message: String): Map<String, String> {
         val result = linkedMapOf<String, String>()
         val aliases = listOf(
-            "fuente\\s+de\\s+voz", "voz\\s+fuente", "tema", "estilo", "g[ée]nero",
+            "fuente\s+de\s+voz", "voz\s+fuente", "tema", "estilo", "g[ée]nero",
             "ambiente", "emoci[oó]n", "tono", "ritmo", "tempo", "idioma", "lengua", "tipo"
         ).joinToString("|")
         val labelled = Regex(
             """(?i)\b($aliases)\b\s*(?::|=|\b(?:es|de|del)\b)?\s+(.+?)(?=(?:[,;.!?\n]|\s+\b(?:$aliases)\b\s*(?:[:=]|\s+))|$)"""
         )
         labelled.findAll(message).forEach { match ->
-            val alias = normalize(match.groupValues[1]).replace(Regex("\\s+"), " ")
+            val alias = normalize(match.groupValues[1]).replace(Regex("\s+"), " ")
             val key = when (alias) {
                 "genero" -> "estilo"
                 "emocion", "tono" -> "ambiente"
@@ -40,13 +40,13 @@ object BardoIntentRouter {
                 else -> alias
             }
             val raw = match.groupValues[2].trim().trimEnd('.', '!', '?')
-                .replace(Regex("^(es|de|del|sobre|en|el|la|los|las|musical)\\s+", RegexOption.IGNORE_CASE), "")
+                .replace(Regex("^(es|de|del|sobre|en|el|la|los|las|musical)\s+", RegexOption.IGNORE_CASE), "")
                 .trim()
             if (raw.isNotBlank()) result[key] = normalizeFieldValue(key, raw)
         }
 
         if ("tema" !in result) {
-            val genres = "rock\\s+alternativo|rock|pop|rap|hip[- ]?hop|trap|reggaeton|metal|indie|electr[oó]nica|house|techno|jazz|blues|soul|funk|reggae|folk|country|flamenco|salsa|bachata|cumbia|merengue|synthwave|lo[- ]?fi|l[oó]fi|ambient|punk|disco|trance|dnb|orquestal|cinem[aá]tico"
+            val genres = "rock\s+alternativo|rock|pop|rap|hip[- ]?hop|trap|reggaeton|metal|indie|electr[oó]nica|house|techno|jazz|blues|soul|funk|reggae|folk|country|flamenco|salsa|bachata|cumbia|merengue|synthwave|lo[- ]?fi|l[oó]fi|ambient|punk|disco|trance|dnb|orquestal|cinem[aá]tico"
             val themeAfterGenre = Regex(
                 """(?i)\b(?:una\s+)?canci[oó]n\s+de\s+(?:$genres)\s+(?:sobre|acerca\s+de|que\s+trate\s+de|que\s+hable\s+de)\s+(.+?)(?=[,;.!?\n]|$)"""
             ).find(message)?.groupValues?.get(1)?.trim()
@@ -272,7 +272,7 @@ object BardoIntentRouter {
     fun requestedFieldChangeWithoutValue(message: String): String? {
         val text = normalize(message)
         val match = Regex(
-            """^(?:cambiar|cambia|modificar|modifica|change|switch)\\s+(?:(?:el|la|the)\\s+)?(tema|theme|estilo|style|genre|ambiente|mood|ritmo|rhythm|idioma|language|tipo|type|voz|voice)$"""
+            """^(?:cambiar|cambia|modificar|modifica|change|switch)\s+(?:(?:el|la|the)\s+)?(tema|theme|estilo|style|genre|ambiente|mood|ritmo|rhythm|idioma|language|tipo|type|voz|voice)$"""
         ).matchEntire(text) ?: return null
         return when (match.groupValues[1]) {
             "tema", "theme" -> "tema"
@@ -298,7 +298,7 @@ object BardoIntentRouter {
         if (listOf("mi letra", "texto propio", "pegar mi letra", "tengo mi letra")
                 .any { text.contains(it) }) return Intent.OWN_LYRICS
 
-        if (creationInProgress && Regex("^(cambiar|cambia|modificar|modifica|change|switch)\\s+(?:(?:el|la|the)\\s+)?(tema|theme|estilo|style|genre|ambiente|mood|ritmo|rhythm|idioma|language|tipo|type|voz|voice)\\b")
+        if (creationInProgress && Regex("^(cambiar|cambia|modificar|modifica|change|switch)\s+(?:(?:el|la|the)\s+)?(tema|theme|estilo|style|genre|ambiente|mood|ritmo|rhythm|idioma|language|tipo|type|voz|voice)\\b")
                 .containsMatchIn(text)) return Intent.CHANGE_CREATION
 
         if (creationInProgress && text in setOf("crear", "crear cancion", "crear musica", "si", "continuar", "adelante", "create", "continue", "yes"))
@@ -326,7 +326,7 @@ object BardoIntentRouter {
     private fun isStandaloneQuestion(original: String, normalized: String): Boolean {
         if ('?' !in original) return false
         // Phrases such as "que sea alegre" are creative answers, not questions.
-        if (Regex("^que\\s+(?:sea|vaya|tenga|suene|resulte)\\b").containsMatchIn(normalized)) return false
+        if (Regex("^que\s+(?:sea|vaya|tenga|suene|resulte)\\b").containsMatchIn(normalized)) return false
         return Regex(
             "^(?:que|cual|como|por que|para que|cuando|donde|quien|which|what|how|why|when|where|who|can|could|would|should|is|are|do|does|did)\\b"
         ).containsMatchIn(normalized)
@@ -335,7 +335,7 @@ object BardoIntentRouter {
     private fun normalize(value: String): String = Normalizer
         .normalize(value.lowercase(Locale.ROOT), Normalizer.Form.NFD)
         .replace(Regex("\\p{Mn}+"), "")
-        .replace(Regex("[^a-z0-9\\s]"), " ")
-        .replace(Regex("\\s+"), " ")
+        .replace(Regex("[^a-z0-9\s]"), " ")
+        .replace(Regex("\s+"), " ")
         .trim()
 }
