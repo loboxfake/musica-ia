@@ -1,94 +1,99 @@
 # Evidencia de CI y evaluación de candidaturas BARDO
 
-## Objetivo
+## Regla de interpretación
 
-`BardoCiEvidenceAdapter` convierte respuestas JSON de GitHub Actions en cuatro evidencias tipadas. `BardoCandidateEvaluationPipeline` las entrega al evaluador independiente junto con las auditorías locales y las pruebas de dispositivo aportadas por productores internos.
+Una ejecución verde acredita únicamente los pasos que realmente ejecutó el workflow y que el adaptador puede verificar. No acredita por sí sola la instalación, el arranque, la inferencia local, el uso offline ni la generación/escucha de audio en un teléfono.
 
-El adaptador no interpreta explicaciones del modelo ni acepta un simple texto que diga «CI correcto».
+Este documento distingue tres flujos que no deben confundirse.
 
-## Comprobaciones de procedencia
+## 1. Validación de un candidato aislado
 
-Antes de crear evidencia, el adaptador exige:
+Workflow: \`.github/workflows/bardo-candidate-validation.yml\`
 
-- Repositorio base y repositorio de origen iguales a `loboxfake/musica-ia`.
-- Rama `bardo/*` y evento `push`, `pull_request` o `workflow_dispatch`. Este último se admite porque `bardo-commit-candidate.yml` dispara deliberadamente `bardo-validation.yml` sobre la rama candidata; no se aceptan otras ramas ni workflows.
-- Workflow exacto `.github/workflows/bardo-validation.yml`.
-- SHA Git de 40 caracteres coincidente con el commit que se quiere evaluar.
-- Ejecución completada, job único `validate` y pasos identificados por sus nombres exactos.
-- Artefacto `bardo-debug-candidate-{run_number}` no expirado, con tamaño positivo, mismo ID de ejecución, mismo SHA y digest de formato `sha256:<64 hex>`.
+Se inicia manualmente desde la pantalla de desarrollo de BARDO, con un ID de candidato, SHA base y diff empaquetado. Comprueba que \`main\` sigue en el SHA base, aplica el parche en un runner efímero, rechaza rutas protegidas/no permitidas y cambios que no sean modificaciones de archivos existentes, ejecuta Gitleaks y \`testDebugUnitTest assembleDebug\`, y publica un informe de validación.
 
-La evidencia conserva una referencia URL canónica a la ejecución. Si el workflow sigue pendiente o la procedencia no coincide, el adaptador no crea evidencia.
+Este flujo:
+- No crea una rama ni un pull request.
+- No realiza commits ni modifica \`main\`.
+- No publica un APK como artefacto de salida; publica un informe de validación del candidato.
+- No ejecuta el lint de actionlint, la verificación de firma v2 ni el chequeo de ABI ARM64 del workflow principal.
 
-## Qué demuestra
+Que esta validación termine correctamente significa que ese diff, aplicado a ese SHA, pasó las comprobaciones incluidas en este workflow. No significa que haya sido integrado ni probado físicamente.
 
-| Check | Fuente verificada |
-|---|---|
-| `GITLEAKS` | Paso de escaneo completo del historial |
-| `ACTIONLINT` | Paso de lint de workflows |
-| `UNIT_TESTS` | Paso Gradle `testDebugUnitTest assembleDebug` |
-| `DEBUG_BUILD` | Compilación, comprobación de APK y subida de artefacto asociadas al mismo run/SHA |
+El workflow legacy \`bardo-commit-candidate.yml\` está deshabilitado. La integración a \`main\` desde BARDO también permanece bloqueada por \`BardoGitHubIntegrationPolicy.MAIN_COMMIT_WORKFLOW_ENABLED = false\`. No se debe interpretar la presencia del archivo \`bardo-main-commit-candidate.yml\` como una función disponible en la aplicación.
 
-El workflow Gradle ejecuta tests y compilación en un único paso, por lo que el adaptador conserva esa misma granularidad.
+## 2. Validación del código integrado en main y APK ARM64
 
-## Qué no demuestra
+Workflow: \`.github/workflows/bardo-validation.yml\`
 
-La evidencia de GitHub Actions **no** demuestra:
+Se ejecuta con \`push\` a \`main\` o mediante \`workflow_dispatch\`. Su job \`validate\` incluye:
+- Escaneo del historial completo con Gitleaks.
+- Lint de los workflows con actionlint.
+- \`testDebugUnitTest assembleDebug -PbardoTargetAbi=arm64-v8a\`.
+- Comprobación de que existe el APK.
+- Verificación de la firma APK v2 y del certificado Android Debug.
+- Comprobación de que las bibliotecas nativas incluidas son exclusivamente ARM64.
+- Subida del APK como artefacto de Actions, identificado por número de ejecución y con retención temporal.
 
-- Auditoría del contenido/firma del APK (`APK_AUDIT`).
-- Instalación y arranque en un teléfono.
-- Carga o inferencia real de Gemma.
-- Funcionamiento offline.
-- Generación, lectura o mezcla de WAV.
-- Pruebas físicas en Xiaomi 11T Pro.
+El artefacto \`bardo-debug-arm64-candidate-{run_number}\` es una compilación Debug para evaluación, no una Release. La asociación del artefacto a un run y SHA concretos ayuda a establecer su procedencia, pero no sustituye una auditoría independiente del contenido ni una instalación real.
 
-El adaptador no emite ningún check de dispositivo. El pipeline solo devuelve `READY_FOR_HUMAN_REVIEW` cuando los ocho checks obligatorios de CI están cubiertos y no hay fallos; la validación física sigue siendo una puerta independiente.
+Workflow adicional: \`.github/workflows/android.yml\` (\`Build APK (manual)\`). También ejecuta tests y \`assembleDebug\`, comprueba la existencia del APK y sube \`bardo-debug-apk\`. No contiene las comprobaciones explícitas de firma v2 ni ABI ARM64 del workflow \`bardo-validation.yml\`; no se deben atribuirle esos resultados.
 
-## Estado de integración
+## 3. Adaptador y evaluador de evidencias
 
-El productor de auditoría local está conectado a las dos rutas que preparan candidaturas:
+\`BardoCiEvidenceAdapter\` interpreta respuestas de GitHub Actions para el workflow exacto \`.github/workflows/bardo-validation.yml\`. Comprueba repositorio, rama \`main\`, evento admitido, SHA, estado del run, job único \`validate\`, nombres/estados/conclusiones de pasos y artefacto no expirado asociado al mismo run y SHA, con digest de formato SHA-256.
 
-- `BardoDeveloperWorker`, para propuestas creadas por el autoestudio en segundo plano.
-- `BardoDeveloperActivity`, para propuestas aplicadas manualmente desde BARDO Developer.
+Solo produce evidencia CI de:
+- \`GITLEAKS\`
+- \`ACTIONLINT\`
+- \`UNIT_TESTS\`
+- \`DEBUG_BUILD\`
 
-Ambas rutas mantienen el candidato en el workspace privado aunque falle la auditoría, pero solo guardan los datos habilitantes para GitHub cuando los cuatro checks locales están presentes exactamente una vez, todos pasan y sus referencias tienen formato/origen local válido. La pantalla vuelve a exigir el indicador persistido de auditoría superada antes de abrir la integración GitHub. La ausencia de evidencia o un error del productor bloquean el envío.
+No produce evidencia para \`APK_AUDIT\`, instalación, Gemma, operación offline, generación o escucha de WAV, ni mezcla de voz del usuario.
 
-El adaptador y `BardoCandidateEvaluationPipeline` están conectados a `BardoGitHubDevelopmentActivity`. Tras la creación del PR borrador, la pantalla consulta el SHA actual de su rama, localiza exclusivamente la ejecución `workflow_dispatch` de `bardo-validation.yml` para esa rama y ese mismo SHA, descarga run/jobs/artifacts desde la API y recalcula la auditoría local desde el workspace privado. La evaluación solo puede alcanzar `READY_FOR_HUMAN_REVIEW`; nunca marca el dispositivo como verificado por CI.
+\`BardoCandidateEvaluationPipeline\` combina esas evidencias con las evidencias locales y las entrega a \`BardoIndependentEvaluator\`. La API del pipeline y del adaptador dispone de pruebas unitarias, pero **en el estado actual no está conectada a una ruta de ejecución de la interfaz Android**. No debe presentarse como una evaluación automática ya operativa en BARDO. La pantalla GitHub actual consulta y muestra estados/resúmenes de Actions; no genera a partir de ellos un informe completo \`BardoEvaluationReport\`.
 
-La consulta se limita al repositorio autorizado y al token fine-grained guardado en Android Keystore. Si no aparece el run, el SHA ha cambiado, el artefacto no coincide, la evidencia local ha sido alterada o la API no es concluyente, la pantalla informa de pendiente/error y no declara aprobación. Todavía no hay un productor operativo de evidencias físicas ni un gate que pueda declarar el dispositivo verificado. El gate local no se confunde con CI ni sustituye la revisión humana.
+El evaluador distingue:
+- \`INCOMPLETE\`: faltan evidencias CI obligatorias.
+- \`REJECTED\`: existe un control fallido o evidencia con procedencia no válida.
+- \`READY_FOR_HUMAN_REVIEW\`: CI completa y evidencias locales requeridas, pendiente de revisión humana.
+- \`DEVICE_VERIFIED\`: además están presentes los siete controles físicos obligatorios con origen \`DEVICE_TEST\`.
 
-La creación del PR, su fusión y la publicación Release siguen siendo acciones separadas. BARDO puede preparar una rama y un PR borrador, pero no fusiona ni publica una Release.
+Un CI verde no puede producir por sí solo \`DEVICE_VERIFIED\`.
 
-## Productor local de evidencias
+## 4. Auditoría local del candidato
 
-`BardoLocalCandidateEvidenceCollector` añade una verificación local de solo lectura sobre el snapshot y el candidato:
+\`BardoLocalCandidateEvidenceCollector\` verifica de forma local y de solo lectura:
+- Que snapshot y candidato estén dentro del workspace privado permitido, sin enlaces simbólicos.
+- Que \`BARDO_SOURCE_COMMIT.txt\` coincida con el SHA base esperado.
+- Que el inventario de archivos coincida con las rutas declaradas y la política de edición autónoma.
+- Que reaplicar el diff en una copia temporal produzca los mismos SHA-256 en los archivos afectados.
+- Que Modo3 no forme parte del parche y conserve su Git-blob SHA-1 esperado.
+- Que el recorrido y los tamaños permanezcan dentro de límites establecidos.
 
-- Comprueba que snapshot y candidato son carpetas directas del workspace privado y rechaza enlaces simbólicos.
-- Contrasta `BARDO_SOURCE_COMMIT.txt` con el SHA de base proporcionado.
-- Comprueba que el inventario exacto del candidato coincide con las rutas declaradas y con la política de edición autónoma.
-- Reaplica el diff a un segundo candidato temporal y compara SHA-256 de los ficheros afectados con el candidato original.
-- Calcula el Git-blob SHA-1 real de Modo3 desde el snapshot y comprueba que esa ruta no está en el candidato ni en el diff.
-- Limita recorrido, profundidad, número/tamaño de archivos y elimina la copia temporal tras la comparación.
+Los tests del colector usan fixtures sintéticos para el contenido de Modo3. La comprobación de la huella real depende de que BARDO tenga un snapshot completo y auténtico del repositorio. Además, la pantalla GitHub vuelve a ejecutar el colector antes de enviar un candidato; no confía solo en el booleano persistido de una auditoría anterior.
 
-Los tests usan un Modo3 sintético y un SHA de fixture; no alteran ni dependen del contenido privado real de Modo3. La prueba real de la huella fijada sigue dependiendo del snapshot íntegro que BARDO recibe del proyecto.
+La auditoría local habilita, cuando pasa, la solicitud de validación aislada; no aprueba el parche ni prueba el dispositivo.
 
-El gate `isReadyForCiSubmission` exige exactamente los cuatro controles locales obligatorios, sin duplicados, todos superados y con procedencia local válida. La auditoría se refleja en el informe; un candidato que no pase se conserva para inspección privada, pero se borran los datos de envío y el botón GitHub permanece deshabilitado. Este gate habilita únicamente la petición de CI, no aprueba el parche ni demuestra compilación o funcionamiento en dispositivo.
+## 5. Estado y límites conocidos
 
-## Integración de candidaturas y publicación
+- BARDO puede realizar autoestudio local mediante WorkManager cuando el usuario lo activa, existe un modelo de texto local íntegro y Android concede las condiciones de ejecución. El trabajo puede sobrevivir al cierre de la Activity; Android/Xiaomi puede retrasarlo o detenerlo por restricciones del sistema.
+- El Worker analiza el código y puede preparar propuestas en un workspace aislado. No compila por sí mismo cada candidato en un ciclo autónomo, no repara automáticamente hasta conseguir una compilación verde, no integra automáticamente a \`main\` y no instala una APK nueva.
+- El envío a GitHub requiere el flujo de interfaz, el PAT fine-grained guardado en Android Keystore y la acción explícita del usuario. No se permite que el modelo envíe código de proyectos importados ni datos privados del dispositivo.
+- La aprobación de integración a \`main\` sigue deshabilitada en la política de la aplicación.
+- No hay en el repositorio un productor operativo de evidencias físicas que permita marcar el Xiaomi como verificado.
 
-El workflow `bardo-commit-candidate.yml` no escribe en `main`. Después de verificar una ejecución de validación satisfactoria, su reporte y el SHA-256 del diff, comprueba de nuevo que `main` sigue en el mismo commit, aplica el parche en un runner efímero, repite `testDebugUnitTest assembleDebug`, publica únicamente una rama `bardo/<candidate-id>` y crea un PR borrador. A continuación solicita una ejecución de validación sobre esa rama. No fusiona el PR ni publica una Release.
+## 6. Evidencias que siguen siendo independientes
 
-La pantalla Android conserva una confirmación explícita antes de despachar el workflow. El Fine-grained PAT del usuario solo se usa desde el dispositivo para consultar/activar Actions y revisar el PR; el workflow utiliza el `GITHUB_TOKEN` de ejecución con permisos declarados.
+Para declarar el producto probado en el Xiaomi 11T Pro aún hacen falta, como mínimo:
+1. Instalar la APK identificada por el SHA/artefacto exacto que se vaya a evaluar y comprobar que arranca.
+2. Verificar inferencia real del modelo local que BARDO declare activo, incluida su integridad, carga y respuesta.
+3. Repetir las funciones necesarias en modo avión para confirmar el funcionamiento offline.
+4. Generar un WAV real, reproducirlo y escucharlo; probar la mezcla de voz del usuario con los archivos reales de Modo3.
+5. Revisar logs de ejecución y comprobar estabilidad térmica/RAM en el dispositivo.
 
-`full-build.yml` puede compilar y subir su artefacto de Actions, pero la publicación GitHub Release exige una ejecución manual `workflow_dispatch` con `publish_release=true`. El valor por defecto es `false` y un push a `main` no publica una Release.
+Las evidencias de usuario/dispositivo deben conservar su origen y referencia. No deben inferirse a partir de un build verde, de la presencia de bibliotecas nativas ni de una pantalla que indique que una tarea terminó.
 
-## Última evidencia GitHub verificada — 9 de noviembre de 2026
+## Última ejecución
 
-- Rama: `bardo/integral-autonomy-20261109`.
-- Commit: `ecc593e6f9ddbaaf808c445a893d1b75b72bf32b`.
-- Run #849 (`pull_request`), ID `42659400800`: SUCCESS.
-- Job `validate`, ID `129306559425`: todos los pasos completados con SUCCESS, incluidos Gitleaks, actionlint, tests + build Debug, comprobación del APK y subida del artefacto.
-- Artefacto `bardo-debug-candidate-849`, ID `13692984994`, 107.859.774 bytes; ZIP digest SHA-256 `157ff8fba29593fd095912553b7f126e56625d21dd0dfd3a05ef0f41a0397f23`. Expira el 23-11-2026.
-- Run #848 (push) también completado con SUCCESS. El ZIP #848 fue auditado localmente contra su digest de GitHub; no atribuir esa auditoría al APK/ZIP #849.
-- La variante Debug usa `applicationIdSuffix = ".debug"` y `versionNameSuffix = "-debug"`; el paquete Debug queda separado de Release (`com.musicaia.debug` frente a `com.musicaia`).
-
-Esta evidencia CI no equivale a instalación, APK auditada del run #849, inferencia Gemma, funcionamiento offline, generación WAV ni prueba física en Xiaomi 11T Pro. El PR #3 continúa abierto, en borrador y sin fusionar; main no se ha modificado.
+Actualizar esta sección únicamente después de consultar la API de GitHub para la ejecución concreta. Registrar SHA, workflow, run ID, conclusión y digest del artefacto si existe. No reutilizar un digest de otra ejecución ni convertir la salida de un workflow en evidencia de otro.
