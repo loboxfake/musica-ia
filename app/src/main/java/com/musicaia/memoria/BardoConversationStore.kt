@@ -124,6 +124,12 @@ class BardoConversationStore internal constructor(private val directory: File) {
             ?: throw IllegalArgumentException("La conversación no existe.")
         val message = Message(UUID.randomUUID().toString(), conversationId, role, content, now, zoneId)
         root.getJSONArray("messages").put(message.toJson())
+        // El título se crea a partir del primer mensaje del usuario, para que
+        // el historial sea reconocible sin abrir cada conversación.
+        if (role == "user" && conversation.optString("title") == "Nueva conversación") {
+            val title = content.replace(Regex("\\s+"), " ").trim().take(64)
+            if (title.isNotBlank()) conversation.put("title", title)
+        }
         conversation.put("updatedAtEpochMillis", now)
         writeRoot(root)
         message
