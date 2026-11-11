@@ -37,6 +37,15 @@ class BardoCiLogSanitizerTest {
     }
 
     @Test
+    fun preservesShortFailureAnchorAndNeverExceedsSmallOutputLimit() {
+        val hugeFailure = "FAILURE: " + "x".repeat(700)
+        val raw = hugeFailure + "\n" + "diagnostic ".repeat(300)
+        val safe = BardoCiLogSanitizer.selectRelevantExcerpt(raw, maxChars = 200)
+        assertTrue(safe.length <= 200)
+        assertTrue(safe.contains("FAILURE:"))
+    }
+
+    @Test
     fun emptyLogsAndInvalidLimitsAreHandledDeterministically() {
         assertEquals(
             "GitHub devolvió un log vacío.",

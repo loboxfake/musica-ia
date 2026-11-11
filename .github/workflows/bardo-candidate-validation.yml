@@ -135,6 +135,7 @@ jobs:
               "app/src/main/java/com/musicaia/modelo/BardoCapabilityRegistry.kt",
               "app/src/main/java/com/musicaia/diagnostico/BardoSelfInventory.kt",
               "app/src/main/java/com/musicaia/desarrollo/BardoGitHubAutomation.kt",
+              "app/src/main/java/com/musicaia/desarrollo/BardoCiLogSanitizer.kt",
               "app/src/main/java/com/musicaia/modelo/BardoCapabilityRegistry.kt",
               "app/src/main/java/com/musicaia/modelo/BardoIntentRouter.kt",
               "app/src/main/java/com/musicaia/modelo/BardoResourceBudget.kt",

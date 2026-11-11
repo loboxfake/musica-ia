@@ -78,9 +78,9 @@ La auditoría local habilita, cuando pasa, la solicitud de validación aislada; 
 ## 5. Estado y límites conocidos
 
 - BARDO puede realizar autoestudio local mediante WorkManager cuando el usuario lo activa, existe un modelo de texto local íntegro y Android concede las condiciones de ejecución. El trabajo puede sobrevivir al cierre de la Activity; Android/Xiaomi puede retrasarlo o detenerlo por restricciones del sistema.
-- El Worker analiza el código y puede preparar propuestas en un workspace aislado. No compila por sí mismo cada candidato en un ciclo autónomo, no repara automáticamente hasta conseguir una compilación verde, no integra automáticamente a \`main\` y no instala una APK nueva.
-- El envío a GitHub requiere el flujo de interfaz, el PAT fine-grained guardado en Android Keystore y la acción explícita del usuario. No se permite que el modelo envíe código de proyectos importados ni datos privados del dispositivo.
-- La aprobación de integración a \`main\` sigue deshabilitada en la política de la aplicación.
+- El Worker analiza el código y puede preparar propuestas en un workspace aislado. No compila por sí mismo cada candidato en un ciclo autónomo, no repara automáticamente hasta conseguir una compilación verde y no instala una APK nueva.
+- El envío de un candidato a GitHub requiere el flujo de interfaz y el PAT fine-grained guardado en Android Keystore. La integración a `main` solo se despacha tras aprobación explícita del usuario y validación aislada satisfactoria; no se hace automáticamente en segundo plano.
+- Los logs descargados de jobs fallidos se procesan solo localmente: máximo tres jobs por consulta, límite de 1,5 MB por job y extracto máximo de 3.200 caracteres. El sanitizador elimina patrones de tokens, cabeceras Authorization y consultas de URLs firmadas; el PAT no se reenvía al host temporal de descarga. Estos logs son contexto diagnóstico no confiable y no constituyen evidencia de éxito.
 - No hay en el repositorio un productor operativo de evidencias físicas que permita marcar el Xiaomi como verificado.
 
 ## 6. Evidencias que siguen siendo independientes

@@ -39,7 +39,7 @@ object BardoCiLogSanitizer {
         val hits = lines.indices.filter { failurePattern.containsMatchIn(lines[it]) }
         val primaryHits = lines.indices.filter { primaryFailurePattern.containsMatchIn(lines[it]) }.takeLast(4)
         val indices = if (hits.isEmpty()) {
-            lines.indices.takeLast(45)
+            lines.indices.toList().takeLast(45)
         } else {
             val selected = linkedSetOf<Int>()
             (primaryHits + hits.takeLast(6)).distinct().forEach { hit ->
@@ -51,11 +51,12 @@ object BardoCiLogSanitizer {
         }
         val excerpt = indices.joinToString("\n") { lines[it] }
         if (excerpt.length <= maxChars) return excerpt
-        val failureAnchor = primaryHits.lastOrNull()?.let { lines[it].take(240) }.orEmpty()
-        val reserved = if (failureAnchor.isBlank()) 8 else failureAnchor.length + 14
-        val tail = excerpt.takeLast((maxChars - reserved).coerceAtLeast(100))
-        return if (failureAnchor.isBlank()) "[...]\n" + tail else {
-            "[...]\n" + failureAnchor + "\n...\n" + tail
-        }
+        val failureAnchor = primaryHits.lastOrNull()?.let {
+            lines[it].take((maxChars / 3).coerceAtLeast(60))
+        }.orEmpty()
+        val prefix = if (failureAnchor.isBlank()) "[...]\n" else "[...]\n$failureAnchor\n...\n"
+        val tailLimit = (maxChars - prefix.length).coerceAtLeast(0)
+        val tail = excerpt.takeLast(tailLimit)
+        return (prefix + tail).take(maxChars)
     }
 }

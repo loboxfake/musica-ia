@@ -335,7 +335,7 @@ class BardoGitHubActionsClient(private val token: String) {
             val jobId = job.optLong("id", 0L)
             val isFailed = job.optString("status") == "completed" &&
                 job.optString("conclusion") in setOf("failure", "timed_out", "action_required")
-            if (jobId > 0L && job.optLong("run_id", runId) == runId && isFailed) {
+            if (jobId > 0L && job.optLong("run_id", 0L) == runId && isFailed) {
                 if (downloadedFailureLogs >= MAX_FAILED_LOG_JOBS) {
                     lines += "  - Se omitieron más logs de jobs fallidos por el límite local."
                     continue
