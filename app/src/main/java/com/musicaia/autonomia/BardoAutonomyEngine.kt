@@ -454,7 +454,7 @@ class BardoGemmaTaskPlanner(
         val array = root.optJSONArray("steps")
             ?: throw IllegalArgumentException("El modelo local no devolvió una lista de pasos.")
         require(array.length() in 1..BardoAutonomyEngine.MAX_STEPS) {
-            "El plan devuelto por Gemma excede los pasos permitidos."
+            "El plan devuelto por el modelo local excede los pasos permitidos."
         }
         val steps = (0 until array.length()).map { index ->
             val item = array.getJSONObject(index)
