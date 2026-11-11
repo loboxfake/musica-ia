@@ -152,6 +152,18 @@ La auditoría de `main` en `64f8fb41a38805b51cf83d81ba59c4ab991cf30e` encontró:
 
 Las políticas de rutas del repositorio bloquean cambios automáticos en componentes centrales, inventario, proveedores, worker, autoridad, skills, herramientas, evaluadores, workflows y Modo3. Cualquier evolución de esas rutas exige el proceso de revisión humana correspondiente. Este documento no cambia dichas políticas ni concede permisos nuevos.
 
+## 9.1 Hallazgos concretos de la auditoría del runtime
+
+La revisión del código de `main` confirma que ya existen estados de proveedor más ricos que los que expone el inventario general:
+
+- `BardoModelProvider` distingue `MODEL_MISSING`, `MODEL_SIZE_MISMATCH`, `RESOURCE_BLOCKED`, `PRESENT_UNVERIFIED` y `READY`; el proveedor valida SHA-256 y recursos antes de cargar.
+- `BardoModelRegistry` puede seleccionar Gemma/Qwen2 locales, cargar, inferir y descargar proveedores; las solicitudes remotas están deshabilitadas por defecto.
+- `BardoSelfInventory` actualmente expone para cada modelo principalmente `installed`, tamaño y texto descriptivo. No consulta ni presenta de forma estructurada el estado vivo del proveedor, el último uso, la última inferencia ni su resultado. Por ello no debe anunciar «modelo listo» basándose solo en que el archivo tenga el tamaño esperado.
+- El inventario detecta clases integradas y registra descripciones estáticas de algunas pruebas. Esas descripciones no deben interpretarse como una prueba reciente de la versión instalada: la evidencia histórica debe conservar versión, fecha y origen, y mostrarse separada de la telemetría actual.
+- El worker construye texto de inventario y lo usa como contexto del autoestudio, pero el propio worker y el inventario son rutas protegidas para edición autónoma. La integración de la autoevaluación viva requiere revisión humana y pruebas específicas; no debe duplicarse el inventario en una clase paralela que quede desconectada.
+
+Este hallazgo concreta el primer cambio funcional prioritario: conectar la pantalla/diagnóstico con el estado estructurado y actualizado de cada proveedor, manteniendo la diferencia entre presencia del archivo, integridad, carga, inferencia y pruebas. Después debe abordarse la persistencia y reanudación del ciclo de desarrollo.
+
 ## 10. Criterio de finalización
 
 BARDO solo podrá declararse **operativamente autoconsciente de sus capacidades** cuando pueda responder con datos actuales y evidencia qué modelos/skills/herramientas tiene, qué puede cargar y ejecutar ahora, qué está probado, qué no sabe y por qué.
