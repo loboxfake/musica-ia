@@ -75,6 +75,26 @@ class BardoConversationStoreTest {
     }
 
     @Test
+    fun replacesDatedPlaceholderWithFirstUserMessageTitle() {
+        val (store, directory) = newStore()
+        try {
+            val conversation = store.createConversation("Conversación 2026-11-11 10:00")
+            store.append(conversation.id, "user", "Una canción sobre superar obstáculos")
+            assertEquals(
+                "Una canción sobre superar obstáculos",
+                store.listConversations().single().title
+            )
+            store.append(conversation.id, "user", "Y seguir adelante")
+            assertEquals(
+                "Una canción sobre superar obstáculos",
+                store.listConversations().single().title
+            )
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
     fun migratesLegacyTranscriptWhenOnlyEmptyConversationRecordsExist() {
         val (store, directory) = newStore()
         try {
