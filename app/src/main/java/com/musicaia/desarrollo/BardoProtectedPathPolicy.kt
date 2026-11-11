@@ -7,7 +7,7 @@ package com.musicaia.desarrollo
 object BardoProtectedPathPolicy {
     const val MODO3_PATH =
         "app/src/main/java/com/musicaia/modulos/Modo3MezclaVozUsuario.kt"
-    const val MODO3_EXPECTED_BLOB_SHA1 = "8f2745fa841a06af43bf909732fba834474bf7dc"
+    const val MODO3_EXPECTED_BLOB_SHA1 = "8f5a34817891e1ec3b83f414acc9497c124b33e2"
 
     enum class PathClass {
         AUTONOMOUS_EDIT,
@@ -64,6 +64,7 @@ object BardoProtectedPathPolicy {
         "app/src/main/java/com/musicaia/storage/BardoExportSourcePolicy.kt",
         "app/src/main/java/com/musicaia/modelo/BardoCapabilityRegistry.kt",
         "app/src/main/java/com/musicaia/diagnostico/BardoSelfInventory.kt",
+        "app/src/main/java/com/musicaia/diagnostico/BardoCapabilityEvidenceStore.kt",
         "app/src/main/java/com/musicaia/modelo/BardoIntentRouter.kt",
         "app/src/main/java/com/musicaia/modelo/BardoResourceBudget.kt",
         "app/src/main/java/com/musicaia/modelo/BardoModuleCatalog.kt",

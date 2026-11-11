@@ -1111,7 +1111,13 @@ private fun crearConversacionNueva() {
          .append(inventory.capabilities.size.toString()).append(")\n")
      inventory.capabilities.forEach { capability ->
          val status = when (capability.status) {
-             BardoCapabilityRegistry.Status.AVAILABLE -> "DISPONIBLE SEGÚN RUNTIME · prueba física pendiente"
+             BardoCapabilityRegistry.Status.AVAILABLE -> "DISPONIBLE · evidencia operativa registrada"
+             BardoCapabilityRegistry.Status.INTEGRATED -> "INTEGRADO EN CÓDIGO · función real aún no demostrada"
+             BardoCapabilityRegistry.Status.MODEL_PRESENT -> "MODELO PRESENTE · hash pendiente o evidencia no vigente"
+             BardoCapabilityRegistry.Status.VERIFIED -> "SHA-256 VERIFICADO · falta carga real"
+             BardoCapabilityRegistry.Status.LOADABLE -> "CARGA REAL COMPLETADA · falta inferencia válida reciente"
+             BardoCapabilityRegistry.Status.INFERENCE_PASSED -> "INFERENCIA REAL VALIDADA · falta prueba física completa"
+             BardoCapabilityRegistry.Status.DEVICE_VERIFIED -> "PROBADO FÍSICAMENTE EN ESTE DISPOSITIVO"
              BardoCapabilityRegistry.Status.NEEDS_MODEL -> "FALTA MODELO"
              BardoCapabilityRegistry.Status.NEEDS_MEMORY -> "RAM INSUFICIENTE"
              BardoCapabilityRegistry.Status.NEEDS_RESOURCES -> "RECURSOS NO SEGUROS"
@@ -1133,7 +1139,7 @@ private fun crearConversacionNueva() {
          .append(if (inventory.charging) " · cargando" else "").append("\n")
          .append("Estado térmico Android: ").append(inventory.thermalStatus?.toString() ?: "no disponible")
          .append("\n\n")
-         .append("Este inventario consulta únicamente el paquete, modelos, recursos, módulos y ayudantes propios de BARDO. No enumera aplicaciones externas. «Código integrado» no significa función probada; «modelo presente» tampoco garantiza que pueda cargarse. Gemma se identifica por archivo y tamaño; su SHA-256 debe validarse antes de inferir. Solo se considera probado lo ejecutado realmente en el Xiaomi 11T Pro.")
+         .append("Este inventario consulta únicamente el paquete, modelos, recursos, módulos y ayudantes propios de BARDO. No enumera aplicaciones externas. Los estados separan código integrado, modelo presente, SHA-256 verificado, carga real, inferencia validada y prueba física. La evidencia se liga al archivo, la versión de BARDO y el dispositivo; los cambios invalidan los niveles posteriores. Una inferencia no equivale a una prueba física completa en el Xiaomi 11T Pro.")
 
      mostrarTextoDiagnostico(
          "BARDO · Inventario propio", texto.toString(), "BARDO_inventario"

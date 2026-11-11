@@ -2,7 +2,7 @@ package com.musicaia.modelo
 
 /** Registro declarativo de capacidades y sus requisitos reales. */
 object BardoCapabilityRegistry {
-    enum class Status { AVAILABLE, NEEDS_MODEL, NEEDS_MEMORY, NEEDS_RESOURCES, NEEDS_FULL_APK, REQUIRES_USER_ACTION, NOT_IMPLEMENTED }
+    enum class Status { AVAILABLE, INTEGRATED, MODEL_PRESENT, VERIFIED, LOADABLE, INFERENCE_PASSED, DEVICE_VERIFIED, NEEDS_MODEL, NEEDS_MEMORY, NEEDS_RESOURCES, NEEDS_FULL_APK, REQUIRES_USER_ACTION, NOT_IMPLEMENTED }
 
     // Se mantiene falso hasta integrar y probar un motor local real de voz cantada.
     const val VOICE_SYNTHESIS_AVAILABLE = false
@@ -39,32 +39,57 @@ object BardoCapabilityRegistry {
         val availableHelperCount: Int = 0,
         val registeredModuleCount: Int = 0,
         val qwenFilePresent: Boolean = false,
-        val qwenResourceBlockReason: String? = null
+        val qwenResourceBlockReason: String? = null,
+        val gemmaEvidenceStatus: Status = Status.MODEL_PRESENT,
+        val gemmaEvidenceDetail: String? = null,
+        val qwenEvidenceStatus: Status = Status.MODEL_PRESENT,
+        val qwenEvidenceDetail: String? = null
+    )
+
+    private fun normalizeEvidenceStatus(status: Status): Status = when (status) {
+        Status.VERIFIED, Status.LOADABLE, Status.INFERENCE_PASSED, Status.DEVICE_VERIFIED -> status
+        else -> Status.MODEL_PRESENT
+    }
+
+    fun canAttemptWithRuntimeChecks(status: Status): Boolean = status in setOf(
+        Status.AVAILABLE, Status.MODEL_PRESENT, Status.VERIFIED, Status.LOADABLE,
+        Status.INFERENCE_PASSED, Status.DEVICE_VERIFIED
     )
 
     private fun gemmaStatus(facts: RuntimeFacts): Status = when {
         !facts.gemmaFilePresent -> Status.NEEDS_MODEL
         facts.availableMemoryBytes < MIN_GEMMA_FREE_MEMORY_BYTES -> Status.NEEDS_MEMORY
         !facts.resourceBlockReason.isNullOrBlank() -> Status.NEEDS_RESOURCES
-        else -> Status.AVAILABLE
+        else -> normalizeEvidenceStatus(facts.gemmaEvidenceStatus)
     }
 
-    private fun localTextStatus(facts: RuntimeFacts): Status = when {
-        gemmaStatus(facts) == Status.AVAILABLE -> Status.AVAILABLE
-        facts.qwenFilePresent && facts.qwenResourceBlockReason.isNullOrBlank() -> Status.AVAILABLE
-        facts.qwenFilePresent -> Status.NEEDS_RESOURCES
-        else -> gemmaStatus(facts)
+    private fun qwenStatus(facts: RuntimeFacts): Status = when {
+        !facts.qwenFilePresent -> Status.NEEDS_MODEL
+        facts.availableMemoryBytes < MIN_QWEN_FREE_MEMORY_BYTES -> Status.NEEDS_MEMORY
+        !facts.qwenResourceBlockReason.isNullOrBlank() -> Status.NEEDS_RESOURCES
+        else -> normalizeEvidenceStatus(facts.qwenEvidenceStatus)
     }
 
-    private fun localTextDetail(facts: RuntimeFacts): String = when {
-        gemmaStatus(facts) == Status.AVAILABLE ->
-            "Gemma 4 E2B-it local está presente y supera el umbral preventivo de RAM. SHA-256 obligatorio antes de inferir."
-        facts.qwenFilePresent && facts.qwenResourceBlockReason.isNullOrBlank() ->
-            "Qwen2-0.5B-Instruct local está instalado y supera el umbral preventivo de 1,6 GiB. Se usa como alternativa ligera cuando Gemma no cabe; SHA-256 obligatorio antes de inferir. Calidad y rendimiento en este Xiaomi aún requieren prueba."
-        facts.qwenFilePresent ->
-            facts.qwenResourceBlockReason ?: "Qwen2 está instalado, pero los recursos actuales no permiten cargarlo."
-        facts.gemmaFilePresent -> gemmaDetail(facts)
-        else -> "No hay un modelo de texto local disponible. Importa Gemma o instala Qwen2-0.5B desde el gestor de modelos."
+    private fun localTextStatus(facts: RuntimeFacts): Status {
+        val gemma = gemmaStatus(facts)
+        if (canAttemptWithRuntimeChecks(gemma)) return gemma
+        val qwen = qwenStatus(facts)
+        if (canAttemptWithRuntimeChecks(qwen)) return qwen
+        return if (facts.qwenFilePresent) qwen else gemma
+    }
+
+    private fun localTextDetail(facts: RuntimeFacts): String {
+        val gemma = gemmaStatus(facts)
+        return if (canAttemptWithRuntimeChecks(gemma) || !facts.qwenFilePresent) {
+            facts.gemmaEvidenceDetail ?: gemmaDetail(facts)
+        } else {
+            facts.qwenEvidenceDetail ?: when (qwenStatus(facts)) {
+                Status.NEEDS_MEMORY -> "Qwen2 está presente, pero hay menos de 1,6 GiB de RAM disponible."
+                Status.NEEDS_RESOURCES -> facts.qwenResourceBlockReason.orEmpty()
+                Status.MODEL_PRESENT -> "Qwen2-0.5B está presente por tamaño; hash, carga e inferencia se registran por separado."
+                else -> "Qwen2: " + qwenStatus(facts).name + "."
+            }
+        }
     }
 
     private fun gemmaDetail(facts: RuntimeFacts): String = when (gemmaStatus(facts)) {
@@ -78,7 +103,7 @@ object BardoCapabilityRegistry {
         !facts.imageModelPresent -> Status.NEEDS_MODEL
         facts.availableMemoryBytes < MIN_IMAGE_GENERATION_FREE_MEMORY_BYTES -> Status.NEEDS_MEMORY
         !facts.imageResourceBlockReason.isNullOrBlank() -> Status.NEEDS_RESOURCES
-        else -> Status.AVAILABLE
+        else -> Status.MODEL_PRESENT
     }
 
     private fun imageGenerationDetail(facts: RuntimeFacts): String = when (imageGenerationStatus(facts)) {
@@ -103,46 +128,46 @@ object BardoCapabilityRegistry {
             ),
             Capability(
                 "instrumental", "Generación instrumental",
-                if (facts.audioEnginePresent) Status.AVAILABLE else Status.NEEDS_FULL_APK,
-                if (facts.audioEnginePresent) "Motor nativo local incluido; la generación real requiere superar las comprobaciones de memoria y modelo." else "Necesita la APK offline completa con ExecuTorch y Stable Audio.",
+                if (facts.audioEnginePresent) Status.MODEL_PRESENT else Status.NEEDS_FULL_APK,
+                if (facts.audioEnginePresent) "Artefactos del modelo y biblioteca JNI presentes. La generación real y el WAV deben validarse antes de elevar la evidencia." else "Necesita la APK offline completa con ExecuTorch y Stable Audio.",
                 "Prueba rápida en modo avión; luego 18 segmentos, diagnóstico WAV, duración final mínima de 180 s y escucha sin huecos artificiales."
             ),
             Capability(
                 "mp3_export", "Exportación MP3",
-                if (facts.mp3EncoderPresent) Status.AVAILABLE else Status.NEEDS_FULL_APK,
+                if (facts.mp3EncoderPresent) Status.INTEGRATED else Status.NEEDS_FULL_APK,
                 if (facts.mp3EncoderPresent) "Codificador local disponible." else "Codificador nativo no incluido en esta compilación.",
                 "Guardar MP3 reproducible en Descargas/BARDO y compartirlo con una acción independiente."
             ),
             Capability("speech_transcription_en", "Transcripción de audio offline en inglés",
-                if (facts.speechEnglishModelPresent) Status.AVAILABLE else Status.NEEDS_MODEL,
+                if (facts.speechEnglishModelPresent) Status.MODEL_PRESENT else Status.NEEDS_MODEL,
                 if (facts.speechEnglishModelPresent) "Modelo Vosk small-en-us instalado y validado por estructura. Decodificación local Android; no se envía audio a la nube."
                 else "Necesita descargar una vez el modelo inglés Vosk (41.205.931 bytes); se verifica SHA-256 antes de instalar. Después funciona sin conexión.",
                 "Transcribir habla inglesa real decodificable por Android, sin modificar el original ni inventar texto."),
-            Capability("speech_transcription_es", "Transcripción de audio offline en español", if (facts.speechModelPresent) Status.AVAILABLE else Status.NEEDS_MODEL, if (facts.speechModelPresent) "Modelo Vosk español instalado y validado por estructura. La decodificación usa códecs locales de Android; no se envía audio a la nube." else "Necesita descargar una vez el modelo español Vosk (39.817.833 bytes); SHA-256 fijado y comprobado antes de instalar. Después funciona sin conexión.", "Transcribir audio real decodificable por Android, en segundo plano, sin modificar el original; no inventar texto cuando no se detecta voz."),
-            Capability("mix_wav_basic", "Mezcla básica de 2–8 pistas WAV", Status.AVAILABLE, "Mezclador estéreo offline PCM16, frecuencia común, ganancia y panorama por pista, normalización conservadora y originales intactos. Límite: 8 pistas, 25 MB por pista, 100 MB total y 5 minutos. No es DAW ni mastering profesional.", "Mezclar WAV reales, verificar RIFF, canales estéreo, frecuencia y frames; rechazar silencio, formatos no compatibles y frecuencias distintas sin modificar originales."),
-            Capability("voice_mix_user", "Mezcla real WAV con voz del usuario", Status.AVAILABLE, "El flujo activo de MainActivity combina la grabación/archivo de voz con el instrumental mediante MezclaVoz.mezclar y LectorWav (PCM16). Modo3MezclaVozUsuario.kt se conserva como adaptador legacy, no como ruta activa. La escucha real en Xiaomi sigue pendiente.", "Seleccionar voz WAV PCM16 e instrumental WAV reales; generar un WAV de salida válido, reproducirlo y escucharlo, comprobar muestras/duración y conservar los originales."),
+            Capability("speech_transcription_es", "Transcripción de audio offline en español", if (facts.speechModelPresent) Status.MODEL_PRESENT else Status.NEEDS_MODEL, if (facts.speechModelPresent) "Modelo Vosk español instalado y validado por estructura. La decodificación usa códecs locales de Android; no se envía audio a la nube." else "Necesita descargar una vez el modelo español Vosk (39.817.833 bytes); SHA-256 fijado y comprobado antes de instalar. Después funciona sin conexión.", "Transcribir audio real decodificable por Android, en segundo plano, sin modificar el original; no inventar texto cuando no se detecta voz."),
+            Capability("mix_wav_basic", "Mezcla básica de 2–8 pistas WAV", Status.INTEGRATED, "Mezclador estéreo offline PCM16, frecuencia común, ganancia y panorama por pista, normalización conservadora y originales intactos. Límite: 8 pistas, 25 MB por pista, 100 MB total y 5 minutos. No es DAW ni mastering profesional.", "Mezclar WAV reales, verificar RIFF, canales estéreo, frecuencia y frames; rechazar silencio, formatos no compatibles y frecuencias distintas sin modificar originales."),
+            Capability("voice_mix_user", "Mezcla real WAV con voz del usuario", Status.INTEGRATED, "El flujo activo de MainActivity combina la grabación/archivo de voz con el instrumental mediante MezclaVoz.mezclar y LectorWav (PCM16). Modo3MezclaVozUsuario.kt se conserva como adaptador legacy, no como ruta activa. La escucha real en Xiaomi sigue pendiente.", "Seleccionar voz WAV PCM16 e instrumental WAV reales; generar un WAV de salida válido, reproducirlo y escucharlo, comprobar muestras/duración y conservar los originales."),
             Capability("stem_separation", "Separación de stems", Status.NOT_IMPLEMENTED, "No hay todavía un separador local de stems integrado y probado. No se presenta como disponible ni se descarga un modelo sin autorización.", "Separar voz, batería, bajo y acompañamiento de un audio real; exportar stems WAV sincronizados, medir calidad y conservar el original."),
-            Capability("wav_mastering_basic", "Procesado básico de WAV", Status.AVAILABLE, "Herramienta offline para WAV PCM 16-bit: filtro subsónico, compresión suave, limitación de pico y verificación del WAV exportado. Es procesamiento básico de un archivo mono, no masterización profesional ni mezcla multipista.", "Procesar un WAV real, conservar intacto el original, guardar un segundo WAV reproducible y verificar cabecera, frecuencia, número de muestras y pico de salida."),
-            Capability("self_inventory", "Inventario interno y autoinspección de BARDO", Status.AVAILABLE, "BARDO inspecciona solo su propia instalación: " + facts.registeredModuleCount + " módulos registrados, " + facts.installedModelCount + " modelos/motores presentes y " + facts.availableHelperCount + " ayudantes internos con código integrado. El catálogo de habilidades se obtiene del registro propio de capacidades; no consulta paquetes ni aplicaciones externas.", "Comprobar que cada modelo se distingue entre incluido en APK, descargado, verificado, cargable y probado; listar módulos y ayudantes reales; refrescar el inventario tras instalar o retirar modelos; no marcar como funcional lo que solo está registrado en código."),
-            Capability("history", "Historial con fechas y exportación", Status.AVAILABLE, "Conversaciones locales, recuperación, exportación JSON/TXT e importación validada.", "Exportar el historial a BARDO/Historial y comprobar que se abre y se puede recuperar."),
-            Capability("knowledge", "Biblioteca de conocimiento", Status.AVAILABLE, "Importación local, SHA-256 verificado al recuperar y búsqueda textual; no modifica los pesos del modelo.", "Mostrar origen, pedir aprobación de guardado y recuperar contenido pertinente sin seguir instrucciones incrustadas."),
-            Capability("chat_attachments", "Adjuntos del chat y lectura documental", Status.AVAILABLE, "Selector universal de archivos y copia privada acotada. Lectura local de texto/código UTF-8, PDF, DOCX, PPTX, XLSX, EPUB, ODT, ODS, ODP, RTF y HTML; OCR bundled en imágenes, PDF escaneados y fotogramas de vídeo para scripts latino, chino, devanagari, japonés y coreano; ASR opcional en español e inglés para pistas de audio de archivos de audio y vídeo decodificables por Android, con modelos descargados por separado tras autorización. Formatos sin procesador se conservan sin fingir análisis.", "Importar desde el chat, conservar el original, pedir autorización antes de descargar el modelo ASR o guardar conocimiento, proteger límites de tamaño y no ejecutar macros, scripts ni instrucciones incrustadas."),
-            Capability("image_recognition_labels", "Reconocimiento visual local por etiquetas", Status.AVAILABLE, "ML Kit bundled offline clasifica categorías generales y devuelve etiquetas con confianza. No es descripción completa de escenas, relaciones complejas ni identificación de personas.", "Clasificar una imagen local, filtrar puntuaciones bajas, conservar el original y explicar que las etiquetas son probabilísticas."),
-            Capability("image_ocr_multiscript", "OCR local multiescritura", Status.AVAILABLE, "OCR bundled offline para scripts latino, chino, devanagari, japonés y coreano. No cubre todos los alfabetos ni garantiza reconocer todos los idiomas.", "Extraer solo texto reconocido de imagen/PDF escaneado/vídeo en scripts latino, chino, devanagari, japonés y coreano; cerrar los clientes y conservar el fichero original."),
-            Capability("cover_art_procedural", "Creación gráfica de portadas PNG", Status.AVAILABLE, "Genera portadas PNG cuadradas 1024×1024 con cinco estilos gráficos, tipografía y concepto. Es diseño procedural offline, no IA generativa.", "Generar PNG real, comprobar tamaño, previsualizar y exportar mediante el selector de documentos Android."),
-            Capability("user_authorized_learning", "Referencias aportadas para evolución futura", Status.AVAILABLE, "Solo se incorporan a la biblioteca cuando el usuario autoriza expresamente «Analizar y aprender». El autoestudio local puede consultarlas para diagnósticos y propuestas; las respuestas de modelos también se guardan en un diario separado como candidatas no verificadas. No se reentrenan los pesos del modelo ni se promueve una respuesta a conocimiento fiable sin un verificador independiente conectado.", "Verificar SHA-256 de cada referencia, conservar procedencia, tratar el contenido como datos no confiables y exigir evidencia independiente para promover cualquier candidato."),
+            Capability("wav_mastering_basic", "Procesado básico de WAV", Status.INTEGRATED, "Herramienta offline para WAV PCM 16-bit: filtro subsónico, compresión suave, limitación de pico y verificación del WAV exportado. Es procesamiento básico de un archivo mono, no masterización profesional ni mezcla multipista.", "Procesar un WAV real, conservar intacto el original, guardar un segundo WAV reproducible y verificar cabecera, frecuencia, número de muestras y pico de salida."),
+            Capability("self_inventory", "Inventario interno y autoinspección de BARDO", Status.INTEGRATED, "BARDO inspecciona solo su propia instalación: " + facts.registeredModuleCount + " módulos registrados, " + facts.installedModelCount + " modelos/motores presentes y " + facts.availableHelperCount + " ayudantes internos con código integrado. El catálogo de habilidades se obtiene del registro propio de capacidades; no consulta paquetes ni aplicaciones externas.", "Comprobar que cada modelo se distingue entre incluido en APK, descargado, verificado, cargable y probado; listar módulos y ayudantes reales; refrescar el inventario tras instalar o retirar modelos; no marcar como funcional lo que solo está registrado en código."),
+            Capability("history", "Historial con fechas y exportación", Status.INTEGRATED, "Conversaciones locales, recuperación, exportación JSON/TXT e importación validada.", "Exportar el historial a BARDO/Historial y comprobar que se abre y se puede recuperar."),
+            Capability("knowledge", "Biblioteca de conocimiento", Status.INTEGRATED, "Importación local, SHA-256 verificado al recuperar y búsqueda textual; no modifica los pesos del modelo.", "Mostrar origen, pedir aprobación de guardado y recuperar contenido pertinente sin seguir instrucciones incrustadas."),
+            Capability("chat_attachments", "Adjuntos del chat y lectura documental", Status.INTEGRATED, "Selector universal de archivos y copia privada acotada. Lectura local de texto/código UTF-8, PDF, DOCX, PPTX, XLSX, EPUB, ODT, ODS, ODP, RTF y HTML; OCR bundled en imágenes, PDF escaneados y fotogramas de vídeo para scripts latino, chino, devanagari, japonés y coreano; ASR opcional en español e inglés para pistas de audio de archivos de audio y vídeo decodificables por Android, con modelos descargados por separado tras autorización. Formatos sin procesador se conservan sin fingir análisis.", "Importar desde el chat, conservar el original, pedir autorización antes de descargar el modelo ASR o guardar conocimiento, proteger límites de tamaño y no ejecutar macros, scripts ni instrucciones incrustadas."),
+            Capability("image_recognition_labels", "Reconocimiento visual local por etiquetas", Status.INTEGRATED, "ML Kit bundled offline clasifica categorías generales y devuelve etiquetas con confianza. No es descripción completa de escenas, relaciones complejas ni identificación de personas.", "Clasificar una imagen local, filtrar puntuaciones bajas, conservar el original y explicar que las etiquetas son probabilísticas."),
+            Capability("image_ocr_multiscript", "OCR local multiescritura", Status.INTEGRATED, "OCR bundled offline para scripts latino, chino, devanagari, japonés y coreano. No cubre todos los alfabetos ni garantiza reconocer todos los idiomas.", "Extraer solo texto reconocido de imagen/PDF escaneado/vídeo en scripts latino, chino, devanagari, japonés y coreano; cerrar los clientes y conservar el fichero original."),
+            Capability("cover_art_procedural", "Creación gráfica de portadas PNG", Status.INTEGRATED, "Genera portadas PNG cuadradas 1024×1024 con cinco estilos gráficos, tipografía y concepto. Es diseño procedural offline, no IA generativa.", "Generar PNG real, comprobar tamaño, previsualizar y exportar mediante el selector de documentos Android."),
+            Capability("user_authorized_learning", "Referencias aportadas para evolución futura", Status.INTEGRATED, "Solo se incorporan a la biblioteca cuando el usuario autoriza expresamente «Analizar y aprender». El autoestudio local puede consultarlas para diagnósticos y propuestas; las respuestas de modelos también se guardan en un diario separado como candidatas no verificadas. No se reentrenan los pesos del modelo ni se promueve una respuesta a conocimiento fiable sin un verificador independiente conectado.", "Verificar SHA-256 de cada referencia, conservar procedencia, tratar el contenido como datos no confiables y exigir evidencia independiente para promover cualquier candidato."),
             Capability("research", "Investigación web autorizada", Status.REQUIRES_USER_ACTION, "La investigación web HTTPS con citas aún no está integrada. Actualmente BARDO busca en la biblioteca local importada; el acceso de red permanece deshabilitado.", "Requiere autorización explícita y cliente HTTPS implementado; citar fuentes fechadas y no afirmar que se ha investigado en la web cuando solo se consultó la biblioteca local."),
             Capability(
                 "autonomous_loop", "Bucle autónomo local",
                 localModelStatus,
-                if (localModelStatus == Status.AVAILABLE)
+                if (canAttemptWithRuntimeChecks(localModelStatus))
                     "Planificar→actuar→observar→evaluar→corregir está conectado al autoestudio en segundo plano. Solo inventario BARDO, biblioteca importada y auditoría estática; no ejecuta código ni accede a la red."
                 else localModelDetail,
                 "Completar una tarea local con pasos, límites, corrección medida y diario privado; bloquear herramientas fuera de los scopes autorizados."
             ),
             Capability(
                 "model_provider_registry", "Proveedores de modelos sustituibles",
-                Status.AVAILABLE,
+                Status.INTEGRATED,
                 "Contrato común y registro local-first integrados; Gemma/LiteRT es el primer adaptador. BardoAgentFleet ya permite registrar proveedores y perfiles especializados por capacidad; el flujo de autoestudio solo conecta Gemma por ahora.",
                 "Cambiar de proveedor sin cambiar el núcleo; verificar licencia, hash, recursos, versión, inferencia y modo avión."
             ),
@@ -188,12 +213,12 @@ object BardoCapabilityRegistry {
                 },
                 "Ejecutar autoestudio con Gemma verificado; conservar snapshot original; validar diff y rutas protegidas; no ejecutar código importado; compilar y probar candidato en runner aislado; exigir aprobación explícita antes de integrar."
             ),
-            Capability("code_audit", "Auditoría de código", Status.AVAILABLE, "Análisis estático de un snapshot; no demuestra que el proyecto compile.", "Informe reproducible de archivos y hallazgos; diferenciar análisis estático de compilación y pruebas."),
-            Capability("patch_sandbox", "Propuestas de parches aislados", Status.AVAILABLE, "Solo crea una copia candidata; no modifica la aplicación instalada.", "Diff aislado, pruebas previas, SHA de protecciones intactos, auditoría y reversión demostrable."),
+            Capability("code_audit", "Auditoría de código", Status.INTEGRATED, "Análisis estático de un snapshot; no demuestra que el proyecto compile.", "Informe reproducible de archivos y hallazgos; diferenciar análisis estático de compilación y pruebas."),
+            Capability("patch_sandbox", "Propuestas de parches aislados", Status.INTEGRATED, "Solo crea una copia candidata; no modifica la aplicación instalada.", "Diff aislado, pruebas previas, SHA de protecciones intactos, auditoría y reversión demostrable."),
             Capability(
                 "project_build",
                 "Validación de proyectos en runner aislado",
-                if (facts.githubActionsConfigured) Status.AVAILABLE else Status.REQUIRES_USER_ACTION,
+                if (facts.githubActionsConfigured) Status.INTEGRATED else Status.REQUIRES_USER_ACTION,
                 if (facts.githubActionsConfigured) {
                     "BARDO puede enviar diffs permitidos a un runner efímero de GitHub Actions, ejecutar tests y assembleDebug y consultar el resultado. El teléfono no ejecuta Gradle."
                 } else {
@@ -204,7 +229,7 @@ object BardoCapabilityRegistry {
             Capability(
                 "github_development",
                 "Propuestas autónomas mediante ramas y PR",
-                if (facts.githubActionsConfigured) Status.AVAILABLE else Status.REQUIRES_USER_ACTION,
+                if (facts.githubActionsConfigured) Status.INTEGRATED else Status.REQUIRES_USER_ACTION,
                 if (facts.githubActionsConfigured) {
                     "La conexión GitHub está configurada; BARDO valida el candidato y puede crear una rama bardo/* y PR borrador tras una aprobación explícita. No escribe ni fusiona main. La protección de rama debe comprobarse en GitHub."
                 } else {

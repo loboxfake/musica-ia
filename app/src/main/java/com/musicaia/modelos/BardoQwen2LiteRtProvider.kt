@@ -3,6 +3,7 @@ package com.musicaia.modelos
 import android.content.Context
 import com.musicaia.modelo.BardoCapabilityRegistry
 import com.musicaia.modelo.BardoResourceBudget
+import com.musicaia.diagnostico.BardoCapabilityEvidenceStore
 import com.musicaia.modulos.litert.BardoQwen2LiteRtModule
 import com.musicaia.modulos.litert.EngineLiteRT
 import java.io.File
@@ -62,6 +63,7 @@ class BardoQwen2LiteRtProvider : BardoModelProvider {
         check(BardoQwen2LiteRtModule.verificarModelo(model)) {
             "El SHA-256 de Qwen2 no coincide. El archivo original se conserva sin borrarlo."
         }
+        runCatching { BardoCapabilityEvidenceStore.recordShaVerified(context, "qwen2", model, BardoQwen2LiteRtModule.EXPECTED_SHA256, BardoQwen2LiteRtModule.EXPECTED_SHA256) }
         val afterHashBlock = BardoResourceBudget.blockingReason(
             context,
             BardoCapabilityRegistry.MIN_QWEN_FREE_MEMORY_BYTES
@@ -73,6 +75,7 @@ class BardoQwen2LiteRtProvider : BardoModelProvider {
         check(EngineLiteRT.inicializar(model.absolutePath, cache.absolutePath)) {
             "LiteRT-LM no pudo cargar Qwen2 en este dispositivo."
         }
+        runCatching { BardoCapabilityEvidenceStore.recordLoadSucceeded(context, "qwen2", model, BardoQwen2LiteRtModule.EXPECTED_SHA256) }
         loadedPath = model.absolutePath
         return true
     }
@@ -96,6 +99,7 @@ class BardoQwen2LiteRtProvider : BardoModelProvider {
         }
         loadedPath = model.absolutePath
         check(text.isNotBlank()) { "Qwen2 devolvió una respuesta vacía." }
+        runCatching { BardoCapabilityEvidenceStore.recordInferencePassed(context, "qwen2", model, BardoQwen2LiteRtModule.EXPECTED_SHA256, outputValidated = text.isNotBlank()) }
         return BardoModelResponse(
             text = text,
             providerId = descriptor.id,

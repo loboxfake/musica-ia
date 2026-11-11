@@ -4,6 +4,7 @@ import android.content.Context
 import com.musicaia.modelo.BardoCapabilityRegistry
 import com.musicaia.modelo.BardoResourceBudget
 import com.musicaia.modelo.BardoResourceCoordinator
+import com.musicaia.diagnostico.BardoCapabilityEvidenceStore
 import com.musicaia.modulos.litert.EngineLiteRT
 import com.musicaia.modulos.litert.LiteRTLMModule
 import java.io.File
@@ -103,6 +104,7 @@ class BardoGemmaLiteRtProvider : BardoModelProvider {
         check(actualHash == LiteRTLMModule.EXPECTED_SHA256) {
             "El SHA-256 de Gemma no coincide. El archivo original se conserva sin borrarlo."
         }
+        runCatching { BardoCapabilityEvidenceStore.recordShaVerified(context, "gemma", model, LiteRTLMModule.EXPECTED_SHA256, actualHash) }
         // El cálculo del hash puede tardar; volver a medir justo antes de reservar memoria nativa.
         val postHashResourceBlock = BardoResourceBudget.blockingReason(
             context,
@@ -115,6 +117,7 @@ class BardoGemmaLiteRtProvider : BardoModelProvider {
         check(EngineLiteRT.inicializar(model.absolutePath, cache.absolutePath)) {
             "LiteRT-LM no pudo cargar Gemma en el runtime."
         }
+        runCatching { BardoCapabilityEvidenceStore.recordLoadSucceeded(context, "gemma", model, LiteRTLMModule.EXPECTED_SHA256) }
         loadedPath = model.absolutePath
         loaded = true
         return true
@@ -137,9 +140,11 @@ class BardoGemmaLiteRtProvider : BardoModelProvider {
                 check(resourceBlock == null) {
                     resourceBlock ?: "Los recursos del dispositivo no permiten cargar Gemma."
                 }
-                check(sha256(model) == LiteRTLMModule.EXPECTED_SHA256) {
+                val actualHash = sha256(model)
+                check(actualHash == LiteRTLMModule.EXPECTED_SHA256) {
                     "El SHA-256 de Gemma no coincide. El archivo original se conserva."
                 }
+                runCatching { BardoCapabilityEvidenceStore.recordShaVerified(context, "gemma", model, LiteRTLMModule.EXPECTED_SHA256, actualHash) }
                 // Revalidación final: RAM, batería y temperatura pueden variar durante el hash.
                 val postHashResourceBlock = BardoResourceBudget.blockingReason(
                     context,
@@ -152,6 +157,7 @@ class BardoGemmaLiteRtProvider : BardoModelProvider {
                     model.absolutePath,
                     File(context.cacheDir, "bardo-litert-cache").absolutePath
                 )) { "LiteRT-LM no pudo cargar Gemma." }
+                runCatching { BardoCapabilityEvidenceStore.recordLoadSucceeded(context, "gemma", model, LiteRTLMModule.EXPECTED_SHA256) }
             }
             generar(
                 request.prompt,
@@ -159,7 +165,9 @@ class BardoGemmaLiteRtProvider : BardoModelProvider {
             ).trim()
         }
         check(text.isNotBlank()) { "Gemma devolvió una respuesta vacía." }
-        loadedPath = LiteRTLMModule.modelFile(context).absolutePath
+        val completedModel = LiteRTLMModule.modelFile(context)
+        runCatching { BardoCapabilityEvidenceStore.recordInferencePassed(context, "gemma", completedModel, LiteRTLMModule.EXPECTED_SHA256, outputValidated = text.isNotBlank()) }
+        loadedPath = completedModel.absolutePath
         loaded = true
         return BardoModelResponse(
             text = text,

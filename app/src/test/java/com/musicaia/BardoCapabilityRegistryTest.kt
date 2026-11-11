@@ -62,9 +62,9 @@ class BardoCapabilityRegistryTest {
                 availableMemoryBytes = BardoCapabilityRegistry.MIN_GEMMA_FREE_MEMORY_BYTES
             )
         ).associateBy { it.id }
-        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("general_chat").status)
-        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("autonomous_developer").status)
-        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("lyrics").status)
+        assertEquals(BardoCapabilityRegistry.Status.MODEL_PRESENT, items.getValue("general_chat").status)
+        assertEquals(BardoCapabilityRegistry.Status.MODEL_PRESENT, items.getValue("autonomous_developer").status)
+        assertEquals(BardoCapabilityRegistry.Status.MODEL_PRESENT, items.getValue("lyrics").status)
     }
 
     @Test
@@ -72,13 +72,13 @@ class BardoCapabilityRegistryTest {
         val items = BardoCapabilityRegistry.snapshot(
             BardoCapabilityRegistry.RuntimeFacts(true, true, true)
         ).associateBy { it.id }
-        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("history").status)
-        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("self_inventory").status)
-        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("knowledge").status)
-        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("chat_attachments").status)
-        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("user_authorized_learning").status)
-        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("wav_mastering_basic").status)
-        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("mix_wav_basic").status)
+        assertEquals(BardoCapabilityRegistry.Status.INTEGRATED, items.getValue("history").status)
+        assertEquals(BardoCapabilityRegistry.Status.INTEGRATED, items.getValue("self_inventory").status)
+        assertEquals(BardoCapabilityRegistry.Status.INTEGRATED, items.getValue("knowledge").status)
+        assertEquals(BardoCapabilityRegistry.Status.INTEGRATED, items.getValue("chat_attachments").status)
+        assertEquals(BardoCapabilityRegistry.Status.INTEGRATED, items.getValue("user_authorized_learning").status)
+        assertEquals(BardoCapabilityRegistry.Status.INTEGRATED, items.getValue("wav_mastering_basic").status)
+        assertEquals(BardoCapabilityRegistry.Status.INTEGRATED, items.getValue("mix_wav_basic").status)
         assertEquals(BardoCapabilityRegistry.Status.NEEDS_MODEL, items.getValue("speech_transcription_es").status)
         assertEquals(BardoCapabilityRegistry.Status.NEEDS_MODEL, items.getValue("speech_transcription_en").status)
         assertEquals(BardoCapabilityRegistry.Status.REQUIRES_USER_ACTION, items.getValue("research").status)
@@ -102,7 +102,7 @@ class BardoCapabilityRegistryTest {
             )
         ).associateBy { it.id }.getValue("self_inventory")
 
-        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, inventory.status)
+        assertEquals(BardoCapabilityRegistry.Status.MODEL_PRESENT, inventory.status)
         assertTrue(inventory.detail.contains("8 módulos"))
         assertTrue(inventory.detail.contains("4 modelos/motores"))
         assertTrue(inventory.detail.contains("16 ayudantes internos"))
@@ -115,7 +115,7 @@ class BardoCapabilityRegistryTest {
             BardoCapabilityRegistry.RuntimeFacts(true, true, true)
         ).associateBy { it.id }
         val mix = items.getValue("voice_mix_user")
-        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, mix.status)
+        assertEquals(BardoCapabilityRegistry.Status.INTEGRATED, mix.status)
         assertTrue(mix.detail.contains("MezclaVoz.mezclar"))
         assertTrue(mix.detail.contains("adaptador legacy"))
         assertTrue(mix.acceptanceCriteria.contains("WAV PCM16"))
@@ -135,8 +135,8 @@ class BardoCapabilityRegistryTest {
                 speechEnglishModelPresent = true
             )
         ).associateBy { it.id }
-        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, installed.getValue("speech_transcription_es").status)
-        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, installed.getValue("speech_transcription_en").status)
+        assertEquals(BardoCapabilityRegistry.Status.MODEL_PRESENT, installed.getValue("speech_transcription_es").status)
+        assertEquals(BardoCapabilityRegistry.Status.MODEL_PRESENT, installed.getValue("speech_transcription_en").status)
         assertTrue(installed.getValue("speech_transcription_es").detail.contains("no se envía audio a la nube"))
     }
 
@@ -151,8 +151,8 @@ class BardoCapabilityRegistryTest {
                 speechModelPresent = true
             )
         ).associateBy { it.id }
-        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("project_build").status)
-        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("github_development").status)
+        assertEquals(BardoCapabilityRegistry.Status.INTEGRATED, items.getValue("project_build").status)
+        assertEquals(BardoCapabilityRegistry.Status.INTEGRATED, items.getValue("github_development").status)
         assertTrue(items.getValue("project_build").detail.contains("runner efímero"))
         assertTrue(items.getValue("github_development").acceptanceCriteria.contains("aprobación explícita"))
     }
@@ -179,7 +179,43 @@ class BardoCapabilityRegistryTest {
                 imageModelPresent = true
             )
         ).associateBy { it.id }
-        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, ready.getValue("cover_art").status)
+        assertEquals(BardoCapabilityRegistry.Status.MODEL_PRESENT, ready.getValue("cover_art").status)
+    }
+
+    @Test
+    fun evidenceAdvancesOnlyAfterEachRealStageAndMemoryCanDowngradeIt() {
+        val facts = BardoCapabilityRegistry.RuntimeFacts(
+            gemmaFilePresent = true,
+            audioEnginePresent = true,
+            mp3EncoderPresent = true,
+            availableMemoryBytes = BardoCapabilityRegistry.MIN_GEMMA_FREE_MEMORY_BYTES,
+            gemmaEvidenceStatus = BardoCapabilityRegistry.Status.VERIFIED
+        )
+        assertEquals(
+            BardoCapabilityRegistry.Status.VERIFIED,
+            BardoCapabilityRegistry.snapshot(facts).associateBy { it.id }.getValue("general_chat").status
+        )
+        assertEquals(
+            BardoCapabilityRegistry.Status.LOADABLE,
+            BardoCapabilityRegistry.snapshot(
+                facts.copy(gemmaEvidenceStatus = BardoCapabilityRegistry.Status.LOADABLE)
+            ).associateBy { it.id }.getValue("general_chat").status
+        )
+        assertEquals(
+            BardoCapabilityRegistry.Status.INFERENCE_PASSED,
+            BardoCapabilityRegistry.snapshot(
+                facts.copy(gemmaEvidenceStatus = BardoCapabilityRegistry.Status.INFERENCE_PASSED)
+            ).associateBy { it.id }.getValue("general_chat").status
+        )
+        assertEquals(
+            BardoCapabilityRegistry.Status.NEEDS_MEMORY,
+            BardoCapabilityRegistry.snapshot(
+                facts.copy(
+                    availableMemoryBytes = BardoCapabilityRegistry.MIN_GEMMA_FREE_MEMORY_BYTES - 1,
+                    gemmaEvidenceStatus = BardoCapabilityRegistry.Status.DEVICE_VERIFIED
+                )
+            ).associateBy { it.id }.getValue("general_chat").status
+        )
     }
 
     @Test
@@ -189,9 +225,9 @@ class BardoCapabilityRegistryTest {
         ).associateBy { it.id }
         assertEquals(BardoCapabilityRegistry.Status.NOT_IMPLEMENTED, items.getValue("voice_synthesis").status)
         assertEquals(BardoCapabilityRegistry.Status.NOT_IMPLEMENTED, items.getValue("mix_master").status)
-        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("image_recognition_labels").status)
-        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("image_ocr_multiscript").status)
-        assertEquals(BardoCapabilityRegistry.Status.AVAILABLE, items.getValue("cover_art_procedural").status)
+        assertEquals(BardoCapabilityRegistry.Status.INTEGRATED, items.getValue("image_recognition_labels").status)
+        assertEquals(BardoCapabilityRegistry.Status.INTEGRATED, items.getValue("image_ocr_multiscript").status)
+        assertEquals(BardoCapabilityRegistry.Status.INTEGRATED, items.getValue("cover_art_procedural").status)
         assertEquals(BardoCapabilityRegistry.Status.NEEDS_MODEL, items.getValue("cover_art").status)
         assertTrue(items.getValue("self_install").detail.contains("no descarga ni instala actualizaciones"))
         assertTrue(items.getValue("self_install").detail.contains("GitHub Release"))

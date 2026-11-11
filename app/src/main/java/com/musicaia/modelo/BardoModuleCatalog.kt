@@ -7,6 +7,8 @@ import com.musicaia.modulos.ModuloInstrumental
 import com.musicaia.modulos.ModuloLetra
 import com.musicaia.modulos.litert.LiteRTLMModule
 import com.musicaia.modulos.Mp3Exporter
+import com.musicaia.modulos.litert.BardoQwen2LiteRtModule
+import com.musicaia.diagnostico.BardoCapabilityEvidenceStore
 import java.io.File
 
 /**
@@ -96,21 +98,34 @@ object BardoModuleCatalog {
         val resourceBlock = BardoResourceBudget.blockingReason(
             app, BardoCapabilityRegistry.MIN_GEMMA_FREE_MEMORY_BYTES
         )
+        val qwenModel = BardoQwen2LiteRtModule.modelFile(app)
+        val gemmaPresent = model.isFile && model.length() == LiteRTLMModule.EXPECTED_SIZE_BYTES
+        val qwenPresent = qwenModel.isFile && qwenModel.length() == BardoQwen2LiteRtModule.EXPECTED_SIZE_BYTES
+        val audioAssets = app.assets.list("audio_model")?.toSet().orEmpty()
+        val audioAssetsPresent = setOf("conditioners_model.pte", "dit_model.pte", "autoencoder_model.pte", "spiece.model").all { it in audioAssets }
+        val gemmaEvidence = if (gemmaPresent) BardoCapabilityEvidenceStore.inspect(app, "gemma", model, LiteRTLMModule.EXPECTED_SHA256, LiteRTLMModule.EXPECTED_SIZE_BYTES) else null
+        val qwenEvidence = if (qwenPresent) BardoCapabilityEvidenceStore.inspect(app, "qwen2", qwenModel, BardoQwen2LiteRtModule.EXPECTED_SHA256, BardoQwen2LiteRtModule.EXPECTED_SIZE_BYTES) else null
         val facts = BardoCapabilityRegistry.RuntimeFacts(
-            gemmaFilePresent = model.isFile && model.length() == LiteRTLMModule.EXPECTED_SIZE_BYTES,
-            audioEnginePresent = AudioGenNative.available,
+            gemmaFilePresent = gemmaPresent,
+            audioEnginePresent = AudioGenNative.available && audioAssetsPresent,
             mp3EncoderPresent = Mp3Exporter.available,
             availableMemoryBytes = memoryInfo.availMem,
             resourceBlockReason = resourceBlock,
             speechModelPresent = com.musicaia.modulos.BardoOfflineAsr.isModelInstalled(app, com.musicaia.modulos.BardoOfflineAsr.Language.SPANISH),
-            speechEnglishModelPresent = com.musicaia.modulos.BardoOfflineAsr.isModelInstalled(app, com.musicaia.modulos.BardoOfflineAsr.Language.ENGLISH)
+            speechEnglishModelPresent = com.musicaia.modulos.BardoOfflineAsr.isModelInstalled(app, com.musicaia.modulos.BardoOfflineAsr.Language.ENGLISH),
+            qwenFilePresent = qwenPresent,
+            qwenResourceBlockReason = BardoResourceBudget.blockingReason(app, BardoCapabilityRegistry.MIN_QWEN_FREE_MEMORY_BYTES),
+            gemmaEvidenceStatus = gemmaEvidence?.status ?: BardoCapabilityRegistry.Status.MODEL_PRESENT,
+            gemmaEvidenceDetail = gemmaEvidence?.detail,
+            qwenEvidenceStatus = qwenEvidence?.status ?: BardoCapabilityRegistry.Status.MODEL_PRESENT,
+            qwenEvidenceDetail = qwenEvidence?.detail
         )
         val capabilities = BardoCapabilityRegistry.snapshot(facts).associateBy { it.id }
         val selected = selectMusicModuleIds(
             instrumentalOnly = instrumentalOnly,
             manualLyrics = manualLyrics,
-            gemmaReady = capabilities["lyrics"]?.status == BardoCapabilityRegistry.Status.AVAILABLE,
-            audioReady = capabilities["instrumental"]?.status == BardoCapabilityRegistry.Status.AVAILABLE
+            gemmaReady = capabilities["lyrics"]?.status?.let { BardoCapabilityRegistry.canAttemptWithRuntimeChecks(it) } == true,
+            audioReady = capabilities["instrumental"]?.status?.let { BardoCapabilityRegistry.canAttemptWithRuntimeChecks(it) } == true
         )
         val modules = selected.map { id ->
             when (id) {

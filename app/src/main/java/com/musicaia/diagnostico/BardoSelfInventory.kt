@@ -26,7 +26,9 @@ object BardoSelfInventory {
         val name: String,
         val installed: Boolean,
         val detail: String,
-        val bytes: Long = 0L
+        val bytes: Long = 0L,
+        val runtimeEvidenceStatus: String = BardoCapabilityRegistry.Status.MODEL_PRESENT.name,
+        val lastInferenceAtEpochMillis: Long? = null
     )
 
     data class HelperEntry(
@@ -176,6 +178,16 @@ object BardoSelfInventory {
             resources,
             BardoCapabilityRegistry.MIN_QWEN_FREE_MEMORY_BYTES
         )
+        val gemmaEvidence = if (gemmaPresent) BardoCapabilityEvidenceStore.inspect(
+            app, "gemma", gemma, LiteRTLMModule.EXPECTED_SHA256, LiteRTLMModule.EXPECTED_SIZE_BYTES
+        ) else BardoCapabilityEvidenceStore.Snapshot(
+            BardoCapabilityRegistry.Status.NEEDS_MODEL, "Gemma no está instalado."
+        )
+        val qwenEvidence = if (qwenPresent) BardoCapabilityEvidenceStore.inspect(
+            app, "qwen2", qwen, BardoQwen2LiteRtModule.EXPECTED_SHA256, BardoQwen2LiteRtModule.EXPECTED_SIZE_BYTES
+        ) else BardoCapabilityEvidenceStore.Snapshot(
+            BardoCapabilityRegistry.Status.NEEDS_MODEL, "Qwen2 no está instalado."
+        )
 
         val audioAssets = app.assets.list("audio_model")?.toSet().orEmpty()
         val audioAssetsPresent = expectedAudioAssets.all { it in audioAssets }
@@ -198,15 +210,17 @@ object BardoSelfInventory {
                     !gemma.exists() -> "No está copiado al almacenamiento privado de BARDO. Archivo esperado: " + LiteRTLMModule.MODEL_FILENAME + ". Carpeta compartida BARDO: " + (if (sharedWorkspaceConnected) "permiso conectado; importación automática pendiente" else "sin permiso persistente conectado") + "."
                     !gemmaPresent -> "El archivo existe, pero su tamaño no coincide con el modelo fijado (" + LiteRTLMModule.EXPECTED_SIZE_BYTES + " bytes). No se declara instalado."
                     else -> "Archivo y tamaño correctos en almacenamiento privado. SHA-256 esperado: " + LiteRTLMModule.EXPECTED_SHA256 + ". El inventario no recalcula 2,6 GB; la carga/autoestudio debe validar la huella antes de inferir."
-                }, if (gemma.isFile) gemma.length() else 0L),
+                }, if (gemma.isFile) gemma.length() else 0L,
+                gemmaEvidence.status.name, gemmaEvidence.lastInferenceAtEpochMillis),
             ModelEntry("qwen2_0_5b", "Qwen2-0.5B-Instruct · asistente local ligero", qwenPresent,
                 when {
                     !qwen.isFile -> "No instalado. Descarga opcional de 647.377.840 bytes, licencia Apache-2.0; después funciona sin conexión. Umbral preventivo de RAM: 1,6 GiB."
                     !qwenPresent -> "El archivo existe, pero el tamaño no coincide con el manifiesto fijado. No se cargará."
                     else -> "Archivo y tamaño correctos. SHA-256 se verifica antes de cada carga: " + BardoQwen2LiteRtModule.EXPECTED_SHA256 + ". Umbral RAM 1,6 GiB; prueba real en Xiaomi pendiente."
-                }, if (qwen.isFile) qwen.length() else 0L),
+                }, if (qwen.isFile) qwen.length() else 0L,
+                qwenEvidence.status.name, qwenEvidence.lastInferenceAtEpochMillis),
             ModelEntry("stable_audio", "Stable Audio Open Small · modelo instrumental", audioReady,
-                if (audioReady) "Los cuatro artefactos PTE/tokenizer están incluidos en assets/audio_model y libaudiogen se ha cargado. En Xiaomi 11T Pro, BARDO 1.0.1366 generó un segmento en modo avión y el resultado se reprodujo desde Archivo; revalidación tras cambios del motor nativo y prueba de canciones largas/calidad pendientes."
+                if (audioReady) "Los cuatro artefactos PTE/tokenizer están incluidos y libaudiogen se ha cargado en esta ejecución. Esto no prueba una inferencia en esta APK; falta validar generación real y WAV."
                 else "Falta algún artefacto interno de audio o la biblioteca nativa no se pudo cargar.", 876_975_464L),
             ModelEntry("vosk_es", "Vosk small · español", spanishAsr,
                 if (spanishAsr) "Modelo descargado; estructura detectada en " + BardoOfflineAsr.modelDirectory(app, BardoOfflineAsr.Language.SPANISH).absolutePath + ". La prueba de transcripción real sigue pendiente."
@@ -243,7 +257,7 @@ object BardoSelfInventory {
                 spec.id == "authority" -> "Verificación ECDSA, scopes, nonce y revocación persistente integrados; emparejamiento de claves y transporte JARVIS-PC↔Android todavía pendientes."
                 spec.id == "github_agent" -> if (githubConfigured) "Código integrado; credencial local detectada. La operación exige aprobación humana."
                     else "Código integrado; falta configurar la credencial GitHub dentro de BARDO."
-                spec.id == "audio_generation" -> if (audioReady) "Código, artefactos y biblioteca nativa presentes; generación instrumental offline de un segmento y reproducción desde Archivo fueron verificadas físicamente en Xiaomi 11T Pro con BARDO 1.0.1366. Revalidación tras cambios recientes y canción larga/calidad pendientes."
+                spec.id == "audio_generation" -> if (audioReady) "Código, artefactos y biblioteca JNI presentes en esta APK. No se extrapola la prueba física de versiones anteriores; falta validar una generación real en esta versión."
                     else "Código integrado; falta artefacto o biblioteca nativa de audio."
                 spec.id == "mp3" -> if (mp3Ready) "Biblioteca nativa MP3 cargada; exportación real aún pendiente."
                     else "Código integrado; biblioteca MP3 no disponible en runtime."
@@ -273,7 +287,11 @@ object BardoSelfInventory {
             availableHelperCount = helpers.count { it.integrated },
             registeredModuleCount = modules.size,
             qwenFilePresent = qwenPresent,
-            qwenResourceBlockReason = qwenResourceBlock
+            qwenResourceBlockReason = qwenResourceBlock,
+            gemmaEvidenceStatus = gemmaEvidence.status,
+            gemmaEvidenceDetail = gemmaEvidence.detail,
+            qwenEvidenceStatus = qwenEvidence.status,
+            qwenEvidenceDetail = qwenEvidence.detail
         )
 
         val activityManager = app.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager

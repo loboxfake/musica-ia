@@ -7,6 +7,14 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BardoProtectedPathPolicyTest {
+    @Test fun modo3ExpectedBlobShaMatchesTheUnchangedMainFile() {
+        assertTrue(BardoProtectedPathPolicy.MODO3_EXPECTED_BLOB_SHA1.matches(Regex("^[a-f0-9]{40}$")))
+        assertEquals(
+            "8f5a34817891e1ec3b83f414acc9497c124b33e2",
+            BardoProtectedPathPolicy.MODO3_EXPECTED_BLOB_SHA1
+        )
+    }
+
     @Test fun keepsModo3PermanentlyBlocked() {
         assertEquals(
             BardoProtectedPathPolicy.PathClass.FORBIDDEN,
