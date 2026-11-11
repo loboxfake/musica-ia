@@ -195,8 +195,17 @@ La revisión de BardoCapabilityRegistry y BardoSelfInventory encontró capacidad
 
 El hallazgo se registró en [GitHub issue #9](https://github.com/loboxfake/musica-ia/issues/9). La solución requiere revisión humana porque BardoCapabilityRegistry.kt y BardoSelfInventory.kt están protegidos. Se propone que el estado visible distinga integración, presencia, verificación, carga, inferencia y prueba física, y que la evidencia caduque cuando cambie la versión de APK/modelo. No se ha modificado código protegido.
 
-## 9.5 Modo 3: la implementación actual no incorpora la voz
+## 9.5 Modo 3: corrección de la mezcla PCM y validación pendiente en dispositivo
 
-La inspección de Modo3MezclaVozUsuario.kt detectó que, cuando existe una grabación de voz, el método ejecuta una copia byte a byte de instrumental.wav hacia modo3_mezcla.wav. No lee ni mezcla muestras de voz; la variable de tamaño aproximado no se utiliza. Tampoco valida la presencia/formato de ambos WAV ni verifica el resultado. Por tanto, devolver Dato.Audio no demuestra que haya mezcla de voz.
+La auditoría encontró que la implementación anterior copiaba byte a byte `instrumental.wav` a `modo3_mezcla.wav`, sin incorporar las muestras de `voz_usuario.wav`. El defecto se corrigió en `main` con el commit `9949e27`:
 
-El hallazgo y los requisitos de corrección se registraron en [GitHub issue #10](https://github.com/loboxfake/musica-ia/issues/10). Esta ruta está expresamente protegida y se ha preservado sin modificaciones; requiere autorización humana explícita antes de implementar la corrección. La aceptación debe incluir pruebas PCM con señales conocidas y escucha real en dispositivo.
+- El adaptador comprueba que estén presentes los dos WAV y delega la lectura, conversión de frecuencia, mezcla PCM16 y control de pico en `MezclaVoz.mezclar`.
+- El resultado se escribe primero en un temporal del mismo directorio.
+- Se vuelve a leer y validar el WAV generado con `LectorWav`; solo después se sustituye `modo3_mezcla.wav` con un movimiento atómico cuando está soportado por el sistema de archivos.
+- Los archivos originales `voz_usuario.wav` e `instrumental.wav` no se modifican. Si la mezcla falla, se conserva cualquier salida anterior y se devuelve un diagnóstico en `Dato.Texto`, no un `Dato.Audio` falso.
+
+Las pruebas añadidas en `MezclaVozTest` verifican las muestras combinadas de ambas fuentes, remuestreo de 22050 a 44100 Hz, duraciones diferentes, limitación de pico, rechazo de un RIFF corrupto, conservación de ambos originales y conservación de la mezcla anterior ante error.
+
+La validación BARDO del commit `bdeed02d4c1805b7aac65414b855f246e6c6e941` terminó correctamente: Gitleaks, actionlint, pruebas unitarias, compilación del candidato ARM64, firma v2 de depuración, comprobación de bibliotecas ARM64 y carga del artefacto. Evidencia: [GitHub Actions run 43078615297](https://github.com/loboxfake/musica-ia/actions/runs/43078615297).
+
+**Pendiente:** instalar el APK candidato y escuchar una mezcla producida con grabación e instrumental reales en el Xiaomi 11T Pro. La compilación y las pruebas sintéticas no sustituyen esa verificación auditiva, por lo que no se declara Modo 3 validado físicamente.
