@@ -383,6 +383,7 @@ class BardoGitHubActionsClient(private val token: String) {
         val host = logUrl.host.lowercase(java.util.Locale.ROOT)
         require(logUrl.protocol.equals("https", true) &&
             (logUrl.port == -1 || logUrl.port == 443) &&
+            logUrl.userInfo == null && logUrl.ref == null &&
             (host.endsWith(".blob.core.windows.net") ||
                 host.endsWith(".actions.githubusercontent.com"))
         ) { "El destino temporal de logs no pertenece a un host permitido." }

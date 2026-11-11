@@ -10,6 +10,10 @@ object BardoCiLogSanitizer {
     private val failurePattern = Regex(
         """(?i)(FAILURE:|BUILD FAILED|FAILED|Exception|Caused by:|error:|Execution failed|Task .* FAILED|fatal:)"""
     )
+    private val primaryFailurePattern = Regex(
+        """(?i)(FAILURE:|BUILD FAILED|Execution failed|Task .* FAILED|BUILD FAILURE)"""
+    )
+
     private val secretPatterns = listOf(
         Regex("""(?i)\bgithub_pat_[A-Za-z0-9_]+\b"""),
         Regex("""(?i)\bgh[pousr]_[A-Za-z0-9_]{20,}\b"""),
@@ -33,20 +37,25 @@ object BardoCiLogSanitizer {
 
         val lines = safe.lines()
         val hits = lines.indices.filter { failurePattern.containsMatchIn(lines[it]) }
+        val primaryHits = lines.indices.filter { primaryFailurePattern.containsMatchIn(lines[it]) }.takeLast(4)
         val indices = if (hits.isEmpty()) {
             lines.indices.takeLast(45)
         } else {
             val selected = linkedSetOf<Int>()
-            hits.takeLast(12).forEach { hit ->
-                for (index in (hit - 6).coerceAtLeast(0)..(hit + 18).coerceAtMost(lines.lastIndex)) {
+            (primaryHits + hits.takeLast(6)).distinct().forEach { hit ->
+                for (index in (hit - 6).coerceAtLeast(0)..(hit + 12).coerceAtMost(lines.lastIndex)) {
                     selected += index
                 }
             }
             selected.toList().sorted()
         }
         val excerpt = indices.joinToString("\n") { lines[it] }
-        return if (excerpt.length <= maxChars) excerpt else {
-            "[...]\n" + excerpt.takeLast(maxChars - 6)
+        if (excerpt.length <= maxChars) return excerpt
+        val failureAnchor = primaryHits.lastOrNull()?.let { lines[it].take(240) }.orEmpty()
+        val reserved = if (failureAnchor.isBlank()) 8 else failureAnchor.length + 14
+        val tail = excerpt.takeLast((maxChars - reserved).coerceAtLeast(100))
+        return if (failureAnchor.isBlank()) "[...]\n" + tail else {
+            "[...]\n" + failureAnchor + "\n...\n" + tail
         }
     }
 }
