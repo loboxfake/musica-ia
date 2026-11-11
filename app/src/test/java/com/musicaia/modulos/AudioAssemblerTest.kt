@@ -17,8 +17,8 @@ class AudioAssemblerTest {
             val first = File(directory, "first.wav")
             val second = File(directory, "second.wav")
             val output = File(directory, "joined.wav")
-            writeTestWav(first, ShortArray(1000) { 1000 })
-            writeTestWav(second, ShortArray(1000) { -1000 })
+            writeTestWav(first, ShortArray(8000) { 1000 })
+            writeTestWav(second, ShortArray(8000) { -1000 })
             val originalFirst = first.readBytes()
             val originalSecond = second.readBytes()
 
@@ -38,10 +38,34 @@ class AudioAssemblerTest {
             assertEquals(1, header.getShort(22).toInt())
             assertEquals(1000, header.getInt(24))
             assertEquals(16, header.getShort(34).toInt())
-            assertEquals(3800, header.getInt(40))
-            assertEquals(44 + 3800, bytes.size)
+            assertEquals(30400, header.getInt(40))
+            assertEquals(44 + 30400, bytes.size)
             assertArrayEquals(originalFirst, first.readBytes())
             assertArrayEquals(originalSecond, second.readBytes())
+            assertTrue(directory.listFiles().orEmpty().none { it.name.startsWith("bardo_audio_") })
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun rejectsSilentSegmentWithoutReplacingPreviousOutput() {
+        val directory = createTempDir(prefix = "audio-assembler-silent-segment-test")
+        try {
+            val silent = File(directory, "silent.wav")
+            val output = File(directory, "joined.wav")
+            writeTestWav(silent, ShortArray(8000) { 0 })
+            val previousOutput = byteArrayOf(3, 1, 4, 1, 5, 9)
+            output.writeBytes(previousOutput)
+
+            try {
+                AudioAssembler.assemble(listOf(silent), output)
+                throw AssertionError("No se debe publicar un WAV sin audio audible.")
+            } catch (expected: IllegalArgumentException) {
+                assertTrue(expected.message.orEmpty().contains("no contiene audio audible"))
+            }
+
+            assertArrayEquals(previousOutput, output.readBytes())
             assertTrue(directory.listFiles().orEmpty().none { it.name.startsWith("bardo_audio_") })
         } finally {
             directory.deleteRecursively()
@@ -55,7 +79,7 @@ class AudioAssemblerTest {
             val first = File(directory, "first.wav")
             val second = File(directory, "second.wav")
             val output = File(directory, "joined.wav")
-            val withTailSilence = ShortArray(1000) { index -> if (index < 700) 1000 else 0 }
+            val withTailSilence = ShortArray(8000) { index -> if (index < 5600) 1000 else 0 }
             writeTestWav(first, withTailSilence)
             writeTestWav(second, withTailSilence)
 
@@ -67,8 +91,8 @@ class AudioAssemblerTest {
             )
 
             val header = ByteBuffer.wrap(output.readBytes()).order(ByteOrder.LITTLE_ENDIAN)
-            // 780 retained frames per clip (700 audible + 80 ms tail) minus 100 ms overlap.
-            assertEquals(1460 * 2, header.getInt(40))
+            // 6,240 retained frames per clip (700 ms audible + 80 ms tail) minus 100 ms overlap.
+            assertEquals(11680 * 2, header.getInt(40))
         } finally {
             directory.deleteRecursively()
         }
@@ -81,11 +105,11 @@ class AudioAssemblerTest {
             val first = File(directory, "first.wav")
             val second = File(directory, "second.wav")
             val output = File(directory, "joined.wav")
-            val firstSamples = ShortArray(2000) { index ->
-                if (index in 500..1000) 0 else 1000
+            val firstSamples = ShortArray(16000) { index ->
+                if (index in 4000..8000) 0 else 1000
             }
             writeTestWav(first, firstSamples)
-            writeTestWav(second, ShortArray(2000) { 1000 })
+            writeTestWav(second, ShortArray(16000) { 1000 })
 
             AudioAssembler.assemble(
                 inputFiles = listOf(first, second),
@@ -109,7 +133,7 @@ class AudioAssemblerTest {
             val second = File(directory, "second.wav")
             val output = File(directory, "joined.wav")
             writeTestWav(first, ShortArray(1000) { index -> if (index < 700) 1000 else 0 })
-            writeTestWav(second, ShortArray(1000) { index -> if (index < 350) 0 else 1000 })
+            writeTestWav(second, ShortArray(8000) { index -> if (index < 2800) 0 else 1000 })
 
             try {
                 AudioAssembler.assemble(
@@ -330,8 +354,8 @@ class AudioAssemblerTest {
         output.putInt(16)
         output.putShort(1)
         output.putShort(1)
-        output.putInt(1000)
-        output.putInt(2000)
+        output.putInt(8000)
+        output.putInt(16000)
         output.putShort(2)
         output.putShort(16)
         output.put("data".toByteArray(Charsets.US_ASCII))
