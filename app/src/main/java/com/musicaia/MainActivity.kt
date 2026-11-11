@@ -4336,7 +4336,20 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
      return
  }
  val letraManual = if (grupoModo.checkedRadioButtonId == R.id.modoLetra) editLetra.text.toString().trim() else ""
- if (!BardoCapabilityRegistry.manualLyricsCanProceed(modoSoloInstrumental, letraManual)) {
+ val tipoRequiereVozPropia = !modoSoloInstrumental &&
+     BardoIntentRouter.requiresUserVoice(datosConver["tipo"].orEmpty())
+ val fuenteVozPropia = datosConver["vozFuente"].orEmpty()
+ val archivoVozPropia = rutaVoz?.let(::File)
+ val vozPropiaWavValida = tipoRequiereVozPropia &&
+     fuenteVozPropia.isNotBlank() &&
+     !fuenteVozPropia.contains("ningun", ignoreCase = true) &&
+     !fuenteVozPropia.contains("sin voz", ignoreCase = true) &&
+     archivoVozPropia != null && archivoVozPropia.isFile &&
+     archivoVozPropia.length() > 44L &&
+     archivoVozPropia.extension.equals("wav", ignoreCase = true)
+ if (!BardoCapabilityRegistry.manualLyricsCanProceed(
+         modoSoloInstrumental, letraManual, userVoiceAvailable = vozPropiaWavValida
+     )) {
      val mensaje = BardoCapabilityRegistry.manualLyricsBlockReason()
      tvEstado.text = mensaje
      BardoActivityStore.record(
@@ -4458,7 +4471,8 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
          handler.post {
              val errorInicio = runCatching {
                  BardoTaskService.iniciar(
-                     applicationContext, promptServicio, letraManual, modoSoloInstrumental, pruebaRapida
+                     applicationContext, promptServicio, letraManual, modoSoloInstrumental,
+                     pruebaRapida, userVoiceMixAvailable = vozPropiaWavValida
                  )
              }.exceptionOrNull()
              if (errorInicio != null) {

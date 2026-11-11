@@ -34,6 +34,7 @@ class BardoTaskService : Service() {
         const val EXTRA_LYRICS_MANUAL = "lyrics_manual"
         const val EXTRA_SOLO = "solo_instrumental"
         const val EXTRA_QUICK_TEST = "quick_test"
+        const val EXTRA_USER_VOICE_MIX = "user_voice_mix_available"
         const val EXTRA_STATE = "task_state"
         const val EXTRA_MESSAGE = "task_message"
         const val EXTRA_AUDIO = "audio_path"
@@ -49,7 +50,14 @@ class BardoTaskService : Service() {
         private const val CHANNEL_ID = "bardo_audio_tasks"
         private const val NOTIFICATION_ID = 7314
 
-        fun iniciar(context: android.content.Context, prompt: String, letraManual: String, soloInstrumental: Boolean, quickTest: Boolean = false) {
+        fun iniciar(
+            context: android.content.Context,
+            prompt: String,
+            letraManual: String,
+            soloInstrumental: Boolean,
+            quickTest: Boolean = false,
+            userVoiceMixAvailable: Boolean = false
+        ) {
             require(prompt.isNotBlank()) { "La tarea necesita una descripción." }
             val intent = Intent(context, BardoTaskService::class.java).apply {
                 action = ACTION_START
@@ -57,6 +65,7 @@ class BardoTaskService : Service() {
                 putExtra(EXTRA_LYRICS_MANUAL, letraManual)
                 putExtra(EXTRA_SOLO, soloInstrumental)
                 putExtra(EXTRA_QUICK_TEST, quickTest)
+                putExtra(EXTRA_USER_VOICE_MIX, userVoiceMixAvailable)
             }
             ContextCompat.startForegroundService(context, intent)
         }
@@ -127,7 +136,8 @@ class BardoTaskService : Service() {
             stopSelf(startId)
             return
         }
-        if (!BardoCapabilityRegistry.manualLyricsCanProceed(modoSolo, letraManual)) {
+        val userVoiceMixAvailable = intent.getBooleanExtra(EXTRA_USER_VOICE_MIX, false)
+        if (!BardoCapabilityRegistry.manualLyricsCanProceed(modoSolo, letraManual, userVoiceMixAvailable)) {
             val mensaje = BardoCapabilityRegistry.manualLyricsBlockReason()
             val blockedId = java.util.UUID.randomUUID().toString()
             BardoActivityStore.record(

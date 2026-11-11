@@ -10,11 +10,15 @@ object BardoCapabilityRegistry {
     const val MIN_QWEN_FREE_MEMORY_BYTES = 1_600L * 1024L * 1024L
     const val MIN_IMAGE_GENERATION_FREE_MEMORY_BYTES = 3_500L * 1024L * 1024L
 
-    fun manualLyricsCanProceed(instrumentalOnly: Boolean, manualLyrics: String): Boolean =
-        instrumentalOnly || manualLyrics.isBlank() || VOICE_SYNTHESIS_AVAILABLE
+    fun manualLyricsCanProceed(
+        instrumentalOnly: Boolean,
+        manualLyrics: String,
+        userVoiceAvailable: Boolean = false
+    ): Boolean =
+        instrumentalOnly || manualLyrics.isBlank() || userVoiceAvailable || VOICE_SYNTHESIS_AVAILABLE
 
     fun manualLyricsBlockReason(): String =
-        "La opción «Mi letra» requiere un motor real de voz cantada. Ese motor local aún no está integrado; BARDO no generará un instrumental como sustituto ni marcará la canción como terminada. «Solo instrumental» sigue disponible."
+        "La voz cantada generada por IA todavía no está integrada. «Mi letra» sí puede combinarse con una grabación propia WAV PCM16; sin una voz propia válida, BARDO no sustituirá el canto por un instrumental. Elige «solo instrumental» o aporta tu grabación."
 
     data class Capability(
         val id: String,
