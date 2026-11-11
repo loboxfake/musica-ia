@@ -550,7 +550,8 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
         stage: String
     ) {
         when {
-            run.conclusion == "failure" -> saveCiDiagnostics(run, stage, label, jobSummary)
+            BardoCiDiagnosticsPolicy.shouldStoreDiagnostics(run.conclusion) ->
+                saveCiDiagnostics(run, stage, label, jobSummary)
             run.succeeded -> clearResolvedCiDiagnostics(run, stage)
         }
         output.text = buildString {
@@ -565,7 +566,9 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
                 appendLine("DETALLE DE CI:")
                 appendLine(jobSummary)
             }
-            if (run.conclusion == "failure") appendLine("\nLa ejecución falló. Revisa los pasos anteriores. No se ejecutará ningún force-push ni se sobrescribirá main.")
+            if (BardoCiDiagnosticsPolicy.shouldStoreDiagnostics(run.conclusion)) {
+                appendLine("\nLa ejecución terminó con ${run.conclusion}. Revisa los pasos anteriores y los extractos saneados. No se ejecutará ningún force-push ni se sobrescribirá main.")
+            }
             if (run.succeeded && label.contains("VALIDACIÓN")) {
                 appendLine("\nVALIDACIÓN SUPERADA. La propuesta sigue aislada. Puedes autorizar por separado un commit directo a main.")
             }

@@ -5,6 +5,10 @@ package com.musicaia.evaluacion
  * A successful run may resolve a failure only within the same workflow scope.
  */
 object BardoCiDiagnosticsPolicy {
+    /** Conclusions for which GitHub provides useful failed-job diagnostics. */
+    fun shouldStoreDiagnostics(conclusion: String?): Boolean =
+        conclusion?.lowercase() in setOf("failure", "timed_out", "action_required")
+
     fun canReplace(currentRunId: Long, incomingRunId: Long): Boolean =
         currentRunId >= 0L && incomingRunId > 0L && incomingRunId >= currentRunId
 

@@ -33,6 +33,16 @@ class BardoCiDiagnosticsPolicyTest {
     }
 
     @Test
+    fun storesDiagnosticsForAllJobLogFailureConclusions() {
+        assertTrue(BardoCiDiagnosticsPolicy.shouldStoreDiagnostics("failure"))
+        assertTrue(BardoCiDiagnosticsPolicy.shouldStoreDiagnostics("timed_out"))
+        assertTrue(BardoCiDiagnosticsPolicy.shouldStoreDiagnostics("action_required"))
+        assertFalse(BardoCiDiagnosticsPolicy.shouldStoreDiagnostics("success"))
+        assertFalse(BardoCiDiagnosticsPolicy.shouldStoreDiagnostics("cancelled"))
+        assertFalse(BardoCiDiagnosticsPolicy.shouldStoreDiagnostics(null))
+    }
+
+    @Test
     fun rejectsInvalidRunIds() {
         assertFalse(BardoCiDiagnosticsPolicy.canReplace(-1L, 10L))
         assertFalse(BardoCiDiagnosticsPolicy.canReplace(10L, 0L))
