@@ -1,0 +1,161 @@
+# BARDO — Autoconocimiento operativo y desarrollo autónomo en segundo plano
+
+**Estado:** especificación de producto y criterios de aceptación. No declara implementadas las capacidades pendientes. Fecha de revisión: 2026-11-11.
+
+## 1. Objetivo
+
+BARDO debe conocer su estado real y utilizar ese conocimiento para decidir qué puede hacer, qué necesita, qué debe evitar y qué evidencia le falta. También debe poder realizar ciclos de estudio, programación, pruebas y corrección en segundo plano, sin depender de ChatGPT, de otra conversación externa ni de un proveedor remoto.
+
+«Conocerse a sí mismo» significa introspección técnica verificable, no consciencia humana. BARDO no debe atribuirse experiencias, intenciones o capacidades que no pueda demostrar.
+
+## 2. Modelo de autoconocimiento
+
+La autoevaluación debe mantener un inventario consultable y actualizado de:
+
+- **Dispositivo y entorno:** modelo, Android/API, ABI, RAM disponible, almacenamiento, batería, temperatura, conectividad y restricciones relevantes del sistema.
+- **Modelos:** identificador, proveedor/runtime, versión o revisión, licencia, procedencia, tamaño, SHA-256 esperado y real, ubicación, requisitos, estado de carga, memoria consumida cuando sea medible, última inferencia comprobada y resultado.
+- **Habilidades y módulos:** ID, versión, finalidad, entradas/salidas, dependencias, herramientas que invoca, permisos requeridos, disponibilidad real y pruebas de aceptación.
+- **Herramientas:** contrato, disponibilidad, permisos efectivos, límites, última ejecución, resultado y evidencia.
+- **Memoria y conocimiento:** almacenes disponibles, espacio, integridad, fecha de actualización, procedencia, confianza y restricciones de uso.
+- **Desarrollo:** versión instalada, commit y snapshot de origen, candidato activo, hashes, pruebas realizadas, estado CI, errores pendientes, aprobaciones y opción de reversión.
+- **Seguridad:** permisos concedidos, políticas aplicables, acciones bloqueadas y motivo concreto.
+
+No debe enumerar aplicaciones de terceros ni inspeccionar datos ajenos sin autorización.
+
+## 3. Estados distintos, nunca intercambiables
+
+Cada modelo, módulo, herramienta y capacidad debe mostrar estados inequívocos. Como mínimo:
+
+1. **DECLARADO:** existe en un manifiesto o catálogo.
+2. **IMPLEMENTADO:** existe código integrado.
+3. **DISPONIBLE:** sus dependencias y permisos están presentes.
+4. **INSTALADO:** los archivos requeridos están en el almacenamiento esperado.
+5. **INTEGRIDAD_VERIFICADA:** tamaño, hash, licencia y procedencia han sido comprobados según corresponda.
+6. **CARGABLE:** el runtime y el presupuesto de recursos permiten iniciar.
+7. **CARGADO:** el runtime confirma que el recurso está en memoria y listo.
+8. **EJECUTADO:** una operación real se completó.
+9. **PRUEBA_SUPERADA:** pasó la prueba concreta con evidencia identificable.
+10. **VERIFICADO_EN_DISPOSITIVO:** superó la prueba física requerida en el dispositivo objetivo.
+11. **BLOQUEADO / FALLIDO / DESCONOCIDO:** debe acompañarse de causa, instante y siguiente acción posible.
+
+Un estado posterior no se deduce de uno anterior. «Archivo presente» no equivale a «modelo cargado»; «modelo cargado» no equivale a «inferencia correcta»; «build verde» no equivale a «prueba física».
+
+Los estados deben incluir instante de observación y caducidad/invalidez cuando cambien recursos, archivos, versiones, permisos o entorno. Una observación antigua debe mostrarse como desactualizada, no como estado actual.
+
+## 4. Conciencia de límites y selección de recursos
+
+Antes de planificar una tarea, BARDO debe:
+
+1. traducir el objetivo a capacidades necesarias;
+2. consultar qué modelos, skills y herramientas existen realmente;
+3. comprobar licencias, hashes, dependencias, permisos y recursos;
+4. medir si puede cargar los recursos sin competir con audio u otras tareas;
+5. seleccionar el conjunto mínimo de modelos adecuado;
+6. explicar las carencias y ofrecer una alternativa segura o declarar que no puede continuar.
+
+La flota de agentes no debe presentar varios perfiles del mismo modelo/proveedor como evaluadores independientes. Toda respuesta de modelo es una propuesta no confiable hasta que una comprobación distinta aporte evidencia. BARDO debe poder responder «no lo sé», «no está instalado», «no puedo cargarlo», «no lo he probado» y «necesita autorización».
+
+El inventario será accesible tanto a BARDO (contexto estructurado para planificar) como al usuario (pantalla legible, detalles y diagnóstico exportable). Una vista no debe ser la única fuente de verdad: el estado debe proceder de APIs/inventarios y mediciones del runtime.
+
+## 5. Desarrollo autónomo en segundo plano
+
+El objetivo es un ciclo recuperable:
+
+**observar → diagnosticar → priorizar → planificar → investigar → proponer código → aplicar en sandbox → probar → interpretar fallos → corregir → repetir dentro del presupuesto → evaluar independientemente → guardar candidato y evidencias.**
+
+El worker debe poder trabajar sin que la Activity permanezca abierta. Cada tarea debe tener ID estable, objetivo, base exacta, presupuesto, checkpoint, progreso, estado terminal y diario. Debe poder pausarse, reanudarse, cancelarse y recuperarse tras la recreación del proceso sin duplicar acciones ni perder el candidato.
+
+### 5.1 Ciclos de desarrollo
+
+- Elegir la siguiente tarea desde una cola priorizada por impacto, seguridad, dependencias, recursos y evidencia disponible.
+- Inspeccionar un snapshot identificado por commit/hash; nunca editar el snapshot original ni la instalación activa.
+- Investigar fuentes locales o públicas según autorización y registrar procedencia, fecha, licencia y resumen.
+- Generar cambios pequeños y reproducibles en un workspace aislado.
+- Rechazar rutas protegidas, secretos, dependencias no autorizadas, workflows, configuración de build, cambios destructivos y código descargado arbitrario.
+- Ejecutar primero pruebas específicas, después suite unitaria, análisis estático y compilación del candidato exacto cuando el entorno lo permita.
+- Recopilar logs concretos, sanearlos, clasificar el fallo y proponer correcciones limitadas.
+- No repetir el mismo parche o una operación fallida sin cambio de hipótesis/evidencia.
+- Mantener límites configurables de intentos, tiempo, RAM, temperatura, batería, almacenamiento y tamaño del diff. Al agotarlos, guardar el estado parcial y explicar el bloqueo.
+- Recalcular hashes y evidencias después de cada modificación. El evaluador no puede ser modificado por el candidato que evalúa.
+- Mantener candidatos separados por tarea y versión; una tarea nueva no debe sobrescribir otra pendiente.
+
+### 5.2 Autorización y publicación
+
+BARDO puede investigar, codificar, ejecutar pruebas en sandbox y preparar candidatos dentro de las rutas permitidas. No puede autoaprobar sus propios cambios, ampliar sus permisos, modificar políticas de seguridad, editar rutas de revisión humana ni integrar/publicar cambios protegidos por el mero hecho de que sus pruebas pasen.
+
+La integración a `main`, la publicación de una APK, la instalación/actualización en el dispositivo y cualquier operación sensible siguen requiriendo la autorización definida por el usuario y las políticas de autoridad. La aprobación debe referirse al candidato, diff, SHA base, hashes y resultados concretos; cualquier cambio posterior invalida esa aprobación.
+
+## 6. Ejecución Android: persistente, visible y respetuosa con el sistema
+
+No se promete ejecución permanente, invisible ni inmediata. Android y los fabricantes pueden diferir o detener trabajos por batería, memoria, térmica, cuotas, modo ahorro, permisos o cierre forzado.
+
+- Usar WorkManager para trabajo diferible y reintentable, con trabajo único por tarea, constraints y checkpoints.
+- Para inferencia/compilación larga iniciada por el usuario y que deba continuar de forma inmediata, utilizar un mecanismo en primer plano solo cuando el caso y el tipo de servicio estén permitidos, con notificación visible, progreso, pausa/cancelación y duración limitada.
+- No iniciar servicios en primer plano desde condiciones no permitidas ni utilizar `specialUse` como permiso genérico. Documentar con precisión su finalidad y revisar los requisitos de Android/Google Play.
+- No abusar de alarmas, wake locks, reinicios de servicio, exclusiones de optimización de batería ni mecanismos para eludir las decisiones del usuario o del sistema.
+- Priorizar trabajo cuando el teléfono esté cargando, con batería y RAM suficientes, temperatura segura y almacenamiento adecuado.
+- No ejecutar entrenamiento/inferencia pesada junto a la generación de audio si el coordinador de recursos detecta riesgo de OOM, interrupciones o sobrecalentamiento.
+- Persistir checkpoints y liberar runtimes nativos al terminar, fallar, pausarse o ceder recursos.
+- Mostrar el motivo cuando el sistema posponga o interrumpa una tarea. Tras un cierre forzado de la app, no afirmar que el trabajo continuó.
+
+Referencias oficiales para la implementación Android (revisar de nuevo al cambiar targetSdk):
+- https://developer.android.com/develop/background-work/background-tasks
+- https://developer.android.com/develop/background-work/services/fgs/service-types
+- https://developer.android.com/develop/background-work/services/fgs/changes
+
+## 7. Experiencia de usuario exigida
+
+La pantalla de BARDO debe permitir:
+
+- Ver «Qué sé de mí» con capacidades disponibles, no disponibles, no probadas y bloqueadas.
+- Abrir detalles de cada modelo/skill/herramienta, incluyendo hashes, licencia, requisitos y última prueba.
+- Consultar qué tarea autónoma está ejecutando, qué está haciendo, qué archivos toca, cuánto presupuesto consume y qué falta.
+- Ver cola, historial, checkpoints, candidatos, informes y diferencias de código.
+- Pausar, reanudar, cancelar y desactivar la programación periódica.
+- Elegir franjas/condiciones de trabajo, límites de recursos y si puede realizar investigación pública.
+- Aprobar o rechazar por separado cada integración/publicación, con diff y evidencia completos.
+- Exportar informes localmente sin enviar contenido privado a la nube.
+
+No se debe mostrar una animación de «pensando» como prueba de actividad. El progreso deriva de eventos y resultados persistidos.
+
+## 8. Pruebas de aceptación obligatorias
+
+### Autoconocimiento
+- Retirar un modelo, corromper su hash, cambiar permisos y reducir recursos: el estado debe cambiar correctamente y explicar la causa.
+- Diferenciar modelo importado, íntegro, cargable, cargado, ejecutado y probado.
+- Comprobar que la selección de modelo cambia cuando otro no cabe en RAM o falla.
+- Detectar herramientas declaradas pero no registradas/ejecutables y skills instaladas pero no habilitadas.
+- Marcar diagnósticos caducados después de cambios de versión, modelo o entorno.
+- Ejecutar consulta de autoconocimiento sin Internet y sin invocar servicios remotos.
+
+### Desarrollo en segundo plano
+- Iniciar una tarea, cerrar la Activity y comprobar que el trabajo permitido continúa o queda correctamente programado.
+- Forzar interrupción/recreación del proceso y verificar recuperación desde el último checkpoint sin repetir efectos.
+- Probar pausa, cancelación, batería baja, poco almacenamiento, RAM insuficiente, temperatura elevada y conflicto con generación de audio.
+- Generar un fallo reproducible, recoger el log exacto, proponer una corrección, ejecutar la prueba de regresión y limitar reintentos.
+- Verificar que el candidato nunca modifica el snapshot original, el APK instalado, Modo3 ni rutas protegidas.
+- Confirmar que ningún candidato se integra o publica sin aprobación vigente y vinculada a su hash.
+- Ejecutar el flujo completo en modo avión cuando los modelos/herramientas necesarios ya estén instalados localmente.
+- Probar tiempos reales, consumo térmico, batería y fiabilidad en Xiaomi 11T Pro; CI por sí solo no certifica estas condiciones.
+
+## 9. Estado observado en la base de código (11-11-2026)
+
+La auditoría de `main` en `64f8fb41a38805b51cf83d81ba59c4ab991cf30e` encontró:
+
+- Existe `BardoSelfInventory`, que recoge dispositivo, recursos, modelos, helpers, módulos y capacidades. Está protegido para revisión humana; no se debe duplicar ni sustituir por un inventario ficticio.
+- Existe `BardoModelRegistry` con proveedores locales Gemma LiteRT y Qwen2 LiteRT para el autoestudio, con comprobaciones de integridad/recursos. La disponibilidad y calidad real en el Xiaomi siguen dependiendo de pruebas físicas.
+- Existe `BardoDeveloperWorker` basado en WorkManager, con autoestudio local, diario, snapshot aislado, selección de modelos, límites, una propuesta conservadora y candidato aislado.
+- Existe `BardoAutonomyEngine` con planificar/actuar/observar/evaluar/corregir, herramientas tipadas, guardas de recursos, presupuesto de hasta doce pasos y dos correcciones. La invocación actual del worker es una auditoría de solo lectura.
+- La programación periódica descrita en la documentación es cada seis horas y puede ser retrasada o detenida por Android/Xiaomi.
+- La propuesta de código queda pendiente de compilación/pruebas; no existe todavía un ciclo demostrado que procese automáticamente logs de CI, corrija, repita validación y continúe hasta agotar un presupuesto.
+- La integración de cambios protegidos y publicación no son automáticas. No se declara desarrollador completamente autónomo hasta probar todo el ciclo.
+
+Las políticas de rutas del repositorio bloquean cambios automáticos en componentes centrales, inventario, proveedores, worker, autoridad, skills, herramientas, evaluadores, workflows y Modo3. Cualquier evolución de esas rutas exige el proceso de revisión humana correspondiente. Este documento no cambia dichas políticas ni concede permisos nuevos.
+
+## 10. Criterio de finalización
+
+BARDO solo podrá declararse **operativamente autoconsciente de sus capacidades** cuando pueda responder con datos actuales y evidencia qué modelos/skills/herramientas tiene, qué puede cargar y ejecutar ahora, qué está probado, qué no sabe y por qué.
+
+Solo podrá declararse **desarrollador autónomo en segundo plano** cuando complete de forma repetible el ciclo desde objetivo hasta candidato validado y reanudable, con logs, hashes, pruebas, límites, controles de seguridad y aprobación de integración; deberá demostrarlo también tras interrupciones reales del sistema Android y en el Xiaomi 11T Pro.
+
+La independencia de asistentes externos es requisito permanente: el modo local debe seguir funcionando y desarrollándose sin ChatGPT, JARVIS, Claude, Gemini ni APIs remotas. La red puede ser una herramienta opcional autorizada, no un cerebro ni una dependencia operativa.
