@@ -194,3 +194,9 @@ El hallazgo quedó registrado en [GitHub issue #8](https://github.com/loboxfake/
 La revisión de BardoCapabilityRegistry y BardoSelfInventory encontró capacidades cuyo estado AVAILABLE se deriva de la presencia de assets/bibliotecas y de umbrales preventivos de recursos, sin exigir una carga e inferencia real recientes. Entre ellas están instrumental (assets + AudioGenNative.available), general_chat/lyrics cuando Qwen está presente y sin bloqueo preventivo, y herramientas WAV/mezcla cuyo criterio de aceptación requiere además validar una salida real. Los detalles ya incluyen algunas advertencias, pero el estado resumido puede confundirse con funcionamiento verificado en ese momento.
 
 El hallazgo se registró en [GitHub issue #9](https://github.com/loboxfake/musica-ia/issues/9). La solución requiere revisión humana porque BardoCapabilityRegistry.kt y BardoSelfInventory.kt están protegidos. Se propone que el estado visible distinga integración, presencia, verificación, carga, inferencia y prueba física, y que la evidencia caduque cuando cambie la versión de APK/modelo. No se ha modificado código protegido.
+
+## 9.5 Modo 3: la implementación actual no incorpora la voz
+
+La inspección de Modo3MezclaVozUsuario.kt detectó que, cuando existe una grabación de voz, el método ejecuta una copia byte a byte de instrumental.wav hacia modo3_mezcla.wav. No lee ni mezcla muestras de voz; la variable de tamaño aproximado no se utiliza. Tampoco valida la presencia/formato de ambos WAV ni verifica el resultado. Por tanto, devolver Dato.Audio no demuestra que haya mezcla de voz.
+
+El hallazgo y los requisitos de corrección se registraron en [GitHub issue #10](https://github.com/loboxfake/musica-ia/issues/10). Esta ruta está expresamente protegida y se ha preservado sin modificaciones; requiere autorización humana explícita antes de implementar la corrección. La aceptación debe incluir pruebas PCM con señales conocidas y escucha real en dispositivo.
