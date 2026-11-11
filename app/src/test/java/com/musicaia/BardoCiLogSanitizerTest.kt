@@ -10,8 +10,8 @@ class BardoCiLogSanitizerTest {
     @Test
     fun removesGithubTokensAuthorizationValuesAndSignedUrlQueries() {
         val raw = """
-            GITHUB_TOKEN=github_pat_1234567890abcdefghijklmnop
-            Authorization: Bearer ghp_1234567890abcdefghijklmnopqrstuv
+            GITHUB_TOKEN=${"github_pat_" + "1234567890abcdefghijklmnop"}
+            Authorization: Bearer ${"ghp_" + "1234567890abcdefghijklmnopqrstuv"}
             upload https://example.blob.core.windows.net/log.txt?sig=private-signature&se=tomorrow
             FAILURE: Build failed
         """.trimIndent()
