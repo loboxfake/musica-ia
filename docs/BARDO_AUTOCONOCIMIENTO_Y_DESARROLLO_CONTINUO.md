@@ -188,3 +188,9 @@ Se registró el hallazgo para corrección y seguimiento en [GitHub issue #7](htt
 La revisión estática del paso de decodificación del workflow de candidatos detectó que se usa gzip.decompress antes de comprobar el máximo de 384 KiB. El límite posterior no evita que una entrada comprimida con una expansión muy grande se materialice primero en memoria y agote recursos del runner.
 
 El hallazgo quedó registrado en [GitHub issue #8](https://github.com/loboxfake/musica-ia/issues/8). La corrección requiere revisión humana porque el workflow vive bajo .github/workflows/. Se recomienda descompresión incremental con límite duro de salida, validación del tamaño codificado y pruebas de entradas truncadas, corruptas, válidas y de expansión excesiva. No se ha modificado el workflow.
+
+## 9.4 El estado AVAILABLE no equivale a inferencia demostrada
+
+La revisión de BardoCapabilityRegistry y BardoSelfInventory encontró capacidades cuyo estado AVAILABLE se deriva de la presencia de assets/bibliotecas y de umbrales preventivos de recursos, sin exigir una carga e inferencia real recientes. Entre ellas están instrumental (assets + AudioGenNative.available), general_chat/lyrics cuando Qwen está presente y sin bloqueo preventivo, y herramientas WAV/mezcla cuyo criterio de aceptación requiere además validar una salida real. Los detalles ya incluyen algunas advertencias, pero el estado resumido puede confundirse con funcionamiento verificado en ese momento.
+
+El hallazgo se registró en [GitHub issue #9](https://github.com/loboxfake/musica-ia/issues/9). La solución requiere revisión humana porque BardoCapabilityRegistry.kt y BardoSelfInventory.kt están protegidos. Se propone que el estado visible distinga integración, presencia, verificación, carga, inferencia y prueba física, y que la evidencia caduque cuando cambie la versión de APK/modelo. No se ha modificado código protegido.
