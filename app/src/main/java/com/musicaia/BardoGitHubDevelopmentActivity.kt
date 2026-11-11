@@ -236,7 +236,7 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
                             validationSucceeded = true
                             state.edit().putBoolean(key("validation_succeeded"), true).apply()
                         }
-                        showRun("VALIDACIÓN DEL CANDIDATO", run, summary)
+                        showRun("VALIDACIÓN DEL CANDIDATO", run, summary, "candidate_validation")
                     }
                 }.onFailure { output.text = "No se pudo enviar el candidato: ${it.message}" }
                 setBusy(false)
@@ -293,7 +293,7 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
                         mainCommitSucceeded = true
                         state.edit().putBoolean(key("main_commit_succeeded"), true).apply()
                         snapshot.mainCommit?.let {
-                            showRun("INTEGRACIÓN EN MAIN", it, snapshot.mainCommitSummary)
+                            showRun("INTEGRACIÓN EN MAIN", it, snapshot.mainCommitSummary, "main_commit")
                         }
                         output.append(
                             "\n\nCOMMIT CONFIRMADO EN MAIN\nSHA: ${snapshot.integratedCommit.first}" +
@@ -302,7 +302,7 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
                         )
                         android.text.util.Linkify.addLinks(output, android.text.util.Linkify.WEB_URLS)
                     } else if (snapshot.mainCommit != null) {
-                        showRun("INTEGRACIÓN EN MAIN", snapshot.mainCommit, snapshot.mainCommitSummary)
+                        showRun("INTEGRACIÓN EN MAIN", snapshot.mainCommit, snapshot.mainCommitSummary, "main_commit")
                         if (snapshot.mainCommit.finished && !snapshot.mainCommit.succeeded) {
                             output.append(
                                 "\n\nNo se ha encontrado el commit del candidato en main. Revisa el error del workflow; no se intentará forzar ni sobrescribir la rama."
@@ -317,7 +317,7 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
                             validationSucceeded = true
                             state.edit().putBoolean(key("validation_succeeded"), true).apply()
                         }
-                        showRun("VALIDACIÓN DEL CANDIDATO", snapshot.validation, snapshot.validationSummary)
+                        showRun("VALIDACIÓN DEL CANDIDATO", snapshot.validation, snapshot.validationSummary, "candidate_validation")
                     } else {
                         output.text = "No se encontró una ejecución para este candidato. Envíalo primero a validación aislada."
                     }
@@ -410,7 +410,7 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
                         integrated != null -> {
                             mainCommitSucceeded = true
                             state.edit().putBoolean(key("main_commit_succeeded"), true).apply()
-                            if (run != null) showRun("INTEGRACIÓN EN MAIN", run, summary)
+                            if (run != null) showRun("INTEGRACIÓN EN MAIN", run, summary, "main_commit")
                             output.append(
                                 "\n\nCOMMIT CONFIRMADO EN MAIN\nSHA: ${integrated.first}\n${integrated.second}"
                             )
@@ -419,7 +419,7 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
                         run == null -> {
                             output.text = "GitHub aceptó la solicitud de integración. La ejecución aún no aparece; pulsa «Consultar CI y resultado» para recuperarla."
                         }
-                        else -> showRun("INTEGRACIÓN EN MAIN", run, summary)
+                        else -> showRun("INTEGRACIÓN EN MAIN", run, summary, "main_commit")
                     }
                 }.onFailure {
                     output.text = "No se pudo iniciar la integración a main: ${it.message}"
@@ -474,10 +474,15 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
         return evidence
     }
 
-    private fun showRun(label: String, run: BardoGitHubRun, jobSummary: String = "") {
+    private fun showRun(
+        label: String,
+        run: BardoGitHubRun,
+        jobSummary: String = "",
+        stage: String
+    ) {
         when {
-            run.conclusion == "failure" -> saveCiDiagnostics(run, label, jobSummary)
-            run.succeeded -> clearResolvedCiDiagnostics(run)
+            run.conclusion == "failure" -> saveCiDiagnostics(run, stage, label, jobSummary)
+            run.succeeded -> clearResolvedCiDiagnostics(run, stage)
         }
         output.text = buildString {
             appendLine(label)
@@ -503,10 +508,11 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
         renderButtons()
     }
 
-    private fun saveCiDiagnostics(run: BardoGitHubRun, stage: String, summary: String) {
+    private fun saveCiDiagnostics(run: BardoGitHubRun, stage: String, label: String, summary: String) {
         val report = buildString {
             appendLine("GitHub Actions failure")
-            appendLine("Stage: $stage")
+            appendLine("Stage: $label")
+            appendLine("Workflow scope: $stage")
             appendLine("Run ID: ${run.id}")
             appendLine("Run URL: ${run.url}")
             appendLine("Source commit: ${run.headSha}")
@@ -523,17 +529,20 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
         prefs.edit()
             .putString("latest_ci_diagnostics", report)
             .putString("latest_ci_run_url", run.url)
+            .putString("latest_ci_run_stage", stage)
             .putLong("latest_ci_run_id", run.id)
             .apply()
     }
 
-    private fun clearResolvedCiDiagnostics(run: BardoGitHubRun) {
+    private fun clearResolvedCiDiagnostics(run: BardoGitHubRun, stage: String) {
         val prefs = getSharedPreferences("bardo_developer", MODE_PRIVATE)
         val currentRunId = prefs.getLong("latest_ci_run_id", 0L)
-        if (!BardoCiDiagnosticsPolicy.canReplace(currentRunId, run.id)) return
+        val currentStage = prefs.getString("latest_ci_run_stage", "").orEmpty()
+        if (!BardoCiDiagnosticsPolicy.shouldClear(currentRunId, currentStage, run.id, stage)) return
         prefs.edit()
             .remove("latest_ci_diagnostics")
             .putString("latest_ci_run_url", run.url)
+            .putString("latest_ci_run_stage", stage)
             .putLong("latest_ci_run_id", run.id)
             .apply()
     }
