@@ -117,8 +117,14 @@ class BardoModelRegistryTest {
     @Test fun qwenSupportsOfflineSoftwareAnalysisFallback() {
         val capabilities = BardoQwen2LiteRtProvider().descriptor.capabilities
         assertTrue("general_chat" in capabilities)
+        assertTrue("lyrics" in capabilities)
         assertTrue("code_analysis" in capabilities)
         assertTrue("local_learning" in capabilities)
+    }
+
+    @Test fun gemmaAndQwenBothDeclareLocalLyricsGeneration() {
+        assertTrue("lyrics" in com.musicaia.modelos.BardoGemmaLiteRtProvider().descriptor.capabilities)
+        assertTrue("lyrics" in BardoQwen2LiteRtProvider().descriptor.capabilities)
     }
 
     @Test fun refusesDuplicateProviderIds() {

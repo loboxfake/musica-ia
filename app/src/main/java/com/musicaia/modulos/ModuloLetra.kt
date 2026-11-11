@@ -4,49 +4,66 @@ import android.content.Context
 import com.musicaia.modelo.Dato
 import com.musicaia.modelo.ModuloIA
 import com.musicaia.modelo.TipoModulo
-import com.musicaia.modulos.litert.ConversacionLiteRT
-import com.musicaia.modulos.litert.EngineLiteRT
-import com.musicaia.modulos.litert.LiteRTLMModule
-import java.io.File
+import com.musicaia.modelos.BardoGemmaLiteRtProvider
+import com.musicaia.modelos.BardoModelRegistry
+import com.musicaia.modelos.BardoModelRequest
+import com.musicaia.modelos.BardoModelState
+import com.musicaia.modelos.BardoQwen2LiteRtProvider
 
+/**
+ * Generación de letra con modelos locales exclusivamente.
+ *
+ * Gemma es el proveedor preferente y Qwen2 es la alternativa cuando Gemma no
+ * está instalado, no supera el presupuesto real de recursos o falla al cargar.
+ * El modo manual conserva la letra del usuario sin solicitar inferencia.
+ */
 class ModuloLetra(context: Context, private val modoManual: Boolean = false) : ModuloIA {
     override val id = "letra"
     override val tipo = TipoModulo.LETRA
     private val ctx = context.applicationContext
 
+    private val registry = BardoModelRegistry(
+        listOf(BardoGemmaLiteRtProvider(), BardoQwen2LiteRtProvider())
+    )
+
     override fun cargar(): Boolean {
         if (modoManual) return true
-        val modelo = LiteRTLMModule.modelFile(ctx)
-        if (!LiteRTLMModule.verificarModelo(modelo)) return false
-        return EngineLiteRT.withSession {
-            if (estaCargado(modelo.absolutePath)) true
-            else inicializar(
-                modelo.absolutePath,
-                File(ctx.cacheDir, "litertlm-cache").absolutePath
-            )
+        return registry.orderedCandidates("lyrics", allowRemoteModels = false).any { provider ->
+            val state = runCatching { provider.inspect(ctx).state }.getOrNull()
+            state == BardoModelState.READY || state == BardoModelState.PRESENT_UNVERIFIED
         }
     }
 
     override fun ejecutar(entrada: Dato): Dato {
         val solicitud = (entrada as? Dato.Texto)?.texto
             ?: throw IllegalArgumentException("La generación de letra necesita datos de texto.")
+
         if (modoManual && solicitud.startsWith("[LETRA_USUARIO]")) {
-            return Dato.Texto(solicitud.substringAfter("[LETRA_USUARIO]").substringBefore("\n\nTema:").trim())
-        }
-        val modelo = LiteRTLMModule.modelFile(ctx)
-        require(LiteRTLMModule.verificarModelo(modelo)) {
-            "El SHA-256 de Gemma no coincide; se conserva el archivo original."
-        }
-        return Dato.Texto(
-            ConversacionLiteRT.solicitarLetra(
-                solicitud,
-                modelo.absolutePath,
-                File(ctx.cacheDir, "litertlm-cache").absolutePath
+            return Dato.Texto(
+                solicitud.substringAfter("[LETRA_USUARIO]")
+                    .substringBefore("\n\nTema:")
+                    .trim()
             )
+        }
+
+        check(!modoManual) {
+            "El modo «Mi letra» necesita el marcador de letra manual; no se sustituirá por texto generado."
+        }
+
+        val result = registry.generate(
+            context = ctx,
+            capability = "lyrics",
+            request = BardoModelRequest(solicitud, resetConversation = true),
+            allowRemoteModels = false
         )
+        val letra = result.text.substringAfter("</think>").trim()
+        check(letra.isNotBlank()) {
+            "El proveedor local " + result.providerId + " devolvió una letra vacía."
+        }
+        return Dato.Texto(letra)
     }
 
     override fun descargar() {
-        EngineLiteRT.cerrar()
+        if (!modoManual) registry.unloadAll()
     }
 }
