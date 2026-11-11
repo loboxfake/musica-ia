@@ -55,6 +55,17 @@ jobs:
             exit 1
           }
           test "$(git rev-parse HEAD)" = "$BASE_SHA"
+      - name: Capture immutable workflow guards and protected-path policy from the exact base
+        env:
+          BASE_SHA: ${{ inputs.base_sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP"
+          git show "$BASE_SHA:app/src/main/java/com/musicaia/desarrollo/BardoProtectedPathPolicy.kt" > "$RUNNER_TEMP/bardo-protected-path-policy.kt"
+          git show "$BASE_SHA:.github/scripts/bardo_workflow_guards.py" > "$RUNNER_TEMP/bardo-workflow-guards.py"
+          test -s "$RUNNER_TEMP/bardo-protected-path-policy.kt"
+          test -s "$RUNNER_TEMP/bardo-workflow-guards.py"
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -68,107 +79,12 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/bardo-candidate"
-          python3 - "$RUNNER_TEMP/bardo-candidate/change.patch" <<'PY'
-          import base64, gzip, os, pathlib, re, sys
-          candidate = os.environ["CANDIDATE_ID"]
-          if not re.fullmatch(r"[0-9a-f]{32}", candidate):
-              raise SystemExit("BARDO_CANDIDATE_ID_INVALID")
-          packed = base64.b64decode(os.environ["PATCH_GZIP_B64"], validate=True)
-          patch = gzip.decompress(packed)
-          if not patch or len(patch) > 384 * 1024:
-              raise SystemExit("BARDO_PATCH_SIZE_INVALID")
-          pathlib.Path(sys.argv[1]).write_bytes(patch)
-          print(f"Candidate {candidate}; patch bytes={len(patch)}")
-          PY
+          python3 "$RUNNER_TEMP/bardo-workflow-guards.py" decode "$RUNNER_TEMP/bardo-candidate/change.patch"
           git apply --check "$RUNNER_TEMP/bardo-candidate/change.patch"
           git apply "$RUNNER_TEMP/bardo-candidate/change.patch"
-          python3 - <<'PY'
-          import subprocess
-          allowed = ("app/src/main/java/", "app/src/main/res/", "docs/")
-          protected = {
-              "app/src/main/java/com/musicaia/modulos/Modo3MezclaVozUsuario.kt",
-              "app/src/main/java/com/musicaia/MainActivity.kt",
-              "app/src/main/java/com/musicaia/BardoDeveloperActivity.kt",
-              "app/src/main/java/com/musicaia/BardoGitHubDevelopmentActivity.kt",
-              "app/src/main/java/com/musicaia/desarrollo/BardoDeveloperCore.kt",
-              "app/src/main/java/com/musicaia/desarrollo/BardoDeveloperWorker.kt",
-              "app/src/main/java/com/musicaia/desarrollo/BardoPatchTextExtractor.kt",
-              "app/src/main/java/com/musicaia/modelo/BardoGuidedProgressPolicy.kt",
-              "app/src/main/java/com/musicaia/modelo/BardoIntentRouter.kt",
-              "app/src/main/java/com/musicaia/autonomia/BardoAutonomyEngine.kt",
-              "app/src/main/java/com/musicaia/evaluacion/BardoCiDiagnosticsPolicy.kt",
-              "app/src/main/java/com/musicaia/desarrollo/BardoPatchApplier.kt",
-              "app/src/main/java/com/musicaia/desarrollo/BardoProtectedPathPolicy.kt",
-              "app/src/main/java/com/musicaia/desarrollo/BardoWorkspaceManager.kt",
-              "app/src/main/java/com/musicaia/seguridad/BardoAuthorityPolicy.kt",
-              "app/src/main/java/com/musicaia/seguridad/BardoAuthorityLedger.kt",
-              "app/src/main/java/com/musicaia/modelos/BardoModelProvider.kt",
-              "app/src/main/java/com/musicaia/modelos/BardoAgentFleet.kt",
-              "app/src/main/java/com/musicaia/modelo/BardoResourceCoordinator.kt",
-              "app/src/main/java/com/musicaia/skills/BardoSkillManifest.kt",
-              "app/src/main/java/com/musicaia/skills/BardoSkillManager.kt",
-              "app/src/main/java/com/musicaia/skills/BardoSkillExecutor.kt",
-              "app/src/main/java/com/musicaia/skills/BardoSkillToolHandler.kt",
-              "app/src/main/java/com/musicaia/skills/BardoSkillWorkflowExecutor.kt",
-              "app/src/main/java/com/musicaia/skills/BardoSkillWorkflowPackageValidator.kt",
-              "app/src/main/java/com/musicaia/skills/BardoSkillArchiveReader.kt",
-              "app/src/main/java/com/musicaia/skills/BardoSkillWorkflowToolHandler.kt",
-              "app/src/main/java/com/musicaia/skills/BardoCoreSkillSmokeTestRunner.kt",
-              "app/src/main/java/com/musicaia/skills/BardoSkillMaintenancePlanner.kt",
-              "app/src/main/java/com/musicaia/skills/BardoSkillDraftBuilder.kt",
-              "app/src/main/java/com/musicaia/skills/BardoSkillDraftToolHandler.kt",
-              "app/src/main/java/com/musicaia/skills/BardoSkillActivationGate.kt",
-              "app/src/main/java/com/musicaia/storage/BardoMobileFilePolicy.kt",
-              "app/src/main/java/com/musicaia/storage/BardoSharedStorage.kt",
-              "app/src/main/java/com/musicaia/storage/BardoExportSourcePolicy.kt",
-              "app/src/main/java/com/musicaia/modelo/BardoModuleCatalog.kt",
-              "app/src/main/java/com/musicaia/modulos/DescargadorModelos.kt",
-              "app/src/main/java/com/musicaia/servicios/BardoTaskService.kt",
-              "app/src/main/java/com/musicaia/memoria/BardoActivityStore.kt",
-              "app/src/main/java/com/musicaia/memoria/BardoBackupManager.kt",
-              "app/src/main/java/com/musicaia/memoria/BardoKnowledgeStore.kt",
-              "app/src/main/java/com/musicaia/memoria/BardoConversationStore.kt",
-              "app/src/main/java/com/musicaia/herramientas/BardoToolExecutor.kt",
-              "app/src/main/java/com/musicaia/herramientas/BardoCoreToolCatalog.kt",
-              "app/src/main/java/com/musicaia/autonomia/BardoAutonomyEngine.kt",
-              "app/src/main/java/com/musicaia/evaluacion/BardoIndependentEvaluator.kt",
-              "app/src/main/java/com/musicaia/evaluacion/BardoLocalCandidateEvidenceCollector.kt",
-              "app/src/main/java/com/musicaia/evaluacion/BardoCiEvidenceAdapter.kt",
-              "app/src/main/java/com/musicaia/modelo/BardoCapabilityRegistry.kt",
-              "app/src/main/java/com/musicaia/diagnostico/BardoSelfInventory.kt",
-              "app/src/main/java/com/musicaia/desarrollo/BardoGitHubAutomation.kt",
-              "app/src/main/java/com/musicaia/desarrollo/BardoCiLogSanitizer.kt",
-              "app/src/main/java/com/musicaia/modelo/BardoCapabilityRegistry.kt",
-              "app/src/main/java/com/musicaia/modelo/BardoIntentRouter.kt",
-              "app/src/main/java/com/musicaia/modelo/BardoResourceBudget.kt",
-              "app/src/main/java/com/musicaia/modelo/Orquestador.kt",
-              "app/src/main/java/com/musicaia/modelo/Catalogo.kt",
-              "app/src/main/java/com/musicaia/modelo/ManifiestoModelo.kt",
-              "app/src/main/java/com/musicaia/modulos/litert/EngineLiteRT.kt",
-              "app/src/main/java/com/musicaia/modulos/litert/LiteRTLMModule.kt",
-          }
-          rows = subprocess.check_output(["git", "diff", "--name-status"], text=True).splitlines()
-          if not rows:
-              raise SystemExit("BARDO_PATCH_EMPTY")
-          changed = []
-          for row in rows:
-              status, path = row.split("\t", 1)
-              if status != "M":
-                  raise SystemExit(f"BARDO_PATCH_MUST_MODIFY_EXISTING_FILES: {status} {path}")
-              if path not in allowed and not path.startswith(allowed):
-                  raise SystemExit(f"BARDO_PATH_OUTSIDE_ALLOWLIST: {path}")
-              if path in protected or path.endswith("Modo3MezclaVozUsuario.kt") or path.startswith((".github/", "gradle/")):
-                  raise SystemExit(f"BARDO_PROTECTED_PATH: {path}")
-              if ".." in path.split("/") or path.startswith("/"):
-                  raise SystemExit(f"BARDO_UNSAFE_PATH: {path}")
-              changed.append(path)
-          if len(changed) > 30:
-              raise SystemExit("BARDO_TOO_MANY_CHANGED_FILES")
-          pathlib = __import__("pathlib")
-          pathlib.Path("candidate-validation-changed-files.txt").write_text("\n".join(changed) + "\n")
-          print("Candidate paths accepted:")
-          print("\n".join(changed))
-          PY
+          python3 "$RUNNER_TEMP/bardo-workflow-guards.py" check-paths \
+            --policy "$RUNNER_TEMP/bardo-protected-path-policy.kt" \
+            --report candidate-validation-changed-files.txt
           git diff --check
 
       - name: Set up Go for Gitleaks

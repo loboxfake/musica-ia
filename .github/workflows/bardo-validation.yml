@@ -30,6 +30,26 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Test bounded candidate decoding and authoritative protected-path guards
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/bardo_workflow_guards.py --self-test
+          python3 - <<'PY'
+          from pathlib import Path
+          workflows = [
+              Path(".github/workflows/bardo-candidate-validation.yml"),
+              Path(".github/workflows/bardo-main-commit-candidate.yml"),
+          ]
+          for path in workflows:
+              source = path.read_text(encoding="utf-8")
+              if "bardo-workflow-guards.py" not in source:
+                  raise SystemExit(f"BASE_SNAPSHOT_GUARD_NOT_USED:{path}")
+              if "check-paths" not in source:
+                  raise SystemExit(f"AUTHORITATIVE_PATH_GUARD_NOT_USED:{path}")
+              if "gzip.decompress(" in source:
+                  raise SystemExit(f"UNBOUNDED_GZIP_DECOMPRESSION:{path}")
+          print("BARDO_CANDIDATE_WORKFLOWS_POLICY_WIRING: PASS")
+          PY
       - name: Set up Go for Gitleaks
         uses: actions/setup-go@v5
         with:
