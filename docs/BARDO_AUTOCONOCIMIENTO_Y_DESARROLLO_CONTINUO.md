@@ -182,3 +182,9 @@ La comparación de las salvaguardas de main detectó una divergencia entre la po
 - Las demás diferencias de las listas detectadas están fuera de la allowlist actual del workflow; no se consideran un bypass de esta misma ruta.
 
 Se registró el hallazgo para corrección y seguimiento en [GitHub issue #7](https://github.com/loboxfake/musica-ia/issues/7). La corrección requiere revisión humana porque .github/workflows/ es una ruta protegida. No se ha modificado el workflow, la política central ni el manifiesto. La regresión exigida debe demostrar que todas las rutas protegidas bajo app/src/main/java/ son rechazadas y comprobar expresamente el manifiesto de actualizaciones.
+
+## 9.3 Límite de memoria en la recepción de parches candidatos
+
+La revisión estática del paso de decodificación del workflow de candidatos detectó que se usa gzip.decompress antes de comprobar el máximo de 384 KiB. El límite posterior no evita que una entrada comprimida con una expansión muy grande se materialice primero en memoria y agote recursos del runner.
+
+El hallazgo quedó registrado en [GitHub issue #8](https://github.com/loboxfake/musica-ia/issues/8). La corrección requiere revisión humana porque el workflow vive bajo .github/workflows/. Se recomienda descompresión incremental con límite duro de salida, validación del tamaño codificado y pruebas de entradas truncadas, corruptas, válidas y de expansión excesiva. No se ha modificado el workflow.
