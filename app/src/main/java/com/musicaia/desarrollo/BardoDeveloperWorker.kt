@@ -20,9 +20,7 @@ import com.musicaia.memoria.BardoLearningJournal
 import com.musicaia.memoria.BardoSourceExcerptLearningVerifier
 import com.musicaia.memoria.BardoActivityStore
 import com.musicaia.diagnostico.BardoSelfInventory
-import com.musicaia.modelo.BardoCapabilityRegistry
 import com.musicaia.modulos.litert.EngineLiteRT
-import com.musicaia.modulos.litert.LiteRTLMModule
 import com.musicaia.modelos.BardoQwen2LiteRtProvider
 import com.musicaia.storage.BardoSharedStorage
 import com.musicaia.autonomia.BardoAutonomyEngine
