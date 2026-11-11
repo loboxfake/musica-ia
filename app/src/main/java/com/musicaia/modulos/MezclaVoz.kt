@@ -108,12 +108,24 @@ object LectorWav {
             }
             val muestras = ShortArray(totalFrames.toInt())
             input.seek(inicioDatos)
-            for (frame in muestras.indices) {
-                var suma = 0L
-                for (canal in 0 until canales) {
-                    suma += readSignedShortLe(input).toLong()
+            val framesPorBloque = 8_192
+            val bloqueBytes = ByteArray(framesPorBloque * expectedBlockAlign)
+            var frameOffset = 0
+            while (frameOffset < muestras.size) {
+                val cantidadFrames = minOf(framesPorBloque, muestras.size - frameOffset)
+                val cantidadBytes = cantidadFrames * expectedBlockAlign
+                input.readFully(bloqueBytes, 0, cantidadBytes)
+                var byteOffset = 0
+                for (frame in 0 until cantidadFrames) {
+                    var suma = 0L
+                    for (canal in 0 until canales) {
+                        val bajo = bloqueBytes[byteOffset++].toInt() and 0xff
+                        val alto = bloqueBytes[byteOffset++].toInt()
+                        suma += ((bajo or (alto shl 8)).toShort()).toLong()
+                    }
+                    muestras[frameOffset + frame] = (suma / canales).toShort()
                 }
-                muestras[frame] = (suma / canales).toShort()
+                frameOffset += cantidadFrames
             }
             return AudioPcm(muestras, frecuencia.toInt())
         }
@@ -131,9 +143,6 @@ object LectorWav {
         require(a >= 0 && b >= 0) { "cabecera WAV truncada" }
         return (a and 0xff) or ((b and 0xff) shl 8)
     }
-
-    private fun readSignedShortLe(input: RandomAccessFile): Short =
-        readUnsignedShortLe(input).toShort()
 
     private fun readUnsignedIntLe(input: RandomAccessFile): Long {
         val a = input.read()
