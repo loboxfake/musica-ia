@@ -209,3 +209,17 @@ Las pruebas añadidas en `MezclaVozTest` verifican las muestras combinadas de am
 La validación BARDO del commit `bdeed02d4c1805b7aac65414b855f246e6c6e941` terminó correctamente: Gitleaks, actionlint, pruebas unitarias, compilación del candidato ARM64, firma v2 de depuración, comprobación de bibliotecas ARM64 y carga del artefacto. Evidencia: [GitHub Actions run 43078615297](https://github.com/loboxfake/musica-ia/actions/runs/43078615297).
 
 **Pendiente:** instalar el APK candidato y escuchar una mezcla producida con grabación e instrumental reales en el Xiaomi 11T Pro. La compilación y las pruebas sintéticas no sustituyen esa verificación auditiva, por lo que no se declara Modo 3 validado físicamente.
+
+
+## 9.6 Ensamblado de segmentos: lectura y escritura WAV acotadas
+
+La revisión del ensamblador encontró que el lector PCM16 cargaba cada WAV completo en un `ByteArray` antes de crear el `ShortArray`, y el escritor reservaba otro búfer del tamaño de toda la salida. En dispositivos móviles, esas copias simultáneas podían elevar innecesariamente el pico de memoria.
+
+Se corrigió en los commits `b2b44ed` y posteriores:
+
+- El lector recorre los chunks RIFF con `RandomAccessFile`, valida límites y alineación y decodifica PCM en bloques de 8192 frames.
+- El escritor emite la cabecera y bloques PCM de 32 KiB a un temporal; valida el WAV y lo publica mediante movimiento atómico cuando el sistema de archivos lo permite.
+- Se aplica un máximo de 120 MiB por archivo, 12 millones de frames por segmento y 16 millones de muestras PCM acumuladas en los segmentos de entrada.
+- Se añadieron pruebas para WAV sobredimensionado, límite agregado de memoria y conservación de canales estéreo intercalados.
+
+La protección de memoria reduce las copias temporales, pero no equivale a una garantía de que cualquier duración pueda mezclarse en cualquier dispositivo: los arrays de muestras y el buffer final de mezcla siguen ocupando memoria. La validación de GitHub de estos últimos commits está pendiente de ejecución; no se declara esta revisión aprobada hasta que sus pruebas terminen.
