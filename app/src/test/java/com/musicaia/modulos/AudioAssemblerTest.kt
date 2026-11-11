@@ -212,7 +212,7 @@ class AudioAssemblerTest {
             val output = File(directory, "joined.wav")
             // Each clip is below the per-file limit; their combined sample count exceeds
             // the bounded in-memory mixing budget.
-            val frames = 12_000_001
+            val frames = 8_000_001
             writeLargeTestWav(first, frames)
             writeLargeTestWav(second, frames)
             try {
@@ -230,20 +230,20 @@ class AudioAssemblerTest {
     private fun writeLargeTestWav(file: File, frames: Int) {
         val dataBytes = frames.toLong() * 2L
         RandomAccessFile(file, "rw").use { output ->
-            output.write("RIFF".toByteArray(Charsets.US_ASCII).reversedArray())
+            output.write("RIFF".toByteArray(Charsets.US_ASCII))
             output.write(byteArrayOf(
                 (36L + dataBytes).toByte(),
                 ((36L + dataBytes) shr 8).toByte(),
                 ((36L + dataBytes) shr 16).toByte(),
                 ((36L + dataBytes) shr 24).toByte()
             ))
-            output.write("WAVE".toByteArray(Charsets.US_ASCII).reversedArray())
-            output.write("fmt ".toByteArray(Charsets.US_ASCII).reversedArray())
+            output.write("WAVE".toByteArray(Charsets.US_ASCII))
+            output.write("fmt ".toByteArray(Charsets.US_ASCII))
             output.write(byteArrayOf(16, 0, 0, 0, 1, 0, 1, 0))
             output.write(byteArrayOf(0xE8.toByte(), 0x03, 0, 0)) // 1000 Hz
             output.write(byteArrayOf(0xD0.toByte(), 0x07, 0, 0)) // 2000 bytes/s
             output.write(byteArrayOf(2, 0, 16, 0))
-            output.write("data".toByteArray(Charsets.US_ASCII).reversedArray())
+            output.write("data".toByteArray(Charsets.US_ASCII))
             output.write(byteArrayOf(
                 dataBytes.toByte(),
                 (dataBytes shr 8).toByte(),
