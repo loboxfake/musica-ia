@@ -347,9 +347,36 @@ class BardoConversationStore internal constructor(private val directory: File) {
         if (!candidate.isFile) return false
         return runCatching {
             val stored = JSONObject(candidate.readText(Charsets.UTF_8))
-            stored.optInt("schemaVersion") == 1 &&
-                stored.optJSONArray("conversations") != null &&
-                stored.optJSONArray("messages") != null
+            if (stored.optInt("schemaVersion") != 1) return@runCatching false
+            val conversations = stored.optJSONArray("conversations") ?: return@runCatching false
+            val messages = stored.optJSONArray("messages") ?: return@runCatching false
+
+            val conversationIds = mutableSetOf<String>()
+            for (index in 0 until conversations.length()) {
+                val item = conversations.optJSONObject(index) ?: return@runCatching false
+                val id = item.optString("id").trim()
+                if (id.isEmpty() || !conversationIds.add(id)) return@runCatching false
+                if (!item.has("createdAtEpochMillis") || !item.has("updatedAtEpochMillis")) {
+                    return@runCatching false
+                }
+            }
+
+            val messageIds = mutableSetOf<String>()
+            for (index in 0 until messages.length()) {
+                val item = messages.optJSONObject(index) ?: return@runCatching false
+                val id = item.optString("id").trim()
+                val conversationId = item.optString("conversationId").trim()
+                val role = item.optString("role")
+                val content = item.optString("content")
+                if (id.isEmpty() || !messageIds.add(id)) return@runCatching false
+                if (conversationId !in conversationIds) return@runCatching false
+                if (role !in setOf("user", "assistant", "system", "tool")) return@runCatching false
+                if (content.isBlank() || !item.has("timestampEpochMillis")) return@runCatching false
+                if (runCatching { ZoneId.of(item.optString("zoneId", "UTC")) }.isFailure) {
+                    return@runCatching false
+                }
+            }
+            true
         }.getOrDefault(false)
     }
 
