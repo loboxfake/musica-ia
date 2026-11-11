@@ -39,6 +39,23 @@ class BardoConversationStoreTest {
     }
 
     @Test
+    fun titlesNewConversationFromFirstUserMessage() {
+        val (store, directory) = newStore()
+        try {
+            val conversation = store.createConversation()
+            store.append(conversation.id, "user", "  Quiero crear una canción sobre seguir adelante  ")
+            assertEquals(
+                "Quiero crear una canción sobre seguir adelante",
+                store.listConversations().single().title
+            )
+            store.append(conversation.id, "assistant", "De acuerdo.")
+            assertEquals(1, store.listConversations().size)
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
     fun migratesLegacyTranscriptWhenOnlyEmptyConversationRecordsExist() {
         val (store, directory) = newStore()
         try {
