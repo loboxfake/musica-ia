@@ -25,6 +25,11 @@ object BardoGuidedProgressPolicy {
         }
     }
 
+    fun nextRequiredField(values: Map<String, String>, requestedField: String?): String? {
+        val requested = requestedField?.takeIf { it.isNotBlank() && values[it].isNullOrBlank() }
+        return requested ?: BardoIntentRouter.nextRequiredField(values)
+    }
+
     fun asksAboutRequiredField(reply: String, field: String): Boolean {
         if (reply.isBlank() || reply.count { it == '?' } != 1) return false
         val normalized = java.text.Normalizer.normalize(

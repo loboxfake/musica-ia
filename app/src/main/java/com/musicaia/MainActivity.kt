@@ -3458,8 +3458,9 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
      // La conversación guiada usa el mismo registro local que el chat libre.
      // No exige un proveedor concreto ni aplica aquí un umbral fijo de 4 GB: el registro inspecciona
      // cada proveedor y puede continuar con Qwen si está instalado y es viable.
-     val memoriaPrompt = datosConver.entries.joinToString("\n") { it.key + ": " + it.value }
-     val camposActuales = datosConver.toMap()
+     val camposCreativosVisibles = datosConver.filterKeys { it != PENDING_CREATION_FIELD_CHANGE }
+     val memoriaPrompt = camposCreativosVisibles.entries.joinToString("\n") { it.key + ": " + it.value }
+     val camposActuales = camposCreativosVisibles.toMap()
      val contextoPrompt = chatLog.text.toString().takeLast(5000)
      val conocimientoAntiguo = getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE)
          .getString("conocimiento_importado", "").orEmpty().takeLast(4000)
@@ -3797,11 +3798,11 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
 
  private fun siguienteCampoGuiado(): String? {
      val requested = datosConver[PENDING_CREATION_FIELD_CHANGE]
-     if (!requested.isNullOrBlank()) {
-         if (datosConver[requested].isNullOrBlank()) return requested
+     val next = BardoGuidedProgressPolicy.nextRequiredField(datosConver, requested)
+     if (!requested.isNullOrBlank() && !datosConver[requested].isNullOrBlank()) {
          datosConver.remove(PENDING_CREATION_FIELD_CHANGE)
      }
-     return BardoIntentRouter.nextRequiredField(datosConver)
+     return next
  }
 
  private fun siguienteCampoPendiente(): String? {

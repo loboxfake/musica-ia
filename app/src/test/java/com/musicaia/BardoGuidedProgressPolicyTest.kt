@@ -9,6 +9,39 @@ class BardoGuidedProgressPolicyTest {
     private val fallback = "He anotado el tema. ¿Qué estilo musical prefieres?"
 
     @Test
+    fun prioritizesAnExplicitlyRequestedFieldOverTheNormalQuestionOrder() {
+        val values = mapOf(
+            "tema" to "seguir adelante",
+            "estilo" to "rock"
+        )
+        assertEquals(
+            "idioma",
+            BardoGuidedProgressPolicy.nextRequiredField(values, "idioma")
+        )
+    }
+
+    @Test
+    fun fallsBackToNormalOrderWhenTheRequestedFieldIsAlreadyFilled() {
+        val values = mapOf(
+            "tema" to "seguir adelante",
+            "estilo" to "rock",
+            "idioma" to "English"
+        )
+        assertEquals(
+            "ambiente",
+            BardoGuidedProgressPolicy.nextRequiredField(values, "idioma")
+        )
+    }
+
+    @Test
+    fun keepsNormalOrderWithoutARequestedField() {
+        assertEquals(
+            "tema",
+            BardoGuidedProgressPolicy.nextRequiredField(emptyMap(), null)
+        )
+    }
+
+    @Test
     fun keepsGeneratedQuestionWhenItAsksForTheNextMissingField() {
         val reply = "Entendido. ¿Qué género musical te gustaría?"
         assertEquals(
