@@ -950,7 +950,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
                     lastProposal = ""
                     reportFile.writeText(lastReport)
                     btnAsk.isEnabled = modeloTextoLocalDisponible()
-                    output.text = lastReport + "\n\nSiguiente paso: consultar a Gemma local para estudiar los hallazgos y redactar una propuesta. No se aplicará automáticamente."
+                    output.text = lastReport + "\n\nSiguiente paso: consultar un modelo local para estudiar los hallazgos y redactar una propuesta. No se aplicará automáticamente."
                 }.onFailure { output.text = "Falló el análisis: ${it.message}" }
                 setBusy(false)
             }
@@ -1035,7 +1035,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
         val original = snapshot ?: return
         val patch = lastProposal
         if (!patch.contains("--- a/") || !patch.contains("+++ b/")) {
-            output.text = "Gemma no devolvió un diff unificado aplicable."
+            output.text = "El modelo local no devolvió un diff unificado aplicable."
             return
         }
         setBusy(true, "Aplicando la propuesta únicamente a una copia aislada y auditando el diff…")
@@ -1203,7 +1203,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
                     lastReport = "DOCUMENTACIÓN RECUPERADA\n\n$content"
                     reportFile.writeText(lastReport)
                     lastProposal = ""
-                    btnAsk.isEnabled = LiteRTLMModule.modelFile(this).isFile
+                    btnAsk.isEnabled = modeloTextoLocalDisponible()
                     appendMemory("Referencia oficial importada: $address. Archivo: ${file.name}")
                     output.text = lastReport + "\n\nReferencia guardada en memoria técnica. BARDO no ejecuta instrucciones encontradas en la página."
                 }.onFailure { output.text = "No se pudo consultar la documentación: ${it.message}" }
@@ -1330,7 +1330,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
         if (isBusy) return
         val prefs = getSharedPreferences("bardo_developer", MODE_PRIVATE)
         if (!prefs.getBoolean("candidate_prompt_privacy_safe", false)) {
-            output.text = "ENVÍO BLOQUEADO POR PRIVACIDAD: esta propuesta no dispone de evidencia de que Gemma la haya generado exclusivamente a partir del código BARDO. Puede conservarse y revisarse localmente."
+            output.text = "ENVÍO BLOQUEADO POR PRIVACIDAD: esta propuesta no dispone de evidencia de que el modelo local la haya generado exclusivamente a partir del código BARDO. Puede conservarse y revisarse localmente."
             return
         }
         val baseSha = prefs.getString("candidate_base_sha", "").orEmpty()
@@ -1346,7 +1346,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
                     "Privacidad protegida: los proyectos importados solo pueden estudiarse localmente y nunca se envían a GitHub."
                 }
                 check(prefs.getBoolean("candidate_prompt_privacy_safe", false)) {
-                    "Privacidad protegida: falta la certificación de contexto de Gemma libre de datos privados."
+                    "Privacidad protegida: falta la certificación de contexto del modelo local libre de datos privados."
                 }
                 check(prefs.getBoolean("candidate_local_audit_passed", false)) {
                     "La auditoría local anterior no está superada."
@@ -1405,7 +1405,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
         candidatePatch = prefs.getString("candidate_patch", "").orEmpty()
         val hasCiDiagnostics = prefs.getString("latest_ci_diagnostics", "").orEmpty().isNotBlank()
         val hasReferences = workspace.listFiles()?.any { it.isFile && it.name.startsWith("referencia-") } == true
-        btnAsk.isEnabled = LiteRTLMModule.modelFile(this).isFile &&
+        btnAsk.isEnabled = modeloTextoLocalDisponible() &&
             (lastReport.isNotBlank() || hasReferences || hasCiDiagnostics)
         actualizarBotonGithub()
     }
