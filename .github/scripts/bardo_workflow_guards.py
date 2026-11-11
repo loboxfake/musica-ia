@@ -13,6 +13,7 @@ import pathlib
 import re
 import subprocess
 import sys
+import tempfile
 import unicodedata
 import zlib
 
@@ -180,6 +181,10 @@ def self_test() -> None:
     encoded = base64.b64encode(gzip.compress(valid)).decode("ascii")
     assert bounded_gzip_decompress(encoded) == valid
 
+    exact_limit = b"x" * MAX_PATCH_BYTES
+    exact_encoded = base64.b64encode(gzip.compress(exact_limit)).decode("ascii")
+    assert bounded_gzip_decompress(exact_encoded) == exact_limit
+
     oversized = base64.b64encode(
         gzip.compress(b"x" * (MAX_PATCH_BYTES + 1))
     ).decode("ascii")
@@ -190,12 +195,32 @@ def self_test() -> None:
     else:
         raise AssertionError("Oversized GZIP output was not rejected")
 
+    for malformed in (
+        base64.b64encode(gzip.compress(valid)[:-4]).decode("ascii"),
+        base64.b64encode(
+            gzip.compress(valid)[:-8] + bytes([gzip.compress(valid)[-8] ^ 0xFF]) + gzip.compress(valid)[-7:]
+        ).decode("ascii"),
+    ):
+        try:
+            bounded_gzip_decompress(malformed)
+        except GuardError as exc:
+            assert str(exc) == "BARDO_PATCH_GZIP_INVALID"
+        else:
+            raise AssertionError("Truncated or corrupt GZIP stream was not rejected")
+
     try:
         bounded_gzip_decompress("not-base64!")
     except GuardError as exc:
         assert str(exc) == "BARDO_PATCH_BASE64_INVALID"
     else:
         raise AssertionError("Invalid Base64 was not rejected")
+
+    try:
+        bounded_gzip_decompress("A" * (MAX_BASE64_CHARS + 1))
+    except GuardError as exc:
+        assert str(exc) == "BARDO_PATCH_ENCODED_SIZE_INVALID"
+    else:
+        raise AssertionError("Oversized Base64 input was not rejected")
 
     fixture = """
     private val protectedExact = setOf(
@@ -244,6 +269,50 @@ def self_test() -> None:
             assert path_violation(
                 path, real_exact, real_prefixes, real_autonomous
             ) == "BARDO_PROTECTED_PATH"
+
+    print("BARDO_WORKFLOW_GUARDS_POLICY_UNIT_TESTS: PASS")
+
+    # Exercise the same git-diff path checker used by the candidate workflows.
+    if real_policy.is_file():
+        policy_absolute = real_policy.resolve()
+        with tempfile.TemporaryDirectory(prefix="bardo-path-guard-") as temp_dir:
+            old_cwd = pathlib.Path.cwd()
+            try:
+                os.chdir(temp_dir)
+                subprocess.run(["git", "init", "--quiet"], check=True)
+                subprocess.run(["git", "config", "user.name", "BARDO Guard Test"], check=True)
+                subprocess.run(["git", "config", "user.email", "bardo-guard-test@example.invalid"], check=True)
+                protected_path = pathlib.Path(
+                    "app/src/main/java/com/musicaia/actualizaciones/"
+                    "BardoIncrementalUpdateManifest.kt"
+                )
+                safe_path = pathlib.Path("docs/safe-candidate-note.md")
+                protected_path.parent.mkdir(parents=True, exist_ok=True)
+                safe_path.parent.mkdir(parents=True, exist_ok=True)
+                protected_path.write_text("base\n", encoding="utf-8")
+                safe_path.write_text("base\n", encoding="utf-8")
+                subprocess.run(["git", "add", "--", str(protected_path), str(safe_path)], check=True)
+                subprocess.run(["git", "commit", "--quiet", "-m", "guard test base"], check=True)
+
+                safe_path.write_text("candidate update\n", encoding="utf-8")
+                report_path = pathlib.Path(temp_dir) / "accepted-paths.txt"
+                accepted = check_changed_paths(policy_absolute, report_path)
+                assert accepted == [str(safe_path)]
+
+                subprocess.run(["git", "add", "--", str(safe_path)], check=True)
+                subprocess.run(["git", "commit", "--quiet", "-m", "safe candidate update"], check=True)
+                protected_path.write_text("candidate must be rejected\n", encoding="utf-8")
+                try:
+                    check_changed_paths(policy_absolute, report_path)
+                except GuardError as exc:
+                    assert str(exc).startswith("BARDO_PROTECTED_PATH:")
+                    assert "BardoIncrementalUpdateManifest.kt" in str(exc)
+                else:
+                    raise AssertionError(
+                        "Candidate workflow path guard accepted a protected update manifest"
+                    )
+            finally:
+                os.chdir(old_cwd)
 
     print("BARDO_WORKFLOW_GUARDS_SELF_TEST: PASS")
 
