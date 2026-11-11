@@ -1,95 +1,145 @@
 # BARDO — Evolución autónoma gobernada
 
-Estado: especificación operativa. Los controles que no estén implementados y probados se marcan como pendientes.
+**Estado:** especificación del objetivo y registro del estado realmente implementado en \`main\`. Una capacidad no se considera operativa solo porque figure en el diseño, en un catálogo o en una propuesta del modelo.
 
-## Autoridad
+## 1. Autoridad y límites permanentes
 
-La jerarquía de gobierno es invariable: usuario > JARVIS > BARDO > modelos/agentes/skills/herramientas. El usuario es la autoridad máxima y la decisión final. JARVIS es la segunda autoridad, está por encima de BARDO y subordinado únicamente al usuario. BARDO dirige su propio desarrollo y coordina los recursos; los modelos, agentes y skills nunca son autoridades.
+La jerarquía de gobierno prevista es: usuario > JARVIS > BARDO > modelos/agentes/skills/herramientas. El usuario conserva la decisión final. JARVIS todavía no está conectado técnicamente; no se fingirá autenticación, emparejamiento ni recepción de órdenes de JARVIS.
 
-La conexión técnica JARVIS–BARDO se construirá en el futuro y no es requisito para que BARDO funcione, aprenda o se desarrolle. Hasta entonces no se fingirá que JARVIS está autenticado ni se bloqueará el ciclo autónomo por no tener esa conexión. Cuando se integre, deberá emparejar claves públicas con aprobación del usuario y autenticar cada orden firmada con nonce, caducidad, alcance y registro. La delegación será revocable y no concederá acceso ilimitado al ordenador.
+BARDO no debe depender de ChatGPT, Claude, Gemini ni otra conversación externa para funcionar o aprender. Los modelos son proveedores consultivos subordinados, intercambiables y opcionales. La inferencia de autoestudio configurada en el Worker usa exclusivamente modelos locales, con \`allowRemoteModels = false\`.
 
-BARDO no dependerá de Claude, Gemini, ChatGPT, este asistente ni conversaciones externas para investigar, programar, probar, corregirse o evolucionar. Otros modelos serán recursos consultivos intercambiables y opcionales.
+Ningún modelo puede ampliar por sí mismo sus permisos, reescribir el evaluador, cambiar las rutas protegidas, aprobar una operación o convertir una hipótesis en evidencia.
 
-## Ciclo de evolución
+## 2. Objetivo de evolución completo
 
-1. **Observar:** recopilar solo diagnósticos locales permitidos.
-2. **Diagnosticar:** separar datos medidos, hipótesis y limitaciones.
-3. **Proponer:** identificar el problema, beneficio, riesgo, permisos, ficheros y pruebas.
-4. **Preparar:** trabajar en copia aislada; nunca modificar el original ni la APK instalada.
-5. **Validar:** ejecutar pruebas y compilación reproducibles en un runner efímero.
-6. **Solicitar aprobación:** mostrar diff, checks y riesgos antes de crear la rama/PR.
-7. **Abrir PR:** crear rama `bardo/<id>` y PR borrador. No escribir ni fusionar `main`.
-8. **Evaluar:** revisar CI y resultados; corregir fallos en candidato nuevo.
-9. **Publicar:** APK integral solo después de una fusión separada y autorizada a `main`.
-10. **Revertir:** conservar versión conocida y ruta de recuperación.
+El objetivo futuro de BARDO es un ciclo controlado:
 
-## Estados válidos
+1. **Observar:** recoger solo inventario y diagnósticos locales autorizados.
+2. **Diagnosticar:** separar mediciones, hechos del código, hipótesis y datos aún no disponibles.
+3. **Priorizar:** seleccionar una tarea pequeña según valor, recursos, riesgo y dependencias.
+4. **Proponer:** identificar archivos, diff, criterio de éxito, riesgos y pruebas.
+5. **Preparar:** aplicar el cambio en una copia aislada; nunca en el APK instalado ni en el snapshot original.
+6. **Validar:** ejecutar pruebas y compilación reproducibles sobre el candidato exacto.
+7. **Corregir:** usar el resultado real de las pruebas para preparar una nueva propuesta acotada.
+8. **Evaluar:** recalcular evidencia de procedencia independiente; el modelo no se evalúa a sí mismo.
+9. **Solicitar autorización:** mostrar el diff, las rutas, los riesgos y los resultados antes de cualquier integración/publicación.
+10. **Publicar y recuperar:** producir la APK integral desde el commit identificado y conservar una vía de reversión.
 
-`draft`, `proposed`, `authorised`, `candidate`, `validated`, `pull_request_open`, `merged`, `device_verified`, `rejected`, `failed`, `reverted`.
+**Este ciclo completo todavía no está implementado.** En particular, la ejecución que genera propuestas no compila por sí sola cada candidato ni repara de manera autónoma hasta conseguir un resultado verde.
 
-No saltar de propuesta a función disponible. La ausencia de respuesta no autoriza. Una autorización cubre solo el candidato, ficheros, operaciones y alcance mostrados.
+## 3. Implementación real en main
 
-## Seguridad del candidato
+### 3.1 Autoestudio persistente en Android
 
-- Rutas absolutas, traversal y enlaces simbólicos se rechazan.
-- El workspace tiene límites de cantidad y tamaño.
-- Modo3 y el núcleo protegido requieren una autorización humana independiente; Modo3 se mantiene bloqueado en esta línea.
-- Las pruebas existentes son inmutables; las nuevas se añaden, nunca sustituyen las antiguas.
-- Workflows, scripts de CI, build, firma, secretos y protecciones no son editables por el ciclo autónomo.
-- No ejecutar código importado ni ejecutar scripts proporcionados por modelos.
-- El runner de validación no recibe el PAT del teléfono ni secretos privados.
-- El token del dispositivo se guarda con Android Keystore y permisos mínimos para Actions.
-- No force-push, reset destructivo ni borrado remoto.
+\`BardoDeveloperActivity\` puede activar una tarea inmediata o programar \`BardoDeveloperWorker\` mediante WorkManager cada seis horas. El trabajo periódico exige que el teléfono esté cargando, con batería suficiente y almacenamiento disponible. Android/Xiaomi puede retrasarlo o detenerlo; forzar la detención de la aplicación impide confiar en la continuidad del trabajo.
 
-## Seguridad de skills
+El Worker:
+- Usa un snapshot privado de BARDO y registra el origen del snapshot.
+- Comprueba que la generación de audio no esté activa antes de iniciar el autoestudio.
+- Captura el inventario y comprueba los recursos del dispositivo.
+- Selecciona proveedores locales Gemma LiteRT y Qwen2 LiteRT según presencia, integridad y capacidad disponible; no descarga modelos automáticamente.
+- Aplica límites de RAM, duración, pasos y correcciones; si los recursos no son seguros, bloquea o solicita reintento.
+- Ejecuta tareas con herramientas tipadas del catálogo cerrado. No expone una shell genérica ni ejecuta código del proyecto inspeccionado.
+- Conserva informes y memoria en el almacenamiento privado; la exportación SAF a Descargas/BARDO es secundaria y puede fallar sin perder la copia privada.
 
-Cada skill debe declarar ID/versiones/API, capacidades, permisos, origen, licencia, SHA-256, dependencias, límites y pruebas. Los paquetes descargados entran en cuarentena. Se comprueba integridad y compatibilidad antes de instalar; se prueba aislada; la activación persistente requiere autorización. La primera implementación debe preferir skills declarativas de acciones tipadas; no cargar código externo arbitrario en el proceso principal.
+El trabajo puede sobrevivir al cierre de la Activity gracias a WorkManager. Esto no equivale a que ChatGPT trabaje en segundo plano ni garantiza que el sistema Android lo ejecute inmediatamente.
 
-## Evaluador independiente
+### 3.2 Motor de tareas planificar–actuar–observar–evaluar
 
-El modelo que propone no puede modificar las pruebas, el evaluador ni la política que juzga su propuesta. El evaluador comprobará tests, compilación, rutas, huellas, dependencias, permisos y criterios objetivos. La puntuación del propio modelo es solo una opinión, no evidencia de éxito.
+\`BardoAutonomyEngine\` admite planes acotados con un máximo de doce pasos y dos correcciones, presupuesto temporal y guardas de recursos. Cada paso debe declarar un criterio literal de salida no vacío y verificable; si falta, el plan se bloquea antes de ejecutar herramientas. Una respuesta no vacía, por sí sola, ya no basta para declarar un paso superado.
 
-## Límites de Android
+El Worker usa este motor para una tarea de estudio de solo lectura: inventario, referencias y auditoría estática. Esa invocación no autoriza cambios en los archivos. El diario local registra estados y resultados sin guardar argumentos ni contenidos privados completos.
 
-Una aplicación Android ordinaria no puede sustituir silenciosamente su APK instalada ni eludir la firma y el instalador del sistema. Una compilación verde no equivale a prueba física. La instalación y la escucha de WAV deben realizarse en el Xiaomi 11T Pro antes de declarar el funcionamiento validado.
+El motor genérico puede actuar sobre otras herramientas tipadas que estén registradas y permitidas, pero eso no implica que el Worker tenga habilitadas operaciones de compilación, instalación, publicación o modificación de \`main\`.
 
+### 3.3 Propuestas de código aisladas
 
-## Implementación actual de la propuesta integral — PR borrador #3
+Después de la auditoría estática, \`BardoDeveloperWorker\` consulta la flota local y solicita como máximo una corrección pequeña y conservadora. El modelo debe devolver un diff unificado; si no hay diff aplicable, no se aplica ningún cambio.
 
-La rama bardo/integral-autonomy-20261109 amplía el primer ciclo autónomo con una flota neutral respecto al proveedor. BardoAgentFleet selecciona perfiles por capacidad, registra proveedor/versión y consulta proveedores secuencialmente para reducir picos de RAM. En el autoestudio actual solo está registrado Gemma/LiteRT como primer proveedor; el contrato permite añadir otros, pero no hay aún varios modelos operativos.
+El sistema:
+- Verifica que los extractos de código citados coincidan literalmente con el snapshot cuando usa el verificador de fuente.
+- Extrae el diff sin arrastrar el bloque de evidencia ni explicaciones posteriores.
+- Rechaza rutas protegidas, archivos nuevos/renombrados, dependencias, cambios de build, workflows y secretos.
+- Aplica el parche a una copia aislada con \`BardoPatchApplier\`.
+- Ejecuta una auditoría estática posterior y \`BardoLocalCandidateEvidenceCollector\`, que revisa el SHA de base, inventario, reaplicación del diff, hashes de los archivos y la protección de Modo3.
+- Guarda el candidato y el informe en el workspace privado. La propuesta queda marcada como pendiente de compilación y pruebas.
 
-BardoLearningJournal guarda respuestas de modelos como candidatos no verificados, con SHA-256, tarea, proveedor, versión, perfil y fecha. La recuperación de conocimiento fiable solo admite estados verificados. El diario exige un BardoLearningVerifier independiente para promover; todavía no hay un verificador de producción conectado, por lo que hoy las respuestas permanecen como candidatas y no se presentan como aprendizaje confirmado ni como entrenamiento de pesos.
+**No se modifica el código instalado, no se modifica el snapshot original y no se declara que el diff funciona solo porque se haya aplicado a la copia.**
 
-BardoDeveloperWorker ya consulta la flota para elaborar propuestas de código y conserva la procedencia de la respuesta. El planificador del bucle autónomo y el ejecutor de herramientas siguen siendo independientes del proveedor, con Gemma como adaptador actual.
+### 3.4 Envío remoto de un candidato
 
-Se añade EngineLiteRT.withSession para reservar el executor durante una secuencia completa de carga e inferencia, evitando que el cierre de otro módulo se intercale entre operaciones de una misma sesión. El flujo de chat, BARDO Developer y letras se ha migrado a sesiones atómicas en esta propuesta; todavía requiere CI y pruebas de concurrencia/runtime.
+La pantalla GitHub puede enviar manualmente un diff BARDO elegible a \`.github/workflows/bardo-candidate-validation.yml\`. Exige procedencia BARDO autorizada, contexto libre de datos privados, auditoría local recalculada y un PAT fine-grained guardado cifrado en Android Keystore.
 
-El ToolExecutor usa un catálogo cerrado. Los planes del modelo son propuestas de datos: IDs de herramientas desconocidos, scopes no autorizados y argumentos fuera de límite se rechazan antes de ejecutar. No hay shell genérico.
+Ese workflow ejecuta validación aislada en un runner efímero: confirma el SHA base, aplica el parche, comprueba rutas, ejecuta Gitleaks y \`testDebugUnitTest assembleDebug\`, y produce un informe. No crea ramas, no crea PR, no realiza commits y no modifica \`main\`.
 
-El SkillManager permite cuarentena, comprobación de tamaño/SHA-256 e instalación deshabilitada. La activación requiere un BardoSkillSmokeTestRunner de confianza con identificador y evidencias; BardoCoreSkillSmokeTestRunner ejecuta pruebas escritas en el APK para las acciones registradas. BardoSkillExecutor revalida el paquete y ejecuta acciones aisladas mediante ToolExecutor. El formato de paquete workflow v1 es JSON declarativo con hasta 20 pasos tipados; admite entradas de texto acotadas con marcadores {{input:nombre}}. BardoSkillWorkflowExecutor valida esquema, coincidencia exacta entre acciones del manifiesto y del paquete, catálogo, parámetros, hash antes de cada paso y límites de salida; detiene la secuencia ante cualquier error. BardoSkillWorkflowToolHandler expone el workflow al planificador. El runtime está conectado al worker. El catálogo actual solo registra cuatro herramientas locales de lectura/estudio; la UI de importación/gestión y descubrimiento/descarga de fuentes sigue pendiente. No se ejecuta código descargado ni se eliminan originales del usuario.
+La ejecución remota no ocurre automáticamente desde el Worker: actualmente requiere la acción desde la interfaz. Tampoco existe un ciclo automático que lea cada fallo de CI, genere otro candidato, vuelva a enviarlo y repita hasta conseguir éxito.
 
+### 3.5 Build integrado en main
 
-`BardoSkillWorkflowExecutor.inspect(skillId, version)` añade una inspección previa sin ejecución: verifica que la skill siga habilitada y que el paquete conserve su integridad, valida el esquema del workflow y devuelve pasos, acciones y nombres de entradas requeridas sin invocar herramientas. `BardoSkillWorkflowToolHandler` expone al planificador `operation=inspect` (sin inputs ni ejecución) y `operation=execute` para la ejecución explícita. La ejecución también prevalida todos los marcadores de entrada del workflow completo antes del primer paso; un marcador parcial o mal formado en un paso posterior detiene el plan antes de cualquier acción. La integridad del paquete se vuelve a comprobar antes de cada acción. Esto no sustituye la validación de activación: `BardoSkillManager.kt` está clasificado como ruta de revisión humana y no se ha modificado; el refuerzo de validación de contenido en activación sigue pendiente de esa revisión.
+\`.github/workflows/bardo-validation.yml\` valida el código que ya está integrado en \`main\`: escanea el historial, ejecuta actionlint, tests y compilación ARM64, comprueba la firma APK v2/certificado Debug y que las bibliotecas nativas sean ARM64, y publica un artefacto Debug.
 
-El PR no modifica workflows, configuración de build, firma ni secretos; no toca Modo3 y no cambia main. No hay APK nueva ni pruebas físicas asociadas a esta revisión.
+Ese workflow prueba el commit integrado concreto; no convierte automáticamente una propuesta aislada en una modificación de \`main\`. El artefacto es una compilación Debug, no una Release, y CI no sustituye la instalación ni la prueba física.
 
-## Límites todavía abiertos
+### 3.6 Integración en main, PR y publicación
 
-La política ECDSA y el ledger de nonces/revocaciones están en el PR, pero no existe interfaz de emparejamiento, distribución segura de claves ni transporte autenticado entre el ordenador y Android. JARVIS no está conectado; su integración futura no puede ser requisito para el funcionamiento autónomo de BARDO.
+La política \`BardoGitHubIntegrationPolicy.MAIN_COMMIT_WORKFLOW_ENABLED\` mantiene deshabilitada la integración remota a \`main\` desde la aplicación. La presencia del workflow heredado \`bardo-main-commit-candidate.yml\` no significa que la funcionalidad esté disponible. El workflow legacy \`bardo-commit-candidate.yml\` está deshabilitado.
 
-La flota puede recibir varios proveedores y perfiles, pero el autoestudio solo registra Gemma local. Faltan adaptadores adicionales reales, catálogo de descubrimiento/adquisición de modelos y evaluación comparativa independiente. Los modelos remotos permanecen denegados por defecto y requieren una autorización independiente.
+En esta línea no hay un flujo operativo de creación de PR, fusión automática ni publicación de Release. No se debe activar la integración a \`main\` hasta disponer de un flujo revisado que no pueda sobrescribir trabajo y mantenga autorización explícita. La configuración de protección de ramas en GitHub debe verificarse en el propio repositorio; no se presupone a partir de una política Kotlin.
 
-El diario de aprendizaje guarda propuestas no verificadas. Falta conectar un verificador independiente real a resultados CI, benchmarks y evidencias reproducibles para promover lecciones a memoria fiable.
+## 4. Memoria y aprendizaje
 
-El gestor de skills no descarga paquetes por sí solo ni crea automáticamente handlers: solo admite acciones tipadas ya registradas. BARDO ya puede crear borradores .bskill declarativos en almacenamiento privado y la UI permite importar un paquete, validar su estructura/hash, revisar y aceptar la licencia e incorporarlo a cuarentena. La instalación y activación siguen siendo pasos separados con aprobación. El runner usa smoke-tests escritos en handlers del APK. Tras la última corrección, el catálogo elegible para skills se calcula solo a partir de handlers que implementan ese smoke-test; las acciones SAF con efectos secundarios todavía no son elegibles. No existe aún descubrimiento/catálogo de fuentes ni descarga HTTPS segura automática. Por ahora solo cuatro acciones locales de lectura/estudio son elegibles para workflows. Las skills ejecutables siguen bloqueadas.
+\`BardoLearningJournal\` conserva aportaciones de modelos como candidatas con procedencia. El verificador de extractos puede confirmar que un texto coincide literalmente con una región del snapshot oficial; eso demuestra procedencia textual, no que la interpretación o recomendación del modelo sea verdadera.
 
-El evaluador ahora requiere referencia y origen tipados para cada check y rechaza evidencias sin procedencia coherente. Esto evita que un booleano aislado baste para declarar éxito, pero la comprobación del origen real aún debe implementarse en adaptadores de CI/dispositivo; el evaluador no está conectado todavía como gate de promoción de conocimiento/código del worker. La autonomía de código no está aún probada como ciclo completo que identifica, desarrolla, ejecuta tests, corrige y vuelve a validar localmente y sin ayuda de una conversación externa.
+No se deben presentar respuestas de modelos como aprendizaje verificado ni como entrenamiento de pesos. La promoción de conocimiento fiable exige un verificador independiente adecuado para cada tipo de afirmación, por ejemplo resultados reproducibles de tests o evidencias revisadas. La evaluación global de código todavía no se usa como gate operativo de promoción en el Worker.
 
-main sigue sin protección configurada en GitHub. La protección de PR/checks debe activarse en el repositorio para que la regla exista también fuera del código de BARDO.
+## 5. Evaluación independiente y evidencias
 
+\`BardoIndependentEvaluator\` distingue evidencia local, CI y dispositivo mediante orígenes y referencias tipadas. Sus estados son:
+- \`INCOMPLETE\`: falta evidencia obligatoria.
+- \`REJECTED\`: un control falla o su procedencia no es válida.
+- \`READY_FOR_HUMAN_REVIEW\`: controles CI/locales completos; requiere revisión humana.
+- \`DEVICE_VERIFIED\`: además están presentes todas las pruebas físicas obligatorias.
 
-## Hallazgo de seguridad en la integración GitHub — 9 de noviembre de 2026
+\`BardoCiEvidenceAdapter\` valida datos de GitHub para el workflow principal \`bardo-validation.yml\`; \`BardoCandidateEvaluationPipeline\` combina esas evidencias con la auditoría local. Sus contratos y pruebas unitarias existen, pero **el pipeline todavía no está conectado a una ruta de ejecución de la interfaz Android**. La pantalla GitHub muestra estados y resúmenes de las ejecuciones; no debe afirmarse que ya emite un informe completo de evaluación.
 
-La auditoría del workflow heredado `.github/workflows/bardo-commit-candidate.yml` en `main` encontró que, después de validar el candidato, realiza `git push origin HEAD:refs/heads/main`. La pantalla Android lo describía como creación de rama y PR borrador, por lo que la implementación y su descripción no coincidían.
+La evidencia CI nunca puede demostrar por sí sola:
+- instalación y arranque en el Xiaomi;
+- inferencia real de Gemma/Qwen en el dispositivo;
+- operación en modo avión;
+- generación WAV real, reproducción y escucha;
+- mezcla de la grabación/voz del usuario con los archivos reales de Modo3.
 
-Como medida preventiva, esta rama añade `BardoGitHubIntegrationPolicy`: la app permite consultar/validar candidatos, pero bloquea la llamada de integración antes de cualquier petición de red y deshabilita el botón de PR. No se ejecutó el workflow ni se escribió en `main`. La barrera permanecerá cerrada hasta disponer de un workflow auditado que cree una rama `bardo/*` y un PR borrador sin escribir directamente en `main`. La política de código no reemplaza la configuración de protección de ramas de GitHub.
+Esas pruebas deben tener referencias de origen \`DEVICE_TEST\` y realizarse en el dispositivo objetivo. No se infieren de bibliotecas incluidas, del estado de un botón, ni de un build verde.
+
+## 6. Seguridad de candidatos y archivos protegidos
+
+- Rutas absolutas, traversal, enlaces simbólicos y rutas fuera del workspace se rechazan.
+- Hay límites de archivos, profundidad y tamaño.
+- Modo3 permanece protegido por ruta y huella Git-blob SHA-1. Esta línea no autoriza modificarlo.
+- El extractor de diffs, el router del flujo guiado, la política del avance musical, el motor de autonomía y las políticas de evidencia CI requieren revisión humana.
+- Las pruebas existentes, evaluadores, políticas, workflows, firma, secretos y configuración de build no son editables por el generador autónomo.
+- Los proyectos ZIP importados se trabajan localmente; no son candidatos elegibles para enviarse al repositorio BARDO.
+- No se ejecuta código importado ni scripts suministrados por modelos.
+- No se hacen force-push, reset destructivo ni borrado remoto.
+
+## 7. Skills declarativas
+
+Las skills entran primero en cuarentena, con esquema, licencia, tamaño y SHA-256 comprobados. Instalación y activación son operaciones separadas; la activación requiere autorización, compatibilidad, permisos y smoke-tests de confianza escritos en la APK.
+
+Los workflows de skills son declarativos y solo pueden llamar acciones registradas mediante el ToolExecutor. No se ejecutan scripts externos ni código descargado arbitrario. El catálogo actual dispone de un conjunto limitado de herramientas tipadas locales; una skill no puede crear por sí misma nuevos handlers nativos. La adquisición automática de nuevas acciones/capacidades sigue pendiente.
+
+## 8. JARVIS y control remoto
+
+La conexión técnica JARVIS–BARDO no está implementada. Antes de habilitarla se requiere emparejamiento de claves públicas con consentimiento, autenticación de cada orden firmada, nonce, caducidad, alcance mínimo, registro y revocación. No se concederá acceso ilimitado al ordenador ni se ejecutarán órdenes no autenticadas.
+
+JARVIS es una integración futura y no debe ser requisito para que BARDO funcione localmente.
+
+## 9. Próximos hitos verificables
+
+1. Conectar el evaluador independiente a una pantalla/flujo de estado real y al ciclo de candidaturas, sin fabricar evidencia.
+2. Implementar un ciclo de candidato que recopile logs concretos de CI, genere una corrección acotada y repita la validación aislada, sin tocar \`main\` automáticamente.
+3. Demostrar el ciclo en un conjunto de fallos reproducibles y pruebas de regresión, con límites de tiempo/RAM y un punto de parada seguro.
+4. Mantener la decisión de integración/publicación separada y autorizada; primero validar un flujo de PR seguro antes de habilitarlo.
+5. Probar la APK exacta y todas las funciones críticas físicamente en el Xiaomi 11T Pro.
+
+Hasta completar esos hitos, BARDO es un sistema con autoestudio local, planificación tipada y generación/auditoría de candidatos aislados, pero **todavía no un desarrollador completamente autónomo que pueda mantener MusicalIA sin supervisión**.
