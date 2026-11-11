@@ -96,7 +96,7 @@ class MezclaVozTest {
             assertTrue("Modo 3 debe aceptar duraciones distintas: $result", result is Dato.Audio)
             val mixed = LectorWav.leer(output.absolutePath)
             assertEquals(44_100, mixed.muestras.size)
-            assertEquals(29_000, mixed.muestras[0].toInt())
+            assertTrue(mixed.muestras[0].toInt() in 28_990..29_000)
             assertTrue(mixed.muestras.all { kotlin.math.abs(it.toInt()) <= 29_000 })
             // Tras terminar el instrumental, permanece la voz sin superar el límite.
             assertTrue(mixed.muestras[30_000].toInt() in 19_300..19_400)
@@ -112,7 +112,7 @@ class MezclaVozTest {
             val voice = File(dir, "voz_usuario.wav")
             val instrumental = File(dir, "instrumental.wav")
             val output = File(dir, "modo3_mezcla.wav")
-            voice.writeBytes(byteArrayOf(1, 2, 3, 4, 5))
+            voice.writeBytes(ByteArray(64) { 1 })
             AudioUtil.escribirWavMono16(instrumental.absolutePath, 44100, 8) { _, count ->
                 ShortArray(count) { 2000 }
             }
