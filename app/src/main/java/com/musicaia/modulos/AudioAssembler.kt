@@ -16,7 +16,7 @@ import kotlin.math.roundToInt
  */
 object AudioAssembler {
     private const val MAX_INPUT_FILE_BYTES = 120L * 1024L * 1024L
-    private const val MAX_FRAMES_PER_CLIP = 12_000_000L
+    private const val MAX_FRAMES_PER_CLIP = 8_000_000L
     private const val MAX_TOTAL_INPUT_SAMPLES = 16_000_000L
 
     private data class Clip(
