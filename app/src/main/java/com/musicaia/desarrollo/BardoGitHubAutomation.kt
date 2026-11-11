@@ -210,6 +210,9 @@ class BardoGitHubActionsClient(private val token: String) {
         const val MAIN_COMMIT_WORKFLOW = "bardo-main-commit-candidate.yml"
         const val FULL_BUILD_WORKFLOW = "full-build.yml"
         private const val API_ROOT = "https://api.github.com/repos/loboxfake/musica-ia"
+        private const val MAX_JOB_SUMMARY_CHARS = 12000
+        private const val MAX_JOB_LOG_BYTES = 1_500_000
+        private const val MAX_FAILED_LOG_JOBS = 3
     }
 
     init {
@@ -317,6 +320,7 @@ class BardoGitHubActionsClient(private val token: String) {
         val response = request("GET", "/actions/runs/$runId/jobs?per_page=100", null, setOf(200))
         val jobs = JSONObject(response).optJSONArray("jobs") ?: JSONArray()
         val lines = mutableListOf<String>()
+        var downloadedFailureLogs = 0
         for (i in 0 until jobs.length()) {
             val job = jobs.optJSONObject(i) ?: continue
             lines += "• ${job.optString("name")} — ${job.optString("conclusion", job.optString("status"))}"
@@ -328,8 +332,95 @@ class BardoGitHubActionsClient(private val token: String) {
                     lines += "  - ${step.optString("name")}: $state"
                 }
             }
+            val jobId = job.optLong("id", 0L)
+            val isFailed = job.optString("status") == "completed" &&
+                job.optString("conclusion") in setOf("failure", "timed_out", "action_required")
+            if (jobId > 0L && job.optLong("run_id", runId) == runId && isFailed) {
+                if (downloadedFailureLogs >= MAX_FAILED_LOG_JOBS) {
+                    lines += "  - Se omitieron más logs de jobs fallidos por el límite local."
+                    continue
+                }
+                downloadedFailureLogs++
+                lines += ""
+                lines += "LOG DEL JOB (solo lectura; saneado): ${job.optString("name")}"
+                val logExcerpt = runCatching { downloadFailedJobLog(jobId) }
+                    .getOrElse { "Logs no disponibles: " + (it.message ?: it.javaClass.simpleName).take(240) }
+                lines += logExcerpt
+            }
         }
-        return lines.joinToString("\n").take(6000)
+        return lines.joinToString("\n").take(MAX_JOB_SUMMARY_CHARS)
+    }
+
+    /**
+     * GitHub devuelve 302 con una URL temporal. El PAT solo se envía a api.github.com;
+     * nunca se reenvía a la URL firmada de descarga.
+     */
+    private fun downloadFailedJobLog(jobId: Long): String {
+        require(jobId > 0L)
+        val api = (URL(API_ROOT + "/actions/jobs/$jobId/logs")
+            .openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            connectTimeout = 15000
+            readTimeout = 25000
+            instanceFollowRedirects = false
+            setRequestProperty("Accept", "application/vnd.github+json")
+            setRequestProperty("Authorization", "Bearer $token")
+            setRequestProperty("X-GitHub-Api-Version", "2022-11-28")
+            setRequestProperty("User-Agent", "BARDO-Developer/1.0")
+        }
+        val location = try {
+            val status = api.responseCode
+            check(status == HttpURLConnection.HTTP_MOVED_TEMP) {
+                "GitHub no entregó el enlace temporal de los logs (HTTP $status)."
+            }
+            api.getHeaderField("Location")
+                ?: throw IOException("GitHub no devolvió la ubicación de los logs.")
+        } finally {
+            api.disconnect()
+        }
+
+        val logUrl = URL(location)
+        val host = logUrl.host.lowercase(java.util.Locale.ROOT)
+        require(logUrl.protocol.equals("https", true) &&
+            (logUrl.port == -1 || logUrl.port == 443) &&
+            (host.endsWith(".blob.core.windows.net") ||
+                host.endsWith(".actions.githubusercontent.com"))
+        ) { "El destino temporal de logs no pertenece a un host permitido." }
+
+        val download = (logUrl.openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            connectTimeout = 15000
+            readTimeout = 25000
+            instanceFollowRedirects = false
+            setRequestProperty("Accept", "text/plain")
+            setRequestProperty("User-Agent", "BARDO-Developer/1.0")
+            // No enviar Authorization, cookies ni cabeceras privadas al host de descarga.
+        }
+        return try {
+            val status = download.responseCode
+            check(status == HttpURLConnection.HTTP_OK) {
+                "No se pudieron descargar los logs (HTTP $status)."
+            }
+            val bytes = download.inputStream.use { input ->
+                val output = ByteArrayOutputStream()
+                val buffer = ByteArray(8192)
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    require(output.size() + count <= MAX_JOB_LOG_BYTES) {
+                        "El log del job supera el límite local de lectura."
+                    }
+                    output.write(buffer, 0, count)
+                }
+                output.toByteArray()
+            }
+            BardoCiLogSanitizer.selectRelevantExcerpt(
+                String(bytes, Charsets.UTF_8),
+                BardoCiLogSanitizer.DEFAULT_MAX_EXCERPT_CHARS
+            )
+        } finally {
+            download.disconnect()
+        }
     }
 
     /**
