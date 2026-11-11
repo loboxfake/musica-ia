@@ -26,7 +26,7 @@ object BardoGuidedProgressPolicy {
     }
 
     fun asksAboutRequiredField(reply: String, field: String): Boolean {
-        if (reply.isBlank() || '?' !in reply) return false
+        if (reply.isBlank() || reply.count { it == '?' } != 1) return false
         val normalized = java.text.Normalizer.normalize(
             reply.lowercase(java.util.Locale.ROOT),
             java.text.Normalizer.Form.NFD

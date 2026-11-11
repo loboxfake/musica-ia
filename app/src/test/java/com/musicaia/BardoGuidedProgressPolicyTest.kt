@@ -98,6 +98,16 @@ class BardoGuidedProgressPolicyTest {
     }
 
     @Test
+    fun rejectsMultipleQuestionsSoTheGuideAsksOnlyOneThingAtATime() {
+        assertTrue(
+            !BardoGuidedProgressPolicy.asksAboutRequiredField(
+                "¿Qué estilo prefieres? ¿Y qué emoción buscas?",
+                "estilo"
+            )
+        )
+    }
+
+    @Test
     fun rejectsQuestionsWithoutARecognizedFieldLabel() {
         assertTrue(!BardoGuidedProgressPolicy.asksAboutRequiredField("¿Qué prefieres?", "estilo"))
     }
