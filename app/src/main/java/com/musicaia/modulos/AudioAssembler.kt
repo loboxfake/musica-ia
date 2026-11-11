@@ -44,8 +44,12 @@ object AudioAssembler {
         val clips = ArrayList<Clip>(inputFiles.size)
         var totalInputSamples = 0L
         for (file in inputFiles) {
+            val decoded = readPcm16Wav(file)
+            require(decoded.samples.any { kotlin.math.abs(it.toInt()) > 104 }) {
+                "El segmento no contiene audio audible: ${file.name}"
+            }
             val clip = trimTrailingSilence(
-                readPcm16Wav(file),
+                decoded,
                 threshold = 104,
                 minimumSilenceMs = 200,
                 keepTailMs = 80
