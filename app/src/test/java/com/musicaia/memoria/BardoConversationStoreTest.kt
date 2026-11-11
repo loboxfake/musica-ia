@@ -108,6 +108,32 @@ class BardoConversationStoreTest {
     }
 
     @Test
+    fun keepsValidBackupWhenPrimaryHistoryIsCorruptedAndThenWritesAgain() {
+        val (store, directory) = newStore()
+        try {
+            val conversation = store.createConversation("Recuperación")
+            store.append(conversation.id, "user", "Mensaje recuperable")
+            val primary = File(directory, "bardo_conversation_history.json")
+            val backup = File(directory, "bardo_conversation_history.json.bak")
+
+            // Simulate a crash/corruption after a valid backup was created.
+            primary.copyTo(backup, overwrite = true)
+            primary.writeText("{ documento dañado", Charsets.UTF_8)
+
+            // The next write must recover the backup and must not overwrite it
+            // with the corrupt primary before the recovered data is persisted.
+            store.append(conversation.id, "assistant", "Segundo mensaje")
+            val messages = store.messages(conversation.id)
+            assertEquals(2, messages.size)
+            assertEquals("Mensaje recuperable", messages[0].content)
+            assertEquals("Segundo mensaje", messages[1].content)
+            assertTrue(JSONObject(primary.readText(Charsets.UTF_8)).has("messages"))
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
     fun searchesMessagesAndReturnsTheirConversation() {
         val (store, directory) = newStore()
         try {
