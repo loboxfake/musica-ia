@@ -12,7 +12,7 @@ class BardoQwen2LiteRtProvider : BardoModelProvider {
     override val descriptor = BardoModelDescriptor(
         id = "qwen2_0_5b_litert_local",
         version = BardoQwen2LiteRtModule.REVISION,
-        capabilities = setOf("general_chat", "lyrics", "intent"),
+        capabilities = setOf("general_chat", "lyrics", "intent", "code_analysis", "local_learning"),
         location = BardoModelLocation.LOCAL,
         license = BardoQwen2LiteRtModule.LICENSE,
         modelSha256 = BardoQwen2LiteRtModule.EXPECTED_SHA256,
