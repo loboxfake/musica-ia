@@ -56,6 +56,38 @@ class BardoIntentRouterTest {
     }
 
     @Test
+    fun activeCreationKeepsStandaloneQuestionsInGeneralChatWithoutLosingCreationState() {
+        assertEquals(
+            BardoIntentRouter.Intent.GENERAL_CHAT,
+            BardoIntentRouter.classify("¿Qué es un sintetizador?", true)
+        )
+        assertEquals(
+            BardoIntentRouter.Intent.GENERAL_CHAT,
+            BardoIntentRouter.classify("¿Qué estilo musical me recomiendas?", true)
+        )
+        assertEquals(
+            BardoIntentRouter.Intent.GENERAL_CHAT,
+            BardoIntentRouter.classify("Which style would you recommend?", true)
+        )
+    }
+
+    @Test
+    fun activeCreationStillTreatsCreativeAnswersAsFieldValues() {
+        assertEquals(
+            BardoIntentRouter.Intent.MUSIC_CREATION,
+            BardoIntentRouter.classify("Que sea alegre, ¿te parece?", true)
+        )
+        assertEquals(
+            BardoIntentRouter.Intent.MUSIC_CREATION,
+            BardoIntentRouter.classify("Rock, ¿te parece?", true)
+        )
+        assertEquals(
+            BardoIntentRouter.Intent.MUSIC_CREATION,
+            BardoIntentRouter.classify("Estilo: rock", true)
+        )
+    }
+
+    @Test
     fun userCanExplicitlyLeaveCreationMode() {
         assertEquals(BardoIntentRouter.Intent.END_CREATION,
             BardoIntentRouter.classify("Volver al chat general", true))

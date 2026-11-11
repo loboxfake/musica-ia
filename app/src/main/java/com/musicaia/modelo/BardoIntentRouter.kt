@@ -295,8 +295,20 @@ object BardoIntentRouter {
         )
         if (explicitMusicRequest.any { text.contains(it) }) return Intent.MUSIC_CREATION
 
+        // A user may ask an unrelated question without abandoning the active
+        // creation. Do not consume that question as the value of the next field.
+        if (creationInProgress && isStandaloneQuestion(message, text)) return Intent.GENERAL_CHAT
         if (creationInProgress) return Intent.MUSIC_CREATION
         return Intent.GENERAL_CHAT
+    }
+
+    private fun isStandaloneQuestion(original: String, normalized: String): Boolean {
+        if ('?' !in original) return false
+        // Phrases such as "que sea alegre" are creative answers, not questions.
+        if (Regex("^que\\s+(?:sea|vaya|tenga|suene|resulte)\\b").containsMatchIn(normalized)) return false
+        return Regex(
+            "^(?:que|cual|como|por que|para que|cuando|donde|quien|which|what|how|why|when|where|who|can|could|would|should|is|are|do|does|did)\\b"
+        ).containsMatchIn(normalized)
     }
 
     private fun normalize(value: String): String = Normalizer
