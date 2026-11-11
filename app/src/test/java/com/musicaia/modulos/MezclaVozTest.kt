@@ -208,9 +208,9 @@ class MezclaVozTest {
 
             try {
                 LectorWav.leer(huge.absolutePath)
-                throw AssertionError("El lector debe rechazar archivos que superen 32 MiB.")
+                throw AssertionError("El lector debe rechazar archivos que superen 120 MiB.")
             } catch (expected: IllegalArgumentException) {
-                assertTrue(expected.message.orEmpty().contains("32 MiB"))
+                assertTrue(expected.message.orEmpty().contains("120 MiB"))
             }
         } finally {
             dir.deleteRecursively()
