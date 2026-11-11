@@ -50,6 +50,19 @@ quote64=dGV4dG8=
     }
 
     @Test
+    fun preservesAWhitespaceOnlyFinalContextLine() {
+        val patch = listOf(
+            "--- a/docs/nota.md",
+            "+++ b/docs/nota.md",
+            "@@ -1,2 +1,2 @@",
+            "-texto antiguo",
+            "+texto nuevo",
+            " "
+        ).joinToString("\n")
+        assertEquals(patch, BardoPatchTextExtractor.extract(patch))
+    }
+
+    @Test
     fun leavesPlainUnifiedDiffUnchanged() {
         assertEquals(diff, BardoPatchTextExtractor.extract(diff))
     }

@@ -71,6 +71,7 @@ object BardoPatchTextExtractor {
         }
 
         require(totalHunks > 0) { "El diff no contiene bloques de cambios." }
-        return patchLines.joinToString("\n").trimEnd()
+        // Do not trim: a trailing context line may consist of the single diff-prefix space.
+        return patchLines.joinToString("\n")
     }
 }
