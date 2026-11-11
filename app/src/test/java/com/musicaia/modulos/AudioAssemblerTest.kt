@@ -3,6 +3,7 @@ package com.musicaia.modulos
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -17,6 +18,8 @@ class AudioAssemblerTest {
             val output = File(directory, "joined.wav")
             writeTestWav(first, ShortArray(1000) { 1000 })
             writeTestWav(second, ShortArray(1000) { -1000 })
+            val originalFirst = first.readBytes()
+            val originalSecond = second.readBytes()
 
             AudioAssembler.assemble(
                 inputFiles = listOf(first, second),
@@ -36,6 +39,9 @@ class AudioAssemblerTest {
             assertEquals(16, header.getShort(34).toInt())
             assertEquals(3800, header.getInt(40))
             assertEquals(44 + 3800, bytes.size)
+            assertArrayEquals(originalFirst, first.readBytes())
+            assertArrayEquals(originalSecond, second.readBytes())
+            assertTrue(directory.listFiles().orEmpty().none { it.name.startsWith("bardo_audio_") })
         } finally {
             directory.deleteRecursively()
         }
@@ -115,6 +121,59 @@ class AudioAssemblerTest {
             } catch (expected: IllegalArgumentException) {
                 assertTrue(expected.message.orEmpty().contains("unión entre segmentos"))
             }
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+
+    @Test
+    fun preservesPreviousOutputWhenAnInputHasAnInvalidRiffBoundary() {
+        val directory = createTempDir(prefix = "audio-assembler-corrupt-riff-test")
+        try {
+            val first = File(directory, "first.wav")
+            val second = File(directory, "second.wav")
+            val output = File(directory, "joined.wav")
+            writeTestWav(first, ShortArray(1000) { 1000 })
+            writeTestWav(second, ShortArray(1000) { -1000 })
+            val corrupt = second.readBytes()
+            ByteBuffer.wrap(corrupt).order(ByteOrder.LITTLE_ENDIAN).putInt(4, Int.MAX_VALUE)
+            second.writeBytes(corrupt)
+            val previousOutput = byteArrayOf(8, 6, 7, 5, 3, 0, 9)
+            output.writeBytes(previousOutput)
+
+            try {
+                AudioAssembler.assemble(listOf(first, second), output, crossfadeMs = 100)
+                throw AssertionError("Se esperaba rechazo de un tamaño RIFF truncado.")
+            } catch (expected: IllegalArgumentException) {
+                assertTrue(expected.message.orEmpty().contains("Tamaño RIFF"))
+            }
+
+            assertArrayEquals(previousOutput, output.readBytes())
+            assertTrue(directory.listFiles().orEmpty().none { it.name.startsWith("bardo_audio_") })
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun refusesToOverwriteAnOriginalSegmentWithTheAssembledOutput() {
+        val directory = createTempDir(prefix = "audio-assembler-output-alias-test")
+        try {
+            val first = File(directory, "first.wav")
+            val second = File(directory, "second.wav")
+            writeTestWav(first, ShortArray(1000) { 1000 })
+            writeTestWav(second, ShortArray(1000) { -1000 })
+            val originalFirst = first.readBytes()
+
+            try {
+                AudioAssembler.assemble(listOf(first, second), first, crossfadeMs = 100)
+                throw AssertionError("El ensamblador no debe sobrescribir una entrada.")
+            } catch (expected: IllegalArgumentException) {
+                assertTrue(expected.message.orEmpty().contains("no puede sobrescribir"))
+            }
+
+            assertArrayEquals(originalFirst, first.readBytes())
         } finally {
             directory.deleteRecursively()
         }
