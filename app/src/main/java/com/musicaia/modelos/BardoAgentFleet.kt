@@ -67,7 +67,8 @@ class BardoProviderAgentInvoker(
     context: Context,
     private val provider: BardoModelProvider
 ) : BardoAgentInvoker {
-    private val appContext = context.applicationContext
+    // Callers supply applicationContext; do not invoke Android framework getters in the worker/test path.
+    private val appContext = context
 
     override val descriptor: BardoModelDescriptor
         get() = provider.descriptor
