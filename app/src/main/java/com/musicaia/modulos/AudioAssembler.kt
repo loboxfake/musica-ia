@@ -1,8 +1,12 @@
 package com.musicaia.modulos
 
 import java.io.File
+import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -27,6 +31,11 @@ object AudioAssembler {
     ): File {
         require(inputFiles.isNotEmpty()) { "No hay segmentos de audio para unir." }
         require(crossfadeMs >= 0 && fadeOutMs >= 0) { "Duración de fundido no válida." }
+
+        val destinoCanonico = outputFile.canonicalFile
+        require(inputFiles.none { it.canonicalFile == destinoCanonico }) {
+            "El archivo de salida no puede sobrescribir uno de los segmentos originales."
+        }
 
         val clips = inputFiles.map(::readPcm16Wav).map {
             trimTrailingSilence(it, threshold = 104, minimumSilenceMs = 200, keepTailMs = 80)
@@ -81,8 +90,36 @@ object AudioAssembler {
             fadeInMs = 100,
             fadeOutMs = fadeOutMs
         )
-        writePcm16Wav(outputFile, reference.sampleRate, channels, mixed)
-        return outputFile
+
+        val outputDirectory = outputFile.absoluteFile.parentFile ?: File(".")
+        check(outputDirectory.isDirectory || outputDirectory.mkdirs()) {
+            "No se pudo crear el directorio del WAV final."
+        }
+        val temporary = File.createTempFile("bardo_audio_", ".wav.tmp", outputDirectory)
+        try {
+            writePcm16Wav(temporary, reference.sampleRate, channels, mixed)
+            validateWrittenWav(temporary, reference.sampleRate, channels, mixed.size)
+
+            try {
+                Files.move(
+                    temporary.toPath(),
+                    outputFile.toPath(),
+                    StandardCopyOption.ATOMIC_MOVE,
+                    StandardCopyOption.REPLACE_EXISTING
+                )
+            } catch (_: AtomicMoveNotSupportedException) {
+                Files.move(
+                    temporary.toPath(),
+                    outputFile.toPath(),
+                    StandardCopyOption.REPLACE_EXISTING
+                )
+            }
+
+            validateWrittenWav(outputFile, reference.sampleRate, channels, mixed.size)
+            return outputFile
+        } finally {
+            if (temporary.exists()) temporary.delete()
+        }
     }
 
     private fun trimTrailingSilence(
@@ -151,19 +188,32 @@ object AudioAssembler {
             "Cabecera RIFF/WAVE no válida: ${file.name}"
         }
 
+        val riffSize = buffer.getInt(4).toLong() and 0xffffffffL
+        val riffEndLong = 8L + riffSize
+        require(riffSize >= 4L && riffEndLong <= bytes.size.toLong()) {
+            "Tamaño RIFF truncado o no válido: ${file.name}"
+        }
+        val riffEnd = riffEndLong.toInt()
+
         var format = -1
         var channels = 0
         var sampleRate = 0
         var bitsPerSample = 0
+        var byteRate = 0L
+        var blockAlign = 0
         var pcmData: ByteArray? = null
         var offset = 12
 
-        while (offset + 8 <= bytes.size) {
+        while (offset < riffEnd) {
+            require(riffEnd - offset >= 8) { "Cabecera de chunk WAV incompleta: ${file.name}" }
             val chunkId = ascii(bytes, offset, 4)
             val chunkSize = buffer.getInt(offset + 4).toLong() and 0xffffffffL
-            val dataStart = offset + 8
-            val dataEndLong = dataStart.toLong() + chunkSize
-            require(dataEndLong <= bytes.size.toLong()) { "Chunk WAV truncado: ${file.name}" }
+            val dataStartLong = offset.toLong() + 8L
+            val dataEndLong = dataStartLong + chunkSize
+            require(dataEndLong <= riffEndLong && dataEndLong <= Int.MAX_VALUE.toLong()) {
+                "Chunk WAV truncado: ${file.name}"
+            }
+            val dataStart = dataStartLong.toInt()
             val dataEnd = dataEndLong.toInt()
 
             when (chunkId) {
@@ -172,22 +222,32 @@ object AudioAssembler {
                     format = buffer.getShort(dataStart).toInt() and 0xffff
                     channels = buffer.getShort(dataStart + 2).toInt() and 0xffff
                     sampleRate = buffer.getInt(dataStart + 4)
+                    byteRate = buffer.getInt(dataStart + 8).toLong() and 0xffffffffL
+                    blockAlign = buffer.getShort(dataStart + 12).toInt() and 0xffff
                     bitsPerSample = buffer.getShort(dataStart + 14).toInt() and 0xffff
                 }
                 "data" -> if (pcmData == null) pcmData = bytes.copyOfRange(dataStart, dataEnd)
             }
 
             val next = dataEndLong + (chunkSize and 1L)
-            require(next <= Int.MAX_VALUE.toLong()) { "Tamaño WAV no válido: ${file.name}" }
+            require(next <= riffEndLong) { "Falta el byte de relleno de un chunk WAV: ${file.name}" }
             offset = next.toInt()
         }
+        require(offset == riffEnd) { "El bloque RIFF no termina en un límite de chunk: ${file.name}" }
 
         require(format == 1 && bitsPerSample == 16) {
             "El audio debe ser PCM16 (format=1, 16-bit): ${file.name}"
         }
         require(channels in 1..2 && sampleRate > 0) { "Formato de canales/frecuencia no válido: ${file.name}" }
+        val expectedBlockAlign = channels * 2
+        require(blockAlign == expectedBlockAlign) { "Alineación PCM no válida: ${file.name}" }
+        require(byteRate == sampleRate.toLong() * expectedBlockAlign.toLong()) {
+            "Velocidad de bytes PCM no válida: ${file.name}"
+        }
         val data = pcmData ?: throw IllegalArgumentException("El WAV no contiene chunk data: ${file.name}")
-        require(data.isNotEmpty() && data.size % 2 == 0) { "Datos PCM vacíos o truncados: ${file.name}" }
+        require(data.isNotEmpty() && data.size % expectedBlockAlign == 0) {
+            "Datos PCM vacíos o truncados: ${file.name}"
+        }
 
         val pcm = ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN)
         val samples = ShortArray(data.size / 2) { pcm.short }
@@ -196,9 +256,18 @@ object AudioAssembler {
     }
 
     private fun writePcm16Wav(file: File, sampleRate: Int, channels: Int, samples: ShortArray) {
-        require(samples.size % channels == 0) { "Muestras PCM incompatibles con los canales." }
-        file.parentFile?.mkdirs()
-        val dataBytes = samples.size * 2
+        require(channels in 1..2 && sampleRate > 0) { "Formato WAV de salida no válido." }
+        require(samples.isNotEmpty() && samples.size % channels == 0) {
+            "Muestras PCM vacías o incompatibles con los canales."
+        }
+        val dataBytesLong = samples.size.toLong() * 2L
+        require(dataBytesLong <= Int.MAX_VALUE.toLong() - 36L) {
+            "El WAV de salida supera el tamaño PCM16 admitido."
+        }
+        val dataBytes = dataBytesLong.toInt()
+        val byteRateLong = sampleRate.toLong() * channels.toLong() * 2L
+        require(byteRateLong <= Int.MAX_VALUE.toLong()) { "Velocidad de bytes WAV no válida." }
+
         val output = ByteBuffer.allocate(44 + dataBytes).order(ByteOrder.LITTLE_ENDIAN)
         output.put("RIFF".toByteArray(Charsets.US_ASCII))
         output.putInt(36 + dataBytes)
@@ -208,41 +277,55 @@ object AudioAssembler {
         output.putShort(1)
         output.putShort(channels.toShort())
         output.putInt(sampleRate)
-        output.putInt(sampleRate * channels * 2)
+        output.putInt(byteRateLong.toInt())
         output.putShort((channels * 2).toShort())
         output.putShort(16)
         output.put("data".toByteArray(Charsets.US_ASCII))
         output.putInt(dataBytes)
         for (sample in samples) output.putShort(sample)
+
+        file.parentFile?.let { parent ->
+            check(parent.isDirectory || parent.mkdirs()) {
+                "No se pudo crear el directorio del WAV temporal."
+            }
+        }
         file.writeBytes(output.array())
     }
 
-    private fun applyFades(
-        samples: ShortArray,
-        channels: Int,
+    private fun validateWrittenWav(
+        file: File,
         sampleRate: Int,
-        fadeInMs: Int,
-        fadeOutMs: Int
+        channels: Int,
+        expectedSampleCount: Int
     ) {
-        val frames = samples.size / channels
-        val fadeInFrames = min(frames.toLong(), sampleRate.toLong() * fadeInMs / 1000L).toInt()
-        val fadeOutFrames = min(frames.toLong(), sampleRate.toLong() * fadeOutMs / 1000L).toInt()
+        val expectedDataBytes = expectedSampleCount.toLong() * 2L
+        require(file.isFile && file.length() == 44L + expectedDataBytes) {
+            "El tamaño del WAV escrito no coincide con las muestras PCM."
+        }
+        val header = ByteArray(44)
+        RandomAccessFile(file, "r").use { input -> input.readFully(header) }
+        val buffer = ByteBuffer.wrap(header).order(ByteOrder.LITTLE_ENDIAN)
+        val expectedByteRate = sampleRate.toLong() * channels.toLong() * 2L
 
-        for (frame in 0 until fadeInFrames) {
-            val gain = frame.toFloat() / maxOf(1, fadeInFrames).toFloat()
-            for (channel in 0 until channels) {
-                val index = frame * channels + channel
-                samples[index] = (samples[index] * gain).roundToInt().toShort()
-            }
+        require(ascii(header, 0, 4) == "RIFF" && ascii(header, 8, 4) == "WAVE") {
+            "La cabecera RIFF/WAVE de salida no es válida."
         }
-        for (frame in 0 until fadeOutFrames) {
-            val gain = (fadeOutFrames - frame).toFloat() / maxOf(1, fadeOutFrames).toFloat()
-            val absoluteFrame = frames - fadeOutFrames + frame
-            for (channel in 0 until channels) {
-                val index = absoluteFrame * channels + channel
-                samples[index] = (samples[index] * gain).roundToInt().toShort()
-            }
+        require((buffer.getInt(4).toLong() and 0xffffffffL) == 36L + expectedDataBytes) {
+            "El tamaño RIFF de salida no coincide con el contenido."
         }
+        require(ascii(header, 12, 4) == "fmt " && buffer.getInt(16) == 16) {
+            "El chunk fmt de salida no es válido."
+        }
+        require(
+            (buffer.getShort(20).toInt() and 0xffff) == 1 &&
+                (buffer.getShort(22).toInt() and 0xffff) == channels &&
+                buffer.getInt(24) == sampleRate &&
+                (buffer.getInt(28).toLong() and 0xffffffffL) == expectedByteRate &&
+                (buffer.getShort(32).toInt() and 0xffff) == channels * 2 &&
+                (buffer.getShort(34).toInt() and 0xffff) == 16 &&
+                ascii(header, 36, 4) == "data" &&
+                (buffer.getInt(40).toLong() and 0xffffffffL) == expectedDataBytes
+        ) { "Los metadatos WAV de salida no coinciden con el PCM generado." }
     }
 
     private fun ascii(bytes: ByteArray, offset: Int, length: Int): String =
