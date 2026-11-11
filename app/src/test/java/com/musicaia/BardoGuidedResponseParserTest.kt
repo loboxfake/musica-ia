@@ -47,6 +47,15 @@ class BardoGuidedResponseParserTest {
         assertTrue(parsed.updates.isEmpty())
     }
 
+    @Test fun aStandaloneNegativeDoesNotAuthorizeAnExistingFieldOverwrite() {
+        val existing = mapOf("estilo" to "pop")
+        val json = """{"fields":{"style":{"value":"rock","evidence":"rock","change":true}},"reply":"Got it."}"""
+        val parsed = BardoGuidedResponseParser.parse(
+            json, "No thanks, I want a rock song", existing
+        )!!
+        assertTrue(parsed.updates.isEmpty())
+    }
+
     @Test fun explicitCorrectionLanguageAllowsAChangeFlagToReplaceAnExistingField() {
         val existing = mapOf("estilo" to "pop")
         val json = """{"fields":{"style":{"value":"rock","evidence":"rock","change":true}},"reply":"Got it."}"""

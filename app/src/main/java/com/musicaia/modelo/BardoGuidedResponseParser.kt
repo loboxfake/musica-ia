@@ -63,7 +63,7 @@ object BardoGuidedResponseParser {
             java.text.Normalizer.Form.NFD
         ).replace(Regex("""\p{Mn}+"""), "")
         return Regex(
-            """\b(?:change|switch|modify|replace|instead|rather|actually|prefer|i prefer|no|cambiar|cambia|modificar|modifica|reemplazar|sustituir|mejor|prefiero|en vez de|en lugar de|mas bien)\b"""
+            """\b(?:change|switch|modify|replace|instead|rather|actually|prefer|i prefer|cambiar|cambia|modificar|modifica|reemplazar|sustituir|mejor|prefiero|en vez de|en lugar de|mas bien)\b"""
         ).containsMatchIn(normalized)
     }
 
