@@ -67,6 +67,7 @@ class BardoProtectedPathPolicyTest {
             "app/src/main/java/com/musicaia/desarrollo/BardoPatchTextExtractor.kt",
             "app/src/main/java/com/musicaia/modelo/BardoGuidedProgressPolicy.kt",
             "app/src/main/java/com/musicaia/modelo/BardoIntentRouter.kt",
+            "app/src/main/java/com/musicaia/autonomia/BardoAutonomyEngine.kt",
             "app/src/main/java/com/musicaia/evaluacion/BardoCiEvidenceAdapter.kt",
             "app/src/main/java/com/musicaia/skills/BardoSkillActivationGate.kt",
             "app/src/main/java/com/musicaia/storage/BardoExportSourcePolicy.kt"

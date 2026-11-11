@@ -36,6 +36,7 @@ class BardoGitHubPolicyTest {
             "app/src/main/java/com/musicaia/desarrollo/BardoPatchTextExtractor.kt",
             "app/src/main/java/com/musicaia/modelo/BardoGuidedProgressPolicy.kt",
             "app/src/main/java/com/musicaia/modelo/BardoIntentRouter.kt",
+            "app/src/main/java/com/musicaia/autonomia/BardoAutonomyEngine.kt",
             "app/src/main/java/com/musicaia/BardoDeveloperActivity.kt",
             "app/src/main/java/com/musicaia/BardoGitHubDevelopmentActivity.kt",
             "app/src/main/java/com/musicaia/desarrollo/BardoGitHubAutomation.kt",

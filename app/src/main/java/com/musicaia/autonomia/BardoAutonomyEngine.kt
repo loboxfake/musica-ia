@@ -278,7 +278,10 @@ class BardoAutonomyEngine(
             require(step.arguments.size <= 24 && step.arguments.values.all { it.length <= 8000 }) {
                 "El paso supera los límites de argumentos."
             }
-            require(step.expectedOutputContains == null || step.expectedOutputContains.length <= 300) {
+            require(!step.expectedOutputContains.isNullOrBlank()) {
+                "Cada paso debe declarar un criterio objetivo de salida; sin él no puede verificarse el éxito."
+            }
+            require(step.expectedOutputContains.length <= 300) {
                 "Criterio de salida demasiado largo."
             }
         }
@@ -424,7 +427,10 @@ class BardoGemmaTaskPlanner(
             deja la creación pendiente de confirmación del usuario. No incluyas scripts,
             comandos, código ejecutable ni URL de descarga en el workflow.
             Devuelve SOLO JSON:
-            {"correctionBudget":1,"steps":[{"toolId":"id.registrado","purpose":"motivo breve","arguments":{"key":"value"},"expectedOutputContains":"opcional"}]}
+            {"correctionBudget":1,"steps":[{"toolId":"id.registrado","purpose":"motivo breve","arguments":{"key":"value"},"expectedOutputContains":"frase literal, distintiva y verificable que debe aparecer en la salida de esa herramienta"}]}
+            expectedOutputContains es obligatorio en TODOS los pasos, no uses frases genéricas.
+            Elige una cadena literal que realmente deba aparecer en la respuesta esperada de la herramienta.
+            Si no puedes definir un criterio objetivo, no incluyas ese paso.
             Máximo 12 pasos y 2 correcciones. Cada paso invoca una herramienta tipada.
             No propongas shell, comandos, código, URL arbitrarias, permisos, GitHub write,
             merge, instalación, borrado, cambios a main ni acceso fuera de BARDO.

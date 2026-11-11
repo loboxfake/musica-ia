@@ -35,7 +35,7 @@ class BardoAutonomyEngineTest {
         try {
             val planner = BardoTaskPlanner { _, _, _ ->
                 BardoActionPlan((1..3).map {
-                    BardoTaskStep("test.echo", mapOf("value" to "ok"), "Step $it")
+                    BardoTaskStep("test.echo", mapOf("value" to "ok"), "Step $it", "ok")
                 }, 2)
             }
             val result = BardoAutonomyEngine(
@@ -90,8 +90,8 @@ class BardoAutonomyEngineTest {
             val planner = BardoTaskPlanner { _, _, _ ->
                 BardoActionPlan(
                     listOf(
-                        BardoTaskStep("test.echo", mapOf("value" to "first"), "First safe step"),
-                        BardoTaskStep("test.echo", mapOf("value" to "second"), "Second step")
+                        BardoTaskStep("test.echo", mapOf("value" to "first"), "First safe step", "first"),
+                        BardoTaskStep("test.echo", mapOf("value" to "second"), "Second step", "second")
                     ),
                     correctionBudget = 0
                 )
@@ -131,7 +131,7 @@ class BardoAutonomyEngineTest {
             }
             val planner = BardoTaskPlanner { _, _, _ ->
                 BardoActionPlan(listOf(
-                    BardoTaskStep("test.echo", mapOf("value" to "never"), "Must not run")
+                    BardoTaskStep("test.echo", mapOf("value" to "never"), "Must not run", "never")
                 ), 0)
             }
             val result = BardoAutonomyEngine(
@@ -156,7 +156,7 @@ class BardoAutonomyEngineTest {
         try {
             val planner = BardoTaskPlanner { _, _, _ ->
                 BardoActionPlan(listOf(BardoTaskStep(
-                    "test.echo", mapOf("value" to ""), "Require observable evidence"
+                    "test.echo", mapOf("value" to ""), "Require observable evidence", "evidence"
                 )), 0)
             }
             val result = BardoAutonomyEngine(planner, tools(), BardoTaskJournal(root)).run("Verify output")
@@ -184,8 +184,8 @@ class BardoAutonomyEngineTest {
                     assertTrue(reason.orEmpty().contains("criterio"))
                     BardoActionPlan(
                         listOf(
-                            BardoTaskStep("test.echo", mapOf("value" to "second"), "Corrected step 1"),
-                            BardoTaskStep("test.echo", mapOf("value" to "third"), "Corrected step 2")
+                            BardoTaskStep("test.echo", mapOf("value" to "second"), "Corrected step 1", "second"),
+                            BardoTaskStep("test.echo", mapOf("value" to "third"), "Corrected step 2", "third")
                         ),
                         correctionBudget = 0
                     )
@@ -238,12 +238,41 @@ class BardoAutonomyEngineTest {
         }
     }
 
+    @Test fun refusesPlansWithoutAnObjectiveOutputCriterion() {
+        val root = createTempDir(prefix = "bardo-autonomy-no-criterion")
+        try {
+            val executions = AtomicInteger()
+            val countedTool = object : BardoToolHandler {
+                override val descriptor = BardoToolDescriptor(
+                    "test.echo", "Returns a fixed response", BardoPermissionScope.READ_OWN_PROJECT
+                )
+                override fun execute(arguments: Map<String, String>): BardoToolOutput {
+                    executions.incrementAndGet()
+                    return BardoToolOutput(true, "A non-empty but unverified response")
+                }
+            }
+            val planner = BardoTaskPlanner { _, _, _ ->
+                BardoActionPlan(listOf(
+                    BardoTaskStep("test.echo", emptyMap(), "Read something without a verifiable success condition")
+                ), 0)
+            }
+            val result = BardoAutonomyEngine(
+                planner, BardoToolExecutor(listOf(countedTool)), BardoTaskJournal(root)
+            ).run("Never report success without an objective criterion")
+            assertEquals(BardoAutonomyStatus.BLOCKED, result.status)
+            assertTrue(result.observations.isEmpty())
+            assertEquals(0, executions.get())
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
     @Test fun refusesPlansWithTooManyStepsOrNoPurpose() {
         val root = createTempDir(prefix = "bardo-autonomy-invalid")
         try {
             val tooMany = BardoTaskPlanner { _, _, _ ->
                 BardoActionPlan((1..13).map {
-                    BardoTaskStep("test.echo", emptyMap(), "step")
+                    BardoTaskStep("test.echo", emptyMap(), "step", "unused")
                 })
             }
             assertEquals(
@@ -252,7 +281,7 @@ class BardoAutonomyEngineTest {
             )
 
             val noPurpose = BardoTaskPlanner { _, _, _ ->
-                BardoActionPlan(listOf(BardoTaskStep("test.echo", emptyMap(), "")))
+                BardoActionPlan(listOf(BardoTaskStep("test.echo", emptyMap(), "", "unused")))
             }
             assertEquals(
                 BardoAutonomyStatus.BLOCKED,
@@ -268,7 +297,7 @@ class BardoAutonomyEngineTest {
         try {
             val planner = BardoTaskPlanner { _, _, _ ->
                 BardoActionPlan(listOf(BardoTaskStep(
-                    "test.echo", mapOf("value" to "PRIVATE-CONTENT"), "Echo"
+                    "test.echo", mapOf("value" to "PRIVATE-CONTENT"), "Echo", "PRIVATE-CONTENT"
                 )), 0)
             }
             BardoAutonomyEngine(planner, tools(), BardoTaskJournal(root)).run("Goal")
