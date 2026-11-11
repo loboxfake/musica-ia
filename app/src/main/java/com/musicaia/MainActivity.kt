@@ -3418,6 +3418,9 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
  }
 
  private fun responderConOrquestador(textoUsuario: String, respuestaGuiada: String) {
+     val expectedFieldBeforeInference = BardoIntentRouter.nextRequiredField(datosConver)
+     val fallbackIsSummary = respuestaGuiada.startsWith("Resumen de la canción:") ||
+         respuestaGuiada.startsWith("Song summary:")
      anexarChat("\nTú: $textoUsuario")
 
      // La conversación guiada usa el mismo registro local que el chat libre.
@@ -3503,10 +3506,11 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
              if (parsed != null) {
                  parsed.updates.forEach { (key, value) -> datosConver[key] = value }
                  val nextField = BardoIntentRouter.nextRequiredField(datosConver)
-                 val requireSummary = respuestaGuiada.startsWith("Resumen de la canción:") ||
-                     respuestaGuiada.startsWith("Song summary:")
+                 val completedAfterInference = expectedFieldBeforeInference != null && nextField == null
+                 val fallback = if (completedAfterInference) resumenCreacionGuiada() else respuestaGuiada
+                 val requireSummary = fallbackIsSummary || completedAfterInference
                  val reply = BardoGuidedProgressPolicy.selectReply(
-                     parsed.reply, respuestaGuiada, nextField, requireSummary
+                     parsed.reply, fallback, nextField, requireSummary
                  )
                  anexarChat("\nBARDO ($providerLabel): $reply")
                  tvEstado.text = if (reply == parsed.reply) {
@@ -3520,10 +3524,11 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                  }
                  if (!freeformReply.isNullOrBlank()) {
                      val nextField = BardoIntentRouter.nextRequiredField(datosConver)
-                     val requireSummary = respuestaGuiada.startsWith("Resumen de la canción:") ||
-                         respuestaGuiada.startsWith("Song summary:")
+                     val completedAfterInference = expectedFieldBeforeInference != null && nextField == null
+                     val fallback = if (completedAfterInference) resumenCreacionGuiada() else respuestaGuiada
+                     val requireSummary = fallbackIsSummary || completedAfterInference
                      val reply = BardoGuidedProgressPolicy.selectReply(
-                         freeformReply, respuestaGuiada, nextField, requireSummary
+                         freeformReply, fallback, nextField, requireSummary
                      )
                      anexarChat("\nBARDO ($providerLabel): $reply")
                      tvEstado.text = if (reply == freeformReply) {

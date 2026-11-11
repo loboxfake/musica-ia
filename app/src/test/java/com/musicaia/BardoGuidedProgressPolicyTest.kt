@@ -78,6 +78,26 @@ class BardoGuidedProgressPolicyTest {
     }
 
     @Test
+    fun rejectsQuestionsThatOnlyMentionMusicWithoutAskingAboutStyle() {
+        assertTrue(
+            !BardoGuidedProgressPolicy.asksAboutRequiredField(
+                "¿Qué te parece el proyecto musical?",
+                "estilo"
+            )
+        )
+    }
+
+    @Test
+    fun normalizesSpanishAccentsWhenCheckingTheMissingField() {
+        assertTrue(
+            BardoGuidedProgressPolicy.asksAboutRequiredField(
+                "¿Qué género te gustaría?",
+                "estilo"
+            )
+        )
+    }
+
+    @Test
     fun rejectsQuestionsWithoutARecognizedFieldLabel() {
         assertTrue(!BardoGuidedProgressPolicy.asksAboutRequiredField("¿Qué prefieres?", "estilo"))
     }

@@ -27,12 +27,15 @@ object BardoGuidedProgressPolicy {
 
     fun asksAboutRequiredField(reply: String, field: String): Boolean {
         if (reply.isBlank() || '?' !in reply) return false
-        val normalized = reply.lowercase()
+        val normalized = java.text.Normalizer.normalize(
+            reply.lowercase(java.util.Locale.ROOT),
+            java.text.Normalizer.Form.NFD
+        ).replace(Regex("""\p{Mn}+"""), "")
             .replace(Regex("""[^\p{L}\p{N}]+"""), " ")
             .trim()
         val terms = when (field) {
             "tema" -> listOf("tema", "theme", "song", "cancion", "track")
-            "estilo" -> listOf("estilo", "style", "genre", "genero", "musical")
+            "estilo" -> listOf("estilo", "style", "genre", "genero")
             "ambiente" -> listOf("ambiente", "mood", "emotion", "emocion", "feeling")
             "ritmo" -> listOf("ritmo", "rhythm", "tempo")
             "idioma" -> listOf("idioma", "language", "espanol", "spanish", "english")
