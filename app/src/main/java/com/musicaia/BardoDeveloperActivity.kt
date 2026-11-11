@@ -963,6 +963,12 @@ class BardoDeveloperActivity : AppCompatActivity() {
         val ciDiagnostics = getSharedPreferences("bardo_developer", MODE_PRIVATE)
             .getString("latest_ci_diagnostics", "").orEmpty()
         if (lastReport.isBlank() && references.isEmpty() && ciDiagnostics.isBlank()) return
+        val audioActivo = getSharedPreferences("bardo_background_tasks", MODE_PRIVATE)
+            .getString("state", "").orEmpty() == "running"
+        if (audioActivo) {
+            output.text = "BARDO está generando audio en segundo plano. El análisis de código esperará para no competir por el runtime ni por la RAM."
+            return
+        }
         if (!modeloTextoLocalDisponible()) {
             output.text = "No hay Gemma ni Qwen2 local instalado con el tamaño esperado. Importa un modelo desde el Laboratorio IA; no se utilizará la nube."
             return
@@ -1412,9 +1418,13 @@ class BardoDeveloperActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         worker.shutdown()
-        if (!getSharedPreferences("bardo_developer", MODE_PRIVATE).getBoolean("auto_study_enabled", false)) {
-            EngineLiteRT.cerrarAsync()
-        }
+        val autoestudioActivo = getSharedPreferences("bardo_developer", MODE_PRIVATE)
+            .getString("last_auto_study_status", "").orEmpty() == "running"
+        val audioActivo = getSharedPreferences("bardo_background_tasks", MODE_PRIVATE)
+            .getString("state", "").orEmpty() == "running"
+        // La Activity y WorkManager comparten el runtime nativo: nunca cerrar
+        // LiteRT mientras el trabajador autónomo o una tarea de audio está activo.
+        if (!autoestudioActivo && !audioActivo) EngineLiteRT.cerrarAsync()
         super.onDestroy()
     }
 }
