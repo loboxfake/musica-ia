@@ -37,6 +37,49 @@ class WavSegmentDiagnosticsTest {
         }
     }
 
+
+    @Test
+    fun rejectsChunkThatExceedsDeclaredRiffBoundary() {
+        val wav = createPcm16Wav(sampleRate = 44_100, channels = 1, frames = 32)
+        try {
+            val bytes = wav.readBytes()
+            ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).putInt(4, 36)
+            wav.writeBytes(bytes)
+            assertThrows(IllegalArgumentException::class.java) {
+                WavSegmentDiagnostics.inspect(wav)
+            }
+        } finally {
+            wav.delete()
+        }
+    }
+
+    @Test
+    fun rejectsIncorrectPcmByteRateAndBlockAlign() {
+        val badRate = createPcm16Wav(sampleRate = 44_100, channels = 2, frames = 16)
+        try {
+            val bytes = badRate.readBytes()
+            ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).putInt(28, 44_100)
+            badRate.writeBytes(bytes)
+            assertThrows(IllegalArgumentException::class.java) {
+                WavSegmentDiagnostics.inspect(badRate)
+            }
+        } finally {
+            badRate.delete()
+        }
+
+        val badAlign = createPcm16Wav(sampleRate = 44_100, channels = 2, frames = 16)
+        try {
+            val bytes = badAlign.readBytes()
+            ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).putShort(32, 2)
+            badAlign.writeBytes(bytes)
+            assertThrows(IllegalArgumentException::class.java) {
+                WavSegmentDiagnostics.inspect(badAlign)
+            }
+        } finally {
+            badAlign.delete()
+        }
+    }
+
     private fun createPcm16Wav(sampleRate: Int, channels: Int, frames: Int): File {
         val dataBytes = frames * channels * 2
         val buffer = ByteBuffer.allocate(44 + dataBytes).order(ByteOrder.LITTLE_ENDIAN)
