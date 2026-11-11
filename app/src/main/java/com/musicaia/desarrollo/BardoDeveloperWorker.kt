@@ -21,10 +21,9 @@ import com.musicaia.memoria.BardoSourceExcerptLearningVerifier
 import com.musicaia.memoria.BardoActivityStore
 import com.musicaia.diagnostico.BardoSelfInventory
 import com.musicaia.modelo.BardoCapabilityRegistry
-import com.musicaia.modelo.BardoResourceBudget
 import com.musicaia.modulos.litert.EngineLiteRT
-import com.musicaia.modelo.BardoResourceCoordinator
 import com.musicaia.modulos.litert.LiteRTLMModule
+import com.musicaia.modelos.BardoQwen2LiteRtProvider
 import com.musicaia.storage.BardoSharedStorage
 import com.musicaia.autonomia.BardoAutonomyEngine
 import com.musicaia.autonomia.BardoTaskExecutionGuard
@@ -60,9 +59,7 @@ class BardoDeveloperWorker(
         const val UNIQUE_WORK = "bardo_autonomous_developer"
         private const val CHANNEL_ID = "bardo_developer_background"
         private const val NOTIFICATION_ID = 8732
-        // El umbral de 4 GiB se reserva para cargar Gemma. Durante la ejecución,
-        // el modelo ya ocupa memoria; se conserva un margen mínimo adicional de 768 MiB.
-        private const val MIN_FREE_MEMORY_BYTES = BardoCapabilityRegistry.MIN_GEMMA_FREE_MEMORY_BYTES
+        // Margen de seguridad mínimo durante cada paso, una vez cargado el modelo local.
         private const val MIN_AUTONOMY_STEP_FREE_MEMORY_BYTES = 768L * 1024L * 1024L
     }
 
@@ -138,44 +135,22 @@ class BardoDeveloperWorker(
                 selfInventory.capabilities.forEach { appendLine("- " + it.id + " / " + it.name + ": " + it.status.name + ". " + it.detail) }
             }
 
-            val model = LiteRTLMModule.modelFile(applicationContext)
-            check(model.isFile && model.length() == LiteRTLMModule.EXPECTED_SIZE_BYTES) {
-                "Gemma local no está instalado o su tamaño no coincide. No se descargó ningún archivo."
-            }
-
-            val bloqueoRecursos = BardoResourceBudget.blockingReason(
-                applicationContext, MIN_FREE_MEMORY_BYTES
+            // BARDO no depende de Gemma como modelo único. El registro intenta primero
+            // el modelo local de mayor capacidad y recurre a Qwen2-0.5B cuando Gemma
+            // falta o los recursos del Xiaomi no permiten cargarlo. Cada proveedor
+            // verifica tamaño, SHA-256 y RAM antes de inferir; no se descarga nada aquí.
+            val modelRegistry = BardoModelRegistry(
+                listOf(BardoGemmaLiteRtProvider(), BardoQwen2LiteRtProvider())
             )
-            check(bloqueoRecursos == null) {
-                bloqueoRecursos ?: "Los recursos del dispositivo no permiten cargar Gemma."
-            }
+            modelStarted = true
 
-            check(LiteRTLMModule.verificarModelo(model)) {
-                "La verificación SHA-256 de Gemma ha fallado."
-            }
-
-            // El hash puede tardar y el foreground puede demorarse: comprobar recursos de nuevo
-            // inmediatamente antes de reservar memoria nativa para Gemma.
-            setForeground(foregroundInfo("BARDO está comprobando los recursos antes de cargar Gemma…"))
-            val bloqueoRecursosFinal = BardoResourceBudget.blockingReason(
-                applicationContext, MIN_FREE_MEMORY_BYTES
-            )
-            check(bloqueoRecursosFinal == null) {
-                bloqueoRecursosFinal ?: "Los recursos del dispositivo cambiaron antes de cargar Gemma."
-            }
             BardoActivityStore.record(
                 applicationContext, taskId, "autoestudio", "running",
-                "verificacion_modelo", "SHA-256 correcto y recursos vueltos a comprobar inmediatamente antes de cargar Gemma.",
-                35, model.absolutePath
+                "seleccion_modelo_local",
+                "Registro local preparado: Gemma y Qwen2; el proveedor se seleccionará por presencia, integridad y recursos.",
+                35
             )
-            setForeground(foregroundInfo("BARDO está cargando Gemma local…"))
-            BardoResourceCoordinator.withTextModel {
-            check(EngineLiteRT.inicializar(
-                model.absolutePath,
-                File(applicationContext.cacheDir, "bardo-litert-cache").absolutePath
-            )) { "LiteRT-LM no pudo inicializar el modelo local." }
-            modelStarted = true
-            }
+            setForeground(foregroundInfo("BARDO está preparando el modelo local disponible…"))
 
             BardoActivityStore.record(
                 applicationContext, taskId, "autoestudio", "running",
@@ -184,7 +159,6 @@ class BardoDeveloperWorker(
             val skillRuntime = BardoSkillRuntimeFactory.create(applicationContext)
             val toolExecutor = skillRuntime.tools
             val autonomyResult = runCatching {
-                val modelRegistry = BardoModelRegistry(listOf(BardoGemmaLiteRtProvider()))
                 val autonomyBudget = BardoAutonomyBudget(
                     maxTaskMillis = prefs.getLong("autonomy_budget_task_millis", 180_000L),
                     maxSteps = prefs.getInt("autonomy_budget_max_steps", 12),
@@ -244,7 +218,7 @@ class BardoDeveloperWorker(
                 "inventario_skills", skillSummary, 53
             )
 
-            BardoActivityStore.record(applicationContext, taskId, "autoestudio", "running", "inferencia_local", "Gemma local está analizando el snapshot; el código no se ejecuta.", 55)
+            BardoActivityStore.record(applicationContext, taskId, "autoestudio", "running", "inferencia_local", "El modelo local está analizando el snapshot; el código no se ejecuta.", 55)
             val audit = BardoDeveloperCore.analizar(snapshot)
             val auditText = audit.render()
             val sourceText = BardoDeveloperCore.extractos(snapshot, audit, 16000)
@@ -325,16 +299,28 @@ a pasar validación en otro runner.
             // La flota es independiente del proveedor. Gemma es el primer agente local registrado;
             // otros adaptadores podrán añadirse sin cambiar el flujo de autoestudio.
             val gemmaProvider = BardoGemmaLiteRtProvider()
+            val qwenProvider = BardoQwen2LiteRtProvider()
             val agentFleet = BardoAgentFleet(
-                invokers = listOf(BardoProviderAgentInvoker(applicationContext, gemmaProvider)),
+                invokers = listOf(
+                    BardoProviderAgentInvoker(applicationContext, gemmaProvider),
+                    BardoProviderAgentInvoker(applicationContext, qwenProvider)
+                ),
                 profiles = listOf(
                     BardoAgentProfile(
-                        id = "bardo.local.software-engineer",
-                        name = "BARDO · ingeniería de software local",
+                        id = "bardo.local.software-engineer.gemma",
+                        name = "BARDO · ingeniería de software local (Gemma)",
                         providerId = gemmaProvider.descriptor.id,
                         role = BardoAgentRole.SOFTWARE_ENGINEER,
                         capabilities = gemmaProvider.descriptor.capabilities,
                         priority = 100
+                    ),
+                    BardoAgentProfile(
+                        id = "bardo.local.software-engineer.qwen",
+                        name = "BARDO · ingeniería de software local (Qwen2)",
+                        providerId = qwenProvider.descriptor.id,
+                        role = BardoAgentRole.SOFTWARE_ENGINEER,
+                        capabilities = qwenProvider.descriptor.capabilities,
+                        priority = 80
                     )
                 )
             )
@@ -624,7 +610,7 @@ a pasar validación en otro runner.
                 message.contains("RAM libre insuficiente", ignoreCase = true) ||
                 message.contains("Batería baja", ignoreCase = true) ||
                 message.contains("demasiado caliente", ignoreCase = true) ||
-                message.contains("Gemma local no está instalado", ignoreCase = true) ||
+                message.contains("No hay un modelo local compatible instalado", ignoreCase = true) ||
                 message.contains("generación de audio está activa", ignoreCase = true)
             runCatching {
                 workspace.mkdirs()
