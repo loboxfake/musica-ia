@@ -278,10 +278,11 @@ class BardoAutonomyEngine(
             require(step.arguments.size <= 24 && step.arguments.values.all { it.length <= 8000 }) {
                 "El paso supera los límites de argumentos."
             }
-            require(!step.expectedOutputContains.isNullOrBlank()) {
+            val objectiveCriterion = step.expectedOutputContains
+            require(!objectiveCriterion.isNullOrBlank()) {
                 "Cada paso debe declarar un criterio objetivo de salida; sin él no puede verificarse el éxito."
             }
-            require(step.expectedOutputContains.length <= 300) {
+            require(objectiveCriterion.length <= 300) {
                 "Criterio de salida demasiado largo."
             }
         }
