@@ -117,7 +117,7 @@ class BardoDeveloperWorker(
                 "La generación de audio está activa. El autoestudio esperará para no competir por la RAM del teléfono."
             }
 
-            // Capturar el estado propio antes de cargar Gemma para que la RAM refleje el teléfono libre.
+            // Capturar el estado propio antes de cargar el modelo para que la RAM refleje el teléfono libre.
             val selfInventory = BardoSelfInventory.snapshot(applicationContext)
             val selfInventoryText = buildString {
                 appendLine("INSTALACIÓN: " + selfInventory.packageName + " " + selfInventory.versionName + " (" + selfInventory.versionCode + ")")
@@ -293,8 +293,8 @@ protegidos. No declares resuelto el fallo; únicamente prepara una propuesta peq
 a pasar validación en otro runner.
             """.trimIndent()
 
-            setForeground(foregroundInfo("BARDO está estudiando el código con Gemma…"))
-            // La flota es independiente del proveedor. Gemma es el primer agente local registrado;
+            setForeground(foregroundInfo("BARDO está estudiando el código con el modelo local…"))
+            // La flota es independiente del proveedor. Se prueba primero el proveedor local de mayor capacidad;
             // otros adaptadores podrán añadirse sin cambiar el flujo de autoestudio.
             val gemmaProvider = BardoGemmaLiteRtProvider()
             val qwenProvider = BardoQwen2LiteRtProvider()
@@ -340,7 +340,7 @@ a pasar validación en otro runner.
                 "Ningún agente local pudo completar el autoestudio. " + fleetReport.summary
             }
 
-            // Gemma nunca se evalúa a sí mismo. Solo se conecta un verificador determinista
+            // El modelo nunca se evalúa a sí mismo. Solo se conecta un verificador determinista
             // para el snapshot oficial empaquetado; los proyectos importados quedan como candidatos.
             val sourceLearningVerifier =
                 if (snapshotOrigin == BardoSnapshotOriginPolicy.BUNDLED_BARDO) {
@@ -654,7 +654,7 @@ a pasar validación en otro runner.
                 "Autoestudio de BARDO",
                 NotificationManager.IMPORTANCE_LOW
             )
-            channel.description = "Trabajo local de análisis de código con Gemma"
+            channel.description = "Trabajo local de análisis de código con modelos instalados"
             manager.createNotificationChannel(channel)
         }
 
