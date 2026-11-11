@@ -3505,6 +3505,10 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
              }
              if (parsed != null) {
                  parsed.updates.forEach { (key, value) -> datosConver[key] = value }
+                 if (parsed.updates.isNotEmpty()) {
+                     guardarPreferenciasCreativas()
+                     actualizarUI()
+                 }
                  val nextField = BardoIntentRouter.nextRequiredField(datosConver)
                  val completedAfterInference = expectedFieldBeforeInference != null && nextField == null
                  val fallback = if (completedAfterInference) resumenCreacionGuiada() else respuestaGuiada
