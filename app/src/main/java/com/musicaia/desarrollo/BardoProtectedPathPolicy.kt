@@ -26,6 +26,7 @@ object BardoProtectedPathPolicy {
         "app/src/main/java/com/musicaia/desarrollo/BardoDeveloperWorker.kt",
         "app/src/main/java/com/musicaia/desarrollo/BardoGitHubAutomation.kt",
         "app/src/main/java/com/musicaia/desarrollo/BardoPatchTextExtractor.kt",
+        "app/src/main/java/com/musicaia/modelo/BardoGuidedProgressPolicy.kt",
         "app/src/main/java/com/musicaia/desarrollo/BardoPatchApplier.kt",
         "app/src/main/java/com/musicaia/desarrollo/BardoProtectedPathPolicy.kt",
         "app/src/main/java/com/musicaia/desarrollo/BardoWorkspaceManager.kt",

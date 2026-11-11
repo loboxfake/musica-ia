@@ -39,6 +39,7 @@ import com.musicaia.modulos.MezclaVoz
 import com.musicaia.modulos.ModuloLetra
 import com.musicaia.modelo.Orquestador
 import com.musicaia.modelo.BardoIntentRouter
+import com.musicaia.modelo.BardoGuidedProgressPolicy
 import com.musicaia.modelo.BardoCapabilityRegistry
 import com.musicaia.modelo.BardoResourceBudget
 import com.musicaia.modelo.BardoResourceCoordinator
@@ -3501,15 +3502,35 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
              }
              if (parsed != null) {
                  parsed.updates.forEach { (key, value) -> datosConver[key] = value }
-                 anexarChat("\nBARDO ($providerLabel): ${parsed.reply}")
-                 tvEstado.text = "Respuesta local con $providerLabel; ${parsed.updates.size} campo(s) guardado(s) con evidencia."
+                 val nextField = BardoIntentRouter.nextRequiredField(datosConver)
+                 val requireSummary = respuestaGuiada.startsWith("Resumen de la canción:") ||
+                     respuestaGuiada.startsWith("Song summary:")
+                 val reply = BardoGuidedProgressPolicy.selectReply(
+                     parsed.reply, respuestaGuiada, nextField, requireSummary
+                 )
+                 anexarChat("\nBARDO ($providerLabel): $reply")
+                 tvEstado.text = if (reply == parsed.reply) {
+                     "Respuesta local con $providerLabel; ${parsed.updates.size} campo(s) guardado(s) con evidencia."
+                 } else {
+                     "Respuesta local recibida; BARDO ha mantenido el siguiente paso guiado verificable."
+                 }
              } else {
                  val freeformReply = generated?.second?.let {
                      com.musicaia.modelo.BardoGuidedResponseParser.extractFreeformReply(it)
                  }
                  if (!freeformReply.isNullOrBlank()) {
-                     anexarChat("\nBARDO ($providerLabel): $freeformReply")
-                     tvEstado.text = "Respuesta local con $providerLabel; no se modificaron campos creativos sin evidencia estructurada."
+                     val nextField = BardoIntentRouter.nextRequiredField(datosConver)
+                     val requireSummary = respuestaGuiada.startsWith("Resumen de la canción:") ||
+                         respuestaGuiada.startsWith("Song summary:")
+                     val reply = BardoGuidedProgressPolicy.selectReply(
+                         freeformReply, respuestaGuiada, nextField, requireSummary
+                     )
+                     anexarChat("\nBARDO ($providerLabel): $reply")
+                     tvEstado.text = if (reply == freeformReply) {
+                         "Respuesta local con $providerLabel; no se modificaron campos creativos sin evidencia estructurada."
+                     } else {
+                         "Respuesta local recibida; BARDO ha mantenido el siguiente paso guiado verificable."
+                     }
                  } else {
                      val error = resultado.exceptionOrNull()?.message
                          ?: "El modelo no devolvió una respuesta conversacional verificable."
