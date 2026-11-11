@@ -18,7 +18,7 @@ object LectorWav {
     private const val MIN_SAMPLE_RATE = 8_000
     private const val MAX_SAMPLE_RATE = 384_000
     const val MAX_FILE_BYTES = 120L * 1024L * 1024L
-    private const val MAX_FRAMES_PER_FILE = 30_000_000L
+    private const val MAX_FRAMES_PER_FILE = 32_000_000L
 
     fun leer(ruta: String): AudioPcm {
         val file = File(ruta)
