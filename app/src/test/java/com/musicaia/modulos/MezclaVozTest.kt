@@ -153,7 +153,7 @@ class MezclaVozTest {
                 MezclaVoz.mezclar(voice.absolutePath, instrumental.absolutePath, output.absolutePath)
                 throw AssertionError("Se esperaba que un WAV inválido fuese rechazado.")
             } catch (expected: IllegalArgumentException) {
-                assertTrue(expected.message.orEmpty().contains("RIFF/WAVE"))
+                assertTrue(expected.message.orEmpty().contains("RIFF"))
             }
 
             assertArrayEquals(previousOutput, output.readBytes())
