@@ -3,6 +3,9 @@ package com.musicaia.modulos
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import com.musicaia.modelo.Dato
 
 class AudioPcm(val muestras: ShortArray, val frecuencia: Int)
@@ -15,11 +18,16 @@ object LectorWav {
     private const val MAX_CHANNELS = 8
     private const val MIN_SAMPLE_RATE = 8_000
     private const val MAX_SAMPLE_RATE = 384_000
+    const val MAX_FILE_BYTES = 32L * 1024L * 1024L
 
     fun leer(ruta: String): AudioPcm {
         val file = File(ruta)
         require(file.isFile) { "no existe el archivo WAV" }
-        require(file.length() >= 44L) { "archivo demasiado pequeño" }
+        val fileLength = file.length()
+        require(fileLength >= 44L) { "archivo demasiado pequeño" }
+        require(fileLength <= MAX_FILE_BYTES) {
+            "el WAV supera el límite de seguridad de 32 MiB para lectura en memoria"
+        }
 
         val bytes = file.readBytes()
         require(bytes.size >= 44) { "archivo demasiado pequeño" }
@@ -115,12 +123,26 @@ object MezclaVoz {
     private const val GANANCIA_INSTRUMENTAL = 0.5f
 
     fun mezclar(rutaVoz: String, rutaInstrumental: String, rutaSalida: String): Dato.Audio {
+        val archivoVoz = File(rutaVoz)
+        val archivoInstrumental = File(rutaInstrumental)
+        val archivoSalida = File(rutaSalida)
+        val salidaCanonica = archivoSalida.canonicalFile
+        require(salidaCanonica != archivoVoz.canonicalFile &&
+            salidaCanonica != archivoInstrumental.canonicalFile
+        ) { "El archivo de salida no puede sobrescribir la voz ni el instrumental originales." }
+
         val voz = LectorWav.leer(rutaVoz)
         val ins = LectorWav.leer(rutaInstrumental)
         val frec = ins.frecuencia
         val razon = voz.frecuencia.toDouble() / frec
-        val nVoz = (voz.muestras.size / razon).toInt()
+        val nVozLong = (voz.muestras.size.toDouble() / razon).toLong()
+        require(nVozLong in 1L..Int.MAX_VALUE.toLong()) {
+            "La duración de la voz supera el tamaño PCM admitido."
+        }
+        val nVoz = nVozLong.toInt()
         val total = maxOf(ins.muestras.size, nVoz)
+        require(total > 0) { "No hay muestras PCM para mezclar." }
+
         val mezcla = FloatArray(total)
         for (i in 0 until total) {
             var v = 0f
@@ -141,9 +163,53 @@ object MezclaVoz {
             if (ax > pico) pico = ax
         }
         val escala = if (pico > 29000f) 29000f / pico else 1f
-        AudioUtil.escribirWavMono16(rutaSalida, frec, total) { inicio, n ->
-            ShortArray(n) { k -> (mezcla[inicio + k] * escala).toInt().toShort() }
+
+        val directorio = archivoSalida.absoluteFile.parentFile ?: File(".")
+        check(directorio.isDirectory || directorio.mkdirs()) {
+            "No se pudo crear el directorio de salida WAV."
         }
-        return Dato.Audio(rutaSalida, frec)
+        val temporal = File.createTempFile("bardo_voice_mix_", ".wav.tmp", directorio)
+        try {
+            AudioUtil.escribirWavMono16(temporal.absolutePath, frec, total) { inicio, n ->
+                ShortArray(n) { k -> (mezcla[inicio + k] * escala).toInt().toShort() }
+            }
+
+            val infoTemporal = WavSegmentDiagnostics.inspect(temporal)
+            require(
+                infoTemporal.sampleRate == frec &&
+                    infoTemporal.channels == 1 &&
+                    infoTemporal.bitsPerSample == 16 &&
+                    infoTemporal.frames == total.toLong() &&
+                    temporal.length() == 44L + total.toLong() * 2L
+            ) { "El WAV mezclado no superó la validación previa a su publicación." }
+
+            try {
+                Files.move(
+                    temporal.toPath(),
+                    archivoSalida.toPath(),
+                    StandardCopyOption.ATOMIC_MOVE,
+                    StandardCopyOption.REPLACE_EXISTING
+                )
+            } catch (_: AtomicMoveNotSupportedException) {
+                Files.move(
+                    temporal.toPath(),
+                    archivoSalida.toPath(),
+                    StandardCopyOption.REPLACE_EXISTING
+                )
+            }
+
+            val infoFinal = WavSegmentDiagnostics.inspect(archivoSalida)
+            require(
+                infoFinal.sampleRate == frec &&
+                    infoFinal.channels == 1 &&
+                    infoFinal.bitsPerSample == 16 &&
+                    infoFinal.frames == total.toLong() &&
+                    archivoSalida.length() == 44L + total.toLong() * 2L
+            ) { "El WAV mezclado publicado no superó la validación final." }
+
+            return Dato.Audio(archivoSalida.absolutePath, frec)
+        } finally {
+            if (temporal.exists()) temporal.delete()
+        }
     }
 }
