@@ -219,7 +219,7 @@ Se corrigió en los commits `b2b44ed` y posteriores:
 
 - El lector recorre los chunks RIFF con `RandomAccessFile`, valida límites y alineación y decodifica PCM en bloques de 8192 frames.
 - El escritor emite la cabecera y bloques PCM de 32 KiB a un temporal; valida el WAV y lo publica mediante movimiento atómico cuando el sistema de archivos lo permite.
-- Se aplica un máximo de 120 MiB por archivo, 12 millones de frames por segmento y 16 millones de muestras PCM acumuladas en los segmentos de entrada.
+- Se aplica un máximo de 120 MiB por archivo, 8 millones de frames por segmento y 16 millones de muestras PCM acumuladas en los segmentos de entrada.
 - Se añadieron pruebas para WAV sobredimensionado, límite agregado de memoria y conservación de canales estéreo intercalados.
 
 La protección de memoria reduce las copias temporales, pero no equivale a una garantía de que cualquier duración pueda mezclarse en cualquier dispositivo: los arrays de muestras y el buffer final de mezcla siguen ocupando memoria. La validación de GitHub de estos últimos commits está pendiente de ejecución; no se declara esta revisión aprobada hasta que sus pruebas terminen.
