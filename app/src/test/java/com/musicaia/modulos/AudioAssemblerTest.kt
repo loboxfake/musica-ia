@@ -1,6 +1,7 @@
 package com.musicaia.modulos
 
 import java.io.File
+import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import org.junit.Assert.assertArrayEquals
@@ -178,6 +179,81 @@ class AudioAssemblerTest {
             directory.deleteRecursively()
         }
     }
+
+
+    @Test
+    fun rejectsOversizedSparseWavBeforeLoadingItsPcm() {
+        val directory = createTempDir(prefix = "audio-assembler-size-limit-test")
+        try {
+            val oversized = File(directory, "oversized.wav")
+            RandomAccessFile(oversized, "rw").use {
+                it.setLength(120L * 1024L * 1024L + 1L)
+            }
+            val output = File(directory, "joined.wav")
+            try {
+                AudioAssembler.assemble(listOf(oversized), output)
+                throw AssertionError("Expected an oversized WAV to be rejected.")
+            } catch (expected: IllegalArgumentException) {
+                assertTrue(expected.message.orEmpty().contains("120 MiB"))
+            }
+            assertTrue(!output.exists())
+            assertTrue(directory.listFiles().orEmpty().none { it.name.startsWith("bardo_audio_") })
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun rejectsCombinedInputSampleCountAboveMemoryBudget() {
+        val directory = createTempDir(prefix = "audio-assembler-total-limit-test")
+        try {
+            val first = File(directory, "first.wav")
+            val second = File(directory, "second.wav")
+            val output = File(directory, "joined.wav")
+            // Each clip is below the per-file limit; their combined sample count exceeds
+            // the bounded in-memory mixing budget.
+            val frames = 12_000_001
+            writeLargeTestWav(first, frames)
+            writeLargeTestWav(second, frames)
+            try {
+                AudioAssembler.assemble(listOf(first, second), output)
+                throw AssertionError("Expected aggregate PCM sample limit to be enforced.")
+            } catch (expected: IllegalArgumentException) {
+                assertTrue(expected.message.orEmpty().contains("límite conjunto"))
+            }
+            assertTrue(!output.exists())
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    private fun writeLargeTestWav(file: File, frames: Int) {
+        val dataBytes = frames.toLong() * 2L
+        RandomAccessFile(file, "rw").use { output ->
+            output.write("RIFF".toByteArray(Charsets.US_ASCII).reversedArray())
+            output.write(byteArrayOf(
+                (36L + dataBytes).toByte(),
+                ((36L + dataBytes) shr 8).toByte(),
+                ((36L + dataBytes) shr 16).toByte(),
+                ((36L + dataBytes) shr 24).toByte()
+            ))
+            output.write("WAVE".toByteArray(Charsets.US_ASCII).reversedArray())
+            output.write("fmt ".toByteArray(Charsets.US_ASCII).reversedArray())
+            output.write(byteArrayOf(16, 0, 0, 0, 1, 0, 1, 0))
+            output.write(byteArrayOf(0xE8.toByte(), 0x03, 0, 0)) // 1000 Hz
+            output.write(byteArrayOf(0xD0.toByte(), 0x07, 0, 0)) // 2000 bytes/s
+            output.write(byteArrayOf(2, 0, 16, 0))
+            output.write("data".toByteArray(Charsets.US_ASCII).reversedArray())
+            output.write(byteArrayOf(
+                dataBytes.toByte(),
+                (dataBytes shr 8).toByte(),
+                (dataBytes shr 16).toByte(),
+                (dataBytes shr 24).toByte()
+            ))
+            output.setLength(44L + dataBytes)
+        }
+    }
+
 
     private fun writeTestWav(file: File, samples: ShortArray) {
         val dataBytes = samples.size * 2
