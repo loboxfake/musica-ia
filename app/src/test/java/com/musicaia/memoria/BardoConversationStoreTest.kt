@@ -203,6 +203,38 @@ class BardoConversationStoreTest {
     }
 
     @Test
+    fun recoversWhenPrimaryContainsMalformedMessageRecords() {
+        val (store, directory) = newStore()
+        try {
+            val conversation = store.createConversation("Registro inválido")
+            store.append(conversation.id, "user", "Mensaje conservado")
+            val primary = File(directory, "bardo_conversation_history.json")
+            val backup = File(directory, "bardo_conversation_history.json.bak")
+            primary.copyTo(backup, overwrite = true)
+
+            val malformed = JSONObject()
+                .put("schemaVersion", 1)
+                .put("conversations", org.json.JSONArray().put(
+                    JSONObject()
+                        .put("id", conversation.id)
+                        .put("title", "Registro inválido")
+                        .put("createdAtEpochMillis", 1L)
+                        .put("updatedAtEpochMillis", 1L)
+                ))
+                .put("messages", org.json.JSONArray().put("not a message object"))
+            primary.writeText(malformed.toString(), Charsets.UTF_8)
+
+            store.append(conversation.id, "assistant", "Recuperación correcta")
+            assertEquals(
+                listOf("Mensaje conservado", "Recuperación correcta"),
+                store.messages(conversation.id).map { it.content }
+            )
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
     fun searchesMessagesAndReturnsTheirConversation() {
         val (store, directory) = newStore()
         try {
