@@ -39,6 +39,25 @@ class BardoConversationStoreTest {
     }
 
     @Test
+    fun preservesAppendOrderWhenMessagesShareTheSameTimestamp() {
+        val (store, directory) = newStore()
+        try {
+            val conversation = store.createConversation("Orden")
+            val sameInstant = 1_800_000_000_000L
+            store.append(conversation.id, "user", "Primero", now = sameInstant)
+            store.append(conversation.id, "assistant", "Segundo", now = sameInstant)
+            store.append(conversation.id, "user", "Tercero", now = sameInstant)
+
+            assertEquals(
+                listOf("Primero", "Segundo", "Tercero"),
+                store.messages(conversation.id).map { it.content }
+            )
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
     fun titlesNewConversationFromFirstUserMessage() {
         val (store, directory) = newStore()
         try {
