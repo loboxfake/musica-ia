@@ -209,14 +209,16 @@ class AudioAssemblerTest {
         try {
             val first = File(directory, "first.wav")
             val second = File(directory, "second.wav")
+            val third = File(directory, "third.wav")
             val output = File(directory, "joined.wav")
             // Each clip is below the per-file limit; their combined sample count exceeds
             // the bounded in-memory mixing budget.
-            val frames = 8_000_001
+            val frames = 5_333_334
             writeLargeTestWav(first, frames)
             writeLargeTestWav(second, frames)
+            writeLargeTestWav(third, frames)
             try {
-                AudioAssembler.assemble(listOf(first, second), output)
+                AudioAssembler.assemble(listOf(first, second, third), output)
                 throw AssertionError("Expected aggregate PCM sample limit to be enforced.")
             } catch (expected: IllegalArgumentException) {
                 assertTrue(expected.message.orEmpty().contains("límite conjunto"))
