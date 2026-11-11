@@ -1,6 +1,9 @@
 package com.musicaia
 
 import com.musicaia.modelos.*
+import com.musicaia.modelo.BardoResourceCoordinator
+import android.content.Context
+import android.content.ContextWrapper
 import org.junit.Assert.*
 import org.junit.Test
 import java.util.concurrent.atomic.AtomicInteger
@@ -117,6 +120,28 @@ class BardoAgentFleetTest {
         assertEquals(1, report.successfulAgents)
         assertFalse(report.contributions.first().succeeded)
         assertTrue(report.contributions.last().succeeded)
+    }
+
+    @Test fun providerAgentInvocationRunsInsideTextResourceLease() {
+        val modelDescriptor = descriptor("resource-aware")
+        val provider = object : BardoModelProvider {
+            override val descriptor = modelDescriptor
+            override fun inspect(context: Context) =
+                BardoModelAvailability(BardoModelState.PRESENT_UNVERIFIED, "present")
+            override fun load(context: Context) = true
+            override fun generate(context: Context, request: BardoModelRequest): BardoModelResponse {
+                assertEquals(
+                    BardoResourceCoordinator.Resource.TEXT_MODEL,
+                    BardoResourceCoordinator.currentResourceForCurrentThread()
+                )
+                return BardoModelResponse("respuesta protegida", descriptor.id, descriptor.version, 1L)
+            }
+            override fun unload() = Unit
+        }
+        val invoker = BardoProviderAgentInvoker(ContextWrapper(null), provider)
+        val response = invoker.complete("analiza este cambio")
+        assertEquals("respuesta protegida", response.text)
+        assertEquals(null, BardoResourceCoordinator.currentResourceForCurrentThread())
     }
 
     @Test fun rejectsProfileWithUnknownProvider() {

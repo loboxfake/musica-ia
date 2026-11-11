@@ -27,7 +27,7 @@ object BardoCiLogSanitizer {
         var safe = raw
         secretPatterns.forEach { pattern ->
             safe = pattern.replace(safe) { match ->
-                val prefix = match.groups[1]?.value.orEmpty()
+                val prefix = runCatching { match.groups[1]?.value.orEmpty() }.getOrDefault("")
                 prefix + "<REDACTED>"
             }
         }

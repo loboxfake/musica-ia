@@ -1,6 +1,7 @@
 package com.musicaia.modelos
 
 import android.content.Context
+import com.musicaia.modelo.BardoResourceCoordinator
 
 enum class BardoAgentRole {
     GENERALIST, PLANNER, RESEARCHER, SOFTWARE_ENGINEER,
@@ -71,20 +72,21 @@ class BardoProviderAgentInvoker(
     override val descriptor: BardoModelDescriptor
         get() = provider.descriptor
 
-    override fun complete(prompt: String): BardoModelResponse {
-        val availability = provider.inspect(appContext)
-        check(
-            availability.state == BardoModelState.READY ||
-                availability.state == BardoModelState.PRESENT_UNVERIFIED
-        ) { availability.reason }
-        check(provider.load(appContext)) {
-            "El proveedor no pudo cargar el modelo " + descriptor.id
+    override fun complete(prompt: String): BardoModelResponse =
+        BardoResourceCoordinator.withTextModel {
+            val availability = provider.inspect(appContext)
+            check(
+                availability.state == BardoModelState.READY ||
+                    availability.state == BardoModelState.PRESENT_UNVERIFIED
+            ) { availability.reason }
+            check(provider.load(appContext)) {
+                "El proveedor no pudo cargar el modelo " + descriptor.id
+            }
+            provider.generate(
+                appContext,
+                BardoModelRequest(prompt, resetConversation = true)
+            )
         }
-        return provider.generate(
-            appContext,
-            BardoModelRequest(prompt, resetConversation = true)
-        )
-    }
 }
 
 fun interface BardoRemoteAgentGate {
