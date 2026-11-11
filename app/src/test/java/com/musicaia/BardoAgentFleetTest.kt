@@ -138,7 +138,10 @@ class BardoAgentFleetTest {
             }
             override fun unload() = Unit
         }
-        val invoker = BardoProviderAgentInvoker(ContextWrapper(null), provider)
+        val context = object : ContextWrapper(null) {
+            override fun getApplicationContext(): Context = this
+        }
+        val invoker = BardoProviderAgentInvoker(context, provider)
         val response = invoker.complete("analiza este cambio")
         assertEquals("respuesta protegida", response.text)
         assertEquals(null, BardoResourceCoordinator.currentResourceForCurrentThread())

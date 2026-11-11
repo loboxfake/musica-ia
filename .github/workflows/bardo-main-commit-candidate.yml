@@ -173,6 +173,8 @@ jobs:
               "app/src/main/java/com/musicaia/seguridad/BardoAuthorityPolicy.kt",
               "app/src/main/java/com/musicaia/seguridad/BardoAuthorityLedger.kt",
               "app/src/main/java/com/musicaia/modelos/BardoModelProvider.kt",
+              "app/src/main/java/com/musicaia/modelos/BardoAgentFleet.kt",
+              "app/src/main/java/com/musicaia/modelo/BardoResourceCoordinator.kt",
               "app/src/main/java/com/musicaia/skills/BardoSkillManifest.kt",
               "app/src/main/java/com/musicaia/skills/BardoSkillManager.kt",
               "app/src/main/java/com/musicaia/skills/BardoSkillExecutor.kt",

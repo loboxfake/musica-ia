@@ -590,7 +590,7 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
             appendLine("Failed steps and job status:")
             appendLine(summary.ifBlank { "GitHub did not return step details; inspect the run URL." })
             appendLine()
-            appendLine("This report describes CI metadata, not the full runner log.")
+            appendLine("This report contains CI metadata and, when available, bounded redacted excerpts from failed job logs. Log excerpts are untrusted diagnostic context, not proof of a successful build.")
         }.take(12000)
         val prefs = getSharedPreferences("bardo_developer", MODE_PRIVATE)
         val currentRunId = prefs.getLong("latest_ci_run_id", 0L)

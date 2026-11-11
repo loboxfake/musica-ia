@@ -60,6 +60,8 @@ class BardoProtectedPathPolicyTest {
             "app/src/main/java/com/musicaia/actualizaciones/BardoIncrementalUpdateManifest.kt",
             "app/src/main/java/com/musicaia/seguridad/BardoAuthorityLedger.kt",
             "app/src/main/java/com/musicaia/modelos/BardoModelProvider.kt",
+            "app/src/main/java/com/musicaia/modelos/BardoAgentFleet.kt",
+            "app/src/main/java/com/musicaia/modelo/BardoResourceCoordinator.kt",
             "app/src/main/java/com/musicaia/skills/BardoSkillManifest.kt",
             "app/src/main/java/com/musicaia/herramientas/BardoToolExecutor.kt",
             "app/src/main/java/com/musicaia/evaluacion/BardoIndependentEvaluator.kt",

@@ -72,7 +72,7 @@ La pantalla GitHub puede enviar manualmente un diff BARDO elegible a \`.github/w
 
 Ese workflow ejecuta validación aislada en un runner efímero: confirma el SHA base, aplica el parche, comprueba rutas, ejecuta Gitleaks y \`testDebugUnitTest assembleDebug\`, y produce un informe. No crea ramas, no crea PR, no realiza commits y no modifica \`main\`.
 
-La ejecución remota no ocurre automáticamente desde el Worker: actualmente requiere la acción desde la interfaz. Tampoco existe un ciclo automático que lea cada fallo de CI, genere otro candidato, vuelva a enviarlo y repita hasta conseguir éxito.
+La ejecución de validación remota se inicia desde la interfaz y la integración a main exige aprobación explícita. BARDO puede descargar extractos de logs fallidos con límites y saneamiento para incorporarlos como contexto local al siguiente autoestudio, pero todavía no existe un ciclo automático y demostrado que genere una corrección, repita la validación aislada y continúe hasta resolver el fallo.
 
 ### 3.5 Build integrado en main
 
@@ -84,7 +84,7 @@ Ese workflow prueba el commit integrado concreto; no convierte automáticamente 
 
 La política \`BardoGitHubIntegrationPolicy.MAIN_COMMIT_WORKFLOW_ENABLED\` está habilitada. Desde la pantalla GitHub, el usuario puede autorizar expresamente un único commit directo a \`main\` después de que el candidato exacto haya superado la validación aislada. El workflow vuelve a comprobar el ID de candidato, la ejecución de validación, el SHA base, el hash del diff y la lista de archivos; repite Gitleaks, tests y compilación ARM64, comprueba que \`main\` no haya avanzado y utiliza un push normal sin force. Después solicita la validación completa del nuevo SHA de \`main\`. Esta integración no se ejecuta automáticamente ni crea ramas, PR o Releases. El workflow legacy \`bardo-commit-candidate.yml\` está deshabilitado.
 
-En esta línea no hay un flujo operativo de creación de PR, fusión automática ni publicación de Release. No se debe activar la integración a \`main\` hasta disponer de un flujo revisado que no pueda sobrescribir trabajo y mantenga autorización explícita. La configuración de protección de ramas en GitHub debe verificarse en el propio repositorio; no se presupone a partir de una política Kotlin.
+En esta línea no hay un flujo operativo de creación de PR, fusión automática ni publicación de Release. La integración directa a main está disponible únicamente con autorización explícita después de la validación aislada; el workflow vuelve a comprobar el SHA base y aborta si hay cambios concurrentes. La rama de GitHub todavía no tiene protección de rama activa, por lo que el propietario debe configurar reglas del repositorio si desea que GitHub impida escrituras por otros clientes.
 
 ## 4. Memoria y aprendizaje
 
