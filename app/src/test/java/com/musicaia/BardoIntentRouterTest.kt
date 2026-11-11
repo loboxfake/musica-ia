@@ -26,6 +26,18 @@ class BardoIntentRouterTest {
     }
 
     @Test
+    fun initialSongThemeImmediatelyAdvancesToTheFirstMissingField() {
+        val provided = BardoIntentRouter.extractProvidedFields(
+            "Una canción sobre superar los obstáculos y seguir adelante"
+        )
+        assertEquals("superar los obstáculos y seguir adelante", provided["tema"])
+        assertEquals("estilo", BardoIntentRouter.nextRequiredField(provided))
+
+        val withStyle = provided + ("estilo" to "rock")
+        assertEquals("ambiente", BardoIntentRouter.nextRequiredField(withStyle))
+    }
+
+    @Test
     fun ownLyricsAndChangesAreRecognizedInCorrectContext() {
         assertEquals(BardoIntentRouter.Intent.OWN_LYRICS,
             BardoIntentRouter.classify("Quiero usar mi letra", false))
