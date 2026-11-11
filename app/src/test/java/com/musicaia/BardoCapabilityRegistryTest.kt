@@ -102,7 +102,7 @@ class BardoCapabilityRegistryTest {
             )
         ).associateBy { it.id }.getValue("self_inventory")
 
-        assertEquals(BardoCapabilityRegistry.Status.MODEL_PRESENT, inventory.status)
+        assertEquals(BardoCapabilityRegistry.Status.INTEGRATED, inventory.status)
         assertTrue(inventory.detail.contains("8 módulos"))
         assertTrue(inventory.detail.contains("4 modelos/motores"))
         assertTrue(inventory.detail.contains("16 ayudantes internos"))
