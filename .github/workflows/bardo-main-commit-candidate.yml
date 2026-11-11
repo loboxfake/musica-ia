@@ -166,6 +166,7 @@ jobs:
               "app/src/main/java/com/musicaia/modelo/BardoGuidedProgressPolicy.kt",
               "app/src/main/java/com/musicaia/modelo/BardoIntentRouter.kt",
               "app/src/main/java/com/musicaia/autonomia/BardoAutonomyEngine.kt",
+              "app/src/main/java/com/musicaia/evaluacion/BardoCiDiagnosticsPolicy.kt",
               "app/src/main/java/com/musicaia/desarrollo/BardoPatchApplier.kt",
               "app/src/main/java/com/musicaia/desarrollo/BardoProtectedPathPolicy.kt",
               "app/src/main/java/com/musicaia/desarrollo/BardoWorkspaceManager.kt",

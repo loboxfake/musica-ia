@@ -17,6 +17,7 @@ import com.musicaia.desarrollo.BardoGitHubPolicy
 import com.musicaia.desarrollo.BardoSnapshotOriginPolicy
 import com.musicaia.desarrollo.BardoGitHubRun
 import com.musicaia.evaluacion.BardoCheckEvidence
+import com.musicaia.evaluacion.BardoCiDiagnosticsPolicy
 import com.musicaia.evaluacion.BardoLocalCandidateAuditInput
 import com.musicaia.evaluacion.BardoLocalCandidateEvidenceCollector
 import java.util.concurrent.Executors
@@ -474,7 +475,10 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
     }
 
     private fun showRun(label: String, run: BardoGitHubRun, jobSummary: String = "") {
-        if (run.conclusion == "failure") saveCiDiagnostics(run, label, jobSummary)
+        when {
+            run.conclusion == "failure" -> saveCiDiagnostics(run, label, jobSummary)
+            run.succeeded -> clearResolvedCiDiagnostics(run)
+        }
         output.text = buildString {
             appendLine(label)
             appendLine("ID: ${run.id}")
@@ -513,8 +517,22 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
             appendLine()
             appendLine("This report describes CI metadata, not the full runner log.")
         }.take(12000)
-        getSharedPreferences("bardo_developer", MODE_PRIVATE).edit()
+        val prefs = getSharedPreferences("bardo_developer", MODE_PRIVATE)
+        val currentRunId = prefs.getLong("latest_ci_run_id", 0L)
+        if (!BardoCiDiagnosticsPolicy.canReplace(currentRunId, run.id)) return
+        prefs.edit()
             .putString("latest_ci_diagnostics", report)
+            .putString("latest_ci_run_url", run.url)
+            .putLong("latest_ci_run_id", run.id)
+            .apply()
+    }
+
+    private fun clearResolvedCiDiagnostics(run: BardoGitHubRun) {
+        val prefs = getSharedPreferences("bardo_developer", MODE_PRIVATE)
+        val currentRunId = prefs.getLong("latest_ci_run_id", 0L)
+        if (!BardoCiDiagnosticsPolicy.canReplace(currentRunId, run.id)) return
+        prefs.edit()
+            .remove("latest_ci_diagnostics")
             .putString("latest_ci_run_url", run.url)
             .putLong("latest_ci_run_id", run.id)
             .apply()
