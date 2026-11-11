@@ -41,6 +41,66 @@ class BardoWavHeaderValidatorTest {
         }
     }
 
+ 
+    @Test
+    fun rejectsChunksThatExceedDeclaredRiffBoundaryEvenWhenFileHasExtraBytes() {
+        val directory = Files.createTempDirectory("bardo-wav-riff-boundary").toFile()
+        try {
+            val wav = File(directory, "outside-riff.wav")
+            val bytes = createWav(format = 1, channels = 1, bits = 16, samples = 4)
+            // Preserve the physical file length but shrink RIFF's declared size.
+            ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).putInt(4, 36)
+            wav.writeBytes(bytes)
+            assertTrue(runCatching { BardoWavHeaderValidator.inspect(wav) }.isFailure)
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun rejectsContradictoryBlockAlignAndByteRateFields() {
+        val directory = Files.createTempDirectory("bardo-wav-pcm-fields").toFile()
+        try {
+            val badAlign = File(directory, "bad-align.wav")
+            val alignBytes = createWav(format = 1, channels = 2, bits = 16, samples = 8)
+            ByteBuffer.wrap(alignBytes).order(ByteOrder.LITTLE_ENDIAN).putShort(32, 2)
+            badAlign.writeBytes(alignBytes)
+            assertTrue(runCatching { BardoWavHeaderValidator.inspect(badAlign) }.isFailure)
+
+            val badRate = File(directory, "bad-rate.wav")
+            val rateBytes = createWav(format = 1, channels = 2, bits = 16, samples = 8)
+            ByteBuffer.wrap(rateBytes).order(ByteOrder.LITTLE_ENDIAN).putInt(28, 44_100)
+            badRate.writeBytes(rateBytes)
+            assertTrue(runCatching { BardoWavHeaderValidator.inspect(badRate) }.isFailure)
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun acceptsAnUnknownPaddedChunkInsideRiff() {
+        val directory = Files.createTempDirectory("bardo-wav-extra-chunk").toFile()
+        try {
+            val base = createWav(format = 1, channels = 1, bits = 16, samples = 4)
+            val extra = "JUNK".toByteArray() + ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(3).array() +
+                byteArrayOf(1, 2, 3, 0)
+            val output = ByteArray(base.size + extra.size)
+            System.arraycopy(base, 0, output, 0, 12)
+            System.arraycopy(extra, 0, output, 12, extra.size)
+            System.arraycopy(base, 12, output, 12 + extra.size, base.size - 12)
+            ByteBuffer.wrap(output).order(ByteOrder.LITTLE_ENDIAN).putInt(4, output.size - 8)
+            val file = File(directory, "with-junk.wav")
+            file.writeBytes(output)
+
+            val header = BardoWavHeaderValidator.inspect(file)
+            assertEquals(44_100, header.sampleRate)
+            assertEquals(1, header.channels)
+            assertEquals(8L, header.dataBytes)
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
     private fun createWav(format: Int, channels: Int, bits: Int, samples: Int): ByteArray {
         val bytesPerSample = bits / 8
         val dataSize = samples * channels * bytesPerSample

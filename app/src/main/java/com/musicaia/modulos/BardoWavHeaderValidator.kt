@@ -10,59 +10,104 @@ data class BardoWavHeader(
     val dataBytes: Long
 )
 
-/** Validación de cabecera WAV PCM16 sin cargar el archivo completo en RAM. */
+/**
+ * Validación estricta de RIFF/WAVE PCM16 sin cargar muestras a memoria.
+ * Cada chunk queda limitado al tamaño declarado por RIFF y se verifican
+ * blockAlign/byteRate para impedir cabeceras internamente contradictorias.
+ */
 object BardoWavHeaderValidator {
     fun inspect(file: File): BardoWavHeader {
-        require(file.isFile && file.length() >= 44L) { "El archivo WAV es demasiado pequeño." }
+        require(file.isFile && file.length() >= 44L) {
+            "El archivo WAV es demasiado pequeño."
+        }
+
         RandomAccessFile(file, "r").use { input ->
             require(readAscii(input, 4) == "RIFF") { "La cabecera no contiene RIFF." }
             val riffSize = readUInt32LE(input)
-            require(readAscii(input, 4) == "WAVE") { "La cabecera no contiene WAVE." }
-            require(riffSize >= 36L && riffSize + 8L <= file.length()) {
-                "El tamaño RIFF no coincide con el archivo."
+            require(riffSize >= 4L) { "El tamaño RIFF no es válido." }
+            val riffEnd = 8L + riffSize
+            require(riffEnd <= file.length()) {
+                "El tamaño RIFF declara datos fuera del archivo."
             }
+            require(readAscii(input, 4) == "WAVE") { "La cabecera no contiene WAVE." }
 
-            var format: Int? = null
-            var channels: Int? = null
-            var sampleRate: Int? = null
-            var bits: Int? = null
-            while (input.filePointer + 8L <= file.length()) {
+            var format = -1
+            var channels = 0
+            var sampleRate = 0L
+            var byteRate = 0L
+            var blockAlign = 0
+            var bitsPerSample = 0
+            var dataBytes = -1L
+            var offset = 12L
+
+            while (offset < riffEnd) {
+                require(riffEnd - offset >= 8L) {
+                    "La cabecera de un chunk WAV queda fuera del límite RIFF."
+                }
+                input.seek(offset)
                 val chunkId = readAscii(input, 4)
                 val chunkSize = readUInt32LE(input)
                 val chunkStart = input.filePointer
-                require(chunkSize <= file.length() - chunkStart) {
-                    "Un bloque WAV declara datos fuera del archivo."
+                require(chunkSize <= riffEnd - chunkStart) {
+                    "El chunk $chunkId excede el tamaño declarado por RIFF."
                 }
+                val chunkEnd = chunkStart + chunkSize
+                require(chunkEnd <= file.length()) {
+                    "El chunk $chunkId declara datos fuera del archivo."
+                }
+
                 when (chunkId) {
                     "fmt " -> {
+                        require(format == -1) { "El WAV contiene más de un chunk fmt." }
                         require(chunkSize >= 16L) { "El bloque fmt está incompleto." }
                         format = readUInt16LE(input)
                         channels = readUInt16LE(input)
-                        sampleRate = readUInt32LE(input).toInt()
-                        readUInt32LE(input) // byte rate
-                        readUInt16LE(input) // block align
-                        bits = readUInt16LE(input)
+                        sampleRate = readUInt32LE(input)
+                        byteRate = readUInt32LE(input)
+                        blockAlign = readUInt16LE(input)
+                        bitsPerSample = readUInt16LE(input)
                     }
                     "data" -> {
-                        val fmt = format ?: throw IllegalArgumentException("El bloque fmt debe preceder al audio.")
-                        val channelCount = channels ?: 0
-                        val rate = sampleRate ?: 0
-                        val bitDepth = bits ?: 0
-                        require(fmt == 1 && bitDepth == 16) {
+                        require(dataBytes < 0L) { "El WAV contiene más de un chunk data." }
+                        require(format >= 0) {
+                            "El bloque fmt debe preceder al audio."
+                        }
+                        require(format == 1 && bitsPerSample == 16) {
                             "Se necesita WAV PCM lineal de 16 bits."
                         }
-                        require(channelCount in 1..8 && rate in 8000..192000) {
+                        require(channels in 1..8 && sampleRate in 8_000L..192_000L) {
                             "Número de canales o frecuencia WAV no compatible."
                         }
-                        require(chunkSize > 0L && chunkSize % (channelCount * 2L) == 0L) {
-                            "El bloque de audio WAV no contiene muestras completas."
+                        val expectedBlockAlign = channels * (bitsPerSample / 8)
+                        require(blockAlign == expectedBlockAlign) {
+                            "El campo blockAlign no coincide con canales y profundidad."
                         }
-                        return BardoWavHeader(rate, channelCount, bitDepth, chunkSize)
+                        require(byteRate == sampleRate * expectedBlockAlign.toLong()) {
+                            "El campo byteRate no coincide con frecuencia y blockAlign."
+                        }
+                        require(chunkSize > 0L && chunkSize % expectedBlockAlign == 0L) {
+                            "El bloque de audio WAV no contiene muestras PCM completas."
+                        }
+                        dataBytes = chunkSize
                     }
                 }
-                input.seek(chunkStart + chunkSize + (chunkSize and 1L))
+
+                val nextOffset = chunkEnd + (chunkSize and 1L)
+                require(nextOffset <= riffEnd) {
+                    "Falta el byte de relleno de un chunk WAV dentro de RIFF."
+                }
+                offset = nextOffset
             }
-            throw IllegalArgumentException("No se encontró el bloque de audio WAV.")
+
+            require(offset == riffEnd) { "El bloque RIFF no termina en un límite de chunk." }
+            require(dataBytes > 0L) { "No se encontró un chunk data PCM válido." }
+
+            return BardoWavHeader(
+                sampleRate = sampleRate.toInt(),
+                channels = channels,
+                bitsPerSample = bitsPerSample,
+                dataBytes = dataBytes
+            )
         }
     }
 
