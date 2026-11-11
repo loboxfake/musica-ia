@@ -240,8 +240,8 @@ class AudioAssemblerTest {
             output.write("WAVE".toByteArray(Charsets.US_ASCII))
             output.write("fmt ".toByteArray(Charsets.US_ASCII))
             output.write(byteArrayOf(16, 0, 0, 0, 1, 0, 1, 0))
-            output.write(byteArrayOf(0xE8.toByte(), 0x03, 0, 0)) // 1000 Hz
-            output.write(byteArrayOf(0xD0.toByte(), 0x07, 0, 0)) // 2000 bytes/s
+            output.write(byteArrayOf(0x40, 0x1F, 0, 0)) // 8000 Hz
+            output.write(byteArrayOf(0x80.toByte(), 0x3E, 0, 0)) // 16000 bytes/s
             output.write(byteArrayOf(2, 0, 16, 0))
             output.write("data".toByteArray(Charsets.US_ASCII))
             output.write(byteArrayOf(
