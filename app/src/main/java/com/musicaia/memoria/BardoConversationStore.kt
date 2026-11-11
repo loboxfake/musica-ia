@@ -332,14 +332,33 @@ class BardoConversationStore internal constructor(private val directory: File) {
         .put("conversations", JSONArray())
         .put("messages", JSONArray())
 
+    private fun isValidHistoryFile(candidate: File): Boolean {
+        if (!candidate.isFile) return false
+        return runCatching {
+            val stored = JSONObject(candidate.readText(Charsets.UTF_8))
+            stored.optInt("schemaVersion") == 1 &&
+                stored.optJSONArray("conversations") != null &&
+                stored.optJSONArray("messages") != null
+        }.getOrDefault(false)
+    }
+
     private fun writeRoot(root: JSONObject) {
         root.put("schemaVersion", 1)
+        file.parentFile?.let { if (!it.exists()) check(it.mkdirs()) }
         val temp = File(file.parentFile, file.name + ".tmp")
         temp.writeText(root.toString(), Charsets.UTF_8)
-        if (file.isFile) {
-            if (backup.exists()) backup.delete()
+
+        // Never replace a known-good recovery copy with a corrupt primary file.
+        // readRoot() may have recovered from .bak; preserve that backup while
+        // the recovered document is written back as the new primary.
+        if (isValidHistoryFile(file)) {
             file.copyTo(backup, overwrite = true)
+        } else if (!isValidHistoryFile(backup) && file.exists()) {
+            // Neither copy is recoverable: keep the failed primary for diagnosis
+            // rather than presenting it as a valid backup.
+            backup.delete()
         }
+
         if (!temp.renameTo(file)) {
             temp.copyTo(file, overwrite = true)
             temp.delete()
