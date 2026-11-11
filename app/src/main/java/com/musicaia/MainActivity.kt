@@ -3520,11 +3520,15 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
      actualizarAvatar(BardoAvatarState.STUDYING)
      val taskId = java.util.UUID.randomUUID().toString()
      anexarChat("\nTú: $textoUsuario")
-     val modelo = LiteRTLMModule.modelFile(this)
-     if (!modelo.isFile || modelo.length() != LiteRTLMModule.EXPECTED_SIZE_BYTES) {
-         BardoActivityStore.record(this, taskId, "autoestudio", "blocked", "modelo_no_disponible", "El autoestudio local necesita Gemma verificado.", null)
-         anexarChat("\nBARDO: Para estudiar el código localmente necesito que Gemma esté instalado y verificado. No enviaré el proyecto a ningún servicio externo.")
-         tvEstado.text = "Autoestudio pendiente: falta Gemma local."
+     val gemmaFile = LiteRTLMModule.modelFile(this)
+     val qwenFile = BardoQwen2LiteRtModule.modelFile(this)
+     val gemmaReady = gemmaFile.isFile && gemmaFile.length() == LiteRTLMModule.EXPECTED_SIZE_BYTES
+     val qwenReady = qwenFile.isFile && qwenFile.length() == BardoQwen2LiteRtModule.EXPECTED_SIZE_BYTES
+     if (!gemmaReady && !qwenReady) {
+         val reason = "El autoestudio local necesita Gemma o Qwen2 instalado; no se descargará ningún modelo automáticamente."
+         BardoActivityStore.record(this, taskId, "autoestudio", "blocked", "modelo_no_disponible", reason, null)
+         anexarChat("\nBARDO: Para estudiar el código necesito Gemma o Qwen2 local instalado y verificado. No enviaré el proyecto ni las consultas a ningún servicio externo.")
+         tvEstado.text = "Autoestudio pendiente: falta un modelo local compatible."
          return
      }
      val bloqueoAudio = bloqueoPorTareaAudio()
@@ -3534,11 +3538,20 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
          tvEstado.text = "Autoestudio en espera hasta terminar la generación de audio."
          return
      }
-     val bloqueo = bloqueoGemmaPorMemoria()
+     val bloqueoGemma = if (gemmaReady) bloqueoGemmaPorMemoria() else "Gemma no está disponible."
+     val bloqueoQwen = if (qwenReady) BardoResourceBudget.blockingReason(
+         this, BardoCapabilityRegistry.MIN_QWEN_FREE_MEMORY_BYTES
+     ) else "Qwen2 no está disponible."
+     val bloqueo = when {
+         gemmaReady && bloqueoGemma == null -> null
+         qwenReady && bloqueoQwen == null -> null
+         gemmaReady -> bloqueoGemma
+         else -> bloqueoQwen
+     }
      if (bloqueo != null) {
-         BardoActivityStore.record(this, taskId, "autoestudio", "blocked", "proteccion_ram", bloqueo, null)
+         BardoActivityStore.record(this, taskId, "autoestudio", "blocked", "proteccion_recursos", bloqueo, null)
          anexarChat("\nBARDO: No inicio el autoestudio para proteger el teléfono: $bloqueo")
-         tvEstado.text = "Autoestudio bloqueado preventivamente por RAM."
+         tvEstado.text = "Autoestudio bloqueado preventivamente por recursos."
          return
      }
      val request = androidx.work.OneTimeWorkRequestBuilder<com.musicaia.desarrollo.BardoDeveloperWorker>()
@@ -3552,7 +3565,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
          )
      }.onSuccess {
          BardoActivityStore.record(this, taskId, "autoestudio", "queued", "cola_trabajo", "Autoestudio local añadido a la cola. No modifica el código instalado.", 0)
-         anexarChat("\nBARDO: He puesto el autoestudio local en cola. Revisaré el snapshot del proyecto con Gemma, generaré un informe y, si existe una mejora respaldada, crearé una copia candidata aislada. No integraré cambios en el núcleo ni en la firma. Puedes seguir usando el chat; consulta Actividad para ver el progreso.")
+         anexarChat("\nBARDO: He puesto el autoestudio local en cola. Usaré Gemma o Qwen2 según disponibilidad e integridad del modelo y recursos del teléfono. Revisaré el snapshot del proyecto, generaré un informe y, si existe una mejora respaldada, crearé una copia candidata aislada. No integraré cambios en el núcleo ni en la firma. Puedes seguir usando el chat; consulta Actividad para ver el progreso.")
          tvEstado.text = "Autoestudio local en cola."
      }.onFailure { error ->
          BardoActivityStore.record(this, taskId, "autoestudio", "failed", "encolado", error.message ?: "No se pudo iniciar WorkManager.", null)
