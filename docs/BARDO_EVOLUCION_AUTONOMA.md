@@ -82,7 +82,7 @@ Ese workflow prueba el commit integrado concreto; no convierte automáticamente 
 
 ### 3.6 Integración en main, PR y publicación
 
-La política \`BardoGitHubIntegrationPolicy.MAIN_COMMIT_WORKFLOW_ENABLED\` mantiene deshabilitada la integración remota a \`main\` desde la aplicación. La presencia del workflow heredado \`bardo-main-commit-candidate.yml\` no significa que la funcionalidad esté disponible. El workflow legacy \`bardo-commit-candidate.yml\` está deshabilitado.
+La política \`BardoGitHubIntegrationPolicy.MAIN_COMMIT_WORKFLOW_ENABLED\` está habilitada. Desde la pantalla GitHub, el usuario puede autorizar expresamente un único commit directo a \`main\` después de que el candidato exacto haya superado la validación aislada. El workflow vuelve a comprobar el ID de candidato, la ejecución de validación, el SHA base, el hash del diff y la lista de archivos; repite Gitleaks, tests y compilación ARM64, comprueba que \`main\` no haya avanzado y utiliza un push normal sin force. Después solicita la validación completa del nuevo SHA de \`main\`. Esta integración no se ejecuta automáticamente ni crea ramas, PR o Releases. El workflow legacy \`bardo-commit-candidate.yml\` está deshabilitado.
 
 En esta línea no hay un flujo operativo de creación de PR, fusión automática ni publicación de Release. No se debe activar la integración a \`main\` hasta disponer de un flujo revisado que no pueda sobrescribir trabajo y mantenga autorización explícita. La configuración de protección de ramas en GitHub debe verificarse en el propio repositorio; no se presupone a partir de una política Kotlin.
 
@@ -100,7 +100,7 @@ No se deben presentar respuestas de modelos como aprendizaje verificado ni como 
 - \`READY_FOR_HUMAN_REVIEW\`: controles CI/locales completos; requiere revisión humana.
 - \`DEVICE_VERIFIED\`: además están presentes todas las pruebas físicas obligatorias.
 
-\`BardoCiEvidenceAdapter\` valida datos de GitHub para el workflow principal \`bardo-validation.yml\`; \`BardoCandidateEvaluationPipeline\` combina esas evidencias con la auditoría local. Sus contratos y pruebas unitarias existen, pero **el pipeline todavía no está conectado a una ruta de ejecución de la interfaz Android**. La pantalla GitHub muestra estados y resúmenes de las ejecuciones; no debe afirmarse que ya emite un informe completo de evaluación.
+\`BardoCiEvidenceAdapter\` valida los datos originales de ejecución, jobs/pasos y artefactos del workflow principal \`bardo-validation.yml\`. La pantalla GitHub, después de confirmar que el commit del candidato está en \`main\`, busca la ejecución que corresponde exactamente al SHA integrado, obtiene esos tres documentos API y conecta el adaptador con \`BardoCandidateEvaluationPipeline\` y la auditoría local recalculada. Muestra el estado del evaluador, controles superados/fallidos/pendientes y los problemas de procedencia. La validación aislada del parche (\`bardo-candidate-validation.yml\`) no se confunde con la validación del commit integrado. CI completo solo alcanza \`READY_FOR_HUMAN_REVIEW\`; no produce \`DEVICE_VERIFIED\` sin las siete pruebas físicas independientes.
 
 La evidencia CI nunca puede demostrar por sí sola:
 - instalación y arranque en el Xiaomi;
@@ -136,7 +136,7 @@ JARVIS es una integración futura y no debe ser requisito para que BARDO funcion
 
 ## 9. Próximos hitos verificables
 
-1. Conectar el evaluador independiente a una pantalla/flujo de estado real y al ciclo de candidaturas, sin fabricar evidencia.
+1. (Conectado en la interfaz) Mostrar una evaluación determinista con datos API originales de la validación de \`main\` para el SHA integrado y la auditoría local recalculada. La pantalla distingue CI pendiente/fallido y revisión humana pendiente; no inventa pruebas de dispositivo.
 2. Implementar un ciclo de candidato que recopile logs concretos de CI, genere una corrección acotada y repita la validación aislada, sin tocar \`main\` automáticamente.
 3. Demostrar el ciclo en un conjunto de fallos reproducibles y pruebas de regresión, con límites de tiempo/RAM y un punto de parada seguro.
 4. Mantener la decisión de integración/publicación separada y autorizada; primero validar un flujo de PR seguro antes de habilitarlo.

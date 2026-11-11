@@ -332,6 +332,53 @@ class BardoGitHubActionsClient(private val token: String) {
         return lines.joinToString("\n").take(6000)
     }
 
+    /**
+     * Busca la validación oficial de main para el SHA que acaba de integrarse.
+     * La validación aislada del candidato no se confunde con esta evidencia.
+     */
+    fun findMainValidationRun(commitSha: String): BardoGitHubRun? {
+        BardoGitHubPolicy.validateBaseSha(commitSha)
+        val response = request(
+            "GET",
+            "/actions/workflows/bardo-validation.yml/runs?branch=main&head_sha=$commitSha&per_page=100",
+            null,
+            setOf(200)
+        )
+        val runs = JSONObject(response).optJSONArray("workflow_runs") ?: JSONArray()
+        return (0 until runs.length())
+            .mapNotNull { runs.optJSONObject(it) }
+            .filter { item ->
+                item.optString("head_sha").equals(commitSha, ignoreCase = true) &&
+                    item.optString("head_branch") == "main" &&
+                    item.optString("event") in setOf("push", "workflow_dispatch")
+            }
+            .map(::parseRun)
+            .maxByOrNull { it.createdAt }
+    }
+
+    /**
+     * Obtiene ejecución, jobs/pasos y artefactos desde la API original de GitHub.
+     * Los resúmenes de texto no se aceptan como evidencia del evaluador.
+     */
+    fun evaluateMainValidationRun(
+        runId: Long,
+        expectedCommitSha: String,
+        localEvidence: List<BardoCheckEvidence>
+    ): BardoCandidateEvaluation {
+        require(runId > 0L) { "Falta el ID de la validación integrada." }
+        BardoGitHubPolicy.validateBaseSha(expectedCommitSha)
+        val runJson = JSONObject(request("GET", "/actions/runs/$runId", null, setOf(200)))
+        val jobsJson = JSONObject(request("GET", "/actions/runs/$runId/jobs?per_page=100", null, setOf(200)))
+        val artifactsJson = JSONObject(request("GET", "/actions/runs/$runId/artifacts?per_page=100", null, setOf(200)))
+        return BardoCandidateEvaluationPipeline.evaluate(
+            runJson,
+            jobsJson,
+            artifactsJson,
+            expectedCommitSha,
+            localEvidence
+        )
+    }
+
     fun integratedCommit(candidateId: String): Pair<String, String>? {
         BardoGitHubPolicy.validateCandidateId(candidateId)
         val response = request("GET", "/commits?sha=main&per_page=30", null, setOf(200))

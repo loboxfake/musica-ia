@@ -16,6 +16,7 @@ import com.musicaia.desarrollo.BardoGitHubIntegrationPolicy
 import com.musicaia.desarrollo.BardoGitHubPolicy
 import com.musicaia.desarrollo.BardoSnapshotOriginPolicy
 import com.musicaia.desarrollo.BardoGitHubRun
+import com.musicaia.evaluacion.BardoCandidateEvaluation
 import com.musicaia.evaluacion.BardoCheckEvidence
 import com.musicaia.evaluacion.BardoCiDiagnosticsPolicy
 import com.musicaia.evaluacion.BardoLocalCandidateAuditInput
@@ -249,7 +250,10 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
         val mainCommit: BardoGitHubRun?,
         val validationSummary: String,
         val mainCommitSummary: String,
-        val integratedCommit: Pair<String, String>?
+        val integratedCommit: Pair<String, String>?,
+        val integrationValidation: BardoGitHubRun?,
+        val candidateEvaluation: BardoCandidateEvaluation?,
+        val evaluationError: String?
     )
 
     private fun refreshRuns() {
@@ -285,7 +289,28 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
                 val integrated = if (mainCommit?.finished == true) {
                     client.integratedCommit(candidateId)
                 } else null
-                RunRefresh(validation, mainCommit, validationSummary, mainCommitSummary, integrated)
+                val integrationValidation = integrated?.let {
+                    client.findMainValidationRun(it.first)
+                }
+                val evaluationAttempt = if (integrated != null && integrationValidation?.finished == true) {
+                    runCatching {
+                        client.evaluateMainValidationRun(
+                            integrationValidation.id,
+                            integrated.first,
+                            collectLocalCandidateEvidence()
+                        )
+                    }
+                } else null
+                RunRefresh(
+                    validation,
+                    mainCommit,
+                    validationSummary,
+                    mainCommitSummary,
+                    integrated,
+                    integrationValidation,
+                    evaluationAttempt?.getOrNull(),
+                    evaluationAttempt?.exceptionOrNull()?.message
+                )
             }
             runOnUiThread {
                 result.onSuccess { snapshot ->
@@ -300,6 +325,24 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
                                 "\n${snapshot.integratedCommit.second}" +
                                 "\nLa búsqueda del historial de main confirma que el commit del candidato está incorporado."
                         )
+                        val integrationValidation = snapshot.integrationValidation
+                        if (integrationValidation == null) {
+                            output.append(
+                                "\n\nVALIDACIÓN DEL COMMIT INTEGRADO\nTodavía no aparece una ejecución " +
+                                    "de bardo-validation.yml asociada a este SHA. Vuelve a consultar para recuperarla."
+                            )
+                        } else {
+                            output.append(
+                                "\n\nVALIDACIÓN DEL COMMIT INTEGRADO\nRun: ${integrationValidation.id}" +
+                                    "\nEstado: ${integrationValidation.status}" +
+                                    "\nConclusión: ${integrationValidation.conclusion ?: "pendiente"}" +
+                                    "\n${integrationValidation.url}"
+                            )
+                            snapshot.candidateEvaluation?.let { output.append(renderEvaluation(it)) }
+                            snapshot.evaluationError?.let {
+                                output.append("\n\nNo se pudo generar la evaluación independiente: " + it)
+                            }
+                        }
                         android.text.util.Linkify.addLinks(output, android.text.util.Linkify.WEB_URLS)
                     } else if (snapshot.mainCommit != null) {
                         showRun("INTEGRACIÓN EN MAIN", snapshot.mainCommit, snapshot.mainCommitSummary, "main_commit")
@@ -472,6 +515,32 @@ class BardoGitHubDevelopmentActivity : AppCompatActivity() {
             "La auditoría local recalculada no ha superado todos los controles."
         }
         return evidence
+    }
+
+    private fun renderEvaluation(evaluation: BardoCandidateEvaluation): String = buildString {
+        appendLine()
+        appendLine("EVALUACIÓN INDEPENDIENTE DE BARDO")
+        appendLine("Estado CI: " + evaluation.ci.state.name)
+        evaluation.ci.problems.forEach { appendLine("• " + it) }
+        val report = evaluation.report
+        if (report == null) {
+            appendLine("No se ha emitido un informe: la ejecución no contiene evidencia CI válida y completa.")
+        } else {
+            appendLine("Resultado: " + report.status.name)
+            appendLine(report.summary)
+            fun names(checks: Set<com.musicaia.evaluacion.BardoCheck>): String =
+                checks.sortedBy { it.name }.joinToString(", ") { it.name }
+                    .ifBlank { "ninguno" }
+            appendLine("Controles superados: " + names(report.passedChecks))
+            appendLine("Controles fallidos: " + names(report.failedChecks))
+            appendLine("Controles pendientes: " + names(report.missingChecks))
+            if (report.status == com.musicaia.evaluacion.BardoEvaluationStatus.READY_FOR_HUMAN_REVIEW) {
+                appendLine(
+                    "Pendiente: revisión humana y pruebas físicas en el Xiaomi. " +
+                        "CI no demuestra instalación, inferencia local, modo avión, WAV ni mezcla de voz."
+                )
+            }
+        }
     }
 
     private fun showRun(
