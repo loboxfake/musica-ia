@@ -1,6 +1,9 @@
 package com.musicaia.modulos
 
 import java.io.File
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import kotlin.math.abs
 import kotlin.math.exp
 import kotlin.math.ln
@@ -85,19 +88,50 @@ object BardoWavMastering {
         val peakAfter = processed.maxOf { abs(it) }
         val rmsAfter = sqrt(processed.sumOf { it * it } / processed.size)
 
-        output.parentFile?.mkdirs()
-        AudioUtil.escribirWavMono16(output.absolutePath, pcm.frecuencia, processed.size) { start, count ->
-            ShortArray(count) { offset ->
-                (processed[start + offset].coerceIn(-0.999969, 0.999969) * 32768.0)
-                    .toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
+        val outputDirectory = output.absoluteFile.parentFile ?: File(".")
+        check(outputDirectory.isDirectory || outputDirectory.mkdirs()) {
+            "No se pudo crear el directorio del WAV masterizado."
+        }
+        val temporary = File.createTempFile("bardo_master_", ".wav.tmp", outputDirectory)
+        try {
+            AudioUtil.escribirWavMono16(temporary.absolutePath, pcm.frecuencia, processed.size) { start, count ->
+                ShortArray(count) { offset ->
+                    (processed[start + offset].coerceIn(-0.999969, 0.999969) * 32768.0)
+                        .toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
+                }
             }
+
+            fun validateWav(file: File) {
+                val info = WavSegmentDiagnostics.inspect(file)
+                require(
+                    file.length() == 44L + samples.size.toLong() * 2L &&
+                        info.sampleRate == pcm.frecuencia &&
+                        info.channels == 1 &&
+                        info.bitsPerSample == 16 &&
+                        info.frames == samples.size.toLong()
+                ) { "La verificación del WAV masterizado no coincide con el audio procesado." }
+            }
+
+            validateWav(temporary)
+            try {
+                Files.move(
+                    temporary.toPath(),
+                    output.toPath(),
+                    StandardCopyOption.ATOMIC_MOVE,
+                    StandardCopyOption.REPLACE_EXISTING
+                )
+            } catch (_: AtomicMoveNotSupportedException) {
+                Files.move(
+                    temporary.toPath(),
+                    output.toPath(),
+                    StandardCopyOption.REPLACE_EXISTING
+                )
+            }
+            validateWav(output)
+        } finally {
+            if (temporary.exists()) temporary.delete()
         }
-        require(output.isFile && output.length() > 44L) { "No se pudo escribir el WAV masterizado." }
-        // Re-abrir el archivo detecta cabecera dañada o salida truncada antes de informar éxito.
-        val verified = LectorWav.leer(output.absolutePath)
-        require(verified.frecuencia == pcm.frecuencia && verified.muestras.size == samples.size) {
-            "La verificación del WAV de salida no coincide con el audio procesado."
-        }
+
         fun db(value: Double) = if (value <= 1e-12) -120.0 else 20.0 * ln(value) / ln(10.0)
         return Result(
             output, pcm.frecuencia, samples.size,
