@@ -61,6 +61,7 @@ class BardoConversationStore internal constructor(private val directory: File) {
                     .put("title", conversation.title)
                     .put("createdAtEpochMillis", now)
                     .put("updatedAtEpochMillis", now)
+                    .put("autoTitle", isAutomaticTitle(conversation.title))
             )
             writeRoot(root)
             conversation
@@ -124,11 +125,18 @@ class BardoConversationStore internal constructor(private val directory: File) {
             ?: throw IllegalArgumentException("La conversación no existe.")
         val message = Message(UUID.randomUUID().toString(), conversationId, role, content, now, zoneId)
         root.getJSONArray("messages").put(message.toJson())
-        // El título se crea a partir del primer mensaje del usuario, para que
-        // el historial sea reconocible sin abrir cada conversación.
-        if (role == "user" && conversation.optString("title") == "Nueva conversación") {
+        // Auto-title only conversations created with a generated placeholder.
+        // This also covers the dated placeholder used by MainActivity; custom titles
+        // and imported legacy titles remain untouched.
+        if (role == "user" && conversation.optBoolean(
+                "autoTitle", isAutomaticTitle(conversation.optString("title"))
+            )
+        ) {
             val title = content.replace(Regex("\\s+"), " ").trim().take(64)
-            if (title.isNotBlank()) conversation.put("title", title)
+            if (title.isNotBlank()) {
+                conversation.put("title", title)
+                conversation.put("autoTitle", false)
+            }
         }
         conversation.put("updatedAtEpochMillis", now)
         writeRoot(root)
@@ -325,6 +333,10 @@ class BardoConversationStore internal constructor(private val directory: File) {
         if (source == null) return emptyRoot()
         return JSONObject(source.readText(Charsets.UTF_8))
     }
+
+    private fun isAutomaticTitle(title: String): Boolean =
+        title == "Nueva conversación" ||
+            Regex("^Conversación \\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}$").matches(title)
 
     private fun emptyRoot() = JSONObject()
         .put("schemaVersion", 1)
