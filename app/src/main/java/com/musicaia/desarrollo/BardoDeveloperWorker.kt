@@ -391,7 +391,7 @@ a pasar validación en otro runner.
 
             val patchStart = response.indexOf("--- a/")
             if (patchStart >= 0 && response.indexOf("+++ b/") > patchStart) {
-                val patch = response.substring(patchStart).substringBefore("\n```").trim()
+                val patch = BardoPatchTextExtractor.extract(response)
                 val applied = BardoPatchApplier.aplicar(snapshot, patch, workspace)
                 val candidateAudit = BardoDeveloperCore.analizar(applied.directory).render()
 
