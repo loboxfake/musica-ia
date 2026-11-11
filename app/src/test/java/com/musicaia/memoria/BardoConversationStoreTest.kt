@@ -134,6 +134,36 @@ class BardoConversationStoreTest {
     }
 
     @Test
+    fun recoversFromStructurallyInvalidPrimaryHistory() {
+        val (store, directory) = newStore()
+        try {
+            val conversation = store.createConversation("Esquema dañado")
+            store.append(conversation.id, "user", "Mensaje del respaldo")
+            val primary = File(directory, "bardo_conversation_history.json")
+            val backup = File(directory, "bardo_conversation_history.json.bak")
+
+            // Valid JSON, but missing the required messages array.
+            primary.copyTo(backup, overwrite = true)
+            primary.writeText(
+                JSONObject()
+                    .put("schemaVersion", 1)
+                    .put("conversations", org.json.JSONArray())
+                    .toString(),
+                Charsets.UTF_8
+            )
+
+            store.append(conversation.id, "assistant", "Esquema recuperado")
+            val messages = store.messages(conversation.id)
+            assertEquals(2, messages.size)
+            assertEquals("Mensaje del respaldo", messages[0].content)
+            assertEquals("Esquema recuperado", messages[1].content)
+            assertTrue(JSONObject(primary.readText(Charsets.UTF_8)).has("messages"))
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
     fun searchesMessagesAndReturnsTheirConversation() {
         val (store, directory) = newStore()
         try {
