@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.ContextWrapper
 import com.musicaia.modelo.Dato
 import java.io.File
+import java.io.RandomAccessFile
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -23,6 +24,8 @@ class MezclaVozTest {
             AudioUtil.escribirWavMono16(instrumental.absolutePath, 44100, 8) { _, count ->
                 ShortArray(count) { 2000 }
             }
+            val originalVoice = voice.readBytes()
+            val originalInstrumental = instrumental.readBytes()
 
             val result = MezclaVoz.mezclar(voice.absolutePath, instrumental.absolutePath, output.absolutePath)
             assertTrue(output.isFile)
@@ -33,6 +36,9 @@ class MezclaVozTest {
             assertEquals(44100, mixed.frecuencia)
             assertEquals(8, mixed.muestras.size)
             assertTrue(mixed.muestras.all { it.toInt() in 1990..2010 })
+            assertArrayEquals(originalVoice, voice.readBytes())
+            assertArrayEquals(originalInstrumental, instrumental.readBytes())
+            assertTrue(dir.listFiles().orEmpty().none { it.name.startsWith("bardo_voice_mix_") })
         } finally {
             dir.deleteRecursively()
         }
@@ -124,6 +130,88 @@ class MezclaVozTest {
             assertTrue("Un WAV inválido debe comunicarse como error", result is Dato.Texto)
             assertArrayEquals(previousOutput, output.readBytes())
             assertTrue(dir.listFiles().orEmpty().none { it.name.startsWith("bardo_modo3_") })
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+
+    @Test
+    fun mixerPreservesExistingOutputWhenAnInputIsInvalid() {
+        val dir = createTempDir(prefix = "bardo-mixer-atomic-failure-")
+        try {
+            val voice = File(dir, "voice.wav").apply { writeBytes(ByteArray(64) { 1 }) }
+            val instrumental = File(dir, "instrumental.wav")
+            val output = File(dir, "mixed.wav")
+            AudioUtil.escribirWavMono16(instrumental.absolutePath, 44100, 8) { _, count ->
+                ShortArray(count) { 2000 }
+            }
+            val previousOutput = byteArrayOf(1, 4, 9, 16, 25)
+            output.writeBytes(previousOutput)
+
+            try {
+                MezclaVoz.mezclar(voice.absolutePath, instrumental.absolutePath, output.absolutePath)
+                throw AssertionError("Se esperaba que un WAV inválido fuese rechazado.")
+            } catch (expected: IllegalArgumentException) {
+                assertTrue(expected.message.orEmpty().contains("RIFF/WAVE"))
+            }
+
+            assertArrayEquals(previousOutput, output.readBytes())
+            assertTrue(dir.listFiles().orEmpty().none { it.name.startsWith("bardo_voice_mix_") })
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun mixerNeverOverwritesEitherOriginalInput() {
+        val dir = createTempDir(prefix = "bardo-mixer-no-overwrite-")
+        try {
+            val voice = File(dir, "voice.wav")
+            val instrumental = File(dir, "instrumental.wav")
+            AudioUtil.escribirWavMono16(voice.absolutePath, 44100, 8) { _, count ->
+                ShortArray(count) { 1000 }
+            }
+            AudioUtil.escribirWavMono16(instrumental.absolutePath, 44100, 8) { _, count ->
+                ShortArray(count) { 2000 }
+            }
+            val originalVoice = voice.readBytes()
+            val originalInstrumental = instrumental.readBytes()
+
+            try {
+                MezclaVoz.mezclar(voice.absolutePath, instrumental.absolutePath, voice.absolutePath)
+                throw AssertionError("El mezclador no debe sobrescribir un original.")
+            } catch (expected: IllegalArgumentException) {
+                assertTrue(expected.message.orEmpty().contains("no puede sobrescribir"))
+            }
+
+            try {
+                MezclaVoz.mezclar(voice.absolutePath, instrumental.absolutePath, instrumental.absolutePath)
+                throw AssertionError("El mezclador no debe sobrescribir un original.")
+            } catch (expected: IllegalArgumentException) {
+                assertTrue(expected.message.orEmpty().contains("no puede sobrescribir"))
+            }
+
+            assertArrayEquals(originalVoice, voice.readBytes())
+            assertArrayEquals(originalInstrumental, instrumental.readBytes())
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun wavReaderRejectsOversizedFileBeforeReadingItIntoMemory() {
+        val dir = createTempDir(prefix = "bardo-wav-size-limit-")
+        try {
+            val huge = File(dir, "oversized.wav")
+            RandomAccessFile(huge, "rw").use { it.setLength(LectorWav.MAX_FILE_BYTES + 1L) }
+
+            try {
+                LectorWav.leer(huge.absolutePath)
+                throw AssertionError("El lector debe rechazar archivos que superen 32 MiB.")
+            } catch (expected: IllegalArgumentException) {
+                assertTrue(expected.message.orEmpty().contains("32 MiB"))
+            }
         } finally {
             dir.deleteRecursively()
         }
