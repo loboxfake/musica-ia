@@ -20,7 +20,7 @@ Este flujo:
 
 Que esta validación termine correctamente significa que ese diff, aplicado a ese SHA, pasó las comprobaciones incluidas en este workflow. No significa que haya sido integrado ni probado físicamente.
 
-El workflow legacy \`bardo-commit-candidate.yml\` está deshabilitado. La integración a \`main\` desde BARDO también permanece bloqueada por \`BardoGitHubIntegrationPolicy.MAIN_COMMIT_WORKFLOW_ENABLED = false\`. No se debe interpretar la presencia del archivo \`bardo-main-commit-candidate.yml\` como una función disponible en la aplicación.
+El workflow legacy \`bardo-commit-candidate.yml\` está deshabilitado. La integración actual usa \`bardo-main-commit-candidate.yml\`: después de SUCCESS en la validación aislada, la pantalla permite autorizar explícitamente un único commit directo a \`main\`. El workflow verifica de nuevo la ejecución de validación, el SHA base, el ID del candidato y el hash/lista de archivos; repite Gitleaks, tests y build ARM64; comprueba que \`main\` no haya avanzado y hace un push normal sin force. El usuario debe autorizar por separado esta integración.
 
 ## 2. Validación del código integrado en main y APK ARM64
 
@@ -51,7 +51,7 @@ Solo produce evidencia CI de:
 
 No produce evidencia para \`APK_AUDIT\`, instalación, Gemma, operación offline, generación o escucha de WAV, ni mezcla de voz del usuario.
 
-\`BardoCandidateEvaluationPipeline\` combina esas evidencias con las evidencias locales y las entrega a \`BardoIndependentEvaluator\`. La API del pipeline y del adaptador dispone de pruebas unitarias, pero **en el estado actual no está conectada a una ruta de ejecución de la interfaz Android**. No debe presentarse como una evaluación automática ya operativa en BARDO. La pantalla GitHub actual consulta y muestra estados/resúmenes de Actions; no genera a partir de ellos un informe completo \`BardoEvaluationReport\`.
+\`BardoCandidateEvaluationPipeline\` combina las evidencias CI del adaptador con la auditoría local. Desde el 11-11-2026, la pantalla GitHub, después de confirmar que el commit del candidato está en \`main\`, busca la ejecución de \`bardo-validation.yml\` para el SHA integrado y obtiene desde GitHub las respuestas originales del run, jobs/pasos y artefactos. Con esas respuestas y la auditoría local recalculada genera y muestra un \`BardoEvaluationReport\`; no utiliza el resumen textual del modelo como evidencia. La validación aislada del diff no se confunde con la validación del commit incorporado.
 
 El evaluador distingue:
 - \`INCOMPLETE\`: faltan evidencias CI obligatorias.

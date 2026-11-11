@@ -108,26 +108,26 @@ El evaluador debe comparar la salida con criterios objetivos y pruebas independi
 
 BARDO estudia su propio código como texto, prepara cambios en una copia aislada y los somete a validación. El código importado no se ejecuta durante el análisis local.
 
-Flujo acordado:
+Flujo implementado en la rama `main`:
 
-1. Obtener un snapshot inmutable de un commit exacto de `main`.
-2. Revisar diagnóstico, memoria técnica y referencias autorizadas.
-3. Generar un cambio pequeño, acotado y reproducible.
-4. Aplicar el diff solo en una copia candidata, con rutas seguras.
-5. Rechazar Modo3, núcleo protegido, workflows, configuración, firma y secretos.
-6. No modificar ni borrar pruebas existentes; las pruebas nuevas se añaden, nunca sustituyen las antiguas.
-7. Validar en runner efímero: análisis, tests y compilación.
-8. Tras autorización explícita, crear rama `bardo/<id>` y PR borrador contra `main`, pero solo mediante un workflow auditado que no escriba directamente en `main`.
-9. Revisar diff y resultados de CI. BARDO no fusiona el PR.
-10. La APK integral solo se genera tras una fusión separada y autorizada a `main`; su instalación corresponde al usuario y Android.
+1. Obtener un snapshot del código oficial asociado a un SHA exacto de `main`.
+2. Revisar inventario, auditoría estática, memoria técnica y referencias autorizadas. El contexto de proyectos importados permanece local y no puede enviarse a GitHub.
+3. Proponer un cambio acotado y generar un diff. El modelo no ejecuta el código que inspecciona.
+4. Aplicar el diff en un workspace candidato aislado. Las políticas rechazan Modo3, rutas protegidas, secretos, workflows, configuración de build y pruebas existentes.
+5. Recalcular los hashes y la evidencia local del candidato; si falla cualquier control, el envío queda bloqueado.
+6. El usuario inicia la validación aislada desde la pantalla de desarrollo. `bardo-candidate-validation.yml` comprueba que la base `main` siga en el SHA declarado, aplica el diff en un runner efímero, escanea Gitleaks y ejecuta tests unitarios y compilación Debug. Publica un informe; no modifica el repositorio ni genera el APK ARM64 final.
+7. Solo después de SUCCESS en esa validación el usuario puede autorizar expresamente la integración de ese candidato exacto en `main`. `bardo-main-commit-candidate.yml` verifica el run, ID, SHA base, huella SHA-256 del parche y lista de archivos; vuelve a aplicar y auditar el cambio, ejecuta Gitleaks, tests y compilación Debug ARM64, y vuelve a comprobar que `main` no haya avanzado.
+8. La integración utiliza un push normal de avance rápido, sin force-push. Si `main` cambia antes del push, el workflow aborta; no sobrescribe el trabajo concurrente. No crea ramas `bardo/*`, PR ni Releases.
+9. Tras integrar el commit, el workflow solicita `bardo-validation.yml` para el nuevo SHA. Ese workflow realiza Gitleaks, actionlint, tests, APK Debug ARM64, firma v2/certificado Debug, ABI ARM64 y subida del artefacto de evaluación.
+10. La pantalla puede consultar el commit incorporado y conecta la ejecución de validación de ese SHA con el evaluador independiente. CI completo solo da `READY_FOR_HUMAN_REVIEW`; la instalación, el arranque y las pruebas musicales reales siguen pendientes de verificación física en el Xiaomi.
 
-Nunca se hace push automático a `main`, force-push, reset destructivo ni borrado de ramas/remotos. Un candidato obsoleto se rechaza y debe regenerarse desde el nuevo commit base.
+La integración a `main` no es automática: requiere una aprobación explícita en la interfaz para un candidato que ya haya superado la validación aislada. El workflow vuelve a verificar la autorización y todas las condiciones técnicas. No se hace force-push, reset destructivo ni borrado de ramas/remotos.
 
-**Hallazgo histórico, corregido el 10-11-2026:** una versión fundacional del workflow intentaba escribir directamente en `main`. La rama integral reemplazó ese flujo: `.github/workflows/bardo-commit-candidate.yml` comprueba que `main` no haya cambiado, crea exclusivamente `bardo/<id>`, hace push a esa rama y abre un PR borrador. El código de la app bloquea candidatos sin procedencia propia BARDO. La revisión actual de workflows no encuentra ningún `git push` dirigido a `refs/heads/main`; la fusión de PR sigue siendo una acción separada y humana. `main` aún no tiene ruleset/protección activa en GitHub, por lo que el propietario debe configurarla para que GitHub imponga esta política frente a otros clientes.
+**Límites actuales:** BARDO todavía no recopila automáticamente los logs detallados de una validación fallida para preparar una corrección, repetir la validación aislada y continuar hasta agotar un presupuesto de intentos. La pantalla de evaluación no convierte CI en prueba de dispositivo. Tampoco existe autoactualización de APK ni publicación automática de Release.
 
-El workflow de validación usa un runner efímero y no recibe el PAT del dispositivo. El PAT guardado en el teléfono se cifra con Android Keystore y permite iniciar/consultar validaciones; la integración no se habilita mientras el flujo de PR sea inseguro.
+GitHub informa que `main` no tiene protección de rama activa al 11-11-2026 (`protected=false`). La política del workflow protege su propio flujo, pero esa configuración no impide que otros clientes autorizados intenten escribir en `main`; el propietario debe decidir y configurar reglas compatibles con la estrategia de rama única.
 
-La protección de rama de GitHub debe configurarse en el propio repositorio para exigir PR y checks. El estado de configuración debe comprobarse; no se presume activada.
+El PAT del repositorio, cuando se usa desde el dispositivo, se cifra mediante Android Keystore. No se incluye en el APK ni se transmite al runner; los workflows usan sus propios permisos `GITHUB_TOKEN` mínimos.
 
 ## 9. Aislamiento, datos y reversión
 
