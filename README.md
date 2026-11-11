@@ -11,6 +11,8 @@ Build and device validation are separate: a successful GitHub Actions build does
 
 ## Integración y desarrollo
 
+- Requisitos de autoconocimiento operativo y desarrollo autónomo en segundo plano: `docs/BARDO_AUTOCONOCIMIENTO_Y_DESARROLLO_CONTINUO.md`.
+
 - Rama canónica: `main`.
 - La compilación instalable y auditada se realiza con `.github/workflows/full-build.yml`.
 - La validación de código, pruebas unitarias y escaneo de secretos se ejecuta con `.github/workflows/bardo-validation.yml`.
