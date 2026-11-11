@@ -223,7 +223,7 @@ class MezclaVozTest {
         val dir = createTempDir(prefix = "bardo-wav-stereo-")
         try {
             val stereo = File(dir, "stereo.wav")
-            val dataBytes = 6
+            val dataBytes = 12
             val wav = java.nio.ByteBuffer.allocate(44 + dataBytes)
                 .order(java.nio.ByteOrder.LITTLE_ENDIAN)
             wav.put("RIFF".toByteArray(Charsets.US_ASCII))
