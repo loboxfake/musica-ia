@@ -1165,15 +1165,20 @@ private fun crearConversacionNueva() {
                  val mensaje = resultado.message
                  val zona = runCatching { ZoneId.of(mensaje.zoneId) }.getOrDefault(ZoneId.of("UTC"))
                  val hora = formato.withZone(zona).format(Instant.ofEpochMilli(mensaje.timestampEpochMillis))
-                 val autor = if (mensaje.role == "user") "Tú" else "BARDO"
+                 val autor = when (mensaje.role) {
+                     "user" -> "Tú"
+                     "assistant" -> "BARDO"
+                     "tool" -> "Herramienta"
+                     else -> "Sistema"
+                 }
                  "${resultado.conversation.title} · $hora · $autor: ${mensaje.content.take(72)}"
              }.toTypedArray()
              AlertDialog.Builder(this)
                  .setTitle("Resultados: ${resultados.size}")
                  .setItems(etiquetas) { _, indice ->
                      val seleccion = resultados[indice]
-                     cargarMemoriaLocal()
                      activeConversationId = seleccion.conversation.id
+                     cargarMemoriaLocal()
                      getSharedPreferences("musicalia_memoria_local", MODE_PRIVATE).edit()
                          .putString("active_conversation_id", activeConversationId).apply()
                      chatLog.text = ""
