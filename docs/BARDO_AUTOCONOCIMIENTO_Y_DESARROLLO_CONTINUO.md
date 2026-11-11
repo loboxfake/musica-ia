@@ -171,3 +171,14 @@ BARDO solo podrá declararse **operativamente autoconsciente de sus capacidades*
 Solo podrá declararse **desarrollador autónomo en segundo plano** cuando complete de forma repetible el ciclo desde objetivo hasta candidato validado y reanudable, con logs, hashes, pruebas, límites, controles de seguridad y aprobación de integración; deberá demostrarlo también tras interrupciones reales del sistema Android y en el Xiaomi 11T Pro.
 
 La independencia de asistentes externos es requisito permanente: el modo local debe seguir funcionando y desarrollándose sin ChatGPT, JARVIS, Claude, Gemini ni APIs remotas. La red puede ser una herramienta opcional autorizada, no un cerebro ni una dependencia operativa.
+
+## 9.2 Hallazgo de seguridad en la validación aislada de candidatos
+
+La comparación de las salvaguardas de main detectó una divergencia entre la política central y la lista duplicada del workflow de validación:
+
+- BardoProtectedPathPolicy.protectedExact contiene 67 rutas; .github/workflows/bardo-candidate-validation.yml mantiene 60 entradas manuales.
+- app/src/main/java/com/musicaia/actualizaciones/BardoIncrementalUpdateManifest.kt está clasificada como HUMAN_REVIEW_REQUIRED por la política central y queda dentro del prefijo permitido por el workflow, pero no aparece en la lista de exclusión de este último.
+- En consecuencia, el validador de candidatos podría aceptar una modificación de ese manifiesto, aunque BARDO debería bloquearla para revisión humana.
+- Las demás diferencias de las listas detectadas están fuera de la allowlist actual del workflow; no se consideran un bypass de esta misma ruta.
+
+Se registró el hallazgo para corrección y seguimiento en [GitHub issue #7](https://github.com/loboxfake/musica-ia/issues/7). La corrección requiere revisión humana porque .github/workflows/ es una ruta protegida. No se ha modificado el workflow, la política central ni el manifiesto. La regresión exigida debe demostrar que todas las rutas protegidas bajo app/src/main/java/ son rechazadas y comprobar expresamente el manifiesto de actualizaciones.
