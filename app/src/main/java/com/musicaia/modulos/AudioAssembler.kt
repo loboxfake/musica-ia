@@ -292,6 +292,35 @@ object AudioAssembler {
         file.writeBytes(output.array())
     }
 
+
+    private fun applyFades(
+        samples: ShortArray,
+        channels: Int,
+        sampleRate: Int,
+        fadeInMs: Int,
+        fadeOutMs: Int
+    ) {
+        val frames = samples.size / channels
+        val fadeInFrames = min(frames.toLong(), sampleRate.toLong() * fadeInMs / 1000L).toInt()
+        val fadeOutFrames = min(frames.toLong(), sampleRate.toLong() * fadeOutMs / 1000L).toInt()
+
+        for (frame in 0 until fadeInFrames) {
+            val gain = frame.toFloat() / maxOf(1, fadeInFrames).toFloat()
+            for (channel in 0 until channels) {
+                val index = frame * channels + channel
+                samples[index] = (samples[index] * gain).roundToInt().toShort()
+            }
+        }
+        for (frame in 0 until fadeOutFrames) {
+            val gain = (fadeOutFrames - frame).toFloat() / maxOf(1, fadeOutFrames).toFloat()
+            val absoluteFrame = frames - fadeOutFrames + frame
+            for (channel in 0 until channels) {
+                val index = absoluteFrame * channels + channel
+                samples[index] = (samples[index] * gain).roundToInt().toShort()
+            }
+        }
+    }
+
     private fun validateWrittenWav(
         file: File,
         sampleRate: Int,
