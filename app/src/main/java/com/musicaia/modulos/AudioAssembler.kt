@@ -15,6 +15,9 @@ import kotlin.math.roundToInt
  * No sintetiza ni inventa audio: solo organiza los WAV generados por el modelo local.
  */
 object AudioAssembler {
+    private const val MAX_INPUT_FILE_BYTES = 120L * 1024L * 1024L
+    private const val MAX_FRAMES_PER_CLIP = 12_000_000L
+
     private data class Clip(
         val sampleRate: Int,
         val channels: Int,
@@ -181,78 +184,136 @@ object AudioAssembler {
     }
 
     private fun readPcm16Wav(file: File): Clip {
-        require(file.isFile && file.length() >= 44L) { "WAV inexistente o demasiado pequeño: ${file.name}" }
-        val bytes = file.readBytes()
-        val buffer = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
-        require(ascii(bytes, 0, 4) == "RIFF" && ascii(bytes, 8, 4) == "WAVE") {
-            "Cabecera RIFF/WAVE no válida: ${file.name}"
+        require(file.isFile && file.length() >= 44L) {
+            "WAV inexistente o demasiado pequeño: ${file.name}"
+        }
+        require(file.length() <= MAX_INPUT_FILE_BYTES) {
+            "El WAV supera el límite de seguridad de 120 MiB: ${file.name}"
         }
 
-        val riffSize = buffer.getInt(4).toLong() and 0xffffffffL
-        val riffEndLong = 8L + riffSize
-        require(riffSize >= 4L && riffEndLong <= bytes.size.toLong()) {
-            "Tamaño RIFF truncado o no válido: ${file.name}"
-        }
-        val riffEnd = riffEndLong.toInt()
+        RandomAccessFile(file, "r").use { input ->
+            require(readAscii(input, 4) == "RIFF") { "Cabecera RIFF no válida: ${file.name}" }
+            val riffSize = readUnsignedIntLe(input)
+            require(riffSize >= 4L) { "Tamaño RIFF no válido: ${file.name}" }
+            val riffEnd = 8L + riffSize
+            require(riffEnd <= input.length()) { "Tamaño RIFF truncado o no válido: ${file.name}" }
+            input.seek(8L)
+            require(readAscii(input, 4) == "WAVE") { "Cabecera WAVE no válida: ${file.name}" }
 
-        var format = -1
-        var channels = 0
-        var sampleRate = 0
-        var bitsPerSample = 0
-        var byteRate = 0L
-        var blockAlign = 0
-        var pcmData: ByteArray? = null
-        var offset = 12
+            var format = -1
+            var channels = 0
+            var sampleRate = 0L
+            var bitsPerSample = 0
+            var byteRate = 0L
+            var blockAlign = 0
+            var dataStart = -1L
+            var dataSize = -1L
+            var offset = 12L
 
-        while (offset < riffEnd) {
-            require(riffEnd - offset >= 8) { "Cabecera de chunk WAV incompleta: ${file.name}" }
-            val chunkId = ascii(bytes, offset, 4)
-            val chunkSize = buffer.getInt(offset + 4).toLong() and 0xffffffffL
-            val dataStartLong = offset.toLong() + 8L
-            val dataEndLong = dataStartLong + chunkSize
-            require(dataEndLong <= riffEndLong && dataEndLong <= Int.MAX_VALUE.toLong()) {
-                "Chunk WAV truncado: ${file.name}"
-            }
-            val dataStart = dataStartLong.toInt()
-            val dataEnd = dataEndLong.toInt()
-
-            when (chunkId) {
-                "fmt " -> {
-                    require(chunkSize >= 16L) { "Chunk fmt incompleto: ${file.name}" }
-                    format = buffer.getShort(dataStart).toInt() and 0xffff
-                    channels = buffer.getShort(dataStart + 2).toInt() and 0xffff
-                    sampleRate = buffer.getInt(dataStart + 4)
-                    byteRate = buffer.getInt(dataStart + 8).toLong() and 0xffffffffL
-                    blockAlign = buffer.getShort(dataStart + 12).toInt() and 0xffff
-                    bitsPerSample = buffer.getShort(dataStart + 14).toInt() and 0xffff
+            while (offset < riffEnd) {
+                require(riffEnd - offset >= 8L) { "Cabecera de chunk WAV incompleta: ${file.name}" }
+                input.seek(offset)
+                val chunkId = readAscii(input, 4)
+                val chunkSize = readUnsignedIntLe(input)
+                val chunkStart = offset + 8L
+                val chunkEnd = chunkStart + chunkSize
+                require(chunkEnd >= chunkStart && chunkEnd <= riffEnd && chunkEnd <= input.length()) {
+                    "Chunk WAV truncado: ${file.name}"
                 }
-                "data" -> if (pcmData == null) pcmData = bytes.copyOfRange(dataStart, dataEnd)
+
+                when (chunkId) {
+                    "fmt " -> {
+                        require(chunkSize >= 16L) { "Chunk fmt incompleto: ${file.name}" }
+                        input.seek(chunkStart)
+                        format = readUnsignedShortLe(input)
+                        channels = readUnsignedShortLe(input)
+                        sampleRate = readUnsignedIntLe(input)
+                        byteRate = readUnsignedIntLe(input)
+                        blockAlign = readUnsignedShortLe(input)
+                        bitsPerSample = readUnsignedShortLe(input)
+                    }
+                    "data" -> if (dataStart < 0L) {
+                        dataStart = chunkStart
+                        dataSize = chunkSize
+                    }
+                }
+
+                val next = chunkEnd + (chunkSize and 1L)
+                require(next <= riffEnd) { "Falta el byte de relleno de un chunk WAV: ${file.name}" }
+                offset = next
+            }
+            require(offset == riffEnd) { "El bloque RIFF no termina en un límite de chunk: ${file.name}" }
+
+            require(format == 1 && bitsPerSample == 16) {
+                "El audio debe ser PCM16 (format=1, 16-bit): ${file.name}"
+            }
+            require(channels in 1..2 && sampleRate in 8_000L..192_000L) {
+                "Formato de canales/frecuencia no válido: ${file.name}"
+            }
+            val expectedBlockAlign = channels * 2
+            require(blockAlign == expectedBlockAlign) { "Alineación PCM no válida: ${file.name}" }
+            require(byteRate == sampleRate * expectedBlockAlign.toLong()) {
+                "Velocidad de bytes PCM no válida: ${file.name}"
+            }
+            require(dataStart >= 0L && dataSize > 0L) {
+                "El WAV no contiene chunk data: ${file.name}"
+            }
+            require(dataSize % expectedBlockAlign == 0L) {
+                "Los datos PCM terminan en un marco incompleto: ${file.name}"
+            }
+            val framesLong = dataSize / expectedBlockAlign
+            require(framesLong <= MAX_FRAMES_PER_CLIP) {
+                "El WAV supera el máximo de muestras admitido para ensamblado: ${file.name}"
+            }
+            val sampleCountLong = framesLong * channels.toLong()
+            require(sampleCountLong <= Int.MAX_VALUE.toLong()) {
+                "El WAV supera el tamaño de muestras admitido: ${file.name}"
             }
 
-            val next = dataEndLong + (chunkSize and 1L)
-            require(next <= riffEndLong) { "Falta el byte de relleno de un chunk WAV: ${file.name}" }
-            offset = next.toInt()
+            val samples = ShortArray(sampleCountLong.toInt())
+            input.seek(dataStart)
+            val framesPerBlock = 8_192
+            val block = ByteArray(framesPerBlock * expectedBlockAlign)
+            var frameOffset = 0
+            while (frameOffset < framesLong.toInt()) {
+                val frameCount = min(framesPerBlock, framesLong.toInt() - frameOffset)
+                val byteCount = frameCount * expectedBlockAlign
+                input.readFully(block, 0, byteCount)
+                var byteOffset = 0
+                for (i in 0 until frameCount * channels) {
+                    val low = block[byteOffset++].toInt() and 0xff
+                    val high = block[byteOffset++].toInt()
+                    samples[frameOffset * channels + i] = (low or (high shl 8)).toShort()
+                }
+                frameOffset += frameCount
+            }
+            return Clip(sampleRate.toInt(), channels, samples)
         }
-        require(offset == riffEnd) { "El bloque RIFF no termina en un límite de chunk: ${file.name}" }
+    }
 
-        require(format == 1 && bitsPerSample == 16) {
-            "El audio debe ser PCM16 (format=1, 16-bit): ${file.name}"
-        }
-        require(channels in 1..2 && sampleRate > 0) { "Formato de canales/frecuencia no válido: ${file.name}" }
-        val expectedBlockAlign = channels * 2
-        require(blockAlign == expectedBlockAlign) { "Alineación PCM no válida: ${file.name}" }
-        require(byteRate == sampleRate.toLong() * expectedBlockAlign.toLong()) {
-            "Velocidad de bytes PCM no válida: ${file.name}"
-        }
-        val data = pcmData ?: throw IllegalArgumentException("El WAV no contiene chunk data: ${file.name}")
-        require(data.isNotEmpty() && data.size % expectedBlockAlign == 0) {
-            "Datos PCM vacíos o truncados: ${file.name}"
-        }
+    private fun readAscii(input: RandomAccessFile, count: Int): String {
+        val bytes = ByteArray(count)
+        input.readFully(bytes)
+        return String(bytes, Charsets.US_ASCII)
+    }
 
-        val pcm = ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN)
-        val samples = ShortArray(data.size / 2) { pcm.short }
-        require(samples.size % channels == 0) { "Bloques PCM incompletos: ${file.name}" }
-        return Clip(sampleRate, channels, samples)
+    private fun readUnsignedShortLe(input: RandomAccessFile): Int {
+        val low = input.read()
+        val high = input.read()
+        require(low >= 0 && high >= 0) { "Cabecera WAV truncada." }
+        return (low and 0xff) or ((high and 0xff) shl 8)
+    }
+
+    private fun readUnsignedIntLe(input: RandomAccessFile): Long {
+        val a = input.read()
+        val b = input.read()
+        val c = input.read()
+        val d = input.read()
+        require(a >= 0 && b >= 0 && c >= 0 && d >= 0) { "Cabecera WAV truncada." }
+        return (a.toLong() and 0xffL) or
+            ((b.toLong() and 0xffL) shl 8) or
+            ((c.toLong() and 0xffL) shl 16) or
+            ((d.toLong() and 0xffL) shl 24)
     }
 
     private fun writePcm16Wav(file: File, sampleRate: Int, channels: Int, samples: ShortArray) {
@@ -268,28 +329,39 @@ object AudioAssembler {
         val byteRateLong = sampleRate.toLong() * channels.toLong() * 2L
         require(byteRateLong <= Int.MAX_VALUE.toLong()) { "Velocidad de bytes WAV no válida." }
 
-        val output = ByteBuffer.allocate(44 + dataBytes).order(ByteOrder.LITTLE_ENDIAN)
-        output.put("RIFF".toByteArray(Charsets.US_ASCII))
-        output.putInt(36 + dataBytes)
-        output.put("WAVE".toByteArray(Charsets.US_ASCII))
-        output.put("fmt ".toByteArray(Charsets.US_ASCII))
-        output.putInt(16)
-        output.putShort(1)
-        output.putShort(channels.toShort())
-        output.putInt(sampleRate)
-        output.putInt(byteRateLong.toInt())
-        output.putShort((channels * 2).toShort())
-        output.putShort(16)
-        output.put("data".toByteArray(Charsets.US_ASCII))
-        output.putInt(dataBytes)
-        for (sample in samples) output.putShort(sample)
+        val header = ByteBuffer.allocate(44).order(ByteOrder.LITTLE_ENDIAN)
+        header.put("RIFF".toByteArray(Charsets.US_ASCII))
+        header.putInt(36 + dataBytes)
+        header.put("WAVE".toByteArray(Charsets.US_ASCII))
+        header.put("fmt ".toByteArray(Charsets.US_ASCII))
+        header.putInt(16)
+        header.putShort(1)
+        header.putShort(channels.toShort())
+        header.putInt(sampleRate)
+        header.putInt(byteRateLong.toInt())
+        header.putShort((channels * 2).toShort())
+        header.putShort(16)
+        header.put("data".toByteArray(Charsets.US_ASCII))
+        header.putInt(dataBytes)
 
         file.parentFile?.let { parent ->
             check(parent.isDirectory || parent.mkdirs()) {
                 "No se pudo crear el directorio del WAV temporal."
             }
         }
-        file.writeBytes(output.array())
+        file.outputStream().buffered(64 * 1024).use { stream ->
+            stream.write(header.array())
+            val samplesPerBlock = 32 * 1024
+            val block = ByteBuffer.allocate(samplesPerBlock * 2).order(ByteOrder.LITTLE_ENDIAN)
+            var offset = 0
+            while (offset < samples.size) {
+                val count = min(samplesPerBlock, samples.size - offset)
+                block.clear()
+                for (i in 0 until count) block.putShort(samples[offset + i])
+                stream.write(block.array(), 0, count * 2)
+                offset += count
+            }
+        }
     }
 
 
