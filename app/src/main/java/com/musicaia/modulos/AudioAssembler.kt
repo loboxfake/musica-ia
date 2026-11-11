@@ -17,6 +17,7 @@ import kotlin.math.roundToInt
 object AudioAssembler {
     private const val MAX_INPUT_FILE_BYTES = 120L * 1024L * 1024L
     private const val MAX_FRAMES_PER_CLIP = 12_000_000L
+    private const val MAX_TOTAL_INPUT_SAMPLES = 24_000_000L
 
     private data class Clip(
         val sampleRate: Int,
@@ -40,8 +41,20 @@ object AudioAssembler {
             "El archivo de salida no puede sobrescribir uno de los segmentos originales."
         }
 
-        val clips = inputFiles.map(::readPcm16Wav).map {
-            trimTrailingSilence(it, threshold = 104, minimumSilenceMs = 200, keepTailMs = 80)
+        val clips = ArrayList<Clip>(inputFiles.size)
+        var totalInputSamples = 0L
+        for (file in inputFiles) {
+            val clip = trimTrailingSilence(
+                readPcm16Wav(file),
+                threshold = 104,
+                minimumSilenceMs = 200,
+                keepTailMs = 80
+            )
+            totalInputSamples += clip.samples.size.toLong()
+            require(totalInputSamples <= MAX_TOTAL_INPUT_SAMPLES) {
+                "Los segmentos superan el límite conjunto de memoria para ensamblado de audio."
+            }
+            clips += clip
         }
         val reference = clips.first()
         require(clips.all {
