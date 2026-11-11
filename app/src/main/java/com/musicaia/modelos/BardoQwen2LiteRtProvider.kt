@@ -56,10 +56,35 @@ class BardoQwen2LiteRtProvider : BardoModelProvider {
 
     override fun load(context: Context): Boolean {
         val availability = inspect(context)
-        if (availability.state == BardoModelState.READY) return true
+        val model = BardoQwen2LiteRtModule.modelFile(context)
+        if (availability.state == BardoModelState.READY) {
+            // Si LiteRT ya conserva el modelo, registrar la evidencia solo después
+            // de comprobar el hash del archivo presente en disco.
+            val stored = BardoCapabilityEvidenceStore.inspect(
+                context, "qwen2", model, BardoQwen2LiteRtModule.EXPECTED_SHA256,
+                BardoQwen2LiteRtModule.EXPECTED_SIZE_BYTES
+            )
+            if (stored.status == BardoCapabilityRegistry.Status.MODEL_PRESENT) {
+                check(BardoQwen2LiteRtModule.verificarModelo(model)) {
+                    "El SHA-256 de Qwen2 no coincide con el manifiesto."
+                }
+                runCatching {
+                    BardoCapabilityEvidenceStore.recordShaVerified(
+                        context, "qwen2", model, BardoQwen2LiteRtModule.EXPECTED_SHA256,
+                        BardoQwen2LiteRtModule.EXPECTED_SHA256
+                    )
+                }
+            }
+            runCatching {
+                BardoCapabilityEvidenceStore.recordLoadSucceeded(
+                    context, "qwen2", model, BardoQwen2LiteRtModule.EXPECTED_SHA256
+                )
+            }
+            loadedPath = model.absolutePath
+            return true
+        }
         check(availability.state == BardoModelState.PRESENT_UNVERIFIED) { availability.reason }
 
-        val model = BardoQwen2LiteRtModule.modelFile(context)
         check(BardoQwen2LiteRtModule.verificarModelo(model)) {
             "El SHA-256 de Qwen2 no coincide. El archivo original se conserva sin borrarlo."
         }

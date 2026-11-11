@@ -96,10 +96,36 @@ class BardoGemmaLiteRtProvider : BardoModelProvider {
 
     override fun load(context: Context): Boolean {
         val current = inspect(context)
-        if (current.state == BardoModelState.READY) return true
+        val model = LiteRTLMModule.modelFile(context)
+        if (current.state == BardoModelState.READY) {
+            // El runtime puede venir de una carga anterior al registro de evidencias.
+            // Verificamos el archivo una vez antes de registrar la carga ya residente.
+            val stored = BardoCapabilityEvidenceStore.inspect(
+                context, "gemma", model, LiteRTLMModule.EXPECTED_SHA256,
+                LiteRTLMModule.EXPECTED_SIZE_BYTES
+            )
+            if (stored.status == BardoCapabilityRegistry.Status.MODEL_PRESENT) {
+                val actualHash = sha256(model)
+                check(actualHash == LiteRTLMModule.EXPECTED_SHA256) {
+                    "El SHA-256 de Gemma no coincide con el manifiesto."
+                }
+                runCatching {
+                    BardoCapabilityEvidenceStore.recordShaVerified(
+                        context, "gemma", model, LiteRTLMModule.EXPECTED_SHA256, actualHash
+                    )
+                }
+            }
+            runCatching {
+                BardoCapabilityEvidenceStore.recordLoadSucceeded(
+                    context, "gemma", model, LiteRTLMModule.EXPECTED_SHA256
+                )
+            }
+            loadedPath = model.absolutePath
+            loaded = true
+            return true
+        }
         check(current.state == BardoModelState.PRESENT_UNVERIFIED) { current.reason }
 
-        val model = LiteRTLMModule.modelFile(context)
         val actualHash = sha256(model)
         check(actualHash == LiteRTLMModule.EXPECTED_SHA256) {
             "El SHA-256 de Gemma no coincide. El archivo original se conserva sin borrarlo."
