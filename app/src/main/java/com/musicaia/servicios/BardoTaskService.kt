@@ -171,7 +171,7 @@ class BardoTaskService : Service() {
 
         val entrada = when {
             modoSolo -> Dato.Texto(prompt)
-            letraManual.isNotBlank() -> Dato.Texto("[LETRA_USUARIO]\n$letraManual\n\n$prompt")
+            letraManual.isNotBlank() -> Dato.Texto("[LETRA_USUARIO]\n$letraManual\n\n[CONTEXTO_CREACION]\n$prompt")
             else -> Dato.Texto(prompt)
         }
         val plan = try {

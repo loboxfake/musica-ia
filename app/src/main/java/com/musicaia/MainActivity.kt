@@ -4450,7 +4450,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
  val entrada = if (modoSoloInstrumental) {
      Dato.Texto(promptInstrumental)
  } else {
-     Dato.Texto(if (letraManual.isNotEmpty()) "[LETRA_USUARIO]\n$letraManual\n\n$entradaTexto" else entradaTexto)
+     Dato.Texto(if (letraManual.isNotEmpty()) "[LETRA_USUARIO]\n$letraManual\n\n[CONTEXTO_CREACION]\n$entradaTexto" else entradaTexto)
  }
 
  try {

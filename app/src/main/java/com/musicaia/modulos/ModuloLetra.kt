@@ -39,11 +39,7 @@ class ModuloLetra(context: Context, private val modoManual: Boolean = false) : M
             ?: throw IllegalArgumentException("La generación de letra necesita datos de texto.")
 
         if (modoManual && solicitud.startsWith("[LETRA_USUARIO]")) {
-            return Dato.Texto(
-                solicitud.substringAfter("[LETRA_USUARIO]")
-                    .substringBefore("\n\nTema:")
-                    .trim()
-            )
+            return Dato.Texto(extractManualLyrics(solicitud))
         }
 
         check(!modoManual) {
@@ -65,5 +61,27 @@ class ModuloLetra(context: Context, private val modoManual: Boolean = false) : M
 
     override fun descargar() {
         if (!modoManual) registry.unloadAll()
+    }
+
+    companion object {
+        /**
+         * El marcador contextual separa los versos del briefing en cualquier idioma.
+         * Se conservan los delimitadores antiguos como compatibilidad con entradas guardadas.
+         */
+        internal fun extractManualLyrics(input: String): String {
+            require(input.startsWith("[LETRA_USUARIO]")) {
+                "Falta el marcador de letra manual."
+            }
+            val payload = input.substringAfter("[LETRA_USUARIO]")
+            val delimiters = listOf(
+                "\n\n[CONTEXTO_CREACION]",
+                "\n\nTema:",
+                "\n\nTheme:"
+            )
+            val cut = delimiters.map { payload.indexOf(it) }
+                .filter { it >= 0 }
+                .minOrNull() ?: payload.length
+            return payload.substring(0, cut).trim()
+        }
     }
 }
