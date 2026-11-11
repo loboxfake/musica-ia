@@ -25,6 +25,11 @@ import com.musicaia.desarrollo.BardoDeveloperCore
 import com.musicaia.desarrollo.BardoPatchApplier
 import com.musicaia.modulos.litert.EngineLiteRT
 import com.musicaia.modulos.litert.LiteRTLMModule
+import com.musicaia.modulos.litert.BardoQwen2LiteRtModule
+import com.musicaia.modelos.BardoModelRegistry
+import com.musicaia.modelos.BardoModelRequest
+import com.musicaia.modelos.BardoGemmaLiteRtProvider
+import com.musicaia.modelos.BardoQwen2LiteRtProvider
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
@@ -133,7 +138,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
         candidatePatch = getSharedPreferences("bardo_developer", MODE_PRIVATE).getString("candidate_patch", "").orEmpty()
         actualizarBotonGithub()
         val hayReferencias = workspace.listFiles()?.any { it.isFile && it.name.startsWith("referencia-") } == true
-        btnAsk.isEnabled = (lastReport.isNotBlank() || hayReferencias) && LiteRTLMModule.modelFile(this).isFile
+        btnAsk.isEnabled = (lastReport.isNotBlank() || hayReferencias) && modeloTextoLocalDisponible()
         if (lastReport.isNotBlank()) output.text = lastReport + if (lastProposal.isNotBlank()) "\n\nPROPUESTA DE AUTOESTUDIO (copia aislada; no aplicada al proyecto original):\n\n" + lastProposal else ""
         else output.text = "BARDO DEVELOPER CORE\n\nEntorno local preparado. Importa un ZIP con el código fuente de un proyecto para analizarlo.\n\nNo se ejecutará código importado ni se modificará el proyecto original."
     }
@@ -145,11 +150,11 @@ class BardoDeveloperActivity : AppCompatActivity() {
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(18, 18, 18, 12); setBackgroundColor(fondo) }
         root.addView(TextView(this).apply { text = "BARDO · DEVELOPER CORE"; textSize = 21f; setTextColor(cyan); setPadding(0, 4, 0, 10) })
         root.addView(TextView(this).apply {
-            text = "AUTOESTUDIO PRIORITARIO · Gemma local · Memoria técnica · Auditoría · Propuestas aisladas"
+            text = "AUTOESTUDIO PRIORITARIO · modelos locales · Memoria técnica · Auditoría · Propuestas aisladas"
             textSize = 13f; setTextColor(blanco); setPadding(0, 0, 0, 12)
         })
         root.addView(TextView(this).apply {
-            text = "PRIVACIDAD: los proyectos ZIP que importes se analizan y trabajan solo en el teléfono. Nunca se envían a GitHub ni a servicios de IA. GitHub Actions solo puede recibir diffs del código propio de BARDO procedentes de su snapshot oficial; no se envían estadísticas, grabaciones, archivos personales ni proyectos importados. La inferencia de Gemma es local."
+            text = "PRIVACIDAD: los proyectos ZIP que importes se analizan y trabajan solo en el teléfono. Nunca se envían a GitHub ni a servicios de IA. GitHub Actions solo puede recibir diffs del código propio de BARDO procedentes de su snapshot oficial; no se envían estadísticas, grabaciones, archivos personales ni proyectos importados. La inferencia de los modelos de texto es local."
             textSize = 12f; setTextColor(android.graphics.Color.rgb(235, 190, 125)); setPadding(0, 0, 0, 12)
         })
         addButton(root, "Configurar acceso GitHub limitado") { configurarAccesoGithub() }
@@ -159,11 +164,11 @@ class BardoDeveloperActivity : AppCompatActivity() {
         addButton(root, "Importar skill declarativa (.bskill)") { importSkillArchive.launch(arrayOf("application/zip", "application/octet-stream", "application/x-zip-compressed")) }
         addButton(root, "Revisar borradores de skills creados por BARDO") { revisarBorradoresSkills() }
         btnAnalyze = addButton(root, "Analizar código y generar auditoría", enabled = snapshot != null) { analizarProyecto() }
-        btnAsk = addButton(root, "Consultar a BARDO con Gemma local", enabled = false) { consultarModelo() }
+        btnAsk = addButton(root, "Consultar a BARDO con modelo local", enabled = false) { consultarModelo() }
         btnApply = addButton(root, "Aplicar propuesta a una copia aislada", enabled = false) { aplicarPropuesta() }
         btnGithub = addButton(root, "Validar candidato aislado con GitHub Actions (solo main)", enabled = false) { abrirDesarrolloGitHub() }
         addButton(root, "Configurar presupuesto por tarea") { configurarPresupuestoAutonomia() }
-        addButton(root, "Iniciar autoestudio ahora (Gemma local)") { ejecutarAutoestudioAhora() }
+        addButton(root, "Iniciar autoestudio ahora (modelo local)") { ejecutarAutoestudioAhora() }
         addButton(root, "Activar autoestudio en segundo plano (cada 6 h, al cargar)") { activarAutoestudio() }
         addButton(root, "Pausar autoestudio automático") { pausarAutoestudio() }
         addButton(root, "Revisar solicitudes de eliminación de BARDO") { revisarSolicitudesEliminacion() }
@@ -715,10 +720,35 @@ class BardoDeveloperActivity : AppCompatActivity() {
             .show()
     }
 
+    private fun modeloTextoLocalDisponible(): Boolean {
+        val gemma = LiteRTLMModule.modelFile(this)
+        val qwen = BardoQwen2LiteRtModule.modelFile(this)
+        return (gemma.isFile && gemma.length() == LiteRTLMModule.EXPECTED_SIZE_BYTES) ||
+            (qwen.isFile && qwen.length() == BardoQwen2LiteRtModule.EXPECTED_SIZE_BYTES)
+    }
+
+    private fun bloqueoModeloTextoLocal(): String? {
+        val gemma = LiteRTLMModule.modelFile(this)
+        val qwen = BardoQwen2LiteRtModule.modelFile(this)
+        val gemmaReady = gemma.isFile && gemma.length() == LiteRTLMModule.EXPECTED_SIZE_BYTES
+        val qwenReady = qwen.isFile && qwen.length() == BardoQwen2LiteRtModule.EXPECTED_SIZE_BYTES
+        val gemmaBlock = if (gemmaReady) BardoResourceBudget.blockingReason(
+            this, BardoCapabilityRegistry.MIN_GEMMA_FREE_MEMORY_BYTES
+        ) else "Gemma no está disponible."
+        val qwenBlock = if (qwenReady) BardoResourceBudget.blockingReason(
+            this, BardoCapabilityRegistry.MIN_QWEN_FREE_MEMORY_BYTES
+        ) else "Qwen2 no está disponible."
+        return when {
+            gemmaReady && gemmaBlock == null -> null
+            qwenReady && qwenBlock == null -> null
+            gemmaReady -> gemmaBlock
+            else -> qwenBlock
+        }
+    }
+
     private fun activarAutoestudio() {
-        val model = LiteRTLMModule.modelFile(this)
-        if (!model.isFile || model.length() != LiteRTLMModule.EXPECTED_SIZE_BYTES) {
-            output.text = "No se ha activado: primero instala Gemma local y verifica su SHA-256 desde el Laboratorio IA. No se descargará automáticamente."
+        if (!modeloTextoLocalDisponible()) {
+            output.text = "No se ha activado: instala Gemma o Qwen2 local y verifica su integridad desde el Laboratorio IA. No se descargará automáticamente."
             return
         }
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
@@ -729,14 +759,11 @@ class BardoDeveloperActivity : AppCompatActivity() {
     }
 
     private fun ejecutarAutoestudioAhora() {
-        val model = LiteRTLMModule.modelFile(this)
-        if (!model.isFile || model.length() != LiteRTLMModule.EXPECTED_SIZE_BYTES) {
-            output.text = "Gemma no está disponible en la copia local de BARDO. Configura Descargas/BARDO para importar el archivo existente antes del autoestudio. No se descargará otra copia."
+        if (!modeloTextoLocalDisponible()) {
+            output.text = "No hay Gemma ni Qwen2 local instalado con el tamaño esperado. Configura Descargas/BARDO/Modelos para importar el archivo existente; no se descargará otra copia."
             return
         }
-        val reason = BardoResourceBudget.blockingReason(
-            this, BardoCapabilityRegistry.MIN_GEMMA_FREE_MEMORY_BYTES
-        )
+        val reason = bloqueoModeloTextoLocal()
         if (reason != null) {
             output.text = "Autoestudio aplazado por seguridad: " + reason
             return
@@ -756,7 +783,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
         WorkManager.getInstance(applicationContext).enqueueUniqueWork(
             "bardo_autostudio_inmediato", ExistingWorkPolicy.KEEP, request
         )
-        output.text = "AUTOESTUDIO SOLICITADO. Android lo ejecutará cuando el teléfono esté cargando, tenga batería y espacio suficientes y Gemma supere las comprobaciones de RAM/temperatura. Los informes se guardarán en BARDO/Autoestudio si la carpeta compartida está configurada; si no, quedarán en el espacio privado."
+        output.text = "AUTOESTUDIO SOLICITADO. Android lo ejecutará cuando el teléfono esté cargando, tenga batería y espacio suficientes y el modelo local supere las comprobaciones de integridad, RAM y temperatura. Los informes se guardarán en BARDO/Autoestudio si la carpeta compartida está configurada; si no, quedarán en el espacio privado."
     }
 
     private fun programarAutoestudio() {
@@ -922,7 +949,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
                     lastReport = report.render()
                     lastProposal = ""
                     reportFile.writeText(lastReport)
-                    btnAsk.isEnabled = LiteRTLMModule.modelFile(this).isFile
+                    btnAsk.isEnabled = modeloTextoLocalDisponible()
                     output.text = lastReport + "\n\nSiguiente paso: consultar a Gemma local para estudiar los hallazgos y redactar una propuesta. No se aplicará automáticamente."
                 }.onFailure { output.text = "Falló el análisis: ${it.message}" }
                 setBusy(false)
@@ -936,24 +963,18 @@ class BardoDeveloperActivity : AppCompatActivity() {
         val ciDiagnostics = getSharedPreferences("bardo_developer", MODE_PRIVATE)
             .getString("latest_ci_diagnostics", "").orEmpty()
         if (lastReport.isBlank() && references.isEmpty() && ciDiagnostics.isBlank()) return
-        val model = LiteRTLMModule.modelFile(this)
-        if (!model.isFile || model.length() != LiteRTLMModule.EXPECTED_SIZE_BYTES) {
-            output.text = "El modelo Gemma local no está instalado o no tiene el tamaño esperado. Descárgalo y verifica su SHA-256 desde el Laboratorio IA."
+        if (!modeloTextoLocalDisponible()) {
+            output.text = "No hay Gemma ni Qwen2 local instalado con el tamaño esperado. Importa un modelo desde el Laboratorio IA; no se utilizará la nube."
             return
         }
-        val manager = getSystemService(ACTIVITY_SERVICE) as ActivityManager
-        val memory = ActivityManager.MemoryInfo()
-        manager.getMemoryInfo(memory)
-        if (memory.availMem < BardoCapabilityRegistry.MIN_GEMMA_FREE_MEMORY_BYTES) {
-            val freeGb = memory.availMem / (1024L * 1024L * 1024L)
-            output.text = "BARDO ha detenido la carga preventiva: Android informa $freeGb GB de RAM disponible y se requieren al menos 4 GB como umbral prudente. Cierra otras aplicaciones y vuelve a intentarlo. No se ha iniciado la inferencia."
+        val resourceBlock = bloqueoModeloTextoLocal()
+        if (resourceBlock != null) {
+            output.text = "BARDO ha detenido la inferencia para proteger el teléfono: $resourceBlock"
             return
         }
-        setBusy(true, "Verificando modelo e iniciando análisis local…")
+        setBusy(true, "Verificando el modelo local disponible e iniciando el análisis…")
         worker.execute {
             val result = runCatching {
-                check(LiteRTLMModule.verificarModelo(model)) { "SHA-256 del modelo no válido." }
-                EngineLiteRT.inicializar(model.absolutePath, File(cacheDir, "litert-cache").absolutePath)
                 val source = if (root != null) {
                     BardoDeveloperCore.extractos(root, BardoDeveloperCore.analizar(root))
                 } else {
@@ -984,25 +1005,25 @@ class BardoDeveloperActivity : AppCompatActivity() {
                     una corrección respaldada por evidencia. No afirmes que el arreglo está probado
                     hasta que el siguiente workflow termine correctamente.
                 """.trimIndent()
-                EngineLiteRT.withSession {
-                    if (!estaCargado(model.absolutePath)) {
-                        check(inicializar(
-                            model.absolutePath,
-                            File(cacheDir, "litert-cache").absolutePath
-                        )) { "LiteRT-LM no pudo cargar Gemma para BARDO Developer." }
-                    }
-                    generar(prompt, reiniciarConversacion = true)
-                }.substringAfter("</think>").trim()
-                    .ifBlank { throw IllegalStateException("Gemma devolvió una propuesta vacía.") }
+                val response = BardoModelRegistry(
+                    listOf(BardoGemmaLiteRtProvider(), BardoQwen2LiteRtProvider())
+                ).generate(
+                    applicationContext,
+                    "code_analysis",
+                    BardoModelRequest(prompt, resetConversation = true),
+                    allowRemoteModels = false
+                )
+                response.text.substringAfter("</think>").trim()
+                    .ifBlank { throw IllegalStateException("El modelo local devolvió una propuesta vacía.") }
             }
             runOnUiThread {
                 result.onSuccess { proposal ->
                     lastProposal = proposal
                     btnApply.isEnabled = proposal.contains("--- a/") && proposal.contains("+++ b/")
                     val saved = File(workspace, "propuesta-${System.currentTimeMillis()}.md")
-                    saved.writeText("# Propuesta de BARDO Developer\n\n$proposal")
-                    output.text = lastReport + "\n\nPROPUESTA DE BARDO (no aplicada):\n\n" + proposal +
-                        "\n\nGuardada en el almacenamiento privado de BARDO. Exporta el informe para revisarla."
+                    saved.writeText("# Propuesta de BARDO Developer\\n\\n$proposal")
+                    output.text = lastReport + "\\n\\nPROPUESTA DE BARDO (no aplicada):\\n\\n" + proposal +
+                        "\\n\\nGuardada en el almacenamiento privado de BARDO. Exporta el informe para revisarla."
                     appendMemory("Propuesta analizada: ${saved.name}. Pendiente de revisión y pruebas.")
                 }.onFailure { output.text = "No se pudo consultar el modelo local: ${it.javaClass.simpleName}: ${it.message}" }
                 setBusy(false)
@@ -1276,7 +1297,7 @@ class BardoDeveloperActivity : AppCompatActivity() {
         val hasCiDiagnostics = getSharedPreferences("bardo_developer", MODE_PRIVATE)
             .getString("latest_ci_diagnostics", "").orEmpty().isNotBlank()
         val hasReferences = workspace.listFiles()?.any { it.isFile && it.name.startsWith("referencia-") } == true
-        btnAsk.isEnabled = !busy && LiteRTLMModule.modelFile(this).isFile &&
+        btnAsk.isEnabled = !busy && modeloTextoLocalDisponible() &&
             (lastReport.isNotBlank() || hasReferences || hasCiDiagnostics)
         btnApply.isEnabled = !busy && lastProposal.contains("--- a/") && lastProposal.contains("+++ b/")
         btnExport.isEnabled = !busy
