@@ -1536,6 +1536,10 @@ private fun crearConversacionNueva() {
          .apply()
  }
 
+ private companion object {
+     const val PENDING_CREATION_FIELD_CHANGE = "__pendingChangeField"
+ }
+
  private fun guardarPreferenciasCreativas() {
      val preferencias = JSONObject()
      datosConver.forEach { (key, value) -> preferencias.put(key, value) }
@@ -3251,6 +3255,8 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
 
     val intent = BardoIntentRouter.classify(texto, creationInProgress = creacionMusicalEnCurso)
     if (intent == BardoIntentRouter.Intent.END_CREATION) {
+        datosConver.remove(PENDING_CREATION_FIELD_CHANGE)
+        guardarPreferenciasCreativas()
         creacionMusicalEnCurso = false
         guardarEstadoCreacionMusical()
         anexarChat("\nTú: $texto\nBARDO: He salido del modo de creación musical. Tus preferencias guardadas se conservan, pero el próximo mensaje irá al chat general salvo que vuelvas a pedir una canción.")
@@ -3261,6 +3267,8 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
         creacionMusicalEnCurso = true
         guardarEstadoCreacionMusical()
     } else if (intent == BardoIntentRouter.Intent.OWN_LYRICS) {
+        datosConver.remove(PENDING_CREATION_FIELD_CHANGE)
+        guardarPreferenciasCreativas()
         creacionMusicalEnCurso = false
         guardarEstadoCreacionMusical()
     }
@@ -3268,6 +3276,20 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
         if (responderConsultaEstadoLocal(texto)) return
         responderChatLibre(texto)
         return
+    }
+
+    if (intent == BardoIntentRouter.Intent.CHANGE_CREATION) {
+        val requestedField = BardoIntentRouter.requestedFieldChangeWithoutValue(texto)
+        if (requestedField != null) {
+            datosConver.remove(requestedField)
+            if (requestedField == "tipo") datosConver.remove("vozFuente")
+            datosConver[PENDING_CREATION_FIELD_CHANGE] = requestedField
+            guardarPreferenciasCreativas()
+            actualizarUI()
+            anexarChat("\nTú: $texto\nBARDO: De acuerdo, vamos a cambiar ese dato. ${preguntaParaCampo(requestedField)}")
+            actualizarAvatar(BardoAvatarState.IDLE)
+            return
+        }
     }
 
     if (panelLetra.visibility == View.VISIBLE && editLetra.text.toString().trim().isNotEmpty()) {
@@ -3296,7 +3318,8 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
             grupoModo.check(R.id.modoConversacion)
         }
     }
-    if (lower in listOf("crear", "crear canción", "crear cancion", "sí", "si", "continuar", "create", "continue", "yes")) {
+    if (intent == BardoIntentRouter.Intent.CONFIRM_CREATION ||
+        lower in listOf("crear", "crear canción", "crear cancion", "sí", "si", "continuar", "create", "continue", "yes")) {
         val faltan = camposRequeridos.filter {
             datosConver[it].isNullOrBlank() || (it == "idioma" && !BardoIntentRouter.isSupportedSongLanguage(datosConver[it].orEmpty()))
         } + listOfNotNull(if ((datosConver["tipo"].orEmpty().contains("voz", true) || datosConver["tipo"].orEmpty().contains("ambas", true)) && datosConver["vozFuente"].isNullOrBlank()) "vozFuente" else null)
@@ -3314,7 +3337,12 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
     }
 
     val etiqueta = Regex("(?i)^(tema|theme|estilo|style|genre|ambiente|mood|ritmo|rhythm|idioma|language|tipo|type|voz|voice)\\s*[:=]\\s*(.+)$").matchEntire(texto)
-    val cambio = Regex("(?i)^(?:cambiar|cambia|modificar|modifica|change|switch)\\s+(?:(?:el|la|the)\\s+)?(tema|theme|estilo|style|genre|ambiente|mood|ritmo|rhythm|idioma|language|tipo|type|voz|voice)\\s+(?:a|por|to)\\s+(.+)$").matchEntire(texto)
+    val cambio = Regex("(?i)^(?:cambiar|cambia|modificar|modifica|change|switch)\\s+(?:(?:el|la|the)\\s+)?(tema|theme|estilo|style|genre|ambiente|mood|ritmo|rhythm|idioma|language|tipo|type|voz|voice)\\s+(?:a|por|to|:)\\s+(.+)$").matchEntire(texto)
+    if (intent == BardoIntentRouter.Intent.CHANGE_CREATION && cambio == null) {
+        anexarChat("\\nTú: $texto\\nBARDO: Indica el nuevo valor, por ejemplo «cambiar estilo a rock» o «change style to rock».")
+        actualizarAvatar(BardoAvatarState.IDLE)
+        return
+    }
     val campoExplicito = cambio?.groupValues?.get(1)?.lowercase()
         ?: etiqueta?.groupValues?.get(1)?.lowercase()
     val valorExplicito = cambio?.groupValues?.get(2) ?: etiqueta?.groupValues?.get(2)
@@ -3373,6 +3401,9 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
         }
     }
     datosConver[campo] = valor
+    if (datosConver[PENDING_CREATION_FIELD_CHANGE] == campo) {
+        datosConver.remove(PENDING_CREATION_FIELD_CHANGE)
+    }
     if (campo == "tipo") {
         if (BardoIntentRouter.isInstrumentalOnlyType(valor)) {
             datosConver["vozFuente"] = "ninguna"
@@ -3418,7 +3449,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
  }
 
  private fun responderConOrquestador(textoUsuario: String, respuestaGuiada: String) {
-     val expectedFieldBeforeInference = BardoIntentRouter.nextRequiredField(datosConver)
+     val expectedFieldBeforeInference = siguienteCampoGuiado()
      val fallbackIsSummary = respuestaGuiada.startsWith("Resumen de la canción:") ||
          respuestaGuiada.startsWith("Song summary:")
      anexarChat("\nTú: $textoUsuario")
@@ -3509,7 +3540,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                      guardarPreferenciasCreativas()
                      actualizarUI()
                  }
-                 val nextField = BardoIntentRouter.nextRequiredField(datosConver)
+                 val nextField = siguienteCampoGuiado()
                  val completedAfterInference = expectedFieldBeforeInference != null && nextField == null
                  val fallback = if (completedAfterInference) resumenCreacionGuiada() else respuestaGuiada
                  val requireSummary = fallbackIsSummary || completedAfterInference
@@ -3527,7 +3558,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                      com.musicaia.modelo.BardoGuidedResponseParser.extractFreeformReply(it)
                  }
                  if (!freeformReply.isNullOrBlank()) {
-                     val nextField = BardoIntentRouter.nextRequiredField(datosConver)
+                     val nextField = siguienteCampoGuiado()
                      val completedAfterInference = expectedFieldBeforeInference != null && nextField == null
                      val fallback = if (completedAfterInference) resumenCreacionGuiada() else respuestaGuiada
                      val requireSummary = fallbackIsSummary || completedAfterInference
@@ -3763,8 +3794,17 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
      }, "BARDO-Local-Chat").start()
  }
 
+ private fun siguienteCampoGuiado(): String? {
+     val requested = datosConver[PENDING_CREATION_FIELD_CHANGE]
+     if (!requested.isNullOrBlank()) {
+         if (datosConver[requested].isNullOrBlank()) return requested
+         datosConver.remove(PENDING_CREATION_FIELD_CHANGE)
+     }
+     return BardoIntentRouter.nextRequiredField(datosConver)
+ }
+
  private fun siguienteCampoPendiente(): String? {
-     val siguiente = BardoIntentRouter.nextRequiredField(datosConver)
+     val siguiente = siguienteCampoGuiado()
      if (!BardoIntentRouter.requiresUserVoice(datosConver["tipo"].orEmpty())) {
          datosConver["vozFuente"] = "ninguna"
      }

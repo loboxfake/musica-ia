@@ -264,6 +264,27 @@ object BardoIntentRouter {
             !text.contains("sin voz") && !text.contains("sin canto"))
     }
 
+    /**
+     * Returns the field requested for change when the user has not supplied
+     * its new value yet. Voice here means the vocal/instrumental type; the
+     * source of a selected vocal recording is asked in its own guided step.
+     */
+    fun requestedFieldChangeWithoutValue(message: String): String? {
+        val text = normalize(message)
+        val match = Regex(
+            """^(?:cambiar|cambia|modificar|modifica|change|switch)\\s+(?:(?:el|la|the)\\s+)?(tema|theme|estilo|style|genre|ambiente|mood|ritmo|rhythm|idioma|language|tipo|type|voz|voice)$"""
+        ).matchEntire(text) ?: return null
+        return when (match.groupValues[1]) {
+            "tema", "theme" -> "tema"
+            "estilo", "style", "genre" -> "estilo"
+            "ambiente", "mood" -> "ambiente"
+            "ritmo", "rhythm" -> "ritmo"
+            "idioma", "language" -> "idioma"
+            "tipo", "type", "voz", "voice" -> "tipo"
+            else -> null
+        }
+    }
+
     fun classify(message: String, creationInProgress: Boolean): Intent {
         val text = normalize(message)
         if (text.isBlank()) return Intent.GENERAL_CHAT

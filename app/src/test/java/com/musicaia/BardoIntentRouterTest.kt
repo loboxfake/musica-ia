@@ -106,6 +106,29 @@ class BardoIntentRouterTest {
     }
 
     @Test
+    fun recognizesChangeRequestsThatNeedANewValue() {
+        assertEquals("estilo", BardoIntentRouter.requestedFieldChangeWithoutValue("Cambiar el estilo"))
+        assertEquals("tema", BardoIntentRouter.requestedFieldChangeWithoutValue("¿Modificar tema?"))
+        assertEquals("idioma", BardoIntentRouter.requestedFieldChangeWithoutValue("Change language"))
+        assertEquals("tipo", BardoIntentRouter.requestedFieldChangeWithoutValue("Cambiar voz"))
+        assertEquals(null, BardoIntentRouter.requestedFieldChangeWithoutValue("Cambiar estilo a rock"))
+        assertEquals(null, BardoIntentRouter.requestedFieldChangeWithoutValue("Hola"))
+    }
+
+    @Test
+    fun recognizesAllConfiguredCreationConfirmationAliases() {
+        listOf("adelante", "crear musica", "crear canción", "continuar", "yes").forEach { message ->
+            assertEquals(
+                message,
+                BardoIntentRouter.classify(message, true).let {
+                    assertEquals(BardoIntentRouter.Intent.CONFIRM_CREATION, it)
+                    message
+                }
+            )
+        }
+    }
+
+    @Test
     fun instrumentalAndVoiceChoicesMapToHonestExecutionModes() {
         assertTrue(BardoIntentRouter.isInstrumentalOnlyType("instrumental"))
         assertTrue(BardoIntentRouter.isInstrumentalOnlyType("solo instrumental"))
