@@ -27,14 +27,15 @@ quote64=dGV4dG8=
 
     @Test
     fun extractsDiffFromMarkdownFenceAndDropsFollowingExplanation() {
-        val response = "Propuesta:\\n" + "```diff\\n" + diff +
-            "\\n```\\nEl bloque de evidencia viene después."
+        val fence = "\u0060\u0060\u0060"
+        val response = "Propuesta:\n" + fence + "diff\n" + diff +
+            "\n" + fence + "\nEl bloque de evidencia viene después."
         assertEquals(diff, BardoPatchTextExtractor.extract(response))
     }
 
     @Test
     fun dropsUnfencedExplanationAfterTheLastCompleteHunk() {
-        val response = diff + "\\nLa causa está en el parser."
+        val response = diff + "\nLa causa está en el parser."
         assertEquals(diff, BardoPatchTextExtractor.extract(response))
     }
 
@@ -45,7 +46,7 @@ quote64=dGV4dG8=
 @@ -1 +1 @@
 -anterior
 +posterior"""
-        assertEquals(diff + "\\n" + second, BardoPatchTextExtractor.extract(diff + "\\n" + second))
+        assertEquals(diff + "\n" + second, BardoPatchTextExtractor.extract(diff + "\n" + second))
     }
 
     @Test
@@ -57,11 +58,11 @@ quote64=dGV4dG8=
     fun rejectsResponsesWithoutACompleteUnifiedDiff() {
         assertTrue(runCatching { BardoPatchTextExtractor.extract("No hay cambios.") }.isFailure)
         assertTrue(runCatching {
-            BardoPatchTextExtractor.extract("--- a/nota.md\\ntexto sin destino ni hunks")
+            BardoPatchTextExtractor.extract("--- a/nota.md\ntexto sin destino ni hunks")
         }.isFailure)
         assertTrue(runCatching {
             BardoPatchTextExtractor.extract(
-                "--- a/nota.md\\n+++ b/nota.md\\n@@ -1 +1 @@\\n-texto antiguo"
+                "--- a/nota.md\n+++ b/nota.md\n@@ -1 +1 @@\n-texto antiguo"
             )
         }.isFailure)
     }

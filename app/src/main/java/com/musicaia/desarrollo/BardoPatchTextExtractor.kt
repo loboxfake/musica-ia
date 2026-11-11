@@ -8,7 +8,7 @@ package com.musicaia.desarrollo
  * de cada hunk para no depender del formato opcional usado por el modelo.
  */
 object BardoPatchTextExtractor {
-    private val hunkHeader = Regex("""^@@ -(\\d+)(?:,(\\d+))? \\+(\\d+)(?:,(\\d+))? @@.*$""")
+    private val hunkHeader = Regex("""^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@.*$""")
 
     fun extract(modelResponse: String): String {
         val start = modelResponse.indexOf("--- a/")
@@ -58,7 +58,7 @@ object BardoPatchTextExtractor {
                     index++
                 }
 
-                while (index < lines.size && lines[index].startsWith("\\\\")) {
+                while (index < lines.size && lines[index].startsWith("\\")) {
                     patchLines += lines[index++]
                 }
                 fileHunks++
@@ -71,6 +71,6 @@ object BardoPatchTextExtractor {
         }
 
         require(totalHunks > 0) { "El diff no contiene bloques de cambios." }
-        return patchLines.joinToString("\\n").trimEnd()
+        return patchLines.joinToString("\n").trimEnd()
     }
 }
