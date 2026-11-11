@@ -217,6 +217,48 @@ class MezclaVozTest {
         }
     }
 
+
+    @Test
+    fun wavReaderDownmixesStereoPcmFramesCorrectly() {
+        val dir = createTempDir(prefix = "bardo-wav-stereo-")
+        try {
+            val stereo = File(dir, "stereo.wav")
+            val dataBytes = 6
+            val wav = java.nio.ByteBuffer.allocate(44 + dataBytes)
+                .order(java.nio.ByteOrder.LITTLE_ENDIAN)
+            wav.put("RIFF".toByteArray(Charsets.US_ASCII))
+            wav.putInt(36 + dataBytes)
+            wav.put("WAVE".toByteArray(Charsets.US_ASCII))
+            wav.put("fmt ".toByteArray(Charsets.US_ASCII))
+            wav.putInt(16)
+            wav.putShort(1)
+            wav.putShort(2)
+            wav.putInt(44100)
+            wav.putInt(44100 * 4)
+            wav.putShort(4)
+            wav.putShort(16)
+            wav.put("data".toByteArray(Charsets.US_ASCII))
+            wav.putInt(dataBytes)
+            wav.putShort(1000)
+            wav.putShort((-1000).toShort())
+            wav.putShort(2000)
+            wav.putShort(4000)
+            wav.putShort(30000)
+            wav.putShort((-10000).toShort())
+            stereo.writeBytes(wav.array())
+
+            val decoded = LectorWav.leer(stereo.absolutePath)
+
+            assertEquals(44100, decoded.frecuencia)
+            assertEquals(3, decoded.muestras.size)
+            assertEquals(0, decoded.muestras[0].toInt())
+            assertEquals(3000, decoded.muestras[1].toInt())
+            assertEquals(10000, decoded.muestras[2].toInt())
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
     private class TestAudioContext(private val directory: File) : ContextWrapper(null) {
         override fun getApplicationContext(): Context = this
         override fun getExternalFilesDir(type: String?): File = directory
