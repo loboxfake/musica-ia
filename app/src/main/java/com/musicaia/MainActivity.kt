@@ -1,6 +1,7 @@
 package com.musicaia
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.media.MediaPlayer
 import android.media.MediaMetadataRetriever
@@ -1938,6 +1939,15 @@ private fun crearConversacionNueva() {
      }, "BARDO-Backup-Restore").start()
  }
 
+ private fun seleccionarTodoTexto(textView: TextView) {
+     textView.setTextIsSelectable(true)
+     textView.isFocusableInTouchMode = true
+     textView.requestFocus()
+     val seleccionable = android.text.SpannableString(textView.text)
+     android.text.Selection.setSelection(seleccionable, 0, seleccionable.length)
+     textView.setText(seleccionable, TextView.BufferType.SPANNABLE)
+ }
+
  private fun copiarTextoDiagnostico(titulo: String, contenido: String) {
      val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
      clipboard.setPrimaryClip(android.content.ClipData.newPlainText(titulo, contenido))
@@ -2002,7 +2012,7 @@ private fun crearConversacionNueva() {
      val panel = LinearLayout(this).apply {
          orientation = LinearLayout.VERTICAL
          addView(fila(
-             boton("Seleccionar todo") { texto.selectAll() },
+             boton("Seleccionar todo") { seleccionarTodoTexto(texto) },
              boton("Copiar todo") { copiarTextoDiagnostico(titulo, contenido) }
          ))
          addView(fila(
@@ -2087,7 +2097,7 @@ private fun crearConversacionNueva() {
          btnPausar.text = if (pausada) "Reanudar" else "Pausar"
          if (pausada) handler.removeCallbacks(refresco) else handler.post(refresco)
      }
-     btnSeleccionar.setOnClickListener { texto.selectAll() }
+     btnSeleccionar.setOnClickListener { seleccionarTodoTexto(texto) }
      btnCopiar.setOnClickListener { copiarTextoDiagnostico("BARDO · Actividad", texto.text.toString()) }
      btnExportar.setOnClickListener { exportarTextoDiagnostico(texto.text.toString(), "BARDO_actividad") }
      btnCompartir.setOnClickListener { compartirTextoDiagnostico("BARDO · Actividad", texto.text.toString()) }
