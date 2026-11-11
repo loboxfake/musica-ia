@@ -108,6 +108,38 @@ class BardoGuidedProgressPolicyTest {
     }
 
     @Test
+    fun acceptsSpecificQuestionsAboutRecordingOrImportingTheVoice() {
+        assertTrue(
+            BardoGuidedProgressPolicy.asksAboutRequiredField(
+                "¿Quieres grabar tu voz o usar un archivo de voz?",
+                "vozFuente"
+            )
+        )
+        assertTrue(
+            BardoGuidedProgressPolicy.asksAboutRequiredField(
+                "Would you like to upload a voice recording?",
+                "vozFuente"
+            )
+        )
+    }
+
+    @Test
+    fun doesNotConfuseVoiceTypeWithVoiceSource() {
+        assertTrue(
+            !BardoGuidedProgressPolicy.asksAboutRequiredField(
+                "¿Qué tipo de voz prefieres?",
+                "vozFuente"
+            )
+        )
+        assertTrue(
+            !BardoGuidedProgressPolicy.asksAboutRequiredField(
+                "Which voice would you like?",
+                "vozFuente"
+            )
+        )
+    }
+
+    @Test
     fun rejectsQuestionsWithoutARecognizedFieldLabel() {
         assertTrue(!BardoGuidedProgressPolicy.asksAboutRequiredField("¿Qué prefieres?", "estilo"))
     }

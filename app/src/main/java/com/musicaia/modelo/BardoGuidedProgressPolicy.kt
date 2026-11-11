@@ -40,7 +40,7 @@ object BardoGuidedProgressPolicy {
             "ritmo" -> listOf("ritmo", "rhythm", "tempo")
             "idioma" -> listOf("idioma", "language", "espanol", "spanish", "english")
             "tipo" -> listOf("tipo", "type", "voz", "voice", "vocal", "vocals", "instrumental")
-            "vozFuente" -> listOf("voz", "voice", "archivo", "file", "grabada", "recording", "microfono", "microphone")
+            "vozFuente" -> listOf("archivo", "file", "grabada", "grabado", "grabar", "recording", "record", "microfono", "microphone", "importar", "upload", "subir")
             else -> return false
         }
         val padded = " $normalized "
