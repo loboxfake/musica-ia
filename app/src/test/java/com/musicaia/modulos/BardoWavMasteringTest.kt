@@ -3,7 +3,6 @@ package com.musicaia.modulos
 import java.io.File
 import java.security.MessageDigest
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -20,6 +19,7 @@ class BardoWavMasteringTest {
                 }
             }
             val originalHash = sha256(input)
+            output.writeBytes(byteArrayOf(7, 6, 5, 4))
             val result = BardoWavMastering.process(input, output)
             assertTrue(output.isFile && output.length() > 44)
             assertEquals(originalHash, sha256(input))
@@ -30,6 +30,7 @@ class BardoWavMasteringTest {
             val reopened = LectorWav.leer(output.absolutePath)
             assertEquals(result.samples, reopened.muestras.size)
             assertEquals(result.sampleRate, reopened.frecuencia)
+            assertTrue(input.parentFile.listFiles().orEmpty().none { it.name.startsWith("bardo_master_") })
         } finally { input.delete(); output.delete() }
     }
 
@@ -39,9 +40,13 @@ class BardoWavMasteringTest {
         val output = File(input.parentFile, "silent-${System.nanoTime()}.wav")
         try {
             AudioUtil.escribirWavMono16(input.absolutePath, 44100, 44100) { _, count -> ShortArray(count) }
+            val previousOutput = byteArrayOf(3, 1, 4, 1, 5, 9)
+            output.writeBytes(previousOutput)
             val error = runCatching { BardoWavMastering.process(input, output) }.exceptionOrNull()
             assertTrue(error is IllegalArgumentException)
-            assertNotEquals(true, output.isFile && output.length() > 44)
+            assertTrue(output.isFile)
+            org.junit.Assert.assertArrayEquals(previousOutput, output.readBytes())
+            assertTrue(input.parentFile.listFiles().orEmpty().none { it.name.startsWith("bardo_master_") })
         } finally { input.delete(); output.delete() }
     }
 
