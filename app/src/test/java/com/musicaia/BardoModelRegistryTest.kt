@@ -6,6 +6,7 @@ import com.musicaia.modelos.BardoModelDescriptor
 import com.musicaia.modelos.BardoModelLocation
 import com.musicaia.modelos.BardoModelProvider
 import com.musicaia.modelos.BardoModelRegistry
+import com.musicaia.modelos.BardoQwen2LiteRtProvider
 import com.musicaia.modelos.BardoModelRequest
 import com.musicaia.modelos.BardoModelResponse
 import com.musicaia.modelos.BardoModelState
@@ -111,6 +112,13 @@ class BardoModelRegistryTest {
             android.content.ContextWrapper(null), "chat", BardoModelRequest("hola")
         )
         assertEquals("small", response.providerId)
+    }
+
+    @Test fun qwenSupportsOfflineSoftwareAnalysisFallback() {
+        val capabilities = BardoQwen2LiteRtProvider().descriptor.capabilities
+        assertTrue("general_chat" in capabilities)
+        assertTrue("code_analysis" in capabilities)
+        assertTrue("local_learning" in capabilities)
     }
 
     @Test fun refusesDuplicateProviderIds() {
