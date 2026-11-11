@@ -250,7 +250,17 @@ class AudioAssemblerTest {
                 (dataBytes shr 16).toByte(),
                 (dataBytes shr 24).toByte()
             ))
-            output.setLength(44L + dataBytes)
+            // Keep every frame audible so the trailing-silence trimmer cannot
+            // reduce the fixture before the aggregate-memory guard is exercised.
+            val pcmBlock = ByteArray(64 * 1024) { index ->
+                if (index % 2 == 0) 0xE8.toByte() else 0x03
+            }
+            var remaining = dataBytes
+            while (remaining > 0L) {
+                val count = minOf(pcmBlock.size.toLong(), remaining).toInt()
+                output.write(pcmBlock, 0, count)
+                remaining -= count
+            }
         }
     }
 
