@@ -1300,16 +1300,35 @@ private fun crearConversacionNueva() {
  private fun configurarChatAdaptativo() {
      val raiz = chatScroll.rootView
      val listener = android.view.ViewTreeObserver.OnGlobalLayoutListener {
-         val altoVentana = raiz.height
+         // adjustResize reduce el área visible al abrir el teclado. Usamos ese
+         // espacio real para que el chat no empuje el cuadro de escritura fuera
+         // de la pantalla ni se quede con una altura fija sobredimensionada.
+         val visible = android.graphics.Rect()
+         raiz.getWindowVisibleDisplayFrame(visible)
+         val altoVentana = visible.height().takeIf { it > 0 } ?: raiz.height
          if (altoVentana > 0) {
-             val densidad = resources.displayMetrics.density
-             val minimo = (160f * densidad).toInt()
-             val maximo = (360f * densidad).toInt()
-             val objetivo = (altoVentana * 0.32f).toInt().coerceIn(minimo, maximo)
+             val minimo = dp(148)
+             val maximo = dp(380)
+             val objetivo = (altoVentana * 0.36f).toInt().coerceIn(minimo, maximo)
              val parametros = chatScroll.layoutParams
              if (parametros.height != objetivo) {
                  parametros.height = objetivo
                  chatScroll.layoutParams = parametros
+             }
+         }
+         // Recalcular los límites de texto cuando cambia el ancho disponible
+         // (rotación, ventana dividida o cambio de tamaño de pantalla).
+         if (::chatMessages.isInitialized && chatMessages.width > 0) {
+             val anchoTexto = (chatMessages.width * 0.78f).toInt().coerceAtLeast(dp(120))
+             for (index in 0 until chatMessages.childCount) {
+                 val fila = chatMessages.getChildAt(index) as? LinearLayout ?: continue
+                 val burbuja = (0 until fila.childCount)
+                     .mapNotNull { fila.getChildAt(it) as? LinearLayout }
+                     .firstOrNull() ?: continue
+                 val cuerpo = (0 until burbuja.childCount)
+                     .mapNotNull { burbuja.getChildAt(it) as? TextView }
+                     .lastOrNull() ?: continue
+                 cuerpo.maxWidth = anchoTexto
              }
          }
      }
@@ -1369,6 +1388,8 @@ private fun crearConversacionNueva() {
          }
      }
      fila.tag = messageId
+     // Las burbujas nunca pueden ocupar más del ancho útil del chat; el avatar
+     // y los márgenes quedan fuera de ese límite para evitar desbordamientos.
      val burbuja = LinearLayout(this).apply {
          orientation = LinearLayout.VERTICAL
          setPadding(dp(14), dp(10), dp(14), dp(11))
@@ -1414,7 +1435,12 @@ private fun crearConversacionNueva() {
          textSize = 15f
          setTextColor(android.graphics.Color.rgb(235, 242, 255))
          setLineSpacing(dp(3).toFloat(), 1f)
-         maxWidth = (resources.displayMetrics.widthPixels - dp(120)).coerceAtLeast(dp(180))
+         val anchoDisponible = chatMessages.width.takeIf { it > 0 }
+             ?: (resources.displayMetrics.widthPixels - dp(36))
+         maxWidth = (anchoDisponible * 0.78f).toInt().coerceAtLeast(dp(120))
+         setHorizontallyScrolling(false)
+         breakStrategy = android.text.Layout.BREAK_STRATEGY_SIMPLE
+         hyphenationFrequency = android.text.Layout.HYPHENATION_FREQUENCY_NORMAL
          setTextIsSelectable(true)
      }
      burbuja.addView(encabezado)
