@@ -452,7 +452,7 @@ class BardoGemmaTaskPlanner(
             .removePrefix(fence + "json").removePrefix(fence).removeSuffix(fence).trim()
         val root = JSONObject(jsonText)
         val array = root.optJSONArray("steps")
-            ?: throw IllegalArgumentException("Gemma no devolvió una lista de pasos.")
+            ?: throw IllegalArgumentException("El modelo local no devolvió una lista de pasos.")
         require(array.length() in 1..BardoAutonomyEngine.MAX_STEPS) {
             "El plan devuelto por Gemma excede los pasos permitidos."
         }
