@@ -1,8 +1,7 @@
 package com.musicaia.modulos
 
 import java.io.File
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
+import java.io.RandomAccessFile
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
@@ -11,14 +10,15 @@ import com.musicaia.modelo.Dato
 class AudioPcm(val muestras: ShortArray, val frecuencia: Int)
 
 /**
- * Lector RIFF/WAVE estricto para PCM16. Valida límites de RIFF y de cada chunk
- * antes de acceder a sus bytes; no acepta tamaños truncados ni marcos PCM parciales.
+ * Lector RIFF/WAVE PCM16 que analiza chunks con acceso aleatorio.
+ * No copia el WAV completo a memoria antes de decodificar sus muestras.
  */
 object LectorWav {
     private const val MAX_CHANNELS = 8
     private const val MIN_SAMPLE_RATE = 8_000
     private const val MAX_SAMPLE_RATE = 384_000
-    const val MAX_FILE_BYTES = 32L * 1024L * 1024L
+    const val MAX_FILE_BYTES = 120L * 1024L * 1024L
+    private const val MAX_FRAMES_PER_FILE = 30_000_000L
 
     fun leer(ruta: String): AudioPcm {
         val file = File(ruta)
@@ -26,95 +26,125 @@ object LectorWav {
         val fileLength = file.length()
         require(fileLength >= 44L) { "archivo demasiado pequeño" }
         require(fileLength <= MAX_FILE_BYTES) {
-            "el WAV supera el límite de seguridad de 32 MiB para lectura en memoria"
+            "el WAV supera el límite de seguridad de 120 MiB"
         }
 
-        val bytes = file.readBytes()
-        require(bytes.size >= 44) { "archivo demasiado pequeño" }
-        val bb = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
+        RandomAccessFile(file, "r").use { input ->
+            require(readAscii(input, 4) == "RIFF") { "cabecera RIFF no válida" }
+            val riffSize = readUnsignedIntLe(input)
+            require(riffSize >= 4L) { "tamaño RIFF no válido" }
+            val riffEnd = 8L + riffSize
+            require(riffEnd <= fileLength) { "el bloque RIFF está truncado" }
 
-        fun texto(pos: Int): String = String(bytes, pos, 4, Charsets.US_ASCII)
-        fun u16(pos: Int): Int = bb.getShort(pos).toInt() and 0xffff
-        fun u32(pos: Int): Long = bb.getInt(pos).toLong() and 0xffffffffL
+            input.seek(8L)
+            require(readAscii(input, 4) == "WAVE") { "cabecera WAVE no válida" }
 
-        require(texto(0) == "RIFF" && texto(8) == "WAVE") {
-            "cabecera RIFF/WAVE no válida"
-        }
+            var formato = -1
+            var canales = 0
+            var frecuencia = 0L
+            var bits = 0
+            var blockAlign = 0
+            var byteRate = 0L
+            var inicioDatos = -1L
+            var tamDatos = -1L
 
-        val riffSize = u32(4)
-        require(riffSize >= 4L) { "tamaño RIFF no válido" }
-        val riffEndLong = 8L + riffSize
-        require(riffEndLong <= bytes.size.toLong() && riffEndLong <= Int.MAX_VALUE.toLong()) {
-            "el bloque RIFF está truncado"
-        }
-        val riffEnd = riffEndLong.toInt()
-
-        var formato = -1
-        var canales = 0
-        var frecuencia = 0
-        var bits = 0
-        var blockAlign = 0
-        var byteRate = 0L
-        var inicioDatos = -1
-        var tamDatos = -1
-
-        var pos = 12
-        while (pos < riffEnd) {
-            require(riffEnd - pos >= 8) { "cabecera de chunk WAV incompleta" }
-            val id = texto(pos)
-            val tamLong = u32(pos + 4)
-            val inicioLong = pos.toLong() + 8L
-            val finLong = inicioLong + tamLong
-            require(finLong <= riffEndLong && finLong <= Int.MAX_VALUE.toLong()) {
-                "chunk WAV truncado o fuera de los límites RIFF: " + id
-            }
-            val inicio = inicioLong.toInt()
-
-            when (id) {
-                "fmt " -> {
-                    require(tamLong >= 16L) { "chunk fmt incompleto" }
-                    formato = u16(inicio)
-                    canales = u16(inicio + 2)
-                    frecuencia = u32(inicio + 4).takeIf { it <= Int.MAX_VALUE }?.toInt() ?: 0
-                    byteRate = u32(inicio + 8)
-                    blockAlign = u16(inicio + 12)
-                    bits = u16(inicio + 14)
+            var pos = 12L
+            while (pos < riffEnd) {
+                require(riffEnd - pos >= 8L) { "cabecera de chunk WAV incompleta" }
+                input.seek(pos)
+                val id = readAscii(input, 4)
+                val tamLong = readUnsignedIntLe(input)
+                val inicioLong = pos + 8L
+                val finLong = inicioLong + tamLong
+                require(finLong <= riffEnd && finLong <= fileLength) {
+                    "chunk WAV truncado o fuera de los límites RIFF: $id"
                 }
-                "data" -> if (inicioDatos < 0) {
-                    inicioDatos = inicio
-                    tamDatos = tamLong.toInt()
+
+                when (id) {
+                    "fmt " -> {
+                        require(tamLong >= 16L) { "chunk fmt incompleto" }
+                        input.seek(inicioLong)
+                        formato = readUnsignedShortLe(input)
+                        canales = readUnsignedShortLe(input)
+                        frecuencia = readUnsignedIntLe(input)
+                        byteRate = readUnsignedIntLe(input)
+                        blockAlign = readUnsignedShortLe(input)
+                        bits = readUnsignedShortLe(input)
+                    }
+                    "data" -> if (inicioDatos < 0L) {
+                        inicioDatos = inicioLong
+                        tamDatos = tamLong
+                    }
                 }
+
+                val siguiente = finLong + (tamLong and 1L)
+                require(siguiente <= riffEnd) { "falta el byte de relleno de un chunk WAV" }
+                pos = siguiente
+            }
+            require(pos == riffEnd) { "el bloque RIFF no termina en un límite de chunk" }
+
+            require(formato == 1 && bits == 16) {
+                "se necesita WAV PCM de 16 bits"
+            }
+            require(canales in 1..MAX_CHANNELS) { "número de canales no válido" }
+            require(frecuencia in MIN_SAMPLE_RATE.toLong()..MAX_SAMPLE_RATE.toLong()) {
+                "frecuencia de muestreo no válida"
+            }
+            val expectedBlockAlign = canales * 2
+            require(blockAlign == expectedBlockAlign) { "alineación PCM no válida" }
+            require(byteRate == frecuencia * expectedBlockAlign.toLong()) {
+                "velocidad de bytes PCM no válida"
+            }
+            require(inicioDatos >= 0L && tamDatos > 0L) {
+                "no se encontró audio PCM dentro del WAV"
+            }
+            require(tamDatos % expectedBlockAlign == 0L) {
+                "el bloque de audio termina en un marco PCM incompleto"
             }
 
-            val siguiente = finLong + (tamLong and 1L)
-            require(siguiente <= riffEndLong) { "falta el byte de relleno de un chunk WAV" }
-            pos = siguiente.toInt()
-        }
-
-        require(formato == 1 && bits == 16) {
-            "se necesita WAV PCM de 16 bits"
-        }
-        require(canales in 1..MAX_CHANNELS) { "número de canales no válido" }
-        require(frecuencia in MIN_SAMPLE_RATE..MAX_SAMPLE_RATE) { "frecuencia de muestreo no válida" }
-        val expectedBlockAlign = canales * 2
-        require(blockAlign == expectedBlockAlign) { "alineación PCM no válida" }
-        require(byteRate == frecuencia.toLong() * expectedBlockAlign.toLong()) {
-            "velocidad de bytes PCM no válida"
-        }
-        require(inicioDatos >= 0 && tamDatos > 0) { "no se encontró audio PCM dentro del WAV" }
-        require(tamDatos % expectedBlockAlign == 0) { "el bloque de audio termina en un marco PCM incompleto" }
-
-        val totalFrames = tamDatos / expectedBlockAlign
-        val muestras = ShortArray(totalFrames)
-        for (frame in 0 until totalFrames) {
-            var suma = 0L
-            for (canal in 0 until canales) {
-                val sampleOffset = inicioDatos + (frame * canales + canal) * 2
-                suma += bb.getShort(sampleOffset).toLong()
+            val totalFrames = tamDatos / expectedBlockAlign
+            require(totalFrames in 1L..MAX_FRAMES_PER_FILE) {
+                "el WAV supera el máximo de muestras PCM admitido"
             }
-            muestras[frame] = (suma / canales).toShort()
+            val muestras = ShortArray(totalFrames.toInt())
+            input.seek(inicioDatos)
+            for (frame in muestras.indices) {
+                var suma = 0L
+                for (canal in 0 until canales) {
+                    suma += readSignedShortLe(input).toLong()
+                }
+                muestras[frame] = (suma / canales).toShort()
+            }
+            return AudioPcm(muestras, frecuencia.toInt())
         }
-        return AudioPcm(muestras, frecuencia)
+    }
+
+    private fun readAscii(input: RandomAccessFile, count: Int): String {
+        val bytes = ByteArray(count)
+        input.readFully(bytes)
+        return String(bytes, Charsets.US_ASCII)
+    }
+
+    private fun readUnsignedShortLe(input: RandomAccessFile): Int {
+        val a = input.read()
+        val b = input.read()
+        require(a >= 0 && b >= 0) { "cabecera WAV truncada" }
+        return (a and 0xff) or ((b and 0xff) shl 8)
+    }
+
+    private fun readSignedShortLe(input: RandomAccessFile): Short =
+        readUnsignedShortLe(input).toShort()
+
+    private fun readUnsignedIntLe(input: RandomAccessFile): Long {
+        val a = input.read()
+        val b = input.read()
+        val c = input.read()
+        val d = input.read()
+        require(a >= 0 && b >= 0 && c >= 0 && d >= 0) { "cabecera WAV truncada" }
+        return (a.toLong() and 0xffL) or
+            ((b.toLong() and 0xffL) shl 8) or
+            ((c.toLong() and 0xffL) shl 16) or
+            ((d.toLong() and 0xffL) shl 24)
     }
 }
 
@@ -143,24 +173,34 @@ object MezclaVoz {
         val total = maxOf(ins.muestras.size, nVoz)
         require(total > 0) { "No hay muestras PCM para mezclar." }
 
-        val mezcla = FloatArray(total)
-        for (i in 0 until total) {
-            var v = 0f
-            if (i < nVoz) {
-                val p = i * razon
-                val i0 = p.toInt()
-                val f = (p - i0).toFloat()
-                val a = voz.muestras[i0].toFloat()
-                val b = if (i0 + 1 < voz.muestras.size) voz.muestras[i0 + 1].toFloat() else a
-                v = a + (b - a) * f
+        // Dos pasadas sobre las muestras, evitando un FloatArray del tamaño
+        // completo de la canción: la mezcla se calcula por bloques al escribir.
+        fun muestraMezclada(indice: Int): Float {
+            var vozActual = 0f
+            if (indice < nVoz) {
+                val posicion = indice * razon
+                val indiceBase = posicion.toInt()
+                val fraccion = (posicion - indiceBase).toFloat()
+                val a = voz.muestras[indiceBase].toFloat()
+                val b = if (indiceBase + 1 < voz.muestras.size) {
+                    voz.muestras[indiceBase + 1].toFloat()
+                } else {
+                    a
+                }
+                vozActual = a + (b - a) * fraccion
             }
-            val m = if (i < ins.muestras.size) ins.muestras[i].toFloat() else 0f
-            mezcla[i] = v * GANANCIA_VOZ + m * GANANCIA_INSTRUMENTAL
+            val instrumentalActual = if (indice < ins.muestras.size) {
+                ins.muestras[indice].toFloat()
+            } else {
+                0f
+            }
+            return vozActual * GANANCIA_VOZ + instrumentalActual * GANANCIA_INSTRUMENTAL
         }
+
         var pico = 0f
-        for (x in mezcla) {
-            val ax = kotlin.math.abs(x)
-            if (ax > pico) pico = ax
+        for (i in 0 until total) {
+            val absoluto = kotlin.math.abs(muestraMezclada(i))
+            if (absoluto > pico) pico = absoluto
         }
         val escala = if (pico > 29000f) 29000f / pico else 1f
 
@@ -170,8 +210,10 @@ object MezclaVoz {
         }
         val temporal = File.createTempFile("bardo_voice_mix_", ".wav.tmp", directorio)
         try {
-            AudioUtil.escribirWavMono16(temporal.absolutePath, frec, total) { inicio, n ->
-                ShortArray(n) { k -> (mezcla[inicio + k] * escala).toInt().toShort() }
+            AudioUtil.escribirWavMono16(temporal.absolutePath, frec, total) { inicio, cantidad ->
+                ShortArray(cantidad) { k ->
+                    (muestraMezclada(inicio + k) * escala).toInt().toShort()
+                }
             }
 
             val infoTemporal = WavSegmentDiagnostics.inspect(temporal)
