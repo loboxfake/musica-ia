@@ -313,18 +313,15 @@ class BardoConversationStore internal constructor(private val directory: File) {
     }
 
     private fun readRoot(): JSONObject {
+        // Syntactically valid JSON is not necessarily a valid history document.
+        // Validate the schema and both required arrays before selecting a recovery source.
         val source = when {
-            file.isFile -> file
-            backup.isFile -> backup
+            isValidHistoryFile(file) -> file
+            isValidHistoryFile(backup) -> backup
             else -> null
         }
         if (source == null) return emptyRoot()
-        return runCatching { JSONObject(source.readText(Charsets.UTF_8)) }
-            .getOrElse {
-                if (source == file && backup.isFile) {
-                    runCatching { JSONObject(backup.readText(Charsets.UTF_8)) }.getOrElse { emptyRoot() }
-                } else emptyRoot()
-            }
+        return JSONObject(source.readText(Charsets.UTF_8))
     }
 
     private fun emptyRoot() = JSONObject()
