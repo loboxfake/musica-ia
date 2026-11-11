@@ -261,7 +261,7 @@ object AudioAssembler {
             "Muestras PCM vacías o incompatibles con los canales."
         }
         val dataBytesLong = samples.size.toLong() * 2L
-        require(dataBytesLong <= Int.MAX_VALUE.toLong() - 36L) {
+        require(dataBytesLong <= Int.MAX_VALUE.toLong() - 44L) {
             "El WAV de salida supera el tamaño PCM16 admitido."
         }
         val dataBytes = dataBytesLong.toInt()
