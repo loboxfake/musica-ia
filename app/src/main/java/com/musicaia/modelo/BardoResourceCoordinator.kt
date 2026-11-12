@@ -30,6 +30,9 @@ object BardoResourceCoordinator {
     private fun <T> withResource(resource: Resource, action: () -> T): T =
         transitionLock.withLock {
             val previous = activeResource.get()
+            check(previous == null || previous == resource) {
+                "No se puede cambiar del runtime $previous al runtime $resource dentro de la misma operación."
+            }
             releaseOtherRuntime(resource)
             activeResource.set(resource)
             var completed = false
@@ -40,8 +43,7 @@ object BardoResourceCoordinator {
             } finally {
                 // Libera un motor anidado al volver al anterior. Si una operación
                 // de primer nivel falla (incluido OOM), libera posibles cargas parciales.
-                val mustRelease = (previous != null && previous != resource) ||
-                    (previous == null && !completed)
+                val mustRelease = previous == null && !completed
                 if (mustRelease) {
                     runCatching { releaseRuntime(resource) }
                 }
