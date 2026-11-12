@@ -1,13 +1,22 @@
 package com.musicaia.modelo
 
+import android.content.Context
 import com.musicaia.modulos.AudioGenNative
 import com.musicaia.modulos.litert.EngineLiteRT
+import java.io.File
+import java.nio.channels.FileChannel
+import java.nio.channels.FileLock
+import java.nio.file.StandardOpenOption
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
 /**
- * Arbitra los runtimes pesados de texto, audio e imagen de los flujos coordinados.
- * Las transiciones son exclusivas dentro del proceso; no controla la RAM de otras aplicaciones.
+ * Arbitra los runtimes pesados de texto, audio e imagen.
+ *
+ * El lock de proceso serializa los hilos de esta instancia; el lock de archivo
+ * en noBackupFilesDir coordina también el proceso aislado :audio. El bloqueo
+ * del archivo se libera automáticamente si Android termina cualquiera de los
+ * procesos, por lo que no quedan leases obsoletos tras un crash.
  */
 object BardoResourceCoordinator {
     enum class Resource { TEXT_MODEL, AUDIO_MODEL, IMAGE_MODEL }
@@ -18,21 +27,49 @@ object BardoResourceCoordinator {
     fun currentResourceForCurrentThread(): Resource? = activeResource.get()
 
     fun <T> withTextModel(action: () -> T): T =
-        withResource(Resource.TEXT_MODEL, action)
+        withResource(Resource.TEXT_MODEL, null, action)
+
+    fun <T> withTextModel(context: Context, action: () -> T): T =
+        withResource(Resource.TEXT_MODEL, context.applicationContext, action)
 
     fun <T> withAudioModel(action: () -> T): T =
-        withResource(Resource.AUDIO_MODEL, action)
+        withResource(Resource.AUDIO_MODEL, null, action)
 
-    /** Reserva el runtime pesado de imágenes e impide inferencias de texto/audio concurrentes. */
+    fun <T> withAudioModel(context: Context, action: () -> T): T =
+        withResource(Resource.AUDIO_MODEL, context.applicationContext, action)
+
     fun <T> withImageModel(action: () -> T): T =
-        withResource(Resource.IMAGE_MODEL, action)
+        withResource(Resource.IMAGE_MODEL, null, action)
 
-    private fun <T> withResource(resource: Resource, action: () -> T): T =
-        transitionLock.withLock {
-            val previous = activeResource.get()
-            check(previous == null || previous == resource) {
-                "No se puede cambiar del runtime $previous al runtime $resource dentro de la misma operación."
+    /** Reserva el runtime pesado de imágenes, incluido frente al proceso :audio. */
+    fun <T> withImageModel(context: Context, action: () -> T): T =
+        withResource(Resource.IMAGE_MODEL, context.applicationContext, action)
+
+    private fun <T> withResource(
+        resource: Resource,
+        context: Context?,
+        action: () -> T
+    ): T = transitionLock.withLock {
+        val previous = activeResource.get()
+        check(previous == null || previous == resource) {
+            "No se puede cambiar del runtime $previous al runtime $resource dentro de la misma operación."
+        }
+
+        var lockChannel: FileChannel? = null
+        var processLock: FileLock? = null
+        try {
+            // Sólo la operación exterior adquiere el lock entre procesos.
+            // Las llamadas anidadas del mismo runtime reutilizan la reserva.
+            if (previous == null && context != null) {
+                val lockFile = File(context.noBackupFilesDir, "bardo-heavy-runtime.lock")
+                lockChannel = FileChannel.open(
+                    lockFile.toPath(),
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.WRITE
+                )
+                processLock = lockChannel.lock()
             }
+
             releaseOtherRuntime(resource)
             activeResource.set(resource)
             var completed = false
@@ -41,19 +78,19 @@ object BardoResourceCoordinator {
                 completed = true
                 result
             } finally {
-                // Si una operación de primer nivel falla (incluido OOM),
-                // libera cualquier carga parcial del runtime solicitado.
-                val mustRelease = !completed
-                if (mustRelease) {
+                if (!completed) {
+                    // Si una operación falla (incluido OOM), libera cualquier
+                    // carga parcial que pertenezca a este proceso/runtime.
                     runCatching { releaseRuntime(resource) }
                 }
-                if (previous == null) {
-                    activeResource.remove()
-                } else {
-                    activeResource.set(previous)
-                }
+                if (previous == null) activeResource.remove()
+                else activeResource.set(previous)
             }
+        } finally {
+            runCatching { processLock?.release() }
+            runCatching { lockChannel?.close() }
         }
+    }
 
     private fun releaseOtherRuntime(requested: Resource) {
         when (requested) {
