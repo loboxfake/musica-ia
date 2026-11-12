@@ -80,6 +80,25 @@ class BardoDiffSingerSpanishDictionaryTest {
         assertTrue(parsed.errors.any { it.contains("duplicada") })
     }
 
+    @Test fun rejectsReplacementTargetMissingFromVoiceInventory() {
+        val parsed = dictionary(
+            """
+            symbols:
+              - symbol: a
+                type: vowel
+            entries:
+              - grapheme: casa
+                phonemes: [a]
+            replacements:
+              - from: a
+                to: es/a
+            """.trimIndent()
+        )
+        val result = BardoDiffSingerSpanishDictionary.resolveLyrics("casa", parsed, mapOf("a" to 0))
+        assertTrue(result.words.isEmpty())
+        assertTrue(result.unsupportedPhonemes.any { it.contains("es/a") })
+    }
+
     @Test fun rejectsInvalidUtf8() {
         val file = temp.newFile("bad.yaml")
         file.writeBytes(byteArrayOf(0xC3.toByte(), 0x28))
