@@ -50,7 +50,11 @@ object BardoOfflineAsr {
     private const val MAX_MEDIA_BYTES = 100L * 1024L * 1024L
     private const val MAX_DURATION_US = 30L * 60L * 1_000_000L
     private const val MAX_DECODED_PCM_BYTES = 512L * 1024L * 1024L
+    const val MAX_DECODER_IDLE_MILLIS = 60_000L
     private const val MAX_TRANSCRIPT_CHARS = 240_000
+
+    internal fun decoderIdleExpired(lastProgressNanos: Long, nowNanos: Long): Boolean =
+        nowNanos - lastProgressNanos >= MAX_DECODER_IDLE_MILLIS * 1_000_000L
 
     fun modelDirectory(context: Context, language: Language = Language.SPANISH): File =
         File(File(context.filesDir, "bardo_models"), language.directoryName)
@@ -270,7 +274,11 @@ object BardoOfflineAsr {
                 if (recognizer == null) recognizer = Recognizer(loadedModel, sampleRate.toFloat())
             }
             val info = MediaCodec.BufferInfo()
+            var lastCodecProgressNanos = System.nanoTime()
             while (!outputDone) {
+                check(!decoderIdleExpired(lastCodecProgressNanos, System.nanoTime())) {
+                    "El decodificador de Android no avanzó durante ${MAX_DECODER_IDLE_MILLIS / 1000L} segundos. Se ha detenido la transcripción para no retener recursos indefinidamente."
+                }
                 if (!inputDone) {
                     val inputIndex = codec.dequeueInputBuffer(10_000)
                     if (inputIndex >= 0) {
@@ -280,17 +288,22 @@ object BardoOfflineAsr {
                         if (size < 0) {
                             codec.queueInputBuffer(inputIndex, 0, 0, 0L, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
                             inputDone = true
+                            lastCodecProgressNanos = System.nanoTime()
                         } else {
                             val pts = mediaExtractor.sampleTime
                             require(pts < 0L || pts <= MAX_DURATION_US) { "El audio supera el límite de 30 minutos." }
                             codec.queueInputBuffer(inputIndex, 0, size, pts.coerceAtLeast(0L), mediaExtractor.sampleFlags)
                             mediaExtractor.advance()
+                            lastCodecProgressNanos = System.nanoTime()
                         }
                     }
                 }
                 val outputIndex = codec.dequeueOutputBuffer(info, 10_000)
                 when {
-                    outputIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> applyOutputFormat(codec.outputFormat)
+                    outputIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
+                        applyOutputFormat(codec.outputFormat)
+                        lastCodecProgressNanos = System.nanoTime()
+                    }
                     outputIndex >= 0 -> {
                         if (info.size > 0) {
                             if (sampleRate == 0) applyOutputFormat(codec.outputFormat)
@@ -314,6 +327,7 @@ object BardoOfflineAsr {
                         }
                         if ((info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) outputDone = true
                         codec.releaseOutputBuffer(outputIndex, false)
+                        lastCodecProgressNanos = System.nanoTime()
                     }
                 }
             }
