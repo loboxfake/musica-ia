@@ -56,9 +56,9 @@ class BardoIntentRouterTest {
     @Test
     fun extractsMoodFromAFeelingDescriptionWithAnArticle() {
         assertEquals(
-            "nostálgica",
+            "melancolía",
             BardoIntentRouter.extractProvidedFields(
-                "Una canción con una sensación de nostálgica"
+                "Una canción con una sensación de melancolía"
             )["ambiente"]
         )
     }
