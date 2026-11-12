@@ -167,7 +167,22 @@ class BardoAgentFleet(
                 // an ordinary provider failure and must never be converted to a report.
                 throw error
             } catch (error: OutOfMemoryError) {
+                // Continuing after OOM is unsafe: the process may be critically low on RAM.
                 throw error
+            } catch (error: LinkageError) {
+                // A provider-specific JNI/runtime linkage failure should not hide a
+                // different local provider that may still be usable on this device.
+                contributions += BardoAgentContribution(
+                    profile.id,
+                    profile.name,
+                    invoker.descriptor.id,
+                    invoker.descriptor.version,
+                    profile.role,
+                    false,
+                    "",
+                    (error.message ?: error.javaClass.simpleName).take(1200),
+                    ((System.nanoTime() - started) / 1_000_000L).coerceAtLeast(0L)
+                )
             } catch (error: Exception) {
                 contributions += BardoAgentContribution(
                     profile.id,
