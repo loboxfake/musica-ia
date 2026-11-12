@@ -203,6 +203,7 @@ class BardoBonsaiPipeline(private val modelsDir: File, meta: JSONObject) {
             val t = System.nanoTime()
             val y = vae.run(listOf(fbuf(z)), 3 * 512 * 512)
             for (c in 0 until 3) for (p in 0 until 512 * 512) {
+                if ((p and 0x3fff) == 0) checkCancel()
                 val v = ((y[c * 262144 + p] / 2f + 0.5f) * 255f).coerceIn(0f, 255f)
                 // round half-up == Swift .rounded() for non-negative values
                 rgb[p * 3 + c] = Math.round(v).toByte()
@@ -210,8 +211,13 @@ class BardoBonsaiPipeline(private val modelsDir: File, meta: JSONObject) {
             status("VAE decode %.1fs".format((System.nanoTime() - t) / 1e9))
         }
 
+        checkCancel()
+        require(rgb.size == 512 * 512 * 3) {
+            "El VAE no produjo el bloque RGB esperado de 512×512."
+        }
         val total = (System.nanoTime() - t00) / 1e9
         progress("Done", 1.0)
+        checkCancel()
         return Result(rgb, total, stepSeconds)
     }
 }
