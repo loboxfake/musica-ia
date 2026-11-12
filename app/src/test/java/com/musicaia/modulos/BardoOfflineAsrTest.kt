@@ -58,6 +58,18 @@ class BardoOfflineAsrTest {
     }
 
     @Test
+    fun decoderIdleTimeoutHasAnExplicitBoundAndResetsOnProgress() {
+        val timeoutNanos = BardoOfflineAsr.MAX_DECODER_IDLE_MILLIS * 1_000_000L
+        val startedAt = 1_000_000_000L
+
+        assertFalse(BardoOfflineAsr.decoderIdleExpired(startedAt, startedAt + timeoutNanos - 1L))
+        assertEquals(true, BardoOfflineAsr.decoderIdleExpired(startedAt, startedAt + timeoutNanos))
+        val progressAt = startedAt + timeoutNanos - 5_000_000L
+        assertFalse(BardoOfflineAsr.decoderIdleExpired(progressAt, startedAt + timeoutNanos))
+        assertEquals(60_000L, BardoOfflineAsr.MAX_DECODER_IDLE_MILLIS)
+    }
+
+    @Test
     fun hasPinnedSpanishModelIntegrityMetadata() {
         assertEquals(39_817_833L, BardoOfflineAsr.MODEL_ARCHIVE_SIZE_BYTES)
         assertEquals("09b239888f633ef2f0b4e09736e3d9936acfd810bc65d53fad45261762c6511f",
