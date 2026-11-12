@@ -909,7 +909,10 @@ private fun crearEstructuraCarpetaBardo() {
      Thread({
          val result = runCatching { guardarArchivoEnCarpetaBardo(source, "Canciones", name, "audio/wav") }
          runOnUiThread {
-             if (isFinishing || isDestroyed) return@runOnUiThread
+             if (isFinishing || isDestroyed) {
+                 if (result.isSuccess) source.parentFile?.deleteRecursively()
+                 return@runOnUiThread
+             }
              result.onSuccess {
                  mezclaPistasPendiente = null
                  source.parentFile?.deleteRecursively()
@@ -934,7 +937,10 @@ private fun crearEstructuraCarpetaBardo() {
      Thread({
          val result = runCatching { guardarArchivoEnCarpetaBardo(source, "Canciones", name, "audio/wav") }
          runOnUiThread {
-             if (isFinishing || isDestroyed) return@runOnUiThread
+             if (isFinishing || isDestroyed) {
+                 if (result.isSuccess) source.delete()
+                 return@runOnUiThread
+             }
              result.onSuccess {
                  source.delete()
                  rutaMasterizadoPendiente = null
@@ -960,7 +966,10 @@ private fun crearEstructuraCarpetaBardo() {
      Thread({
          val result = runCatching { guardarArchivoEnCarpetaBardo(source, "Portadas", safeName, "image/png") }
          runOnUiThread {
-             if (isFinishing || isDestroyed) return@runOnUiThread
+             if (isFinishing || isDestroyed) {
+                 if (result.isSuccess) source.delete()
+                 return@runOnUiThread
+             }
              result.onSuccess {
                  source.delete()
                  portadaPendiente = null
@@ -1785,7 +1794,14 @@ private fun crearConversacionNueva() {
              destino
          }
          runOnUiThread {
-             if (isFinishing || isDestroyed) return@runOnUiThread
+             if (isFinishing || isDestroyed) {
+                 destino.delete()
+                 BardoActivityStore.record(
+                     this, taskId, "archivo_voz", "cancelled", "activity_closed",
+                     "Importación descartada porque la pantalla se cerró antes de confirmarla.", null
+                 )
+                 return@runOnUiThread
+             }
              val archivo = resultado.getOrNull()
              if (archivo == null) {
                  destino.delete()
