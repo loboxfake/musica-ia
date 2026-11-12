@@ -136,6 +136,46 @@ class BardoResourceCoordinatorTest {
     }
 
     @Test
+    fun releasesResourceStateAfterAnInferenceFailure() {
+        val failure = runCatching {
+            BardoResourceCoordinator.withImageModel {
+                assertEquals(
+                    BardoResourceCoordinator.Resource.IMAGE_MODEL,
+                    BardoResourceCoordinator.currentResourceForCurrentThread()
+                )
+                error("simulated native inference failure")
+            }
+        }.exceptionOrNull()
+
+        assertTrue(failure is IllegalStateException)
+        assertNull(BardoResourceCoordinator.currentResourceForCurrentThread())
+        BardoResourceCoordinator.withTextModel {
+            assertEquals(
+                BardoResourceCoordinator.Resource.TEXT_MODEL,
+                BardoResourceCoordinator.currentResourceForCurrentThread()
+            )
+        }
+        assertNull(BardoResourceCoordinator.currentResourceForCurrentThread())
+    }
+
+    @Test
+    fun nestedSameRuntimeReusesTheOuterLease() {
+        BardoResourceCoordinator.withImageModel {
+            BardoResourceCoordinator.withImageModel {
+                assertEquals(
+                    BardoResourceCoordinator.Resource.IMAGE_MODEL,
+                    BardoResourceCoordinator.currentResourceForCurrentThread()
+                )
+            }
+            assertEquals(
+                BardoResourceCoordinator.Resource.IMAGE_MODEL,
+                BardoResourceCoordinator.currentResourceForCurrentThread()
+            )
+        }
+        assertNull(BardoResourceCoordinator.currentResourceForCurrentThread())
+    }
+
+    @Test
     fun rejectsUnsafeNestedSwitchWithoutCorruptingOuterResourceState() {
         BardoResourceCoordinator.withTextModel {
             assertEquals(
