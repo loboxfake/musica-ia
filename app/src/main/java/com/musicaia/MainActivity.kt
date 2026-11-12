@@ -2788,7 +2788,11 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
      val taskId = java.util.UUID.randomUUID().toString()
      BardoActivityStore.record(this, taskId, "mezcla_multipista_basica", "running", "mix_pcm16_stereo", "Mezcla offline de ${tracks.size} pistas.", 10, session.absolutePath)
      Thread({
-         val result = runCatching { com.musicaia.modulos.BardoWavMultitrackMixer.mix(tracks, output) }
+         val result = runCatching {
+             BardoResourceCoordinator.withAudioModel(applicationContext) {
+                 com.musicaia.modulos.BardoWavMultitrackMixer.mix(tracks, output)
+             }
+         }
          sources.forEach { it.second.delete() }
          runOnUiThread {
              mezclaPistasEnCurso = false
@@ -4855,9 +4859,11 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
      Thread({
          val destino = File(filesDir, "mezcla_voz_usuario_${System.currentTimeMillis()}.wav")
          val resultado = runCatching {
-             MezclaVoz.mezclar(voz.absolutePath, instrumental.absolutePath, destino.absolutePath)
-             require(destino.isFile && destino.length() > 44L) { "El mezclador no produjo un WAV válido." }
-             destino
+             BardoResourceCoordinator.withAudioModel(applicationContext) {
+                 MezclaVoz.mezclar(voz.absolutePath, instrumental.absolutePath, destino.absolutePath)
+                 require(destino.isFile && destino.length() > 44L) { "El mezclador no produjo un WAV válido." }
+                 destino
+             }
          }
          runOnUiThread {
              btnGuardar.isEnabled = true
