@@ -70,26 +70,9 @@ object BardoWavHeaderValidator {
                         bitsPerSample = readUInt16LE(input)
                     }
                     "data" -> {
+                        // RIFF permite que data aparezca antes de fmt. Guardamos su
+                        // ubicación y validamos la alineación cuando ya conocemos el formato.
                         require(dataBytes < 0L) { "El WAV contiene más de un chunk data." }
-                        require(format >= 0) {
-                            "El bloque fmt debe preceder al audio."
-                        }
-                        require(format == 1 && bitsPerSample == 16) {
-                            "Se necesita WAV PCM lineal de 16 bits."
-                        }
-                        require(channels in 1..8 && sampleRate in 8_000L..192_000L) {
-                            "Número de canales o frecuencia WAV no compatible."
-                        }
-                        val expectedBlockAlign = channels * (bitsPerSample / 8)
-                        require(blockAlign == expectedBlockAlign) {
-                            "El campo blockAlign no coincide con canales y profundidad."
-                        }
-                        require(byteRate == sampleRate * expectedBlockAlign.toLong()) {
-                            "El campo byteRate no coincide con frecuencia y blockAlign."
-                        }
-                        require(chunkSize > 0L && chunkSize % expectedBlockAlign == 0L) {
-                            "El bloque de audio WAV no contiene muestras PCM completas."
-                        }
                         dataBytes = chunkSize
                         dataOffset = chunkStart
                     }
@@ -103,7 +86,22 @@ object BardoWavHeaderValidator {
             }
 
             require(offset == riffEnd) { "El bloque RIFF no termina en un límite de chunk." }
-            require(dataBytes > 0L) { "No se encontró un chunk data PCM válido." }
+            require(format == 1 && bitsPerSample == 16) {
+                "Se necesita WAV PCM lineal de 16 bits."
+            }
+            require(channels in 1..8 && sampleRate in 8_000L..192_000L) {
+                "Número de canales o frecuencia WAV no compatible."
+            }
+            val expectedBlockAlign = channels * (bitsPerSample / 8)
+            require(blockAlign == expectedBlockAlign) {
+                "El campo blockAlign no coincide con canales y profundidad."
+            }
+            require(byteRate == sampleRate * expectedBlockAlign.toLong()) {
+                "El campo byteRate no coincide con frecuencia y blockAlign."
+            }
+            require(dataBytes > 0L && dataBytes % expectedBlockAlign == 0L) {
+                "El bloque de audio WAV no contiene muestras PCM completas."
+            }
 
             return BardoWavHeader(
                 sampleRate = sampleRate.toInt(),
