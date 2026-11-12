@@ -221,6 +221,7 @@ object BardoOfflineAsr {
         val transcript = StringBuilder()
         var decodedBytes = 0L
         var lastProgress = -1
+        var primaryFailure: Throwable? = null
         try {
             val loadedModel = Model(modelDirectory.absolutePath)
             model = loadedModel
@@ -320,12 +321,30 @@ object BardoOfflineAsr {
             appendResult(transcript, active.finalResult)
             runCatching { onProgress(100) }
             return transcript.toString().trim().take(MAX_TRANSCRIPT_CHARS)
+        } catch (error: Throwable) {
+            primaryFailure = error
+            throw error
         } finally {
-            runCatching { recognizer?.close() }
-            runCatching { if (codecStarted) codec?.stop() }
-            runCatching { codec?.release() }
-            runCatching { extractor?.release() }
-            runCatching { model?.close() }
+            var cleanupFailure: Throwable? = null
+            fun cleanup(action: () -> Unit) {
+                try {
+                    action()
+                } catch (error: Throwable) {
+                    val primary = primaryFailure
+                    if (primary != null) {
+                        primary.addSuppressed(error)
+                    } else {
+                        val first = cleanupFailure
+                        if (first == null) cleanupFailure = error else first.addSuppressed(error)
+                    }
+                }
+            }
+            cleanup { recognizer?.close() }
+            if (codecStarted) cleanup { codec?.stop() }
+            cleanup { codec?.release() }
+            cleanup { extractor?.release() }
+            cleanup { model?.close() }
+            cleanupFailure?.let { throw it }
         }
     }
 
