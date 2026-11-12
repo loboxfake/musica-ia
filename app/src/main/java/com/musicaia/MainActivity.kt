@@ -5624,10 +5624,20 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
  btnGuardar.isEnabled = false
  tvEstado.text = "Preparando MP3 de alta calidad (320 kbps)..."
  Thread({
-     val correcto = runCatching {
-         // El WAV se valida contra las restricciones reales del codificador JNI.
-         Mp3Exporter.encodeValidatedWavToMp3(origen, temporal.absolutePath, 320)
-     }.getOrDefault(false) && temporal.isFile && temporal.length() > 128L
+     val resultadoCodificacion = runCatching {
+         BardoResourceCoordinator.withAudioModel(applicationContext) {
+             val resourceBlock = BardoResourceBudget.blockingReason(
+                 applicationContext, 256L * 1024L * 1024L
+             )
+             check(resourceBlock == null) {
+                 resourceBlock ?: "Los recursos disponibles no permiten exportar MP3 con seguridad."
+             }
+             // El WAV se valida contra las restricciones reales del codificador JNI.
+             Mp3Exporter.encodeValidatedWavToMp3(origen, temporal.absolutePath, 320)
+         }
+     }
+     val correcto = resultadoCodificacion.getOrDefault(false) &&
+         temporal.isFile && temporal.length() > 128L
      val guardado = if (correcto && guardarEnCarpeta) runCatching {
          guardarArchivoEnRaizCarpetaBardo(temporal, nombre, "audio/mpeg")
      } else null
@@ -5653,7 +5663,12 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
              temporal.delete()
              rutaMp3Compartir = null
              btnCompartir.visibility = View.GONE
-             tvEstado.text = "No se pudo crear el MP3. El WAV original se conserva."
+             val detalle = resultadoCodificacion.exceptionOrNull()?.message
+             tvEstado.text = if (detalle.isNullOrBlank()) {
+                 "No se pudo crear el MP3. El WAV original se conserva."
+             } else {
+                 "No se pudo crear el MP3: $detalle. El WAV original se conserva."
+             }
          }
      }
  }, "BARDO-MP3-Export").start()
