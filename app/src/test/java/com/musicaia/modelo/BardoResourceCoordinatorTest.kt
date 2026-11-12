@@ -269,6 +269,16 @@ class BardoResourceCoordinatorTest {
     }
 
     @Test
+    fun cleanupFailureAggregationDoesNotSelfSuppressThePrimaryFailure() {
+        val primary = IllegalStateException("same failure instance")
+
+        val merged = BardoResourceCoordinator.mergeCleanupFailure(primary, primary)
+
+        assertSame(primary, merged)
+        assertEquals(0, primary.suppressed.size)
+    }
+
+    @Test
     fun cleanupFailureAggregationReturnsTheFirstFailureWhenThereIsNoPrimary() {
         val first = IOException("file lock release failed")
         val second = IOException("file channel close failed")
