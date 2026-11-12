@@ -26,6 +26,8 @@ class BardoDiffSingerSpanishDictionaryTest {
                 type: vowel
               - symbol: l
                 type: consonant
+              - symbol: o
+                type: vowel
               - symbol: h
                 type: consonant
             entries:
