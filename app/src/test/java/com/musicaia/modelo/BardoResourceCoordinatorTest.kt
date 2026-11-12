@@ -124,6 +124,84 @@ class BardoResourceCoordinatorTest {
     }
 
     @Test
+    fun speechRecognitionExcludesTextAudioAndImageRuntimes() {
+        val enteredSpeech = CountDownLatch(1)
+        val releaseSpeech = CountDownLatch(1)
+        val textFinished = CountDownLatch(1)
+        val audioFinished = CountDownLatch(1)
+        val imageFinished = CountDownLatch(1)
+        val active = AtomicInteger(0)
+        val maximum = AtomicInteger(0)
+        val lockDirectory = java.nio.file.Files.createTempDirectory("bardo-speech-lock").toFile()
+        val context = object : android.content.ContextWrapper(null) {
+            override fun getNoBackupFilesDir() = lockDirectory
+        }
+
+        fun recordEntry() {
+            val now = active.incrementAndGet()
+            maximum.updateAndGet { old -> maxOf(old, now) }
+        }
+
+        val speech = Thread {
+            BardoResourceCoordinator.withSpeechModel(context) {
+                recordEntry()
+                assertEquals(
+                    BardoResourceCoordinator.Resource.SPEECH_MODEL,
+                    BardoResourceCoordinator.currentResourceForCurrentThread()
+                )
+                assertTrue(java.io.File(lockDirectory, "bardo-heavy-runtime.lock").isFile)
+                enteredSpeech.countDown()
+                check(releaseSpeech.await(3, TimeUnit.SECONDS))
+                active.decrementAndGet()
+            }
+        }
+        speech.start()
+        assertTrue(enteredSpeech.await(2, TimeUnit.SECONDS))
+
+        val text = Thread {
+            BardoResourceCoordinator.withTextModel(context) {
+                recordEntry()
+                active.decrementAndGet()
+                textFinished.countDown()
+            }
+        }
+        val audio = Thread {
+            BardoResourceCoordinator.withAudioModel(context) {
+                recordEntry()
+                active.decrementAndGet()
+                audioFinished.countDown()
+            }
+        }
+        val image = Thread {
+            BardoResourceCoordinator.withImageModel(context) {
+                recordEntry()
+                active.decrementAndGet()
+                imageFinished.countDown()
+            }
+        }
+        text.start()
+        audio.start()
+        image.start()
+
+        Thread.sleep(150)
+        assertEquals("Speech recognition must hold the cross-runtime lease.", 1, maximum.get())
+        assertTrue(!textFinished.await(100, TimeUnit.MILLISECONDS))
+        assertTrue(!audioFinished.await(100, TimeUnit.MILLISECONDS))
+        assertTrue(!imageFinished.await(100, TimeUnit.MILLISECONDS))
+
+        releaseSpeech.countDown()
+        assertTrue(textFinished.await(3, TimeUnit.SECONDS))
+        assertTrue(audioFinished.await(3, TimeUnit.SECONDS))
+        assertTrue(imageFinished.await(3, TimeUnit.SECONDS))
+        speech.join(1000)
+        text.join(1000)
+        audio.join(1000)
+        image.join(1000)
+        assertEquals(1, maximum.get())
+        assertNull(BardoResourceCoordinator.currentResourceForCurrentThread())
+    }
+
+    @Test
     fun restoresResourceStateAfterImageInference() {
         assertNull(BardoResourceCoordinator.currentResourceForCurrentThread())
         BardoResourceCoordinator.withImageModel {
