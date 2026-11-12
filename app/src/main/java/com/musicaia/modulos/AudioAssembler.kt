@@ -17,7 +17,10 @@ import kotlin.math.roundToInt
 object AudioAssembler {
     private const val MAX_INPUT_FILE_BYTES = 120L * 1024L * 1024L
     private const val MAX_FRAMES_PER_CLIP = 8_000_000L
-    private const val MAX_TOTAL_INPUT_SAMPLES = 16_000_000L
+    // Stable Audio genera 18 segmentos estéreo de 11 s a 44,1 kHz:
+    // 18 × 11 × 44.100 × 2 = 17.463.600 muestras. El límite admite
+    // esa canción completa con margen acotado, manteniendo el uso de heap limitado.
+    private const val MAX_TOTAL_INPUT_SAMPLES = 20_000_000L
 
     private data class Clip(
         val sampleRate: Int,
