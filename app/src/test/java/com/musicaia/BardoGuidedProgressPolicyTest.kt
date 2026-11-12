@@ -199,6 +199,34 @@ class BardoGuidedProgressPolicyTest {
     }
 
     @Test
+    fun typeQuestionMustAskForVocalOrInstrumentalModeNotVoiceTimbre() {
+        assertTrue(
+            !BardoGuidedProgressPolicy.asksAboutRequiredField(
+                "¿Qué tipo de voz prefieres?",
+                "tipo"
+            )
+        )
+        assertTrue(
+            BardoGuidedProgressPolicy.asksAboutRequiredField(
+                "¿La prefieres cantada o instrumental?",
+                "tipo"
+            )
+        )
+        assertTrue(
+            BardoGuidedProgressPolicy.asksAboutRequiredField(
+                "Would you like vocals or an instrumental track?",
+                "tipo"
+            )
+        )
+        assertTrue(
+            BardoGuidedProgressPolicy.asksAboutRequiredField(
+                "¿La quieres con voz?",
+                "tipo"
+            )
+        )
+    }
+
+    @Test
     fun rejectsQuestionsWithoutARecognizedFieldLabel() {
         assertTrue(!BardoGuidedProgressPolicy.asksAboutRequiredField("¿Qué prefieres?", "estilo"))
     }
