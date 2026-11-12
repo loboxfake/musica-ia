@@ -60,7 +60,7 @@ class ModuloLetra(context: Context, private val modoManual: Boolean = false) : M
     }
 
     override fun descargar() {
-        if (!modoManual) registry.unloadAll()
+        if (!modoManual) registry.unloadAll(ctx)
     }
 
     companion object {
