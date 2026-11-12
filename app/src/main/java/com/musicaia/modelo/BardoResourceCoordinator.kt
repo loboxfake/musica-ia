@@ -30,20 +30,20 @@ object BardoResourceCoordinator {
         withResource(Resource.TEXT_MODEL, null, action)
 
     fun <T> withTextModel(context: Context, action: () -> T): T =
-        withResource(Resource.TEXT_MODEL, context.applicationContext, action)
+        withResource(Resource.TEXT_MODEL, context, action)
 
     fun <T> withAudioModel(action: () -> T): T =
         withResource(Resource.AUDIO_MODEL, null, action)
 
     fun <T> withAudioModel(context: Context, action: () -> T): T =
-        withResource(Resource.AUDIO_MODEL, context.applicationContext, action)
+        withResource(Resource.AUDIO_MODEL, context, action)
 
     fun <T> withImageModel(action: () -> T): T =
         withResource(Resource.IMAGE_MODEL, null, action)
 
     /** Reserva el runtime pesado de imágenes, incluido frente al proceso :audio. */
     fun <T> withImageModel(context: Context, action: () -> T): T =
-        withResource(Resource.IMAGE_MODEL, context.applicationContext, action)
+        withResource(Resource.IMAGE_MODEL, context, action)
 
     private fun <T> withResource(
         resource: Resource,
@@ -72,17 +72,13 @@ object BardoResourceCoordinator {
 
             releaseOtherRuntime(resource)
             activeResource.set(resource)
-            var completed = false
             try {
-                val result = action()
-                completed = true
-                result
+                action()
             } finally {
-                if (!completed) {
-                    // Si una operación falla (incluido OOM), libera cualquier
-                    // carga parcial que pertenezca a este proceso/runtime.
-                    runCatching { releaseRuntime(resource) }
-                }
+                // Los runtimes se descargan al terminar cada operación. Así una
+                // carga retenida en un proceso no compite por RAM con el siguiente
+                // runtime, que puede ejecutarse en otro proceso Android.
+                runCatching { releaseRuntime(resource) }
                 if (previous == null) activeResource.remove()
                 else activeResource.set(previous)
             }
