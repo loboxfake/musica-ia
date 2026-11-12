@@ -10,7 +10,7 @@ import kotlin.concurrent.withLock
  * Antes de usar uno, intenta liberar el otro; no controla la RAM de otras aplicaciones.
  */
 object BardoResourceCoordinator {
-    enum class Resource { TEXT_MODEL, AUDIO_MODEL }
+    enum class Resource { TEXT_MODEL, AUDIO_MODEL, IMAGE_MODEL }
 
     private val transitionLock = ReentrantLock(true)
     private val activeResource = ThreadLocal<Resource?>()
@@ -22,6 +22,10 @@ object BardoResourceCoordinator {
 
     fun <T> withAudioModel(action: () -> T): T =
         withResource(Resource.AUDIO_MODEL, action)
+
+    /** Reserva el runtime pesado de imágenes e impide inferencias de texto/audio concurrentes. */
+    fun <T> withImageModel(action: () -> T): T =
+        withResource(Resource.IMAGE_MODEL, action)
 
     private fun <T> withResource(resource: Resource, action: () -> T): T =
         transitionLock.withLock {
@@ -53,6 +57,10 @@ object BardoResourceCoordinator {
         when (requested) {
             Resource.TEXT_MODEL -> AudioGenNative.releaseCachedModels()
             Resource.AUDIO_MODEL -> EngineLiteRT.cerrar()
+            Resource.IMAGE_MODEL -> {
+                EngineLiteRT.cerrar()
+                AudioGenNative.releaseCachedModels()
+            }
         }
     }
 
@@ -60,6 +68,8 @@ object BardoResourceCoordinator {
         when (resource) {
             Resource.TEXT_MODEL -> EngineLiteRT.cerrar()
             Resource.AUDIO_MODEL -> AudioGenNative.releaseCachedModels()
+            // The Bonsai pipeline owns and closes its own native runtime.
+            Resource.IMAGE_MODEL -> Unit
         }
     }
 }
