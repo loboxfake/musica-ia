@@ -211,8 +211,10 @@ object BardoOfflineAsr {
         require(mediaFile.isFile && mediaFile.length() in 1..MAX_MEDIA_BYTES) {
             "El audio no existe, está vacío o supera el límite de 100 MB."
         }
-        val model = Model(modelDirectory.absolutePath)
-        val extractor = MediaExtractor()
+        // Track native resources before constructing the next one. If MediaExtractor
+        // construction fails after Vosk has loaded, the model is still closed in finally.
+        var model: Model? = null
+        var extractor: MediaExtractor? = null
         var codec: MediaCodec? = null
         var codecStarted = false
         var recognizer: Recognizer? = null
@@ -220,11 +222,15 @@ object BardoOfflineAsr {
         var decodedBytes = 0L
         var lastProgress = -1
         try {
-            extractor.setDataSource(mediaFile.absolutePath)
+            val loadedModel = Model(modelDirectory.absolutePath)
+            model = loadedModel
+            val mediaExtractor = MediaExtractor()
+            extractor = mediaExtractor
+            mediaExtractor.setDataSource(mediaFile.absolutePath)
             var trackIndex = -1
             var inputFormat: MediaFormat? = null
-            for (index in 0 until extractor.trackCount) {
-                val format = extractor.getTrackFormat(index)
+            for (index in 0 until mediaExtractor.trackCount) {
+                val format = mediaExtractor.getTrackFormat(index)
                 if (format.getString(MediaFormat.KEY_MIME).orEmpty().startsWith("audio/")) {
                     trackIndex = index
                     inputFormat = format
@@ -242,7 +248,7 @@ object BardoOfflineAsr {
             require(durationUs <= 0L || durationUs <= MAX_DURATION_US) {
                 "El audio supera el límite de 30 minutos por seguridad térmica y de memoria."
             }
-            extractor.selectTrack(trackIndex)
+            mediaExtractor.selectTrack(trackIndex)
             codec = MediaCodec.createDecoderByType(mime)
             codec.configure(selectedFormat, null, null, 0)
             codec.start()
@@ -260,7 +266,7 @@ object BardoOfflineAsr {
                 } else AudioFormat.ENCODING_PCM_16BIT
                 require(sampleRate in 8_000..96_000) { "Frecuencia decodificada no compatible: " + sampleRate + " Hz." }
                 require(channels in 1..8) { "Número de canales decodificados no compatible." }
-                if (recognizer == null) recognizer = Recognizer(model, sampleRate.toFloat())
+                if (recognizer == null) recognizer = Recognizer(loadedModel, sampleRate.toFloat())
             }
             val info = MediaCodec.BufferInfo()
             while (!outputDone) {
@@ -269,15 +275,15 @@ object BardoOfflineAsr {
                     if (inputIndex >= 0) {
                         val input = codec.getInputBuffer(inputIndex) ?: error("Búfer de entrada no disponible.")
                         input.clear()
-                        val size = extractor.readSampleData(input, 0)
+                        val size = mediaExtractor.readSampleData(input, 0)
                         if (size < 0) {
                             codec.queueInputBuffer(inputIndex, 0, 0, 0L, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
                             inputDone = true
                         } else {
-                            val pts = extractor.sampleTime
+                            val pts = mediaExtractor.sampleTime
                             require(pts < 0L || pts <= MAX_DURATION_US) { "El audio supera el límite de 30 minutos." }
-                            codec.queueInputBuffer(inputIndex, 0, size, pts.coerceAtLeast(0L), extractor.sampleFlags)
-                            extractor.advance()
+                            codec.queueInputBuffer(inputIndex, 0, size, pts.coerceAtLeast(0L), mediaExtractor.sampleFlags)
+                            mediaExtractor.advance()
                         }
                     }
                 }
@@ -318,8 +324,8 @@ object BardoOfflineAsr {
             runCatching { recognizer?.close() }
             runCatching { if (codecStarted) codec?.stop() }
             runCatching { codec?.release() }
-            runCatching { extractor.release() }
-            runCatching { model.close() }
+            runCatching { extractor?.release() }
+            runCatching { model?.close() }
         }
     }
 
