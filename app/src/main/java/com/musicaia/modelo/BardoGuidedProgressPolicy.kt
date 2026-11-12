@@ -65,10 +65,10 @@ object BardoGuidedProgressPolicy {
             // Mentioning English/Spanish is not enough: the question must ask
             // which language the user's own song should use.
             val asksWhichLanguage = Regex(
-                """\\b(?:que|cual)\\s+idioma\\b|\\b(?:which|what)\\s+language\\b|\\b(?:idioma|language)\\b"""
+                """\b(?:que|cual)\s+idioma\b|\b(?:which|what)\s+language\b|\b(?:idioma|language)\b"""
             ).containsMatchIn(normalized)
             val specifiesSongLanguage = Regex(
-                """\\b(?:en|in)\\s+(?:espanol|spanish|english|ingles)\\b|\\b(?:espanol|spanish|english|ingles)\\s+(?:o|or)\\s+(?:espanol|spanish|english|ingles)\\b"""
+                """\b(?:en|in)\s+(?:espanol|spanish|english|ingles)\b|\b(?:espanol|spanish|english|ingles)\s+(?:o|or)\s+(?:espanol|spanish|english|ingles)\b"""
             ).containsMatchIn(normalized)
             return asksWhichLanguage || specifiesSongLanguage
         }
