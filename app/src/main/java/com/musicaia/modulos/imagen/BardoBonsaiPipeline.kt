@@ -153,9 +153,11 @@ class BardoBonsaiPipeline(private val modelsDir: File, meta: JSONObject) {
 
         // ---- stage 1: tokenize + text encoder ------------------------------
         progress("Encoding prompt…", 0.02)
+        checkCancel()
         val enc = tokenizer.encodePrompt(prompt)
         status("prompt: ${enc.promptTokenCount} tokens")
         var embeds: FloatArray
+        checkCancel()
         Graph(modelFile(textencFile), THREADS).use { te ->
             checkCancel()
             val t = System.nanoTime()
@@ -170,6 +172,7 @@ class BardoBonsaiPipeline(private val modelsDir: File, meta: JSONObject) {
 
         // ---- stage 2: DiT Euler loop ----------------------------------------
         progress("Loading DiT (2.1 GiB)…", 0.10)
+        checkCancel()
         val sigmas = BardoBonsaiMath.sigmas(steps)
         val imgIds = fbuf(BardoBonsaiMath.imgIds())
         val txtIds = fbuf(BardoBonsaiMath.txtIds())
@@ -177,10 +180,11 @@ class BardoBonsaiPipeline(private val modelsDir: File, meta: JSONObject) {
         var lat = BardoBonsaiMath.noise(seed)
         val stepSeconds = ArrayList<Double>(steps)
         Graph(modelFile(ditFile), THREADS).use { dit ->
+            checkCancel()
             status("DiT loaded %.1fs".format(dit.loadSeconds))
             for (k in 0 until steps) {
-                checkCancel()
                 progress("Step ${k + 1} of $steps…", 0.16 + 0.72 * k / steps)
+                checkCancel()
                 val t = System.nanoTime()
                 val v = dit.run(
                     listOf(fbuf(lat), embedsBuf, fbuf(floatArrayOf(sigmas[k])), imgIds, txtIds),
@@ -197,9 +201,11 @@ class BardoBonsaiPipeline(private val modelsDir: File, meta: JSONObject) {
 
         // ---- stage 3: unpatchify + VAE decode -------------------------------
         progress("Decoding image…", 0.90)
+        checkCancel()
         val z = BardoBonsaiMath.unpatchify(lat, bnScale, bnShift)
         val rgb = ByteArray(512 * 512 * 3)
         Graph(modelFile(vaeFile), THREADS).use { vae ->
+            checkCancel()
             val t = System.nanoTime()
             val y = vae.run(listOf(fbuf(z)), 3 * 512 * 512)
             for (c in 0 until 3) for (p in 0 until 512 * 512) {
