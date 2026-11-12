@@ -7,7 +7,8 @@ data class BardoWavHeader(
     val sampleRate: Int,
     val channels: Int,
     val bitsPerSample: Int,
-    val dataBytes: Long
+    val dataBytes: Long,
+    val dataOffset: Long = 0L
 )
 
 /**
@@ -38,6 +39,7 @@ object BardoWavHeaderValidator {
             var blockAlign = 0
             var bitsPerSample = 0
             var dataBytes = -1L
+            var dataOffset = -1L
             var offset = 12L
 
             while (offset < riffEnd) {
@@ -89,6 +91,7 @@ object BardoWavHeaderValidator {
                             "El bloque de audio WAV no contiene muestras PCM completas."
                         }
                         dataBytes = chunkSize
+                        dataOffset = chunkStart
                     }
                 }
 
@@ -106,7 +109,8 @@ object BardoWavHeaderValidator {
                 sampleRate = sampleRate.toInt(),
                 channels = channels,
                 bitsPerSample = bitsPerSample,
-                dataBytes = dataBytes
+                dataBytes = dataBytes,
+                dataOffset = dataOffset
             )
         }
     }
