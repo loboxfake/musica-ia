@@ -4561,7 +4561,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
      btnCancelarTarea.isEnabled = false
      // BardoTaskService vive en :audio: cerrar EngineLiteRT dentro del servicio
      // no libera el modelo residente en el proceso principal de MainActivity.
-     EngineLiteRT.cerrarAsync {
+     EngineLiteRT.cerrarAsync(onClosed = {
          handler.post {
              val errorInicio = runCatching {
                  BardoTaskService.iniciar(
