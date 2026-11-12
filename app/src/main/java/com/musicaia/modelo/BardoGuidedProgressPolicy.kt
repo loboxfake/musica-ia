@@ -38,8 +38,15 @@ object BardoGuidedProgressPolicy {
         ).replace(Regex("""\p{Mn}+"""), "")
             .replace(Regex("""[^\p{L}\p{N}]+"""), " ")
             .trim()
+        if (field == "tema") {
+            // "¿Qué canción te gusta?" menciona música, pero no pregunta
+            // por el asunto que debe desarrollar la canción del usuario.
+            return Regex(
+                """\\b(?:de que|sobre que|que tema|cual es el tema|what topic|which topic|about what|what is (?:the )?(?:song|track) about|what should (?:the )?(?:song|track) be about|what would you like (?:the )?(?:song|track) to be about)\\b"""
+            ).containsMatchIn(normalized)
+        }
         val terms = when (field) {
-            "tema" -> listOf("tema", "theme", "song", "cancion", "track")
+            "tema" -> listOf("tema", "theme")
             "estilo" -> listOf("estilo", "style", "genre", "genero")
             "ambiente" -> listOf("ambiente", "mood", "emotion", "emocion", "feeling")
             "ritmo" -> listOf("ritmo", "rhythm", "tempo")
