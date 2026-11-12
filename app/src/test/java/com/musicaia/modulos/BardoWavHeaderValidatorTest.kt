@@ -105,7 +105,7 @@ class BardoWavHeaderValidatorTest {
 
 
     @Test
-    fun rejectsDuplicateFormatChunkAndDataBeforeFormat() {
+    fun rejectsDuplicateFormatChunkAndAcceptsDataBeforeFormat() {
         val directory = Files.createTempDirectory("bardo-wav-chunk-order").toFile()
         try {
             val base = createWav(format = 1, channels = 1, bits = 16, samples = 4)
@@ -128,7 +128,10 @@ class BardoWavHeaderValidatorTest {
             ByteBuffer.wrap(dataBeforeFmt).order(ByteOrder.LITTLE_ENDIAN).putInt(4, dataBeforeFmt.size - 8)
             val dataFirstFile = File(directory, "data-before-fmt.wav")
             dataFirstFile.writeBytes(dataBeforeFmt)
-            assertTrue(runCatching { BardoWavHeaderValidator.inspect(dataFirstFile) }.isFailure)
+            val reorderedHeader = BardoWavHeaderValidator.inspect(dataFirstFile)
+            assertEquals(44_100, reorderedHeader.sampleRate)
+            assertEquals(1, reorderedHeader.channels)
+            assertEquals(20L, reorderedHeader.dataOffset)
         } finally {
             directory.deleteRecursively()
         }
