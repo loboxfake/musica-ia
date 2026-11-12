@@ -3012,30 +3012,31 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
              marcarGeneracionImagenIA(true)
              Thread({
                  val result = runCatching {
-                     com.musicaia.modulos.litert.EngineLiteRT.cerrar()
-                     val reason = BardoResourceBudget.blockingReason(
-                         this, BardoCapabilityRegistry.MIN_IMAGE_GENERATION_FREE_MEMORY_BYTES
-                     )
-                     check(reason.isNullOrBlank()) {
-                         reason ?: "No hay memoria suficiente para Bonsai Image 4B."
-                     }
-                     val target = File(
-                         File(filesDir, "covers"),
-                         (if (standaloneImage) "bardo-ai-image-" else "bardo-ai-cover-") + System.currentTimeMillis().toString() + ".png"
-                     )
-                     com.musicaia.modulos.imagen.BardoBonsaiImageGenerator.generate(
-                         this, prompt, songTitle, artistName, target, cancelled,
-                         status = { message -> runOnUiThread { if (!isFinishing && !isDestroyed) progressText.text = message } },
-                         progress = { message, fraction ->
-                             runOnUiThread {
-                                 if (!isFinishing && !isDestroyed) {
-                                     progressBar.isIndeterminate = false
-                                     progressBar.progress = (fraction * 1000).toInt().coerceIn(0, 1000)
-                                     progressText.text = message
+                     com.musicaia.modelo.BardoResourceCoordinator.withImageModel {
+                         val reason = BardoResourceBudget.blockingReason(
+                             this, BardoCapabilityRegistry.MIN_IMAGE_GENERATION_FREE_MEMORY_BYTES
+                         )
+                         check(reason.isNullOrBlank()) {
+                             reason ?: "No hay memoria suficiente para Bonsai Image 4B."
+                         }
+                         val target = File(
+                             File(filesDir, "covers"),
+                             (if (standaloneImage) "bardo-ai-image-" else "bardo-ai-cover-") + System.currentTimeMillis().toString() + ".png"
+                         )
+                         com.musicaia.modulos.imagen.BardoBonsaiImageGenerator.generate(
+                             this, prompt, songTitle, artistName, target, cancelled,
+                             status = { message -> runOnUiThread { if (!isFinishing && !isDestroyed) progressText.text = message } },
+                             progress = { message, fraction ->
+                                 runOnUiThread {
+                                     if (!isFinishing && !isDestroyed) {
+                                         progressBar.isIndeterminate = false
+                                         progressBar.progress = (fraction * 1000).toInt().coerceIn(0, 1000)
+                                         progressText.text = message
+                                     }
                                  }
                              }
-                         }
-                     )
+                         )
+                     }
                  }
                  marcarGeneracionImagenIA(false)
                  runOnUiThread {
