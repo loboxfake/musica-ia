@@ -178,7 +178,13 @@ object BardoDiffSingerSpanishDictionary {
                 return@forEach
             }
             val mapped = sourcePhones.map { phone ->
-                dictionary.replacements[phone] ?: when {
+                val replacement = dictionary.replacements[phone]
+                when {
+                    replacement != null && replacement in voicePhonemeIds -> replacement
+                    replacement != null -> {
+                        unsupported += "$word:$phone->$replacement"
+                        ""
+                    }
                     "es/$phone" in voicePhonemeIds -> "es/$phone"
                     phone in voicePhonemeIds -> phone
                     else -> {
