@@ -58,24 +58,15 @@ object BardoGuidedResponseParser {
     }
 
     private fun containsExplicitCorrection(message: String): Boolean {
+        if (BardoIntentRouter.isNegatedCreativeChange(message)) return false
         val normalized = java.text.Normalizer.normalize(
             message.lowercase(Locale.ROOT),
             java.text.Normalizer.Form.NFD
         ).replace(Regex("""\p{Mn}+"""), "")
-
-        // Una negación explícita de la acción de cambiar no debe autorizar
-        // que el modelo sobrescriba un valor guardado, aunque incluya el
-        // valor nuevo como ejemplo o evidencia textual.
-        val rejectsChange = Regex(
-            """\b(?:no\s+(?:quiero|deseo|necesito)\s+(?:cambiar|modificar|reemplazar|sustituir)\w*|no\s+(?:hace\s+falta|es\s+necesario)\s+(?:cambiar|modificar|reemplazar|sustituir)\w*|(?:i\s+)?(?:do\s+not|don't|dont)\s+(?:want|need)\s+to\s+(?:change|switch|modify|replace)|not\s+necessary\s+to\s+(?:change|switch|modify|replace))\b"""
-        )
-        if (rejectsChange.containsMatchIn(normalized)) return false
-
         return Regex(
             """\b(?:change|switch|modify|replace|instead|rather|actually|prefer|i prefer|cambiar|cambia|modificar|modifica|reemplazar|sustituir|mejor|prefiero|en vez de|en lugar de|mas bien)\b"""
         ).containsMatchIn(normalized)
     }
-
     /** Recupera texto libre si el modelo no respeta JSON; no expone JSON malformado. */
     fun extractFreeformReply(raw: String): String? {
         val value = raw.trim()
