@@ -260,7 +260,7 @@ class BardoModelRegistry(providers: List<BardoModelProvider>) {
         require(candidates.isNotEmpty()) {
             "No hay un proveedor autorizado para la capacidad " + capability + "."
         }
-        return BardoResourceCoordinator.withTextModel {
+        return BardoResourceCoordinator.withTextModel(context) {
             synchronized(executionLock) {
                 val failures = mutableListOf<String>()
                 for (provider in candidates) {
@@ -301,7 +301,7 @@ class BardoModelRegistry(providers: List<BardoModelProvider>) {
         }
     }
 
-    fun unloadAll() = BardoResourceCoordinator.withTextModel {
+    fun unloadAll(context: Context) = BardoResourceCoordinator.withTextModel(context) {
         synchronized(executionLock) {
             providersById.values.forEach { provider -> provider.unload() }
         }
