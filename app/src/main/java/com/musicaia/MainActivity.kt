@@ -149,7 +149,7 @@ class MainActivity : AppCompatActivity() {
                  ocupado = false
                  btnCancelarTarea.visibility = View.GONE
                  grupoModo.isEnabled = true
-                 btnCrear.isEnabled = true
+                 actualizarUI()
                  detenerReloj()
                  tvEstado.text = "Generación interrumpida"
                  tvResultado.text = mensaje
