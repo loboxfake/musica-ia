@@ -4570,7 +4570,27 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                  tvEstado.text = "BARDO está trabajando. Puedes salir de la pantalla; la tarea continuará con su notificación."
              }
          }
-     }
+     }, onFailure = { error ->
+         handler.post {
+             taskPrefs.edit()
+                 .putString(BardoTaskService.KEY_STATE, "failed")
+                 .putString(BardoTaskService.KEY_MESSAGE, "No se pudo liberar el motor de texto: " + (error.message ?: error.javaClass.simpleName))
+                 .apply()
+             ocupado = false
+             grupoModo.isEnabled = true
+             btnCrear.isEnabled = true
+             btnCancelarTarea.visibility = View.GONE
+             btnCancelarTarea.isEnabled = false
+             detenerReloj()
+             if (!isFinishing && !isDestroyed) {
+                 progreso.visibility = View.GONE
+                 tvProgresoDetalle.visibility = View.GONE
+                 tvTiempo.visibility = View.GONE
+                 tvEstado.text = "No se pudo liberar el motor de texto; no se ha iniciado la generación de audio."
+                 mostrarError(error)
+             }
+         }
+     })
  } catch (error: Exception) {
      getSharedPreferences(BardoTaskService.PREFS, MODE_PRIVATE).edit()
          .putString(BardoTaskService.KEY_STATE, "failed")
