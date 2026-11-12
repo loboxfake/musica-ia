@@ -55,4 +55,24 @@ class EngineLiteRTFutureTest {
         assertTrue(LiteRtFallbackPolicy.shouldRetryCpu(IllegalStateException("GPU unavailable")))
         assertTrue(LiteRtFallbackPolicy.shouldRetryCpu(UnsatisfiedLinkError("GPU driver unavailable")))
     }
+
+    @Test fun interruptedWaitBecomesCancellationAndRestoresInterruptFlag() {
+        val future = object : java.util.concurrent.Future<String> {
+            override fun cancel(mayInterruptIfRunning: Boolean) = false
+            override fun isCancelled() = false
+            override fun isDone() = false
+            override fun get(): String = throw InterruptedException("waiting thread interrupted")
+            override fun get(timeout: Long, unit: java.util.concurrent.TimeUnit): String =
+                throw InterruptedException("waiting thread interrupted")
+        }
+        Thread.interrupted()
+        try {
+            val actual = runCatching { awaitFuture(future) }.exceptionOrNull()
+            assertTrue(actual is CancellationException)
+            assertTrue(actual?.cause is InterruptedException)
+            assertTrue(Thread.currentThread().isInterrupted)
+        } finally {
+            Thread.interrupted()
+        }
+    }
 }
