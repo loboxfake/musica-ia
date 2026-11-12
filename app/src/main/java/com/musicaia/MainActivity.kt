@@ -1735,6 +1735,7 @@ private fun crearConversacionNueva() {
                      rutaVoz = ruta
                      archivarVozUsuario(File(ruta), "audio/wav")
                      tvEstadoVoz.text = "Muestra vocal guardada: voz_grabada.wav"
+                     actualizarUI()
                  } else {
                      tvEstadoVoz.text = "La grabación no produjo un WAV válido."
                  }
@@ -1823,6 +1824,7 @@ private fun crearConversacionNueva() {
                  archivarVozUsuario(archivo, mimeVoz)
                  BardoActivityStore.record(this, taskId, "archivo_voz", "completed", "importacion", "Muestra vocal importada: $nombre", 100, archivo.absolutePath)
                  tvEstadoVoz.text = "Muestra vocal importada: $nombre"
+                 actualizarUI()
              }
          }
      }, "BARDO-Voice-Import").start()
