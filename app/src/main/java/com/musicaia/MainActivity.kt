@@ -2226,6 +2226,10 @@ private fun crearConversacionNueva() {
           anexarChat("\nBARDO: No he iniciado la transcripción mientras el motor musical está ocupado.")
           return
       }
+      if (hayGeneracionImagenIAActiva()) {
+          tvEstado.text = "BARDO está generando una imagen con IA local. La transcripción esperará a que termine para no competir por memoria."
+          return
+      }
       transcripcionAudioEnCurso = true
       val asrMode = "transcripcion_offline_" + language.code
       BardoActivityStore.record(this, taskId, "analisis_audio", "running", asrMode,
@@ -2668,6 +2672,10 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
          tvEstado.text = "El modelo de texto está ocupado. Espera a que termine antes de iniciar una mezcla multipista."
          return
      }
+     if (hayGeneracionImagenIAActiva()) {
+         tvEstado.text = "BARDO está generando una imagen con IA local. La mezcla multipista esperará para no competir por memoria."
+         return
+     }
      val estadoMusica = getSharedPreferences(BardoTaskService.PREFS, MODE_PRIVATE)
          .getString(BardoTaskService.KEY_STATE, "").orEmpty()
      if (estadoMusica == "running") {
@@ -2949,6 +2957,14 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                  tvEstado.text = "Espera a que termine la inferencia de texto antes de cargar el modelo de imágenes."
                  return@setOnClickListener
              }
+             if (transcripcionAudioEnCurso || mezclaPistasEnCurso) {
+                 tvEstado.text = "Hay una operación de audio activa. La generación de imágenes esperará para no competir por memoria."
+                 return@setOnClickListener
+             }
+             if (hayGeneracionImagenIAActiva()) {
+                 tvEstado.text = "Ya hay una generación de imagen local en curso."
+                 return@setOnClickListener
+             }
              val audioBlock = bloqueoPorTareaAudio()
              if (!audioBlock.isNullOrBlank()) {
                  tvEstado.text = "No se puede generar la portada mientras el motor de audio está ocupado: " + audioBlock
@@ -2993,6 +3009,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                  }
              }
              progressDialog.show()
+             marcarGeneracionImagenIA(true)
              Thread({
                  val result = runCatching {
                      com.musicaia.modulos.litert.EngineLiteRT.cerrar()
@@ -3020,6 +3037,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                          }
                      )
                  }
+                 marcarGeneracionImagenIA(false)
                  runOnUiThread {
                      if (isFinishing || isDestroyed) {
                          result.getOrNull()?.file?.delete()
@@ -3450,6 +3468,26 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
     if (siguiente == null) findViewById<TextView>(R.id.navCrear).performClick()
 }
 
+
+ private fun marcarGeneracionImagenIA(activa: Boolean) {
+     val prefs = getSharedPreferences("bardo_resource_operations", MODE_PRIVATE)
+     val now = if (activa) System.currentTimeMillis() else 0L
+     prefs.edit()
+         .putBoolean("image_generation_running", activa)
+         .putInt("image_generation_pid", if (activa) android.os.Process.myPid() else 0)
+         .putLong("image_generation_started_at", now)
+         .commit()
+ }
+
+ private fun hayGeneracionImagenIAActiva(): Boolean {
+     val prefs = getSharedPreferences("bardo_resource_operations", MODE_PRIVATE)
+     val running = prefs.getBoolean("image_generation_running", false)
+     val ownerPid = prefs.getInt("image_generation_pid", 0)
+     val startedAt = prefs.getLong("image_generation_started_at", 0L)
+     val now = System.currentTimeMillis()
+     return running && ownerPid == android.os.Process.myPid() &&
+         startedAt > 0L && now >= startedAt && now - startedAt < 3L * 60L * 60L * 1000L
+ }
 
  private fun bloqueoPorTareaAudio(): String? {
      val estado = getSharedPreferences(BardoTaskService.PREFS, MODE_PRIVATE)
@@ -4319,6 +4357,14 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
  if (ocupado) {
      tvEstado.text = "BARDO ya tiene una tarea marcada como activa. Comprueba su estado antes de iniciar otra."
      Log.w(etiqueta, "Se evitó iniciar una segunda tarea porque ocupado=true")
+     return
+ }
+ if (transcripcionAudioEnCurso || mezclaPistasEnCurso) {
+     tvEstado.text = "Hay una transcripción o mezcla multipista activa. Espera a que termine antes de generar audio."
+     return
+ }
+ if (hayGeneracionImagenIAActiva()) {
+     tvEstado.text = "BARDO está generando una imagen con el modelo local. Espera a que libere la memoria antes de generar audio."
      return
  }
  val autoStudyPrefs = getSharedPreferences("bardo_developer", MODE_PRIVATE)
