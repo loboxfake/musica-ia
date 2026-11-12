@@ -2,6 +2,7 @@ package com.musicaia.modelos
 
 import android.content.Context
 import com.musicaia.modelo.BardoResourceCoordinator
+import java.util.concurrent.CancellationException
 
 enum class BardoAgentRole {
     GENERALIST, PLANNER, RESEARCHER, SOFTWARE_ENGINEER,
@@ -161,6 +162,10 @@ class BardoAgentFleet(
                     null,
                     ((System.nanoTime() - started) / 1_000_000L).coerceAtLeast(0L)
                 )
+            } catch (error: CancellationException) {
+                // A cancelled parent task must stop the fleet immediately; it is not
+                // an ordinary provider failure and must never be converted to a report.
+                throw error
             } catch (error: OutOfMemoryError) {
                 throw error
             } catch (error: Exception) {
