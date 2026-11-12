@@ -15,6 +15,7 @@ object DiffSingerVoicebankInspector {
         INVALID_CONFIG,
         MISSING_ACOUSTIC_MODEL,
         MISSING_PHONEMES,
+        INVALID_PHONEMES,
         MISSING_PHONEMIZER_DICTIONARY,
         MISSING_LANGUAGE_TABLE,
         MISSING_AUXILIARY_MODEL,
@@ -33,7 +34,8 @@ object DiffSingerVoicebankInspector {
         val vocoderModel: File? = null,
         val sampleRate: Int? = null,
         val hopSize: Int? = null,
-        val errors: List<String> = emptyList()
+        val errors: List<String> = emptyList(),
+        val phonemeIds: Map<String, Int> = emptyMap()
     ) {
         val readyForRuntimeProbe: Boolean get() = status == Status.READY_FOR_RUNTIME_PROBE
     }
@@ -114,6 +116,11 @@ object DiffSingerVoicebankInspector {
         val phonemes = safeChild(root, phonemesName)
             ?: return Inspection(Status.MISSING_PHONEMES, root, acoustic, sampleRate = sampleRate, hopSize = hopSize,
                 errors = listOf("No existe el inventario de fonemas indicado o está vacío."))
+        val inventory = DiffSingerPhonemeInventoryReader.read(phonemes)
+        if (!inventory.isValid) {
+            return Inspection(Status.INVALID_PHONEMES, root, acoustic, phonemes,
+                sampleRate = sampleRate, hopSize = hopSize, errors = inventory.errors)
+        }
 
         val normalizedLanguage = language.lowercase().filter { it.isLetterOrDigit() }
         val dictionary = listOf("dsdict-$normalizedLanguage.yaml", "dsdict.yaml")
@@ -189,6 +196,6 @@ object DiffSingerVoicebankInspector {
         }
 
         return Inspection(Status.READY_FOR_RUNTIME_PROBE, root, acoustic, phonemes, dictionary,
-            vocoderConfig, vocoderModel, sampleRate, hopSize)
+            vocoderConfig, vocoderModel, sampleRate, hopSize, phonemeIds = inventory.phonemeToId)
     }
 }
