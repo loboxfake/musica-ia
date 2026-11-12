@@ -157,19 +157,34 @@ jobs:
         run: |
           git clone --no-checkout https://github.com/pytorch/executorch.git "$RUNNER_TEMP/executorch"
           git -C "$RUNNER_TEMP/executorch" checkout 8c84780911e7f4e9eb19395181b04761392a4b56
-          git -C "$RUNNER_TEMP/executorch" submodule update --init --recursive --jobs 6 \
-            backends/xnnpack/third-party/FP16 \
-            backends/xnnpack/third-party/FXdiv \
-            backends/xnnpack/third-party/XNNPACK \
-            backends/xnnpack/third-party/cpuinfo \
-            backends/xnnpack/third-party/pthreadpool \
-            extension/llm/tokenizers \
-            kernels/optimized/third-party/eigen \
-            third-party/flatbuffers \
-            third-party/flatcc \
-            third-party/gflags \
-            third-party/json \
+          submodules=(
+            backends/xnnpack/third-party/FP16
+            backends/xnnpack/third-party/FXdiv
+            backends/xnnpack/third-party/XNNPACK
+            backends/xnnpack/third-party/cpuinfo
+            backends/xnnpack/third-party/pthreadpool
+            extension/llm/tokenizers
+            kernels/optimized/third-party/eigen
+            third-party/flatbuffers
+            third-party/flatcc
+            third-party/gflags
+            third-party/json
             third-party/pocketfft
+          )
+          # Upstream submodule hosts can return transient 5xx/load errors.
+          # Retry the pinned checkout without changing any submodule revision.
+          for attempt in 1 2 3 4 5; do
+            if git -C "$RUNNER_TEMP/executorch" submodule update --init --recursive --jobs 6 "${submodules[@]}"; then
+              break
+            fi
+            if [ "$attempt" -eq 5 ]; then
+              echo "::error::ExecuTorch submodules could not be fetched after 5 attempts."
+              exit 1
+            fi
+            delay=$((attempt * 20))
+            echo "ExecuTorch submodule fetch failed (attempt $attempt/5); retrying in ${delay}s."
+            sleep "$delay"
+          done
           test "$(git -C "$RUNNER_TEMP/executorch" rev-parse HEAD)" = "8c84780911e7f4e9eb19395181b04761392a4b56"
 
       - name: Build full APK with on-device audio model
