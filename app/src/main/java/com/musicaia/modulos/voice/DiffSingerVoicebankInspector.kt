@@ -17,6 +17,7 @@ object DiffSingerVoicebankInspector {
         MISSING_PHONEMES,
         INVALID_PHONEMES,
         MISSING_PHONEMIZER_DICTIONARY,
+        INVALID_PHONEMIZER_DICTIONARY,
         MISSING_LANGUAGE_TABLE,
         MISSING_AUXILIARY_MODEL,
         MISSING_VOCODER,
@@ -35,7 +36,8 @@ object DiffSingerVoicebankInspector {
         val sampleRate: Int? = null,
         val hopSize: Int? = null,
         val errors: List<String> = emptyList(),
-        val phonemeIds: Map<String, Int> = emptyMap()
+        val phonemeIds: Map<String, Int> = emptyMap(),
+        val spanishDictionary: BardoDiffSingerSpanishDictionary.Result? = null
     ) {
         val readyForRuntimeProbe: Boolean get() = status == Status.READY_FOR_RUNTIME_PROBE
     }
@@ -131,6 +133,15 @@ object DiffSingerVoicebankInspector {
                 errors = listOf("Falta dsdict-$normalizedLanguage.yaml o dsdict.yaml para convertir la letra en fonemas."))
         }
 
+        val spanishDictionary = if (normalizedLanguage == "es") {
+            val parsed = BardoDiffSingerSpanishDictionary.read(dictionary)
+            if (!parsed.isValid) {
+                return Inspection(Status.INVALID_PHONEMIZER_DICTIONARY, root, acoustic, phonemes, dictionary,
+                    sampleRate = sampleRate, hopSize = hopSize, errors = parsed.errors)
+            }
+            parsed
+        } else null
+
         if (values["use_lang_id"]?.equals("true", ignoreCase = true) == true) {
             val languageFile = values["languages"]?.let { safeChild(root, it) }
             if (languageFile == null) {
@@ -196,6 +207,7 @@ object DiffSingerVoicebankInspector {
         }
 
         return Inspection(Status.READY_FOR_RUNTIME_PROBE, root, acoustic, phonemes, dictionary,
-            vocoderConfig, vocoderModel, sampleRate, hopSize, phonemeIds = inventory.phonemeToId)
+            vocoderConfig, vocoderModel, sampleRate, hopSize, phonemeIds = inventory.phonemeToId,
+            spanishDictionary = spanishDictionary)
     }
 }
