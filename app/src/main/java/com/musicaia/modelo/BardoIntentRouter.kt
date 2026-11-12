@@ -53,7 +53,7 @@ object BardoIntentRouter {
                 else -> alias
             }
             val raw = match.groupValues[2].trim().trimEnd('.', '!', '?')
-                .replace(Regex("^(es|de|del|sobre|en|el|la|los|las|musical)\\s+", RegexOption.IGNORE_CASE), "")
+                .replace(Regex("^(es|de|del|sobre|en|el|la|los|las|musical|a)\\s+", RegexOption.IGNORE_CASE), "")
                 .trim()
             if (raw.isNotBlank()) result[key] = normalizeFieldValue(key, raw)
         }
