@@ -30,6 +30,24 @@ class BardoGuidedResponseParserTest {
         assertTrue(parsed.updates.isEmpty())
     }
 
+    @Test fun negativeSpanishPreferenceIsNotStoredAsANewCreativeValue() {
+        val json = """{"fields":{"style":{"value":"rock","evidence":"rock"}},"reply":"Entendido."}"""
+        val parsed = BardoGuidedResponseParser.parse(json, "No quiero rock", emptyMap())!!
+        assertTrue(parsed.updates.isEmpty())
+    }
+
+    @Test fun negativeEnglishPreferenceIsNotStoredAsANewCreativeValue() {
+        val json = """{"fields":{"style":{"value":"rock","evidence":"rock"}},"reply":"Understood."}"""
+        val parsed = BardoGuidedResponseParser.parse(json, "I don't want rock", emptyMap())!!
+        assertTrue(parsed.updates.isEmpty())
+    }
+
+    @Test fun commaSeparatedAffirmativePreferenceIsStillAccepted() {
+        val json = """{"fields":{"style":{"value":"rock","evidence":"rock"}},"reply":"De acuerdo."}"""
+        val parsed = BardoGuidedResponseParser.parse(json, "No, quiero rock", emptyMap())!!
+        assertEquals("rock", parsed.updates["estilo"])
+    }
+
     @Test fun doesNotOverwriteKnownFieldUnlessModelMarksExplicitChange() {
         val existing = mapOf("estilo" to "pop")
         val withoutChange = """{"fields":{"style":{"value":"rock","evidence":"rock","change":false}},"reply":"Next?"}"""
