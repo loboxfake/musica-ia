@@ -38,6 +38,32 @@ class BardoIntentRouterTest {
     }
 
     @Test
+    fun extractsMoodFromNaturalRequestsToConveyHopeOrInspiration() {
+        assertEquals(
+            "esperanza",
+            BardoIntentRouter.extractProvidedFields(
+                "Quiero una canción sobre seguir adelante que transmita esperanza"
+            )["ambiente"]
+        )
+        assertEquals(
+            "inspiradora",
+            BardoIntentRouter.extractProvidedFields(
+                "Que sea inspiradora y emotiva"
+            )["ambiente"]
+        )
+    }
+
+    @Test
+    fun extractsMoodFromAFeelingDescriptionWithAnArticle() {
+        assertEquals(
+            "nostálgica",
+            BardoIntentRouter.extractProvidedFields(
+                "Una canción con una sensación de nostálgica"
+            )["ambiente"]
+        )
+    }
+
+    @Test
     fun negatedCreativeChangeDoesNotBecomeAFieldUpdate() {
         val rejected = "No quiero cambiar el estilo a rock"
         assertTrue(BardoIntentRouter.isNegatedCreativeChange(rejected))
