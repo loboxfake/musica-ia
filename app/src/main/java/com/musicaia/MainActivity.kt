@@ -107,6 +107,7 @@ class MainActivity : AppCompatActivity() {
  private var rutaExportacion: String? = null
  private var rutaMasterizadoPendiente: String? = null
  private var portadaPendiente: File? = null
+ @Volatile private var cancelacionImagenEnCurso: java.util.concurrent.atomic.AtomicBoolean? = null
  private var mezclaPistasPendiente: File? = null
  @Volatile private var mezclaPistasEnCurso = false
  @Volatile private var transcripcionAudioEnCurso = false
@@ -2984,6 +2985,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                      ". Artist theme: " + artistName + ". Keep the lower quarter visually calm and dark for title lettering."
              }
              val cancelled = java.util.concurrent.atomic.AtomicBoolean(false)
+             cancelacionImagenEnCurso = cancelled
              val progressText = TextView(this).apply { text = "Cerrando otros modelos y preparando LiteRT..." }
              val progressBar = android.widget.ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
                  max = 1000
@@ -3038,6 +3040,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                          )
                      }
                  }
+                 if (cancelacionImagenEnCurso === cancelled) cancelacionImagenEnCurso = null
                  marcarGeneracionImagenIA(false)
                  runOnUiThread {
                      if (isFinishing || isDestroyed) {
@@ -4321,6 +4324,8 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
  }
 
  override fun onDestroy() {
+     // A generation must not continue loading multi-gigabyte graphs after its Activity disappears.
+     cancelacionImagenEnCurso?.set(true)
      avatarResetRunnable?.let { handler.removeCallbacks(it) }
 
      chatHeightListener?.let { listener ->
