@@ -15,7 +15,7 @@ class DiffSingerVoicebankInspectorTest {
         val root = temp.newFolder("voice")
         File(root, "acoustic.onnx").writeBytes(byteArrayOf(1, 2, 3))
         File(root, "phonemes.txt").writeText("SP\na\ne\ni\no\nu\n")
-        File(root, "dsdict-es.yaml").writeText("symbols: []\n")
+        File(root, "dsdict-es.yaml").writeText("symbols:\n  - symbol: a\n    type: vowel\nentries:\n  - grapheme: hola\n    phonemes: [a]\n")
         File(root, "dsconfig.yaml").writeText(
             "acoustic: acoustic.onnx\nphonemes: phonemes.txt\nvocoder: test-vocoder\nsample_rate: 44100\nhop_size: 512\n"
         )
@@ -50,6 +50,14 @@ class DiffSingerVoicebankInspectorTest {
         assertEquals(DiffSingerVoicebankInspector.Status.INVALID_PHONEMES, result.status)
         assertFalse(result.readyForRuntimeProbe)
         assertTrue(result.errors.any { it.contains("SP") })
+    }
+
+    @Test fun rejectsMalformedSpanishDictionaryBeforeRuntimeProbe() {
+        val root = voicebank()
+        File(root, "dsdict-es.yaml").writeText("symbols: []\\n")
+        val result = DiffSingerVoicebankInspector.inspect(root)
+        assertEquals(DiffSingerVoicebankInspector.Status.INVALID_PHONEMIZER_DICTIONARY, result.status)
+        assertFalse(result.readyForRuntimeProbe)
     }
 
     @Test fun rejectsMissingSpanishDictionary() {

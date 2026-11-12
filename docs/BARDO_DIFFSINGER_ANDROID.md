@@ -13,7 +13,7 @@ Esta rama añade la primera capa Android del motor:
 
 ## Límites explícitos
 
-Esto NO es todavía un sintetizador cantado completo. Abrir el grafo acústico no ejecuta inferencia. Faltan portar el fonemizador/G2P español, conectar las entradas a los tensores ONNX con los parámetros de cada modelo, ejecutar las inferencias acústica y del vocoder, y ensamblar el WAV. El inspector ya exige que la voicebank aporte el diccionario fonético español y valida el inventario de fonemas y la existencia y compatibilidad declarada de los modelos. Por eso `voice_synthesis` permanece `NOT_IMPLEMENTED` y no se habilita el flujo de creación con voz IA.
+Esto NO es todavía un sintetizador cantado completo. Abrir el grafo acústico no ejecuta inferencia. Falta integrar un G2P español generalizador (la resolución actual solo cubre palabras presentes en el diccionario de la voz), conectar las entradas a los tensores ONNX con los parámetros de cada modelo, ejecutar las inferencias acústica y del vocoder, y ensamblar el WAV. El inspector ya exige que la voicebank aporte el diccionario fonético español y valida el inventario de fonemas, el esquema seguro de símbolos/entradas/reemplazos y la existencia y compatibilidad declarada de los modelos. Por eso `voice_synthesis` permanece `NOT_IMPLEMENTED` y no se habilita el flujo de creación con voz IA.
 
 La rama activa V2 de OpenUtau Mobile es una referencia técnica Apache-2.0, pero su propia matriz clasifica DiffSinger Android como condicional y su README advierte que la rama está en desarrollo. No se copia ni redistribuye ninguna voicebank de terceros en esta integración. Cada voz deberá tener licencia de uso y redistribución comprobada, además de consentimiento cuando corresponda.
 
