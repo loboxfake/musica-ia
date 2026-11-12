@@ -15,6 +15,9 @@ import android.text.TextUtils
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.util.concurrent.atomic.AtomicBoolean
 
 /** Generación local real de portadas con Bonsai Image 4B + rotulación nítida. */
@@ -50,32 +53,64 @@ object BardoBonsaiImageGenerator {
             if (cancelled.get()) pipeline.cancelled = true
             progress(label, fraction)
         }
+        check(!cancelled.get()) { "Generación de imagen cancelada por el usuario." }
+        require(result.rgb.size == 512 * 512 * 3) {
+            "El modelo no devolvió una imagen RGB completa de 512×512."
+        }
 
-        outputFile.parentFile?.mkdirs()
-        val bitmap = Bitmap.createBitmap(512, 512, Bitmap.Config.ARGB_8888)
+        val outputDirectory = outputFile.absoluteFile.parentFile ?: File(".")
+        check(outputDirectory.isDirectory || outputDirectory.mkdirs()) {
+            "No se pudo crear el directorio de la imagen."
+        }
+        val temporary = File.createTempFile("bardo_bonsai_", ".png.tmp", outputDirectory)
         try {
-            val pixels = IntArray(512 * 512)
-            for (i in pixels.indices) {
-                val base = i * 3
-                pixels[i] = Color.rgb(
-                    result.rgb[base].toInt() and 0xff,
-                    result.rgb[base + 1].toInt() and 0xff,
-                    result.rgb[base + 2].toInt() and 0xff
+            val bitmap = Bitmap.createBitmap(512, 512, Bitmap.Config.ARGB_8888)
+            try {
+                val pixels = IntArray(512 * 512)
+                for (i in pixels.indices) {
+                    if ((i and 0x3fff) == 0) {
+                        check(!cancelled.get()) { "Generación de imagen cancelada por el usuario." }
+                    }
+                    val base = i * 3
+                    pixels[i] = Color.rgb(
+                        result.rgb[base].toInt() and 0xff,
+                        result.rgb[base + 1].toInt() and 0xff,
+                        result.rgb[base + 2].toInt() and 0xff
+                    )
+                }
+                bitmap.setPixels(pixels, 0, 512, 0, 0, 512, 512)
+                check(!cancelled.get()) { "Generación de imagen cancelada por el usuario." }
+                overlayTypography(bitmap, title, artist)
+                FileOutputStream(temporary).use { stream ->
+                    check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)) {
+                        "Android no pudo codificar la portada PNG."
+                    }
+                    stream.fd.sync()
+                }
+            } finally {
+                bitmap.recycle()
+            }
+            check(temporary.isFile && temporary.length() > 100_000L) {
+                "La portada temporal no superó la validación de archivo."
+            }
+            check(!cancelled.get()) { "Generación de imagen cancelada por el usuario." }
+            val size = temporary.length()
+            try {
+                Files.move(
+                    temporary.toPath(), outputFile.toPath(),
+                    StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING
+                )
+            } catch (_: AtomicMoveNotSupportedException) {
+                Files.move(
+                    temporary.toPath(), outputFile.toPath(),
+                    StandardCopyOption.REPLACE_EXISTING
                 )
             }
-            bitmap.setPixels(pixels, 0, 512, 0, 0, 512, 512)
-            overlayTypography(bitmap, title, artist)
-            FileOutputStream(outputFile).use { stream ->
-                check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)) {
-                    "Android no pudo codificar la portada PNG."
-                }
-                stream.fd.sync()
+            check(outputFile.isFile && outputFile.length() == size) {
+                "La imagen PNG publicada no coincide con el archivo temporal verificado."
             }
         } finally {
-            bitmap.recycle()
-        }
-        check(outputFile.isFile && outputFile.length() > 100_000L) {
-            "La portada generada no superó la validación de archivo."
+            temporary.delete()
         }
         return Output(outputFile, result.seconds, result.stepSeconds)
     }
