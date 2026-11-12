@@ -43,6 +43,8 @@ object BardoGuidedProgressPolicy {
             // por el asunto que debe desarrollar la canción del usuario.
             return Regex(
                 """\b(?:de que|sobre que|que tema|cual es el tema|what topic|which topic|about what|what is (?:the )?(?:song|track) about|what should (?:the )?(?:song|track) be about|what would you like (?:the )?(?:song|track) to be about)\b"""
+            ).containsMatchIn(normalized) || Regex(
+                """\b(?:que historia (?:quieres|te gustaria|deseas) contar|que mensaje (?:quieres|te gustaria) transmitir|que quieres (?:contar|transmitir)|what story (?:should (?:the )?(?:song|track) tell|would you like (?:the )?(?:song|track) to tell)|what message (?:should (?:the )?(?:song|track) convey|would you like (?:the )?(?:song|track) to convey)|what do you want to express)\b"""
             ).containsMatchIn(normalized)
         }
         if (field == "tipo") {

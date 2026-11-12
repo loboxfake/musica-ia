@@ -263,4 +263,49 @@ class BardoGuidedProgressPolicyTest {
         )
     }
 
+
+    @Test
+    fun acceptsSpanishAndEnglishQuestionsAboutTheStoryOrMessageOfTheSong() {
+        assertTrue(
+            BardoGuidedProgressPolicy.asksAboutRequiredField(
+                "¿Qué historia quieres contar?",
+                "tema"
+            )
+        )
+        assertTrue(
+            BardoGuidedProgressPolicy.asksAboutRequiredField(
+                "¿Qué mensaje te gustaría transmitir?",
+                "tema"
+            )
+        )
+        assertTrue(
+            BardoGuidedProgressPolicy.asksAboutRequiredField(
+                "What story should the song tell?",
+                "tema"
+            )
+        )
+        assertTrue(
+            BardoGuidedProgressPolicy.asksAboutRequiredField(
+                "What message would you like the track to convey?",
+                "tema"
+            )
+        )
+    }
+
+    @Test
+    fun rejectsQuestionsAboutStoriesTheUserLikesRatherThanTheNewSongTheme() {
+        assertTrue(
+            !BardoGuidedProgressPolicy.asksAboutRequiredField(
+                "¿Qué historia te gusta?",
+                "tema"
+            )
+        )
+        assertTrue(
+            !BardoGuidedProgressPolicy.asksAboutRequiredField(
+                "What story do you like?",
+                "tema"
+            )
+        )
+    }
+
 }
