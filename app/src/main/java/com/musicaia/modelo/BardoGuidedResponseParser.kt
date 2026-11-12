@@ -46,6 +46,7 @@ object BardoGuidedResponseParser {
                 return@forEach
             }
             val value = normalizeValue(spec.jsonName, valueRaw) ?: return@forEach
+            if (isNegatedPreference(latestUserMessage, evidence, spec.appName)) return@forEach
             val existing = existingFields[spec.appName].orEmpty().trim()
             val isChange = item.optBoolean("change", false)
             if (existing.isNotBlank() && !existing.equals(value, ignoreCase = true)) {
@@ -55,6 +56,24 @@ object BardoGuidedResponseParser {
             updates[spec.appName] = value
         }
         return ParsedResponse(updates, reply)
+    }
+
+    private fun isNegatedPreference(message: String, evidence: String, field: String): Boolean {
+        // A quoted value is not an affirmative preference merely because it appears
+        // verbatim in the message. Keep negative creative preferences out of state.
+        if (field !in setOf("tema", "estilo", "ambiente", "ritmo", "idioma")) return false
+        val normalizedMessage = java.text.Normalizer.normalize(
+            message.lowercase(Locale.ROOT), java.text.Normalizer.Form.NFD
+        ).replace(Regex("""\\p{Mn}+"""), "")
+        val normalizedEvidence = java.text.Normalizer.normalize(
+            evidence.lowercase(Locale.ROOT), java.text.Normalizer.Form.NFD
+        ).replace(Regex("""\\p{Mn}+"""), "").trim()
+        if (normalizedEvidence.isBlank()) return false
+        val valuePattern = Regex.escape(normalizedEvidence)
+        return Regex(
+            """\\b(?:no\\s+(?:quiero|deseo|me\\s+gusta|prefiero)|no\\s+quiero\\s+que\\s+sea|i\\s+(?:do\\s+not|don't|dont)\\s+(?:want|like|prefer)|not\\s+looking\\s+for)\\b[^.!?]{0,100}\\b$valuePattern\\b""",
+            RegexOption.IGNORE_CASE
+        ).containsMatchIn(normalizedMessage)
     }
 
     private fun containsExplicitCorrection(message: String): Boolean {
