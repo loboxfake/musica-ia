@@ -85,13 +85,13 @@ object BardoIntentRouter {
 
         if ("ambiente" !in result) {
             val moodPattern = Regex(
-                """(?i)\b(?:que\s+(?:sea|transmita)|con\s+(?:(?:un|una)\s+)?(?:ambiente|tono|aire|sensaci[oó]n)(?:\s+de)?)\s+(?:muy\s+|bastante\s+|algo\s+)?(alegre|esperanzador[ao]?|esperanza|inspirador[ao]?|inspiraci[oó]n|melancol[ií]a|nostalgia|optimista|positivo|triste|melanc[oó]lic[ao]|[eé]pic[ao]|motivador[ao]|rom[aá]ntic[ao]|oscur[ao]|energ[eé]tic[ao]|tranquil[ao]|nost[aá]lgic[ao]|agresiv[ao]|suave|intens[ao])\b"""
+                """(?i)\b(?:que\s+(?:sea|transmita)|que\s+tenga\s+(?:(?:un|una)\s+)?(?:ambiente|tono|aire|sensaci[oó]n)(?:\s+de)?|con\s+(?:(?:un|una)\s+)?(?:ambiente|tono|aire|sensaci[oó]n)(?:\s+de)?)\s+(?:muy\s+|bastante\s+|algo\s+)?(alegre|esperanzador[ao]?|esperanza|inspirador[ao]?|inspiraci[oó]n|melancol[ií]a|nostalgia|optimista|positivo|triste|melanc[oó]lic[ao]|[eé]pic[ao]|motivador[ao]|rom[aá]ntic[ao]|oscur[ao]|energ[eé]tic[ao]|tranquil[ao]|nost[aá]lgic[ao]|agresiv[ao]|suave|intens[ao])\b"""
             )
             moodPattern.find(message)?.groupValues?.get(1)?.let { result["ambiente"] = it }
         }
 
         if ("ritmo" !in result) {
-            val tempo = Regex("""(?i)\b(?:que\s+vaya|con\s+un\s+ritmo)\s+(r[aá]pido|lento|medio|moderado|pausado|bailable|marcado)\b""")
+            val tempo = Regex("""(?i)\b(?:que\s+vaya|con\s+(?:un\s+)?ritmo)\s+(r[aá]pido|lento|medio|moderado|pausado|bailable|marcado)\b""")
                 .find(message)?.groupValues?.get(1)
             val bpm = Regex("""(?i)\b(\d{2,3})\s*(?:bpm|pulsaciones\s+por\s+minuto)\b""")
                 .find(message)?.groupValues?.get(1)?.let { "$it BPM" }
@@ -105,7 +105,7 @@ object BardoIntentRouter {
                     "ambas (voz e instrumental)"
                 Regex("""\b(solo instrumental|instrumental sin voz|sin voz|sin canto)\b""").containsMatchIn(normalized) ->
                     "solo instrumental"
-                Regex("""\bcon voz\b""").containsMatchIn(normalized) -> "voz"
+                Regex("""\b(?:con voz|cantad[ao]|canto|vocal)\b""").containsMatchIn(normalized) -> "voz"
                 else -> null
             }
             if (detectedType != null) result["tipo"] = detectedType
