@@ -57,7 +57,8 @@ object BardoModuleCatalog {
             heavyModel = true,
             implemented = true
         ),
-        Descriptor("voice_synthesis", "Voz cantada", "voice_synthesis", null, null, "Pendiente", "MiVoz no integrada", true, false),
+        Descriptor("voice_engine_runtime", "Runtime ONNX DiffSinger", "voice_engine_runtime", "ONNX Runtime Android 1.31.1", null, "MIT", "Microsoft ONNX Runtime · backend local CPU/NNAPI; inspección y carga de grafo, sin renderizador de canto todavía", true, true),
+        Descriptor("voice_synthesis", "Voz cantada", "voice_synthesis", null, null, "Pendiente", "Renderizador DiffSinger y vocoder aún no portados a BARDO; no genera canto todavía", true, false),
         Descriptor("voice_mix_user", "Mezcla WAV con voz del usuario", "voice_mix_user", null, null, "Código propio", "MainActivity + MezclaVoz/LectorWav; adaptador Modo3 legacy conservado", false, true),
         Descriptor("stem_separation", "Separación de stems", "stem_separation", null, null, "En evaluación", "Demucs / UVR por investigar", true, false),
         Descriptor("mix_master", "Mezcla y masterización profesional", "mix_master", null, null, "Pendiente", "Procesamiento profesional no implementado", false, false),
