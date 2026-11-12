@@ -48,20 +48,27 @@ object Mp3Exporter {
             if (!encodeWavToMp3(input.absolutePath, temporary.absolutePath, bitrateKbps)) {
                 return false
             }
-            val encodedBytes = temporary.length()
-            if (!temporary.isFile || encodedBytes <= 128L) return false
-            try {
-                Files.move(
-                    temporary.toPath(), output.toPath(),
-                    StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING
-                )
-            } catch (_: AtomicMoveNotSupportedException) {
-                Files.move(temporary.toPath(), output.toPath(), StandardCopyOption.REPLACE_EXISTING)
-            }
-            return output.isFile && output.length() == encodedBytes
+            return publishEncodedFile(temporary, output)
         } finally {
             temporary.delete()
         }
+    }
+
+    internal fun publishEncodedFile(temporary: File, output: File): Boolean {
+        require(temporary.canonicalFile != output.canonicalFile) {
+            "El archivo MP3 temporal y la salida deben ser diferentes."
+        }
+        if (!temporary.isFile || temporary.length() <= 128L) return false
+        val encodedBytes = temporary.length()
+        try {
+            Files.move(
+                temporary.toPath(), output.toPath(),
+                StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING
+            )
+        } catch (_: AtomicMoveNotSupportedException) {
+            Files.move(temporary.toPath(), output.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        }
+        return output.isFile && output.length() == encodedBytes
     }
 
     /** Codifica WAV PCM16 mono/estéreo a MP3 CBR (128..320 kbps). */
