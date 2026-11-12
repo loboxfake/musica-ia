@@ -5505,6 +5505,8 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
  tvEstado.text = "Preparando MP3 de alta calidad (320 kbps)..."
  Thread({
      val correcto = runCatching {
+         // El WAV se valida en segundo plano antes de entregarlo al codificador JNI.
+         BardoWavHeaderValidator.inspect(File(origen))
          Mp3Exporter.encodeWavToMp3(origen, temporal.absolutePath, 320)
      }.getOrDefault(false) && temporal.isFile && temporal.length() > 128L
      val guardado = if (correcto && guardarEnCarpeta) runCatching {
