@@ -23,6 +23,8 @@ import com.musicaia.modulos.ModuloInstrumental
 import com.musicaia.modulos.ModuloLetra
 import com.musicaia.modulos.Mp3Exporter
 import com.musicaia.modulos.BardoWavHeaderValidator
+import com.musicaia.modulos.MezclaVoz
+import com.musicaia.modulos.LectorWav
 import java.util.concurrent.atomic.AtomicBoolean
 
 /** Tarea local iniciada por el usuario y coordinada por el Orquestador BARDO. */
@@ -36,6 +38,7 @@ class BardoTaskService : Service() {
         const val EXTRA_SOLO = "solo_instrumental"
         const val EXTRA_QUICK_TEST = "quick_test"
         const val EXTRA_USER_VOICE_MIX = "user_voice_mix_available"
+        const val EXTRA_USER_VOICE_WAV_PATH = "user_voice_wav_path"
         const val EXTRA_STATE = "task_state"
         const val EXTRA_MESSAGE = "task_message"
         const val EXTRA_AUDIO = "audio_path"
@@ -57,7 +60,8 @@ class BardoTaskService : Service() {
             letraManual: String,
             soloInstrumental: Boolean,
             quickTest: Boolean = false,
-            userVoiceMixAvailable: Boolean = false
+            userVoiceMixAvailable: Boolean = false,
+            userVoiceWavPath: String? = null
         ) {
             require(prompt.isNotBlank()) { "La tarea necesita una descripción." }
             val intent = Intent(context, BardoTaskService::class.java).apply {
@@ -67,6 +71,7 @@ class BardoTaskService : Service() {
                 putExtra(EXTRA_SOLO, soloInstrumental)
                 putExtra(EXTRA_QUICK_TEST, quickTest)
                 putExtra(EXTRA_USER_VOICE_MIX, userVoiceMixAvailable)
+                putExtra(EXTRA_USER_VOICE_WAV_PATH, userVoiceWavPath)
             }
             ContextCompat.startForegroundService(context, intent)
         }
@@ -152,7 +157,23 @@ class BardoTaskService : Service() {
             stopSelfResult(startId)
             return
         }
-        val userVoiceMixAvailable = intent.getBooleanExtra(EXTRA_USER_VOICE_MIX, false)
+        val requestedVoiceMix = intent.getBooleanExtra(EXTRA_USER_VOICE_MIX, false)
+        val userVoiceWavPath = intent.getStringExtra(EXTRA_USER_VOICE_WAV_PATH)
+            ?.trim()?.takeIf { it.isNotEmpty() }
+        val voiceFile = userVoiceWavPath?.let { java.io.File(it) }
+        val voicePathBlock = BardoUserVoiceMixPolicy.blockReason(
+            instrumentalOnly = modoSolo,
+            advertisedAvailable = requestedVoiceMix,
+            voicePath = userVoiceWavPath,
+            fileExists = voiceFile?.isFile == true,
+            fileLength = voiceFile?.length() ?: 0L
+        )
+        if (voicePathBlock != null) {
+            publicarEstado("failed", voicePathBlock)
+            stopSelfResult(startId)
+            return
+        }
+        val userVoiceMixAvailable = BardoUserVoiceMixPolicy.shouldMix(modoSolo, userVoiceWavPath)
         if (!BardoCapabilityRegistry.manualLyricsCanProceed(modoSolo, letraManual, userVoiceMixAvailable)) {
             val mensaje = BardoCapabilityRegistry.manualLyricsBlockReason()
             val blockedId = java.util.UUID.randomUUID().toString()
@@ -255,23 +276,51 @@ class BardoTaskService : Service() {
                     if (cancelacionSolicitada.get()) throw java.util.concurrent.CancellationException("Tarea cancelada por el usuario.")
                     val audio = resultados.lastOrNull()?.second as? Dato.Audio
                         ?: throw IllegalStateException(if (resultados.isEmpty()) "BARDO no recibió resultados del Core." else "El plan terminó sin producir un WAV instrumental válido.")
-                    val archivo = java.io.File(audio.rutaWav)
-                    val cabecera = BardoWavHeaderValidator.inspect(archivo)
-                    if (cabecera.dataBytes <= 0L) throw IllegalStateException("El WAV no contiene muestras PCM válidas.")
+                    val archivoInstrumental = java.io.File(audio.rutaWav)
+                    val cabeceraInstrumental = BardoWavHeaderValidator.inspect(archivoInstrumental)
+                    if (cabeceraInstrumental.dataBytes <= 0L) throw IllegalStateException("El WAV instrumental no contiene muestras PCM válidas.")
 
                     val letra = (resultados.firstOrNull { it.first == "letra" }?.second as? Dato.Texto)?.texto.orEmpty()
                     val segundos = ((System.currentTimeMillis() - inicioMs) / 1000L).coerceAtLeast(0L).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
-                    getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_AUDIO, audio.rutaWav).apply()
-                    val mensajeMp3 = "WAV PCM16 validado (${cabecera.sampleRate} Hz, ${cabecera.channels} canales, ${cabecera.dataBytes} bytes de audio). Preparando MP3 320 kbps para Archivo…"
-                    actualizarNotificacion(mensajeMp3, 95)
-                    publicarEstado("running", mensajeMp3)
-                    if (!Mp3Exporter.available) throw IllegalStateException("El WAV se generó, pero el codificador MP3 nativo no está disponible en esta APK.")
-
                     val biblioteca = java.io.File(filesDir, "biblioteca")
                     if (!biblioteca.exists() && !biblioteca.mkdirs()) throw IllegalStateException("No se pudo crear la carpeta Archivo de BARDO.")
                     val marca = System.currentTimeMillis()
                     val estiloOriginal = Regex("(?i)Estilo\\s*:\\s*([^\\n.]+)").find(prompt)?.groupValues?.get(1) ?: prompt.take(36)
                     val nombreBase = BardoLibraryFileNaming.createBaseName(marca, estiloOriginal)
+                    var archivo = archivoInstrumental
+                    var cabecera = cabeceraInstrumental
+                    if (userVoiceMixAvailable && userVoiceWavPath != null) {
+                        if (cancelacionSolicitada.get()) throw java.util.concurrent.CancellationException("Cancelación solicitada antes de mezclar la voz.")
+                        val voz = java.io.File(userVoiceWavPath)
+                        val cabeceraVoz = BardoWavHeaderValidator.inspect(voz)
+                        if (cabeceraVoz.dataBytes <= 0L || voz.length() > LectorWav.MAX_FILE_BYTES) {
+                            throw IllegalArgumentException("El archivo de voz no es un WAV PCM16 válido o supera el límite de 120 MiB.")
+                        }
+                        val salidaMezcla = java.io.File(biblioteca, "$nombreBase.wav")
+                        val resultadoMezcla = MezclaVoz.mezclar(
+                            rutaVoz = voz.absolutePath,
+                            rutaInstrumental = archivoInstrumental.absolutePath,
+                            rutaSalida = salidaMezcla.absolutePath
+                        )
+                        if (cancelacionSolicitada.get()) {
+                            salidaMezcla.delete()
+                            throw java.util.concurrent.CancellationException("Cancelación solicitada después de mezclar la voz.")
+                        }
+                        archivo = java.io.File(resultadoMezcla.rutaWav)
+                        cabecera = BardoWavHeaderValidator.inspect(archivo)
+                        if (cabecera.dataBytes <= 0L) {
+                            archivo.delete()
+                            throw IllegalStateException("La mezcla de voz no contiene muestras PCM válidas.")
+                        }
+                        Log.i("BARDO-TaskService", "Voz propia mezclada en WAV real: ${archivo.length()} bytes")
+                    }
+                    getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_AUDIO, archivo.absolutePath).apply()
+                    val detalleVoz = if (userVoiceMixAvailable) " con voz propia mezclada" else ""
+                    val mensajeMp3 = "WAV PCM16 validado$detalleVoz (${cabecera.sampleRate} Hz, ${cabecera.channels} canales, ${cabecera.dataBytes} bytes de audio). Preparando MP3 320 kbps para Archivo…"
+                    actualizarNotificacion(mensajeMp3, 95)
+                    publicarEstado("running", mensajeMp3)
+                    if (!Mp3Exporter.available) throw IllegalStateException("El WAV se generó, pero el codificador MP3 nativo no está disponible en esta APK.")
+
                     val mp3 = java.io.File(biblioteca, "$nombreBase.mp3")
                     val temporal = java.io.File(biblioteca, "$nombreBase.mp3.part")
                     val codificado = Mp3Exporter.encodeValidatedWavToMp3(archivo.absolutePath, temporal.absolutePath, 320)
@@ -309,10 +358,10 @@ class BardoTaskService : Service() {
                     val mensajeFinal = "MP3 guardado en Archivo · ${duracion / 60} min ${duracion % 60}s · ${mp3.length()} bytes · 320 kbps"
                     getSharedPreferences(PREFS, MODE_PRIVATE).edit()
                         .putString(KEY_STATE, "completed").putString(KEY_MESSAGE, mensajeFinal)
-                        .putString(KEY_AUDIO, audio.rutaWav).putString(KEY_MP3, mp3.absolutePath).putString("lyrics", letra)
+                        .putString(KEY_AUDIO, archivo.absolutePath).putString(KEY_MP3, mp3.absolutePath).putString("lyrics", letra)
                         .putBoolean("solo", modoSolo).putInt("elapsed", segundos).apply()
                     BardoActivityStore.record(this, taskToken, if (modoSolo) "instrumental" else "cancion", "completed", "validacion", mensajeFinal, 100, mp3.absolutePath)
-                    enviarActualizacion("completed", mensajeFinal, audio.rutaWav, letra, segundos, mp3.absolutePath)
+                    enviarActualizacion("completed", mensajeFinal, archivo.absolutePath, letra, segundos, mp3.absolutePath)
                     actualizarNotificacion(mensajeFinal, 100)
                     Log.i("BARDO-TaskService", "WAV PCM16 válido: ${archivo.length()} bytes; MP3 válido: ${mp3.length()} bytes")
                 } catch (error: Throwable) {

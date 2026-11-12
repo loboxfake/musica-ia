@@ -4606,7 +4606,8 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
              val errorInicio = runCatching {
                  BardoTaskService.iniciar(
                      applicationContext, promptServicio, letraManual, modoSoloInstrumental,
-                     pruebaRapida, userVoiceMixAvailable = vozPropiaWavValida
+                     pruebaRapida, userVoiceMixAvailable = vozPropiaWavValida,
+                     userVoiceWavPath = if (vozPropiaWavValida) rutaVoz else null
                  )
              }.exceptionOrNull()
              if (errorInicio != null) {
