@@ -6,8 +6,8 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
 /**
- * Arbitra los runtimes de texto y audio de los flujos coordinados.
- * Antes de usar uno, intenta liberar el otro; no controla la RAM de otras aplicaciones.
+ * Arbitra los runtimes pesados de texto, audio e imagen de los flujos coordinados.
+ * Las transiciones son exclusivas dentro del proceso; no controla la RAM de otras aplicaciones.
  */
 object BardoResourceCoordinator {
     enum class Resource { TEXT_MODEL, AUDIO_MODEL, IMAGE_MODEL }
@@ -41,8 +41,8 @@ object BardoResourceCoordinator {
                 completed = true
                 result
             } finally {
-                // Libera un motor anidado al volver al anterior. Si una operación
-                // de primer nivel falla (incluido OOM), libera posibles cargas parciales.
+                // Si una operación de primer nivel falla (incluido OOM),
+                // libera cualquier carga parcial del runtime solicitado.
                 val mustRelease = previous == null && !completed
                 if (mustRelease) {
                     runCatching { releaseRuntime(resource) }
