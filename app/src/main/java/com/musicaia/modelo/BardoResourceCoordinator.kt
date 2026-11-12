@@ -11,10 +11,11 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
 /**
- * Arbitra los runtimes pesados de texto, audio e imagen.
+ * Arbitra en exclusiva los recursos pesados de texto, generación/procesado de audio, imagen y reconocimiento de voz.
  *
  * El lock de proceso serializa los hilos de esta instancia; el lock de archivo
- * en noBackupFilesDir coordina también el proceso aislado :audio. El bloqueo
+ * en noBackupFilesDir coordina también el proceso aislado :audio y las tareas
+ * de reconocimiento/procesado que compiten por memoria nativa. El bloqueo
  * del archivo se libera automáticamente si Android termina cualquiera de los
  * procesos, por lo que no quedan leases obsoletos tras un crash.
  */
