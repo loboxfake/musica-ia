@@ -3200,25 +3200,42 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
              val marca = System.currentTimeMillis()
              val entrada = File(carpeta, "entrada-$marca.wav")
              val salida = File(carpeta, "master-$marca.wav")
-             contentResolver.openInputStream(uri)?.use { input ->
-                 FileOutputStream(entrada).use { output ->
-                     val buffer = ByteArray(64 * 1024)
-                     var total = 0L
-                     while (true) {
-                         val count = input.read(buffer)
-                         if (count < 0) break
-                         total += count
-                         require(total <= 25L * 1024L * 1024L) { "El WAV supera el límite de 25 MB." }
-                         output.write(buffer, 0, count)
+             var conservarSalida = false
+             try {
+                 contentResolver.openInputStream(uri)?.use { input ->
+                     FileOutputStream(entrada).use { output ->
+                         val buffer = ByteArray(64 * 1024)
+                         var total = 0L
+                         while (true) {
+                             val count = input.read(buffer)
+                             if (count < 0) break
+                             total += count
+                             require(total <= 25L * 1024L * 1024L) { "El WAV supera el límite de 25 MB." }
+                             output.write(buffer, 0, count)
+                         }
+                         output.fd.sync()
                      }
-                     output.fd.sync()
+                 } ?: throw IllegalStateException("No se pudo abrir el WAV seleccionado.")
+                 val cabecera = BardoWavHeaderValidator.inspect(entrada)
+                 require(cabecera.dataBytes > 0L) { "El WAV no contiene muestras PCM válidas." }
+                 val procesado = BardoResourceCoordinator.withAudioModel(applicationContext) {
+                     val resourceBlock = BardoResourceBudget.blockingReason(
+                         applicationContext, 768L * 1024L * 1024L
+                     )
+                     require(resourceBlock == null) {
+                         resourceBlock ?: "No hay RAM suficiente para procesar este WAV con seguridad."
+                     }
+                     com.musicaia.modulos.BardoWavMastering.process(entrada, salida)
                  }
-             } ?: throw IllegalStateException("No se pudo abrir el WAV seleccionado.")
-             val cabecera = BardoWavHeaderValidator.inspect(entrada)
-             require(cabecera.dataBytes > 0L) { "El WAV no contiene muestras PCM válidas." }
-             val procesado = com.musicaia.modulos.BardoWavMastering.process(entrada, salida)
-             entrada.delete()
-             procesado
+                 require(procesado.output.isFile && procesado.output.length() > 44L) {
+                     "La masterización no publicó un WAV válido."
+                 }
+                 conservarSalida = true
+                 procesado
+             } finally {
+                 entrada.delete()
+                 if (!conservarSalida) salida.delete()
+             }
          }
          runOnUiThread {
              if (isFinishing || isDestroyed) {
