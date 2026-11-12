@@ -4910,9 +4910,13 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
          runOnUiThread {
              btnGuardar.isEnabled = true
              btnReproducir.isEnabled = true
-             if (isFinishing || isDestroyed) return@runOnUiThread
+             if (isFinishing || isDestroyed) {
+                 destino.delete()
+                 return@runOnUiThread
+             }
              val mezcla = resultado.getOrNull()
              if (mezcla == null) {
+                 destino.delete()
                  val error = resultado.exceptionOrNull()?.message ?: "Error desconocido al mezclar."
                  BardoActivityStore.record(this, taskId, "mezcla_voz", "failed", "mezcla_pcm", error, null)
                  anexarChat("\nBARDO: No pude completar la mezcla real de voz: $error. Se conserva el instrumental original.")
