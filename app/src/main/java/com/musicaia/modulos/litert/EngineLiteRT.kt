@@ -229,6 +229,8 @@ object EngineLiteRT {
             try {
                 cerrarInterno()
             } catch (error: Throwable) {
+                // OOM is process-critical; do not turn it into an ordinary async close callback.
+                if (error is OutOfMemoryError) throw error
                 android.util.Log.e("BARDO-LiteRT", "No se pudieron liberar todos los recursos nativos de texto.", error)
                 try {
                     onFailure?.invoke(error)
