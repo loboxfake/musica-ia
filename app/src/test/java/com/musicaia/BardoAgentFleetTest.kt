@@ -148,6 +148,27 @@ class BardoAgentFleetTest {
         assertEquals(null, BardoResourceCoordinator.currentResourceForCurrentThread())
     }
 
+    @Test fun cancellationStopsTheFleetInsteadOfBecomingAnAgentFailure() {
+        val cancelled = object : BardoAgentInvoker {
+            override val descriptor = descriptor("cancelled-model")
+            override fun complete(prompt: String): BardoModelResponse {
+                throw java.util.concurrent.CancellationException("cancelled by caller")
+            }
+        }
+        val later = FakeInvoker(descriptor("later-model"), "no debe ejecutarse")
+        val fleet = BardoAgentFleet(
+            listOf(cancelled, later),
+            listOf(profile("first", "cancelled-model"), profile("second", "later-model"))
+        )
+
+        val error = assertThrows(java.util.concurrent.CancellationException::class.java) {
+            fleet.consult(task())
+        }
+
+        assertEquals("cancelled by caller", error.message)
+        assertEquals(0, later.calls.get())
+    }
+
     @Test fun rejectsProfileWithUnknownProvider() {
         assertThrows(IllegalArgumentException::class.java) {
             BardoAgentFleet(emptyList(), listOf(profile("orphan", "missing")))
