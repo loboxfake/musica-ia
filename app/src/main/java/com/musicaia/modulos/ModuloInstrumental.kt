@@ -8,6 +8,9 @@ import com.musicaia.modelo.BardoResourceBudget
 import com.musicaia.modulos.litert.EngineLiteRT
 import java.io.File
 import java.io.FileOutputStream
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 
 /**
  * Genera segmentos instrumentales reales con Stable Audio Open Small + ExecuTorch.
@@ -46,10 +49,17 @@ class ModuloInstrumental(
         val modelDir = File(ctx.filesDir, "stable_audio_model")
         if (!modelDir.exists() && !modelDir.mkdirs()) throw IllegalStateException("No se pudo crear el directorio privado del modelo Stable Audio.")
 
+        val expectedHashes = try {
+            val manifest = ctx.assets.open("audio_model/SHA256SUMS").bufferedReader(Charsets.UTF_8).use { it.readText() }
+            AudioModelIntegrity.parseManifest(manifest, modelFiles.toSet())
+        } catch (error: Exception) {
+            throw IllegalStateException("El manifiesto SHA256SUMS de Stable Audio falta o no es válido.", error)
+        }
+
         val requiredSpace = modelFiles.sumOf { name ->
             val expectedLength = ctx.assets.openFd("audio_model/$name").use { it.length }
             val destination = File(modelDir, name)
-            if (destination.isFile && destination.length() == expectedLength) 0L else expectedLength
+            if (AudioModelIntegrity.matches(destination, expectedHashes.getValue(name))) 0L else expectedLength
         } + 256L * 1024 * 1024
         if (requiredSpace > 256L * 1024 * 1024 && modelDir.freeSpace < requiredSpace) throw IllegalStateException("Espacio insuficiente para preparar Stable Audio: libres ${modelDir.freeSpace / (1024L * 1024L)} MiB; necesarios ${requiredSpace / (1024L * 1024L)} MiB.")
 
@@ -59,7 +69,8 @@ class ModuloInstrumental(
                 val destination = File(modelDir, name)
                 val temporary = File(modelDir, "$name.part")
                 val expectedLength = ctx.assets.openFd(assetName).use { it.length }
-                if (destination.isFile && destination.length() == expectedLength) continue
+                val expectedHash = expectedHashes.getValue(name)
+                if (AudioModelIntegrity.matches(destination, expectedHash)) continue
 
                 val copiedBytes = ctx.assets.open(assetName).buffered().use { input ->
                     FileOutputStream(temporary).buffered().use { output ->
@@ -71,20 +82,32 @@ class ModuloInstrumental(
                 if (!temporary.isFile || copiedBytes != expectedLength || temporary.length() != expectedLength) {
                     throw IllegalStateException("La copia temporal del archivo $name no coincide con el tamaño del asset ($copiedBytes/$expectedLength bytes).")
                 }
-                if (destination.exists() && !destination.delete()) throw IllegalStateException("No se pudo sustituir el archivo incompleto $name.")
-                if (!temporary.renameTo(destination)) throw IllegalStateException("No se pudo activar el archivo preparado $name.")
+                if (!AudioModelIntegrity.matches(temporary, expectedHash)) {
+                    throw IllegalStateException("El SHA-256 de la copia temporal de $name no coincide con SHA256SUMS; se conserva el archivo anterior.")
+                }
+                try {
+                    Files.move(
+                        temporary.toPath(), destination.toPath(),
+                        StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING
+                    )
+                } catch (_: AtomicMoveNotSupportedException) {
+                    Files.move(temporary.toPath(), destination.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                }
             }
             val assetsValidos = modelFiles.all { name ->
                 val expectedLength = ctx.assets.openFd("audio_model/$name").use { it.length }
                 val file = File(modelDir, name)
-                file.isFile && file.length() == expectedLength
+                file.isFile && file.length() == expectedLength &&
+                    AudioModelIntegrity.matches(file, expectedHashes.getValue(name))
             }
             if (!assetsValidos) {
-                throw IllegalStateException("Falta o está incompleto al menos uno de los cuatro archivos requeridos de Stable Audio.")
+                throw IllegalStateException("Falta, está incompleto o no supera SHA-256 alguno de los cuatro archivos requeridos de Stable Audio.")
             }
             true
         } catch (error: Exception) {
-            throw IllegalStateException("No se pudieron preparar los archivos locales de Stable Audio: ${error.message ?: error.javaClass.simpleName}", error)
+            throw IllegalStateException("No se pudieron preparar y verificar los archivos locales de Stable Audio: ${error.message ?: error.javaClass.simpleName}", error)
+        } finally {
+            modelFiles.forEach { runCatching { File(modelDir, "$it.part").delete() } }
         }
     }
 
