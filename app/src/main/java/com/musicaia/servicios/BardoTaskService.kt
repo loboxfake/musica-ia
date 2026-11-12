@@ -23,8 +23,6 @@ import com.musicaia.modulos.ModuloInstrumental
 import com.musicaia.modulos.ModuloLetra
 import com.musicaia.modulos.Mp3Exporter
 import com.musicaia.modulos.BardoWavHeaderValidator
-import com.musicaia.modulos.MezclaVoz
-import com.musicaia.modulos.LectorWav
 import java.util.concurrent.atomic.AtomicBoolean
 
 /** Tarea local iniciada por el usuario y coordinada por el Orquestador BARDO. */
@@ -287,31 +285,19 @@ class BardoTaskService : Service() {
                     val marca = System.currentTimeMillis()
                     val estiloOriginal = Regex("(?i)Estilo\\s*:\\s*([^\\n.]+)").find(prompt)?.groupValues?.get(1) ?: prompt.take(36)
                     val nombreBase = BardoLibraryFileNaming.createBaseName(marca, estiloOriginal)
-                    var archivo = archivoInstrumental
-                    var cabecera = cabeceraInstrumental
-                    if (userVoiceMixAvailable && userVoiceWavPath != null) {
-                        if (cancelacionSolicitada.get()) throw java.util.concurrent.CancellationException("Cancelación solicitada antes de mezclar la voz.")
-                        val voz = java.io.File(userVoiceWavPath)
-                        val cabeceraVoz = BardoWavHeaderValidator.inspect(voz)
-                        if (cabeceraVoz.dataBytes <= 0L || voz.length() > LectorWav.MAX_FILE_BYTES) {
-                            throw IllegalArgumentException("El archivo de voz no es un WAV PCM16 válido o supera el límite de 120 MiB.")
-                        }
-                        val salidaMezcla = java.io.File(biblioteca, "$nombreBase.wav")
-                        val resultadoMezcla = MezclaVoz.mezclar(
-                            rutaVoz = voz.absolutePath,
-                            rutaInstrumental = archivoInstrumental.absolutePath,
-                            rutaSalida = salidaMezcla.absolutePath
-                        )
-                        if (cancelacionSolicitada.get()) {
-                            salidaMezcla.delete()
-                            throw java.util.concurrent.CancellationException("Cancelación solicitada después de mezclar la voz.")
-                        }
-                        archivo = java.io.File(resultadoMezcla.rutaWav)
-                        cabecera = BardoWavHeaderValidator.inspect(archivo)
-                        if (cabecera.dataBytes <= 0L) {
-                            archivo.delete()
-                            throw IllegalStateException("La mezcla de voz no contiene muestras PCM válidas.")
-                        }
+                    val archivo = BardoUserVoiceMixPipeline.prepareWav(
+                        instrumentalWav = archivoInstrumental,
+                        voiceWav = if (userVoiceMixAvailable && userVoiceWavPath != null) {
+                            java.io.File(userVoiceWavPath)
+                        } else {
+                            null
+                        },
+                        outputWav = java.io.File(biblioteca, "$nombreBase.wav"),
+                        isCancellationRequested = { cancelacionSolicitada.get() }
+                    )
+                    val cabecera = BardoWavHeaderValidator.inspect(archivo)
+                    if (cabecera.dataBytes <= 0L) throw IllegalStateException("El WAV final no contiene muestras PCM válidas.")
+                    if (userVoiceMixAvailable) {
                         Log.i("BARDO-TaskService", "Voz propia mezclada en WAV real: ${archivo.length()} bytes")
                     }
                     getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_AUDIO, archivo.absolutePath).apply()

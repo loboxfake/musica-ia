@@ -163,7 +163,18 @@ object MezclaVoz {
     private const val GANANCIA_VOZ = 1.0f
     private const val GANANCIA_INSTRUMENTAL = 0.5f
 
-    fun mezclar(rutaVoz: String, rutaInstrumental: String, rutaSalida: String): Dato.Audio {
+    fun mezclar(
+        rutaVoz: String,
+        rutaInstrumental: String,
+        rutaSalida: String,
+        isCancellationRequested: () -> Boolean = { false }
+    ): Dato.Audio {
+        fun comprobarCancelacion() {
+            if (isCancellationRequested()) {
+                throw java.util.concurrent.CancellationException("La mezcla de voz fue cancelada.")
+            }
+        }
+        comprobarCancelacion()
         val archivoVoz = File(rutaVoz)
         val archivoInstrumental = File(rutaInstrumental)
         val archivoSalida = File(rutaSalida)
@@ -173,7 +184,9 @@ object MezclaVoz {
         ) { "El archivo de salida no puede sobrescribir la voz ni el instrumental originales." }
 
         val voz = LectorWav.leer(rutaVoz)
+        comprobarCancelacion()
         val ins = LectorWav.leer(rutaInstrumental)
+        comprobarCancelacion()
         val frec = ins.frecuencia
         val razon = voz.frecuencia.toDouble() / frec
         val nVozLong = (voz.muestras.size.toDouble() / razon).toLong()
@@ -210,6 +223,7 @@ object MezclaVoz {
 
         var pico = 0f
         for (i in 0 until total) {
+            if ((i and 0x3fff) == 0) comprobarCancelacion()
             val absoluto = kotlin.math.abs(muestraMezclada(i))
             if (absoluto > pico) pico = absoluto
         }
@@ -222,11 +236,13 @@ object MezclaVoz {
         val temporal = File.createTempFile("bardo_voice_mix_", ".wav.tmp", directorio)
         try {
             AudioUtil.escribirWavMono16(temporal.absolutePath, frec, total) { inicio, cantidad ->
+                comprobarCancelacion()
                 ShortArray(cantidad) { k ->
                     (muestraMezclada(inicio + k) * escala).toInt().toShort()
                 }
             }
 
+            comprobarCancelacion()
             val infoTemporal = WavSegmentDiagnostics.inspect(temporal)
             require(
                 infoTemporal.sampleRate == frec &&
