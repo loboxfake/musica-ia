@@ -64,6 +64,27 @@ class BardoIntentRouterTest {
     }
 
     @Test
+    fun extractsNaturalMoodAndTempoWithoutFixedArticles() {
+        val provided = BardoIntentRouter.extractProvidedFields(
+            "Una canción que tenga un tono inspirador y con ritmo rápido"
+        )
+        assertEquals("inspirador", provided["ambiente"])
+        assertEquals("rápido", provided["ritmo"])
+    }
+
+    @Test
+    fun recognizesSungVocalsAsTheVoiceMode() {
+        assertEquals(
+            "voz",
+            BardoIntentRouter.extractProvidedFields("Quiero que sea cantada")["tipo"]
+        )
+        assertEquals(
+            "voz",
+            BardoIntentRouter.extractProvidedFields("tipo: cantada")["tipo"]
+        )
+    }
+
+    @Test
     fun negatedCreativeChangeDoesNotBecomeAFieldUpdate() {
         val rejected = "No quiero cambiar el estilo a rock"
         assertTrue(BardoIntentRouter.isNegatedCreativeChange(rejected))
