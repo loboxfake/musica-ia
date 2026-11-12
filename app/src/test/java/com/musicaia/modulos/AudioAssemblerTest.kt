@@ -228,6 +228,13 @@ class AudioAssemblerTest {
     }
 
     @Test
+    fun aggregateBudgetCanHoldTheFullStableAudioStereoArrangement() {
+        val expectedSamples = 18L * 11L * 44_100L * 2L
+        assertTrue("The bounded mixer must fit 18 stereo 11-second model segments.",
+            expectedSamples <= AudioAssembler.MAX_TOTAL_INPUT_SAMPLES)
+    }
+
+    @Test
     fun rejectsCombinedInputSampleCountAboveMemoryBudget() {
         val directory = createTempDir(prefix = "audio-assembler-total-limit-test")
         try {
