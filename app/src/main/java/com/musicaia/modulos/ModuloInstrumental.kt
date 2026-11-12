@@ -56,10 +56,16 @@ class ModuloInstrumental(
             throw IllegalStateException("El manifiesto SHA256SUMS de Stable Audio falta o no es válido.", error)
         }
 
+        val verifiedFiles = mutableSetOf<String>()
         val requiredSpace = modelFiles.sumOf { name ->
             val expectedLength = ctx.assets.openFd("audio_model/$name").use { it.length }
             val destination = File(modelDir, name)
-            if (AudioModelIntegrity.matches(destination, expectedHashes.getValue(name))) 0L else expectedLength
+            if (AudioModelIntegrity.matches(destination, expectedHashes.getValue(name))) {
+                verifiedFiles += name
+                0L
+            } else {
+                expectedLength
+            }
         } + 256L * 1024 * 1024
         if (requiredSpace > 256L * 1024 * 1024 && modelDir.freeSpace < requiredSpace) throw IllegalStateException("Espacio insuficiente para preparar Stable Audio: libres ${modelDir.freeSpace / (1024L * 1024L)} MiB; necesarios ${requiredSpace / (1024L * 1024L)} MiB.")
 
@@ -70,7 +76,7 @@ class ModuloInstrumental(
                 val temporary = File(modelDir, "$name.part")
                 val expectedLength = ctx.assets.openFd(assetName).use { it.length }
                 val expectedHash = expectedHashes.getValue(name)
-                if (AudioModelIntegrity.matches(destination, expectedHash)) continue
+                if (name in verifiedFiles) continue
 
                 val copiedBytes = ctx.assets.open(assetName).buffered().use { input ->
                     FileOutputStream(temporary).buffered().use { output ->
@@ -93,12 +99,12 @@ class ModuloInstrumental(
                 } catch (_: AtomicMoveNotSupportedException) {
                     Files.move(temporary.toPath(), destination.toPath(), StandardCopyOption.REPLACE_EXISTING)
                 }
+                verifiedFiles += name
             }
             val assetsValidos = modelFiles.all { name ->
                 val expectedLength = ctx.assets.openFd("audio_model/$name").use { it.length }
                 val file = File(modelDir, name)
-                file.isFile && file.length() == expectedLength &&
-                    AudioModelIntegrity.matches(file, expectedHashes.getValue(name))
+                file.isFile && file.length() == expectedLength && name in verifiedFiles
             }
             if (!assetsValidos) {
                 throw IllegalStateException("Falta, está incompleto o no supera SHA-256 alguno de los cuatro archivos requeridos de Stable Audio.")
