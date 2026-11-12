@@ -11,13 +11,15 @@ internal object BardoAudioGenerationCleanup {
             try {
                 action()
             } catch (error: Throwable) {
-                cleanupFailure = merge(cleanupFailure, error)
+                if (primaryFailure != null) {
+                    if (primaryFailure !== error) primaryFailure.addSuppressed(error)
+                } else {
+                    cleanupFailure = merge(cleanupFailure, error)
+                }
             }
         }
 
-        val cleanup = cleanupFailure ?: return
-        if (primaryFailure == null) throw cleanup
-        merge(primaryFailure, cleanup)
+        if (primaryFailure == null) cleanupFailure?.let { throw it }
     }
 
     private fun merge(primary: Throwable?, next: Throwable): Throwable {
