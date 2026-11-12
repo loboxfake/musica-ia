@@ -137,6 +137,7 @@ class ModuloInstrumental(
         val diagnosticos = mutableListOf<String>()
         val informeDiagnostico = File(ctx.filesDir, "audio_generation_diagnostics.txt")
         var generacionCompleta = false
+        var primaryFailure: Throwable? = null
 
         // Stable Audio Open Small generates at most 11 seconds per pass.
         // Eighteen sections with 400 ms crossfades yield more than three minutes.
@@ -224,20 +225,33 @@ class ModuloInstrumental(
             return Dato.Audio(output.absolutePath, finalInfo.sampleRate)
         } catch (error: Throwable) {
             diagnosticos += "RESULT | STATE=FAIL | CAUSE=${error.javaClass.simpleName}: ${error.message ?: "sin detalle"}"
-            if (error is java.util.concurrent.CancellationException) throw error
-            throw IllegalStateException(
-                "${error.message ?: error.javaClass.simpleName} WAV parciales: ${workDir.absolutePath}. Diagnóstico: ${informeDiagnostico.absolutePath}",
+            val propagated = if (error is java.util.concurrent.CancellationException) {
                 error
-            )
-        } finally {
-            runCatching { AudioGenNative.releaseCachedModels() }
-                .onFailure { android.util.Log.e("BARDO-AudioGen", "No se pudieron liberar los modelos nativos de audio", it) }
-            informeDiagnostico.writeText(diagnosticos.joinToString("\n") + "\n", Charsets.UTF_8)
-            if (generacionCompleta) {
-                workDir.deleteRecursively()
             } else {
-                android.util.Log.e("BARDO-AudioGen", "Se conservan WAV parciales y diagnóstico en ${workDir.absolutePath}")
+                IllegalStateException(
+                    "${error.message ?: error.javaClass.simpleName} WAV parciales: ${workDir.absolutePath}. Diagnóstico: ${informeDiagnostico.absolutePath}",
+                    error
+                )
             }
+            primaryFailure = propagated
+            throw propagated
+        } finally {
+            BardoAudioGenerationCleanup.finish(
+                primaryFailure = primaryFailure,
+                actions = listOf(
+                    { AudioGenNative.releaseCachedModels() },
+                    { informeDiagnostico.writeText(diagnosticos.joinToString("\n") + "\n", Charsets.UTF_8) },
+                    {
+                        if (generacionCompleta) {
+                            check(workDir.deleteRecursively() || !workDir.exists()) {
+                                "No se pudo limpiar el directorio temporal de audio: ${workDir.absolutePath}"
+                            }
+                        } else {
+                            android.util.Log.e("BARDO-AudioGen", "Se conservan WAV parciales y diagnóstico en ${workDir.absolutePath}")
+                        }
+                    }
+                )
+            )
         }
     }
 
