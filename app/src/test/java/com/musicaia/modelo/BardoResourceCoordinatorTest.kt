@@ -134,4 +134,24 @@ class BardoResourceCoordinatorTest {
         }
         assertNull(BardoResourceCoordinator.currentResourceForCurrentThread())
     }
+
+    @Test
+    fun rejectsUnsafeNestedSwitchWithoutCorruptingOuterResourceState() {
+        BardoResourceCoordinator.withTextModel {
+            assertEquals(
+                BardoResourceCoordinator.Resource.TEXT_MODEL,
+                BardoResourceCoordinator.currentResourceForCurrentThread()
+            )
+            val error = runCatching {
+                BardoResourceCoordinator.withImageModel { error("must not execute") }
+            }.exceptionOrNull()
+            assertTrue(error is IllegalStateException)
+            assertTrue(error?.message.orEmpty().contains("No se puede cambiar del runtime"))
+            assertEquals(
+                BardoResourceCoordinator.Resource.TEXT_MODEL,
+                BardoResourceCoordinator.currentResourceForCurrentThread()
+            )
+        }
+        assertNull(BardoResourceCoordinator.currentResourceForCurrentThread())
+    }
 }
