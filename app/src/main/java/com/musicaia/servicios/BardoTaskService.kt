@@ -229,7 +229,7 @@ class BardoTaskService : Service() {
                         onSegmentProgress = { actual, total, detalle ->
                             totalPasosAudio = total.coerceAtLeast(1)
                             val transcurrido = ((System.currentTimeMillis() - inicioMs) / 1000L).coerceAtLeast(0L)
-                            val mensaje = "INSTRUMENTAL $actual/$total · §{transcurrido}s · $detalle"
+                            val mensaje = "INSTRUMENTAL $actual/$total · ${transcurrido}s · $detalle"
                             actualizarNotificacion(mensaje, ((actual * 90f) / total.coerceAtLeast(1)).toInt().coerceIn(0, 90))
                             publicarEstado("running", mensaje)
                         },
@@ -262,7 +262,7 @@ class BardoTaskService : Service() {
                     val letra = (resultados.firstOrNull { it.first == "letra" }?.second as? Dato.Texto)?.texto.orEmpty()
                     val segundos = ((System.currentTimeMillis() - inicioMs) / 1000L).coerceAtLeast(0L).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
                     getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_AUDIO, audio.rutaWav).apply()
-                    val mensajeMp3 = "WAV PCM16 validado (§{cabecera.sampleRate} Hz, §{cabecera.channels} canales, §{cabecera.dataBytes} bytes de audio). Preparando MP3 320 kbps para Archivo…"
+                    val mensajeMp3 = "WAV PCM16 validado (${cabecera.sampleRate} Hz, ${cabecera.channels} canales, ${cabecera.dataBytes} bytes de audio). Preparando MP3 320 kbps para Archivo…"
                     actualizarNotificacion(mensajeMp3, 95)
                     publicarEstado("running", mensajeMp3)
                     if (!Mp3Exporter.available) throw IllegalStateException("El WAV se generó, pero el codificador MP3 nativo no está disponible en esta APK.")
@@ -274,7 +274,7 @@ class BardoTaskService : Service() {
                     val estiloNormalizado = java.text.Normalizer.normalize(estiloOriginal, java.text.Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "")
                     val estiloArchivo = Regex("[^A-Za-z0-9]+").replace(estiloNormalizado, "_").trim('_').take(28).ifBlank { "instrumental" }
                     val fechaArchivo = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmm").withZone(java.time.ZoneId.systemDefault()).format(java.time.Instant.ofEpochMilli(marca))
-                    val nombreBase = "BARDO_§{fechaArchivo}_§{estiloArchivo}"
+                    val nombreBase = "BARDO_${fechaArchivo}_${estiloArchivo}"
                     val mp3 = java.io.File(biblioteca, "$nombreBase.mp3")
                     val temporal = java.io.File(biblioteca, "$nombreBase.mp3.part")
                     val codificado = Mp3Exporter.encodeWavToMp3(archivo.absolutePath, temporal.absolutePath, 320)
@@ -304,12 +304,12 @@ class BardoTaskService : Service() {
                         throw IllegalStateException(if (pruebaRapida) "El MP3 de prueba no alcanza 1,5 segundos." else "El MP3 se guardó, pero Android no pudo validar una duración de al menos 3 minutos.")
                     }
 
-                    val mensajeValidado = "INSTRUMENTAL $totalPasosAudio/$totalPasosAudio · MP3 320 kbps validado (§{mp3DurationMs / 1000L}s, §{mp3.length()} bytes)"
+                    val mensajeValidado = "INSTRUMENTAL $totalPasosAudio/$totalPasosAudio · MP3 320 kbps validado (${mp3DurationMs / 1000L}s, ${mp3.length()} bytes)"
                     actualizarNotificacion(mensajeValidado, 100)
                     publicarEstado("running", mensajeValidado)
                     if (letra.isNotBlank()) java.io.File(biblioteca, "$nombreBase.txt").writeText(letra)
                     val duracion = mp3DurationMs / 1000L
-                    val mensajeFinal = "MP3 guardado en Archivo · §{duracion / 60} min §{duracion % 60}s · §{mp3.length()} bytes · 320 kbps"
+                    val mensajeFinal = "MP3 guardado en Archivo · ${duracion / 60} min ${duracion % 60}s · ${mp3.length()} bytes · 320 kbps"
                     getSharedPreferences(PREFS, MODE_PRIVATE).edit()
                         .putString(KEY_STATE, "completed").putString(KEY_MESSAGE, mensajeFinal)
                         .putString(KEY_AUDIO, audio.rutaWav).putString(KEY_MP3, mp3.absolutePath).putString("lyrics", letra)
@@ -317,11 +317,11 @@ class BardoTaskService : Service() {
                     BardoActivityStore.record(this, taskToken, if (modoSolo) "instrumental" else "cancion", "completed", "validacion", mensajeFinal, 100, mp3.absolutePath)
                     enviarActualizacion("completed", mensajeFinal, audio.rutaWav, letra, segundos, mp3.absolutePath)
                     actualizarNotificacion(mensajeFinal, 100)
-                    Log.i("BARDO-TaskService", "WAV PCM16 válido: §{archivo.length()} bytes; MP3 válido: §{mp3.length()} bytes")
+                    Log.i("BARDO-TaskService", "WAV PCM16 válido: ${archivo.length()} bytes; MP3 válido: ${mp3.length()} bytes")
                 } catch (error: Throwable) {
                     Log.e("BARDO-TaskService", "Falló la tarea de BARDO", error)
                     val estado = BardoTaskLifecyclePolicy.terminalState(cancelacionSolicitada.get(), error)
-                    val mensaje = "§{error.javaClass.simpleName}: §{error.message ?: "Error sin detalle"}"
+                    val mensaje = "${error.javaClass.simpleName}: ${error.message ?: "Error sin detalle"}"
                     getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_STATE, estado).putString(KEY_MESSAGE, mensaje).apply()
                     runCatching {
                         BardoActivityStore.record(this, taskToken, if (modoSolo) "instrumental" else "cancion", estado,
