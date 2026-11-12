@@ -33,6 +33,7 @@ class DiffSingerVoicebankInspectorTest {
         assertEquals(512, result.hopSize)
         assertTrue(result.phonemizerDictionary?.name == "dsdict-es.yaml")
         assertEquals("vocoder.onnx", result.vocoderModel?.name)
+        assertEquals(mapOf("SP" to 0, "a" to 1, "e" to 2, "i" to 3, "o" to 4, "u" to 5), result.phonemeIds)
     }
 
     @Test fun rejectsMissingAcousticGraph() {
@@ -40,6 +41,15 @@ class DiffSingerVoicebankInspectorTest {
         File(root, "acoustic.onnx").delete()
         assertEquals(DiffSingerVoicebankInspector.Status.MISSING_ACOUSTIC_MODEL,
             DiffSingerVoicebankInspector.inspect(root).status)
+    }
+
+    @Test fun rejectsInventoryWithoutSilenceTokenBeforeRuntimeProbe() {
+        val root = voicebank()
+        File(root, "phonemes.txt").writeText("a\\ne\\ni\\no\\nu\\n")
+        val result = DiffSingerVoicebankInspector.inspect(root)
+        assertEquals(DiffSingerVoicebankInspector.Status.INVALID_PHONEMES, result.status)
+        assertFalse(result.readyForRuntimeProbe)
+        assertTrue(result.errors.any { it.contains("SP") })
     }
 
     @Test fun rejectsMissingSpanishDictionary() {
