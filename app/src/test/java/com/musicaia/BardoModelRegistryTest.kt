@@ -160,6 +160,46 @@ class BardoModelRegistryTest {
         assertEquals("portable", response.providerId)
     }
 
+    @Test fun fallbackStopsWhenFailedProviderCannotReleaseItsNativeRuntime() {
+        var fallbackCalled = false
+        val leaked = object : BardoModelProvider {
+            override val descriptor = BardoModelDescriptor(
+                "leaked_native", "1", setOf("chat"), BardoModelLocation.LOCAL, "test", null, null, 100
+            )
+            override fun inspect(context: Context) =
+                BardoModelAvailability(BardoModelState.PRESENT_UNVERIFIED, "modelo presente")
+            override fun load(context: Context) = true
+            override fun generate(context: Context, request: BardoModelRequest): BardoModelResponse =
+                throw UnsatisfiedLinkError("native execution failed")
+            override fun unload() = throw IllegalStateException("native release failed")
+        }
+        val fallback = object : BardoModelProvider {
+            override val descriptor = BardoModelDescriptor(
+                "must_not_run_after_leak", "1", setOf("chat"), BardoModelLocation.LOCAL, "test", null, null, 80
+            )
+            override fun inspect(context: Context) =
+                BardoModelAvailability(BardoModelState.PRESENT_UNVERIFIED, "modelo presente")
+            override fun load(context: Context) = true
+            override fun generate(context: Context, request: BardoModelRequest): BardoModelResponse {
+                fallbackCalled = true
+                return BardoModelResponse("incorrect", descriptor.id, descriptor.version, 1L)
+            }
+            override fun unload() = Unit
+        }
+
+        val error = runCatching {
+            BardoModelRegistry(listOf(leaked, fallback)).generate(
+                testContext(), "chat", BardoModelRequest("hola")
+            )
+        }.exceptionOrNull()
+
+        assertTrue(error is IllegalStateException)
+        assertTrue(error?.cause is UnsatisfiedLinkError)
+        assertEquals(1, error?.cause?.suppressed?.size)
+        assertEquals("native release failed", error?.cause?.suppressed?.firstOrNull()?.message)
+        assertTrue(!fallbackCalled)
+    }
+
     @Test fun cancellationDoesNotStartAnotherProvider() {
         var fallbackCalled = false
         val cancelled = object : BardoModelProvider {
