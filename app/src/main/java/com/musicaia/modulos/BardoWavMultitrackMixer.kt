@@ -3,6 +3,9 @@ package com.musicaia.modulos
 import java.io.File
 import java.io.FileOutputStream
 import java.nio.ByteBuffer
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.nio.ByteOrder
 import kotlin.math.abs
 import kotlin.math.cos
@@ -52,10 +55,10 @@ object BardoWavMultitrackMixer {
         require(peak > 1e-8) { "La mezcla está en silencio; no se genera un archivo vacío." }
         val target = 10.0.pow(TARGET_PEAK_DBFS / 20.0)
         val normalization = min(target / peak, 10.0.pow(12.0 / 20.0))
-        output.parentFile?.let { check(it.exists() || it.mkdirs()) { "No se pudo crear la salida." } }
-        val temp = File(output.parentFile ?: File("."), output.name + ".tmp")
+        val outputDirectory = output.absoluteFile.parentFile ?: File(".")
+        check(outputDirectory.isDirectory || outputDirectory.mkdirs()) { "No se pudo crear la salida." }
+        val temp = File.createTempFile("bardo_multitrack_", ".wav.tmp", outputDirectory)
         try {
-            temp.delete()
             FileOutputStream(temp).use { stream ->
                 stream.write(header(rate, 2, dataSize.toInt()))
                 cursor = 0L
@@ -77,8 +80,17 @@ object BardoWavMultitrackMixer {
             require(verified.channels == 2 && verified.rate == rate && verified.frames == frames) {
                 "La cabecera/canales/frecuencia del WAV no superan la verificación."
             }
-            check(!output.exists() || output.delete()) { "No se pudo sustituir una salida anterior." }
-            check(temp.renameTo(output)) { "No se pudo publicar el WAV mezclado." }
+            try {
+                Files.move(
+                    temp.toPath(), output.toPath(),
+                    StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING
+                )
+            } catch (_: AtomicMoveNotSupportedException) {
+                Files.move(temp.toPath(), output.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            }
+            require(output.isFile && output.length() == 44L + dataSize) {
+                "La salida publicada no coincide con el WAV temporal verificado."
+            }
             return Result(output, rate, frames, pcm.size, db(peak), db(peak * normalization), db(normalization))
         } finally { temp.delete() }
     }
@@ -108,33 +120,37 @@ object BardoWavMultitrackMixer {
     }
 
     private fun parse(track: Track): Pcm {
-        val data = track.file.readBytes()
-        require(data.size >= 44 && ascii(data,0,4)=="RIFF" && ascii(data,8,4)=="WAVE") { "WAV RIFF no válido: " + track.file.name }
-        var format=-1; var channels=-1; var rate=-1; var bits=-1; var align=-1; var dataPos=-1; var dataBytes=-1; var pos=12
-        while (pos + 8 <= data.size) {
-            val id=ascii(data,pos,4); val size=uint(data,pos+4); val start=pos+8; val end=start.toLong()+size
-            require(end <= data.size.toLong()) { "Chunk WAV excede el archivo." }
-            when(id) {
-                "fmt " -> {
-                    require(size >= 16L) { "Chunk fmt incompleto." }
-                    val f=ByteBuffer.wrap(data,start,size.toInt()).order(ByteOrder.LITTLE_ENDIAN)
-                    format=f.short.toInt() and 65535; channels=f.short.toInt() and 65535
-                    rate=f.int; f.int; align=f.short.toInt() and 65535; bits=f.short.toInt() and 65535
-                }
-                "data" -> if(dataPos<0) { dataPos=start; dataBytes=size.toInt() }
-            }
-            val next=end+(size and 1L); require(next>=end && next<=data.size.toLong() && next<=Int.MAX_VALUE) { "Chunk RIFF inválido o relleno truncado." }; pos=next.toInt()
+        // Validación RIFF compartida: tamaño declarado, orden, duplicados,
+        // alineación PCM, relleno y límites de cada chunk.
+        val header = BardoWavHeaderValidator.inspect(track.file)
+        require(header.channels in 1..2 && header.sampleRate in 8_000..96_000) {
+            "Canales/frecuencia no compatibles: ${track.file.name}"
         }
-        require(format==1 && bits==16) { "Solo se admite WAV PCM16." }
-        require(channels in 1..2 && rate in 8000..96000) { "Canales/frecuencia no compatibles." }
-        require(align==channels*2 && dataPos>=0 && dataBytes>0 && dataBytes%align==0) { "Datos PCM incompletos." }
-        val frames=(dataBytes/align).toLong()
-        require(frames in 1..(rate.toLong()*300L)) { "La pista supera 5 minutos." }
-        return Pcm(track,data,dataPos,channels,rate,frames)
+        require(header.bitsPerSample == 16) { "Solo se admite WAV PCM16." }
+        val align = header.channels * 2
+        require(header.dataBytes > 0L && header.dataBytes % align == 0L) {
+            "Datos PCM incompletos: ${track.file.name}"
+        }
+        val frames = header.dataBytes / align
+        require(frames in 1..(header.sampleRate.toLong() * 300L)) {
+            "La pista supera 5 minutos: ${track.file.name}"
+        }
+        require(header.dataOffset in 0L..Int.MAX_VALUE.toLong()) {
+            "La posición del audio supera los límites admitidos: ${track.file.name}"
+        }
+        return Pcm(
+            source = track,
+            bytes = track.file.readBytes(),
+            offset = header.dataOffset.toInt(),
+            channels = header.channels,
+            rate = header.sampleRate,
+            frames = frames
+        )
     }
-    private fun sample(b:ByteArray,p:Int):Int=((b[p].toInt() and 255) or ((b[p+1].toInt() and 255) shl 8)).toShort().toInt()
-    private fun ascii(b:ByteArray,p:Int,n:Int)=String(b,p,n,Charsets.US_ASCII)
-    private fun uint(b:ByteArray,p:Int):Long=(b[p].toLong() and 255) or ((b[p+1].toLong() and 255) shl 8) or ((b[p+2].toLong() and 255) shl 16) or ((b[p+3].toLong() and 255) shl 24)
+
+    private fun sample(b:ByteArray,p:Int):Int=
+        ((b[p].toInt() and 255) or ((b[p+1].toInt() and 255) shl 8)).toShort().toInt()
+
     private fun header(rate:Int,channels:Int,size:Int):ByteArray {
         val align=channels*2
         return ByteBuffer.allocate(44).order(ByteOrder.LITTLE_ENDIAN).apply {
