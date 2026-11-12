@@ -1,6 +1,7 @@
 package com.musicaia
 
 import com.musicaia.modelo.BardoGuidedProgressPolicy
+import com.musicaia.modelo.BardoCreationReadinessPolicy
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
