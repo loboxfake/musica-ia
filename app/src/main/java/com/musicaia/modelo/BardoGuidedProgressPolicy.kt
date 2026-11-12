@@ -61,12 +61,22 @@ object BardoGuidedProgressPolicy {
                 """\b(?:con voz|solo instrumental|sin voz|no vocals|with vocals|instrumental only)\b"""
             ).containsMatchIn(normalized))
         }
+        if (field == "idioma") {
+            // Mentioning English/Spanish is not enough: the question must ask
+            // which language the user's own song should use.
+            val asksWhichLanguage = Regex(
+                """\\b(?:que|cual)\\s+idioma\\b|\\b(?:which|what)\\s+language\\b|\\b(?:idioma|language)\\b"""
+            ).containsMatchIn(normalized)
+            val specifiesSongLanguage = Regex(
+                """\\b(?:en|in)\\s+(?:espanol|spanish|english|ingles)\\b|\\b(?:espanol|spanish|english|ingles)\\s+(?:o|or)\\s+(?:espanol|spanish|english|ingles)\\b"""
+            ).containsMatchIn(normalized)
+            return asksWhichLanguage || specifiesSongLanguage
+        }
         val terms = when (field) {
             "tema" -> listOf("tema", "theme")
             "estilo" -> listOf("estilo", "style", "genre", "genero")
             "ambiente" -> listOf("ambiente", "mood", "emotion", "emocion", "feeling")
             "ritmo" -> listOf("ritmo", "rhythm", "tempo")
-            "idioma" -> listOf("idioma", "language", "espanol", "spanish", "english")
             "vozFuente" -> listOf("archivo", "file", "grabada", "grabado", "grabar", "recording", "record", "microfono", "microphone", "importar", "upload", "subir")
             else -> return false
         }
