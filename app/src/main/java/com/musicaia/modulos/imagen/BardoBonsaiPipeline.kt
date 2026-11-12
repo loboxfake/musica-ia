@@ -84,17 +84,25 @@ class BardoBonsaiPipeline(private val modelsDir: File, meta: JSONObject) {
                     setUseXNNPACK(true)   // required for blockwise-int4 correctness + speed
                 }
             )
-            interp.allocateTensors()
-            loadSeconds = (System.nanoTime() - t) / 1e9
-            // input order by serving_default_args_<n>, NEVER by shape/index
-            val n = interp.inputTensorCount
-            fun argpos(i: Int): Int {
-                val name = interp.getInputTensor(i).name()
-                val at = name.lastIndexOf("args_")
-                if (at < 0) return i
-                return name.substring(at + 5).takeWhile { it.isDigit() }.toIntOrNull() ?: i
+            try {
+                interp.allocateTensors()
+                loadSeconds = (System.nanoTime() - t) / 1e9
+                // input order by serving_default_args_<n>, NEVER by shape/index
+                val n = interp.inputTensorCount
+                fun argpos(i: Int): Int {
+                    val name = interp.getInputTensor(i).name()
+                    val at = name.lastIndexOf("args_")
+                    if (at < 0) return i
+                    return name.substring(at + 5).takeWhile { it.isDigit() }.toIntOrNull() ?: i
+                }
+                argOrder = (0 until n).sortedBy { argpos(it) }.toIntArray()
+            } catch (error: Throwable) {
+                // Interpreter construction can succeed while tensor allocation
+                // fails (especially under memory pressure). Close the native
+                // handle before propagating the original failure.
+                runCatching { interp.close() }
+                throw error
             }
-            argOrder = (0 until n).sortedBy { argpos(it) }.toIntArray()
         }
 
         /** inputs in ARGUMENT order; returns output tensor 0 as floats. */
