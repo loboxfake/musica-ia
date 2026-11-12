@@ -6,6 +6,9 @@ import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InterruptedIOException
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
@@ -67,13 +70,65 @@ object BardoBonsaiModelInstaller {
     fun hasEnoughStorage(context: Context): Boolean =
         availableBytes(context) >= requiredFreeBytes(context)
 
-    fun isInstalled(context: Context): Boolean {
-        val dir = modelDir(context)
-        val marker = File(dir, ".verified")
-        if (!marker.isFile || marker.readText().trim() != REVISION) return false
-        return files.all { spec ->
-            val file = File(dir, spec.path)
-            file.isFile && file.length() == spec.size
+    fun isInstalled(context: Context): Boolean =
+        isVerifiedInstall(modelDir(context), REVISION, files)
+
+    /** Marker de instalación ligado a tamaño y fecha de modificación de cada archivo verificado. */
+    internal fun writeVerifiedMarker(directory: File, revision: String, specs: List<FileSpec>) {
+        require(directory.isDirectory) { "El directorio privado del modelo no existe." }
+        val entries = JSONObject()
+        specs.forEach { spec ->
+            val file = File(directory, spec.path)
+            require(file.isFile && file.length() == spec.size) {
+                "No se puede marcar como verificado un archivo incompleto: ${spec.path}"
+            }
+            entries.put(
+                spec.path,
+                JSONObject()
+                    .put("size", file.length())
+                    .put("last_modified", file.lastModified())
+            )
+        }
+        val marker = JSONObject()
+            .put("revision", revision)
+            .put("files", entries)
+        val temporary = File.createTempFile("bardo_verified_", ".tmp", directory)
+        try {
+            FileOutputStream(temporary).use { output ->
+                output.write(marker.toString().toByteArray(Charsets.UTF_8))
+                output.fd.sync()
+            }
+            activateVerifiedPart(temporary, File(directory, ".verified"))
+        } finally {
+            temporary.delete()
+        }
+    }
+
+    internal fun isVerifiedInstall(directory: File, revision: String, specs: List<FileSpec>): Boolean {
+        val markerFile = File(directory, ".verified")
+        if (!markerFile.isFile) return false
+        val marker = runCatching { JSONObject(markerFile.readText(Charsets.UTF_8)) }.getOrNull()
+            ?: return false
+        if (marker.optString("revision") != revision) return false
+        val entries = marker.optJSONObject("files") ?: return false
+        return specs.all { spec ->
+            val file = File(directory, spec.path)
+            val recorded = entries.optJSONObject(spec.path) ?: return@all false
+            file.isFile &&
+                file.length() == spec.size &&
+                recorded.optLong("size", -1L) == file.length() &&
+                recorded.optLong("last_modified", -1L) == file.lastModified()
+        }
+    }
+
+    private fun activateVerifiedPart(part: File, target: File) {
+        try {
+            Files.move(
+                part.toPath(), target.toPath(),
+                StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING
+            )
+        } catch (_: AtomicMoveNotSupportedException) {
+            Files.move(part.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
         }
     }
 
@@ -99,7 +154,6 @@ object BardoBonsaiModelInstaller {
                 progress(spec.path, completed, TOTAL_BYTES)
                 return@forEach
             }
-            target.delete()
             downloadOne(spec, target, cancelled) { current ->
                 progress(spec.path, completed + current, TOTAL_BYTES)
             }
@@ -114,7 +168,7 @@ object BardoBonsaiModelInstaller {
                 "Verificación fallida: ${spec.path}"
             }
         }
-        File(dir, ".verified").writeText(REVISION)
+        writeVerifiedMarker(dir, REVISION, files)
         check(isInstalled(appContext)) { "El conjunto del modelo no superó la verificación final." }
         return dir
     }
@@ -129,7 +183,7 @@ object BardoBonsaiModelInstaller {
         val part = File(target.parentFile, target.name + ".part")
         if (part.length() > spec.size) part.delete()
         if (part.length() == spec.size && verifyFile(part, spec)) {
-            if (!part.renameTo(target)) error("No se pudo finalizar ${spec.path}")
+            activateVerifiedPart(part, target)
             return
         }
         if (part.length() == spec.size) part.delete()
@@ -187,7 +241,7 @@ object BardoBonsaiModelInstaller {
             part.delete()
             "SHA-256 o estructura incorrecta en ${spec.path}; se ha eliminado el archivo parcial."
         }
-        check(part.renameTo(target)) { "No se pudo finalizar ${spec.path}." }
+        activateVerifiedPart(part, target)
     }
 
     private fun verifyFile(file: File, spec: FileSpec): Boolean {
