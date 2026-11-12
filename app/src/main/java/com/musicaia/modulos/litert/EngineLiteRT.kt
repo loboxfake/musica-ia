@@ -5,6 +5,30 @@ import com.google.ai.edge.litertlm.Conversation
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
 import java.util.concurrent.Executors
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.Future
+
+/**
+ * Desenvuelve las excepciones de Future.get para que los consumidores distingan
+ * errores fatales (OOM/JNI) y cancelaciones de fallos ordinarios.
+ */
+internal fun <T> awaitFuture(future: Future<T>): T {
+    try {
+        return future.get()
+    } catch (interrupted: InterruptedException) {
+        Thread.currentThread().interrupt()
+        throw java.util.concurrent.CancellationException(
+            "La espera de una operación LiteRT fue interrumpida."
+        ).also { it.initCause(interrupted) }
+    } catch (wrapped: ExecutionException) {
+        val cause = wrapped.cause ?: wrapped
+        when (cause) {
+            is Error -> throw cause
+            is RuntimeException -> throw cause
+            else -> throw IllegalStateException("La operación LiteRT falló.", cause)
+        }
+    }
+}
 
 /**
  * Una Engine y una Conversation, siempre serializadas en el mismo hilo.
@@ -48,10 +72,10 @@ object EngineLiteRT {
                 override fun cerrar() = cerrarInterno()
             }
             session.block()
-        }.get()
+        }.let(::awaitFuture)
 
     fun inicializar(path: String, cacheDir: String): Boolean =
-        executor.submit<Boolean> { inicializarInterno(path, cacheDir) }.get()
+        executor.submit<Boolean> { inicializarInterno(path, cacheDir) }.let(::awaitFuture)
 
     private fun inicializarInterno(path: String, cacheDir: String): Boolean {
         if (engine != null && conversation != null && modelPath == path) return true
@@ -88,13 +112,13 @@ object EngineLiteRT {
     }
 
     fun estaCargado(path: String): Boolean =
-        executor.submit<Boolean> { estaCargadoInterno(path) }.get()
+        executor.submit<Boolean> { estaCargadoInterno(path) }.let(::awaitFuture)
 
     private fun estaCargadoInterno(path: String): Boolean =
         engine != null && conversation != null && modelPath == path
 
     fun generar(prompt: String, reiniciarConversacion: Boolean = false): String =
-        executor.submit<String> { generarInterno(prompt, reiniciarConversacion) }.get()
+        executor.submit<String> { generarInterno(prompt, reiniciarConversacion) }.let(::awaitFuture)
 
     private fun generarInterno(prompt: String, reiniciarConversacion: Boolean): String {
         if (reiniciarConversacion) {
@@ -142,7 +166,7 @@ object EngineLiteRT {
 
     /** Libera el modelo en este proceso y espera a que el executor termine. */
     fun cerrar() {
-        executor.submit<Unit> { cerrarInterno() }.get()
+        executor.submit<Unit> { cerrarInterno() }.let(::awaitFuture)
     }
 
     /**
