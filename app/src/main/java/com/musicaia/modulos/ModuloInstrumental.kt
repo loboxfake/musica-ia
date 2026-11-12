@@ -196,6 +196,11 @@ class ModuloInstrumental(
                 if (isCancellationRequested()) throw java.util.concurrent.CancellationException("Cancelación solicitada por el usuario.")
             }
 
+            onSegmentProgress(sectionsToGenerate.size, sectionsToGenerate.size, "Liberando los pesos nativos antes del ensamblado WAV")
+            if (isCancellationRequested()) throw java.util.concurrent.CancellationException("Cancelación solicitada por el usuario.")
+            // El modelo de varios GB ya no es necesario. Liberarlo antes de cargar
+            // los PCM de los 18 segmentos reduce el pico de RAM durante el ensamblado.
+            AudioGenNative.releaseCachedModels()
             onSegmentProgress(sectionsToGenerate.size, sectionsToGenerate.size, "Uniendo y validando los ${sectionsToGenerate.size} segmentos WAV")
             if (isCancellationRequested()) throw java.util.concurrent.CancellationException("Cancelación solicitada por el usuario.")
             val output = File(ctx.filesDir, "instrumental_ai.wav")
