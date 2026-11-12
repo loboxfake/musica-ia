@@ -308,4 +308,76 @@ class BardoGuidedProgressPolicyTest {
         )
     }
 
+
+    @Test
+    fun creationReadinessRequiresEveryGuidedFieldAndSupportedLanguage() {
+        val complete = mapOf(
+            "tema" to "superar obstáculos",
+            "estilo" to "rock",
+            "ambiente" to "esperanzador",
+            "ritmo" to "medio",
+            "idioma" to "Español",
+            "tipo" to "solo instrumental"
+        )
+        assertEquals(null, BardoCreationReadinessPolicy.blockReason(complete, hasVoiceWav = false))
+        assertTrue(
+            BardoCreationReadinessPolicy.blockReason(
+                complete - "ritmo",
+                hasVoiceWav = false
+            )!!.contains("ritmo")
+        )
+        assertTrue(
+            BardoCreationReadinessPolicy.blockReason(
+                complete + ("idioma" to "Français"),
+                hasVoiceWav = false
+            )!!.contains("español o inglés")
+        )
+    }
+
+    @Test
+    fun vocalCreationRequiresAnExplicitVoiceSourceAndAnAvailableWav() {
+        val complete = mapOf(
+            "tema" to "superar obstáculos",
+            "estilo" to "rock",
+            "ambiente" to "esperanzador",
+            "ritmo" to "medio",
+            "idioma" to "Español",
+            "tipo" to "voz",
+            "vozFuente" to "grabada"
+        )
+        assertTrue(
+            BardoCreationReadinessPolicy.blockReason(
+                complete - "vozFuente",
+                hasVoiceWav = false
+            )!!.contains("fuente de voz")
+        )
+        assertTrue(
+            BardoCreationReadinessPolicy.blockReason(
+                complete,
+                hasVoiceWav = false
+            )!!.contains("archivo WAV")
+        )
+        assertEquals(
+            null,
+            BardoCreationReadinessPolicy.blockReason(complete, hasVoiceWav = true)
+        )
+    }
+
+    @Test
+    fun instrumentalCreationDoesNotRequireAUserVoiceFile() {
+        val complete = mapOf(
+            "tema" to "superar obstáculos",
+            "estilo" to "rock",
+            "ambiente" to "esperanzador",
+            "ritmo" to "medio",
+            "idioma" to "English",
+            "tipo" to "solo instrumental",
+            "vozFuente" to "ninguna"
+        )
+        assertEquals(
+            null,
+            BardoCreationReadinessPolicy.blockReason(complete, hasVoiceWav = false)
+        )
+    }
+
 }

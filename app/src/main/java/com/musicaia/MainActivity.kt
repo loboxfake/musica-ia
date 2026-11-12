@@ -3942,17 +3942,28 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
  }
 
  private fun actualizarUI() {
-     val datosListos = if (modoSoloInstrumental) {
-         editPromptInstrumental.text.toString().isNotBlank()
-     } else if (grupoModo.checkedRadioButtonId == R.id.modoLetra) {
-         editLetra.text.toString().isNotBlank()
+     val esModoLetra = grupoModo.checkedRadioButtonId == R.id.modoLetra
+     val vozWavDisponible = rutaVoz?.let(::File)?.let { archivo ->
+         archivo.isFile && archivo.length() > 44L &&
+             archivo.extension.equals("wav", ignoreCase = true)
+     } == true
+     val bloqueoConversacion = if (!modoSoloInstrumental && !esModoLetra) {
+         BardoCreationReadinessPolicy.blockReason(datosConver, vozWavDisponible)
      } else {
-         (camposRequeridos.all { !datosConver[it].isNullOrBlank() })
+         null
      }
-     // No ocultar el motivo deshabilitando silenciosamente el botón: permitir el toque
-     // para que crearCancion() informe cuando esta APK ligera carece del motor nativo.
+     val datosListos = when {
+         modoSoloInstrumental -> editPromptInstrumental.text.toString().isNotBlank()
+         esModoLetra -> editLetra.text.toString().isNotBlank()
+         else -> bloqueoConversacion == null
+     }
+     // No bloquear por ausencia del motor de audio aquí: crearCancion() debe
+     // informar esa limitación concreta. Sí bloqueamos datos incompatibles con
+     // el modo vocal elegido, para no presentar como lista una creación imposible.
      btnCrear.isEnabled = !ocupado && datosListos
-     if (modoSoloInstrumental && datosListos && !AudioGenNative.available) {
+     if (bloqueoConversacion != null) {
+         tvEstado.text = bloqueoConversacion
+     } else if (modoSoloInstrumental && datosListos && !AudioGenNative.available) {
          tvEstado.text = "Descripción completa, pero esta APK ligera no incluye el motor de audio. Hace falta la compilación offline completa."
      }
  }
