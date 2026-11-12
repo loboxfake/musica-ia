@@ -1,10 +1,13 @@
 package com.musicaia.modelo
 
+import java.io.IOException
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -251,6 +254,53 @@ class BardoResourceCoordinatorTest {
             )
         }
         assertNull(BardoResourceCoordinator.currentResourceForCurrentThread())
+    }
+
+    @Test
+    fun cleanupFailureAggregationKeepsTheFirstFailureAndPreservesLaterFailures() {
+        val primary = IllegalStateException("text runtime close failed")
+        val secondary = UnsatisfiedLinkError("audio runtime close failed")
+
+        val merged = BardoResourceCoordinator.mergeCleanupFailure(primary, secondary)
+
+        assertSame(primary, merged)
+        assertEquals(1, primary.suppressed.size)
+        assertSame(secondary, primary.suppressed.single())
+    }
+
+    @Test
+    fun cleanupFailureAggregationReturnsTheFirstFailureWhenThereIsNoPrimary() {
+        val first = IOException("file lock release failed")
+        val second = IOException("file channel close failed")
+
+        val merged = BardoResourceCoordinator.mergeCleanupFailure(
+            BardoResourceCoordinator.mergeCleanupFailure(null, first),
+            second
+        )
+
+        assertSame(first, merged)
+        assertEquals(1, first.suppressed.size)
+        assertSame(second, first.suppressed.single())
+    }
+
+    @Test
+    fun fileLockAcquisitionFailureIsNotHiddenAndDoesNotRunTheAction() {
+        val invalidParent = java.nio.file.Files.createTempFile("bardo-lock-parent", ".tmp").toFile()
+        var actionRan = false
+        val context = object : android.content.ContextWrapper(null) {
+            override fun getNoBackupFilesDir() = invalidParent
+        }
+
+        val failure = runCatching {
+            BardoResourceCoordinator.withSpeechModel(context) {
+                actionRan = true
+            }
+        }.exceptionOrNull()
+
+        assertTrue(failure is IOException)
+        assertFalse(actionRan)
+        assertNull(BardoResourceCoordinator.currentResourceForCurrentThread())
+        invalidParent.delete()
     }
 
     @Test
