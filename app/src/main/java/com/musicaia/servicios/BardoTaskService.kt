@@ -271,10 +271,7 @@ class BardoTaskService : Service() {
                     if (!biblioteca.exists() && !biblioteca.mkdirs()) throw IllegalStateException("No se pudo crear la carpeta Archivo de BARDO.")
                     val marca = System.currentTimeMillis()
                     val estiloOriginal = Regex("(?i)Estilo\\s*:\\s*([^\\n.]+)").find(prompt)?.groupValues?.get(1) ?: prompt.take(36)
-                    val estiloNormalizado = java.text.Normalizer.normalize(estiloOriginal, java.text.Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "")
-                    val estiloArchivo = Regex("[^A-Za-z0-9]+").replace(estiloNormalizado, "_").trim('_').take(28).ifBlank { "instrumental" }
-                    val fechaArchivo = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmm").withZone(java.time.ZoneId.systemDefault()).format(java.time.Instant.ofEpochMilli(marca))
-                    val nombreBase = "BARDO_${fechaArchivo}_${estiloArchivo}"
+                    val nombreBase = BardoLibraryFileNaming.createBaseName(marca, estiloOriginal)
                     val mp3 = java.io.File(biblioteca, "$nombreBase.mp3")
                     val temporal = java.io.File(biblioteca, "$nombreBase.mp3.part")
                     val codificado = Mp3Exporter.encodeValidatedWavToMp3(archivo.absolutePath, temporal.absolutePath, 320)
