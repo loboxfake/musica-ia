@@ -38,6 +38,20 @@ class BardoIntentRouterTest {
     }
 
     @Test
+    fun negatedCreativeChangeDoesNotBecomeAFieldUpdate() {
+        val rejected = "No quiero cambiar el estilo a rock"
+        assertTrue(BardoIntentRouter.isNegatedCreativeChange(rejected))
+        assertTrue(BardoIntentRouter.extractProvidedFields(rejected).isEmpty())
+    }
+
+    @Test
+    fun commaSeparatedNoStillAllowsAnAffirmativeChange() {
+        val affirmative = "No, quiero cambiar el estilo a rock"
+        assertFalse(BardoIntentRouter.isNegatedCreativeChange(affirmative))
+        assertEquals("rock", BardoIntentRouter.extractProvidedFields(affirmative)["estilo"])
+    }
+
+    @Test
     fun ownLyricsAndChangesAreRecognizedInCorrectContext() {
         assertEquals(BardoIntentRouter.Intent.OWN_LYRICS,
             BardoIntentRouter.classify("Quiero usar mi letra", false))
