@@ -72,15 +72,28 @@ object BardoResourceCoordinator {
 
             if (previous == null) releaseOtherRuntime(resource)
             activeResource.set(resource)
+            var actionFailure: Throwable? = null
             try {
                 action()
+            } catch (error: Throwable) {
+                actionFailure = error
+                throw error
             } finally {
-                // Los runtimes se descargan al terminar cada operación. Así una
-                // carga retenida en un proceso no compite por RAM con el siguiente
-                // runtime, que puede ejecutarse en otro proceso Android.
-                if (previous == null) runCatching { releaseRuntime(resource) }
-                if (previous == null) activeResource.remove()
-                else activeResource.set(previous)
+                try {
+                    // No ocultar fallos de descarga: si no se libera memoria nativa,
+                    // no debemos informar como si el runtime hubiera quedado limpio.
+                    if (previous == null) releaseRuntime(resource)
+                } catch (releaseError: Throwable) {
+                    val primary = actionFailure
+                    if (primary != null) {
+                        primary.addSuppressed(releaseError)
+                    } else {
+                        throw releaseError
+                    }
+                } finally {
+                    if (previous == null) activeResource.remove()
+                    else activeResource.set(previous)
+                }
             }
         } finally {
             runCatching { processLock?.release() }
