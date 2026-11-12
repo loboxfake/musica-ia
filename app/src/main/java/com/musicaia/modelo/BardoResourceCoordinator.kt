@@ -25,6 +25,13 @@ object BardoResourceCoordinator {
     private val transitionLock = ReentrantLock(true)
     private val activeResource = ThreadLocal<Resource?>()
 
+    /** Preserves the first failure while retaining every later cleanup error. */
+    internal fun mergeCleanupFailure(primary: Throwable?, next: Throwable): Throwable {
+        if (primary == null) return next
+        if (primary !== next) primary.addSuppressed(next)
+        return primary
+    }
+
     fun currentResourceForCurrentThread(): Resource? = activeResource.get()
 
     fun <T> withTextModel(action: () -> T): T =
@@ -62,6 +69,7 @@ object BardoResourceCoordinator {
 
         var lockChannel: FileChannel? = null
         var processLock: FileLock? = null
+        var primaryFailure: Throwable? = null
         try {
             // Sólo la operación exterior adquiere el lock entre procesos.
             // Las llamadas anidadas del mismo runtime reutilizan la reserva.
@@ -100,9 +108,29 @@ object BardoResourceCoordinator {
                     else activeResource.set(previous)
                 }
             }
+        } catch (error: Throwable) {
+            primaryFailure = error
+            throw error
         } finally {
-            runCatching { processLock?.release() }
-            runCatching { lockChannel?.close() }
+            // Do not silently treat an unreleased cross-process lease as clean.
+            // Attempt both releases and retain them as suppressed if the task failed.
+            var lockCleanupFailure: Throwable? = null
+            try {
+                processLock?.release()
+            } catch (error: Throwable) {
+                lockCleanupFailure = mergeCleanupFailure(lockCleanupFailure, error)
+            }
+            try {
+                lockChannel?.close()
+            } catch (error: Throwable) {
+                lockCleanupFailure = mergeCleanupFailure(lockCleanupFailure, error)
+            }
+            val cleanupError = lockCleanupFailure
+            if (cleanupError != null) {
+                val primary = primaryFailure
+                if (primary == null) throw cleanupError
+                mergeCleanupFailure(primary, cleanupError)
+            }
         }
     }
 
@@ -111,8 +139,20 @@ object BardoResourceCoordinator {
             Resource.TEXT_MODEL -> AudioGenNative.releaseCachedModels()
             Resource.AUDIO_MODEL -> EngineLiteRT.cerrar()
             Resource.IMAGE_MODEL, Resource.SPEECH_MODEL -> {
-                EngineLiteRT.cerrar()
-                AudioGenNative.releaseCachedModels()
+                // Image and speech compete with both text and Stable Audio. Always
+                // attempt to close both incompatible runtimes even if one close fails.
+                var cleanupFailure: Throwable? = null
+                try {
+                    EngineLiteRT.cerrar()
+                } catch (error: Throwable) {
+                    cleanupFailure = mergeCleanupFailure(cleanupFailure, error)
+                }
+                try {
+                    AudioGenNative.releaseCachedModels()
+                } catch (error: Throwable) {
+                    cleanupFailure = mergeCleanupFailure(cleanupFailure, error)
+                }
+                cleanupFailure?.let { throw it }
             }
         }
     }
