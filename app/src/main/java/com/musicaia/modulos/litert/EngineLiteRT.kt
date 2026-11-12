@@ -258,9 +258,22 @@ object EngineLiteRT {
         backendGpu = false
         modelPath = null
         cachePath = null
-        closeResourcesOrThrow(
-            { previousConversation?.close() },
-            { previousEngine?.close() }
-        )
+        var closeFailure: Throwable? = null
+        // Keep these close calls direct instead of passing closures containing LiteRT
+        // SDK types through a generic vararg. The JVM unit-test classloader must not
+        // eagerly resolve native SDK classes when both handles are null.
+        try {
+            previousConversation?.close()
+        } catch (error: Throwable) {
+            closeFailure = error
+        }
+        try {
+            previousEngine?.close()
+        } catch (error: Throwable) {
+            val primary = closeFailure
+            if (primary == null) closeFailure = error
+            else if (primary !== error) primary.addSuppressed(error)
+        }
+        closeFailure?.let { throw it }
     }
 }
