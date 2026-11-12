@@ -20,6 +20,7 @@ class BardoWavHeaderValidatorTest {
             assertEquals(2, header.channels)
             assertEquals(16, header.bitsPerSample)
             assertEquals(32L, header.dataBytes)
+            assertEquals(44L, header.dataOffset)
         } finally {
             directory.deleteRecursively()
         }
@@ -96,6 +97,54 @@ class BardoWavHeaderValidatorTest {
             assertEquals(44_100, header.sampleRate)
             assertEquals(1, header.channels)
             assertEquals(8L, header.dataBytes)
+            assertEquals(56L, header.dataOffset)
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+
+    @Test
+    fun rejectsDuplicateFormatChunkAndDataBeforeFormat() {
+        val directory = Files.createTempDirectory("bardo-wav-chunk-order").toFile()
+        try {
+            val base = createWav(format = 1, channels = 1, bits = 16, samples = 4)
+            val fmtChunk = base.copyOfRange(12, 36)
+            val dataChunk = base.copyOfRange(36, base.size)
+
+            val duplicateFmt = ByteArray(base.size + fmtChunk.size)
+            System.arraycopy(base, 0, duplicateFmt, 0, 36)
+            System.arraycopy(fmtChunk, 0, duplicateFmt, 36, fmtChunk.size)
+            System.arraycopy(dataChunk, 0, duplicateFmt, 60, dataChunk.size)
+            ByteBuffer.wrap(duplicateFmt).order(ByteOrder.LITTLE_ENDIAN).putInt(4, duplicateFmt.size - 8)
+            val duplicateFmtFile = File(directory, "duplicate-fmt.wav")
+            duplicateFmtFile.writeBytes(duplicateFmt)
+            assertTrue(runCatching { BardoWavHeaderValidator.inspect(duplicateFmtFile) }.isFailure)
+
+            val dataBeforeFmt = ByteArray(base.size)
+            System.arraycopy(base, 0, dataBeforeFmt, 0, 12)
+            System.arraycopy(dataChunk, 0, dataBeforeFmt, 12, dataChunk.size)
+            System.arraycopy(fmtChunk, 0, dataBeforeFmt, 12 + dataChunk.size, fmtChunk.size)
+            ByteBuffer.wrap(dataBeforeFmt).order(ByteOrder.LITTLE_ENDIAN).putInt(4, dataBeforeFmt.size - 8)
+            val dataFirstFile = File(directory, "data-before-fmt.wav")
+            dataFirstFile.writeBytes(dataBeforeFmt)
+            assertTrue(runCatching { BardoWavHeaderValidator.inspect(dataFirstFile) }.isFailure)
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun rejectsDuplicateDataChunks() {
+        val directory = Files.createTempDirectory("bardo-wav-duplicate-data").toFile()
+        try {
+            val base = createWav(format = 1, channels = 1, bits = 16, samples = 4)
+            val dataChunk = base.copyOfRange(36, base.size)
+            val duplicate = base + dataChunk
+            ByteBuffer.wrap(duplicate).order(ByteOrder.LITTLE_ENDIAN).putInt(4, duplicate.size - 8)
+            val file = File(directory, "duplicate-data.wav")
+            file.writeBytes(duplicate)
+            assertTrue(runCatching { BardoWavHeaderValidator.inspect(file) }.isFailure)
         } finally {
             directory.deleteRecursively()
         }
