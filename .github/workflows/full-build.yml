@@ -115,6 +115,11 @@ jobs:
             test -s "app/src/main/assets/audio_model/$file"
           done
           test -s app/src/main/assets/audio_model/model_config.json
+          (
+            cd app/src/main/assets/audio_model
+            sha256sum conditioners_model.pte dit_model.pte autoencoder_model.pte spiece.model > SHA256SUMS
+            sha256sum --check SHA256SUMS
+          )
           test -s app/src/main/assets/NOTICE.txt
           grep -qi "Powered by Stability AI" README.md
           echo "AUDIO_MODEL_ARTIFACT_ID=$artifact_id"
@@ -234,6 +239,7 @@ jobs:
               "assets/audio_model/dit_model.pte",
               "assets/audio_model/autoencoder_model.pte",
               "assets/audio_model/spiece.model",
+              "assets/audio_model/SHA256SUMS",
               "assets/audio_model/LICENSE",
               "assets/audio_model/model_config.json",
               "assets/bardo_source_snapshot.zip",
@@ -265,6 +271,25 @@ jobs:
               missing = [name for name in required if name not in names]
               if missing:
                   raise SystemExit("MISSING_APK_ENTRIES: " + ", ".join(missing))
+              model_prefix = "assets/audio_model/"
+              manifest = z.read(model_prefix + "SHA256SUMS").decode("utf-8")
+              expected_models = {"conditioners_model.pte", "dit_model.pte", "autoencoder_model.pte", "spiece.model"}
+              model_hashes = {}
+              for line in manifest.splitlines():
+                  parts = line.split("  ", 1)
+                  if len(parts) != 2 or len(parts[0]) != 64 or parts[1] not in expected_models:
+                      raise SystemExit("INVALID_AUDIO_MODEL_SHA256SUMS_LINE: " + line)
+                  if parts[1] in model_hashes:
+                      raise SystemExit("DUPLICATE_AUDIO_MODEL_MANIFEST_ENTRY: " + parts[1])
+                  model_hashes[parts[1]] = parts[0].lower()
+              if set(model_hashes) != expected_models:
+                  raise SystemExit("AUDIO_MODEL_MANIFEST_SET_MISMATCH")
+              for filename, expected_hash in model_hashes.items():
+                  actual_hash = hashlib.sha256(z.read(model_prefix + filename)).hexdigest()
+                  if actual_hash != expected_hash:
+                      raise SystemExit(f"AUDIO_MODEL_SHA256_MISMATCH: {filename}")
+                  report.append(f"AUDIO_MODEL_SHA256_OK: {filename} ({actual_hash})")
+              report.append("AUDIO_MODEL_SHA256_MANIFEST: PASS")
               native = sorted(name for name in names if name.startswith("lib/") and name.endswith(".so"))
               wrong_abi = [name for name in native if not name.startswith("lib/arm64-v8a/")]
               if not native or wrong_abi:
