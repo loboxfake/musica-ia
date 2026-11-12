@@ -2236,14 +2236,9 @@ private fun crearConversacionNueva() {
       BardoActivityStore.record(this, taskId, "analisis_audio", "running", asrMode,
           "Preparando el reconocimiento local en " + language.label + "; sin servicios en la nube.", 5, archivo.absolutePath)
       tvEstado.text = "Preparando transcripción offline en " + language.label + "..."
-      EngineLiteRT.cerrarAsync {
-          Thread({
+      val appContext = applicationContext
+      Thread({
               val result = runCatching {
-                  val appContext = applicationContext
-                  val resourceBlock = BardoResourceBudget.blockingReason(appContext, 1024L * 1024L * 1024L)
-                  require(resourceBlock == null) {
-                      resourceBlock ?: "Los recursos disponibles no permiten ejecutar el ASR de forma segura."
-                  }
                   val modelDir = if (BardoOfflineAsr.isModelInstalled(appContext, language)) {
                       BardoOfflineAsr.modelDirectory(appContext, language)
                   } else {
@@ -2254,11 +2249,17 @@ private fun crearConversacionNueva() {
                           }
                       }
                   }
-                  BardoOfflineAsr.transcribeMediaFile(modelDir, archivo) { percentage ->
+                  BardoResourceCoordinator.withSpeechModel(appContext) {
+                      val resourceBlock = BardoResourceBudget.blockingReason(appContext, 1024L * 1024L * 1024L)
+                      require(resourceBlock == null) {
+                          resourceBlock ?: "Los recursos disponibles no permiten ejecutar el ASR de forma segura."
+                      }
+                      BardoOfflineAsr.transcribeMediaFile(modelDir, archivo) { percentage ->
                       runOnUiThread {
                           if (!isFinishing && !isDestroyed) tvEstado.text =
                               "Transcribiendo audio en " + language.label + ": " + percentage + "%"
                       }
+                  }
                   }
               }
               runOnUiThread {
@@ -2310,8 +2311,7 @@ private fun crearConversacionNueva() {
                           }.onFailure { failure -> anexarChat("\nBARDO: No pude guardar la transcripción: " + failure.message) }
                       }.show()
               }
-          }, "BARDO-Offline-ASR-" + language.code).start()
-      }
+      }, "BARDO-Offline-ASR-" + language.code).start()
   }
 
 private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) {
