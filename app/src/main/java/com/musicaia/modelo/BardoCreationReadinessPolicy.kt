@@ -20,7 +20,7 @@ object BardoCreationReadinessPolicy {
             val source = values["vozFuente"].orEmpty()
             when (source.trim().lowercase()) {
                 "grabada", "archivo" -> Unit
-                else -> return "Indica una fuente válida de voz: grabación propia o archivo de voz."
+                else -> return "Indica una fuente de voz válida: grabación propia o archivo de voz."
             }
             if (!hasVoiceWav) {
                 return "Has elegido una canción con voz propia. Importa o graba primero un archivo WAV."
