@@ -20,7 +20,20 @@ object BardoIntentRouter {
      * Extrae solo campos indicados explícitamente. No deduce estilo, emoción o ritmo
      * a partir de palabras aisladas; los datos ambiguos permanecen para la pregunta guiada.
      */
+    fun isNegatedCreativeChange(message: String): Boolean {
+        val normalized = Normalizer.normalize(
+            message.lowercase(Locale.ROOT),
+            Normalizer.Form.NFD
+        ).replace(Regex("""\p{Mn}+"""), "")
+        return Regex(
+            """\b(?:no\s+(?:quiero|deseo|necesito)\s+(?:cambiar|modificar|reemplazar|sustituir)\w*|no\s+(?:hace\s+falta|es\s+necesario)\s+(?:cambiar|modificar|reemplazar|sustituir)\w*|(?:i\s+)?(?:do\s+not|don't|dont)\s+(?:want|need)\s+to\s+(?:change|switch|modify|replace)|not\s+necessary\s+to\s+(?:change|switch|modify|replace))\b"""
+        ).containsMatchIn(normalized)
+    }
+
     fun extractProvidedFields(message: String): Map<String, String> {
+        // No convertir una frase de rechazo en nuevos valores de preferencia.
+        // El parser generativo aplica la misma regla a sus campos estructurados.
+        if (isNegatedCreativeChange(message)) return emptyMap()
         val result = linkedMapOf<String, String>()
         val aliases = listOf(
             "fuente\\s+de\\s+voz", "voz\\s+fuente", "tema", "estilo", "g[ée]nero",
