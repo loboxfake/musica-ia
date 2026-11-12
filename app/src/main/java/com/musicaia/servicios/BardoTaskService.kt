@@ -19,6 +19,7 @@ import com.musicaia.modelo.Dato
 import com.musicaia.modelo.ModuloIA
 import com.musicaia.modelo.Orquestador
 import com.musicaia.modelo.BardoCapabilityRegistry
+import com.musicaia.modelo.BardoResourceBudget
 import com.musicaia.modulos.ModuloInstrumental
 import com.musicaia.modulos.ModuloLetra
 import com.musicaia.modulos.Mp3Exporter
@@ -37,6 +38,7 @@ class BardoTaskService : Service() {
         const val EXTRA_QUICK_TEST = "quick_test"
         const val EXTRA_USER_VOICE_MIX = "user_voice_mix_available"
         const val EXTRA_USER_VOICE_WAV_PATH = "user_voice_wav_path"
+        const val EXTRA_USER_VOICE_MIXED = "user_voice_already_mixed"
         const val EXTRA_STATE = "task_state"
         const val EXTRA_MESSAGE = "task_message"
         const val EXTRA_AUDIO = "audio_path"
@@ -48,6 +50,7 @@ class BardoTaskService : Service() {
         const val KEY_MESSAGE = "message"
         const val KEY_AUDIO = "audio_path"
         const val KEY_MP3 = "mp3_path"
+        const val KEY_USER_VOICE_MIXED = "user_voice_already_mixed"
         const val KEY_HEARTBEAT = "heartbeat"
         private const val CHANNEL_ID = "bardo_audio_tasks"
         private const val NOTIFICATION_ID = 7314
@@ -223,7 +226,7 @@ class BardoTaskService : Service() {
             .putString(KEY_MESSAGE, "BARDO prepara los módulos locales.")
             .putLong("started_at", inicioMs)
             .putInt("process_pid", android.os.Process.myPid())
-            .remove(KEY_AUDIO).remove(KEY_MP3).apply()
+            .remove(KEY_AUDIO).remove(KEY_MP3).remove(KEY_USER_VOICE_MIXED).apply()
 
         val entrada = when {
             modoSolo -> Dato.Texto(prompt)
@@ -285,6 +288,16 @@ class BardoTaskService : Service() {
                     val marca = System.currentTimeMillis()
                     val estiloOriginal = Regex("(?i)Estilo\\s*:\\s*([^\\n.]+)").find(prompt)?.groupValues?.get(1) ?: prompt.take(36)
                     val nombreBase = BardoLibraryFileNaming.createBaseName(marca, estiloOriginal)
+                    if (userVoiceMixAvailable) {
+                        val resourceBlock = BardoResourceBudget.blockingReason(
+                            applicationContext,
+                            1536L * 1024L * 1024L
+                        )
+                        check(resourceBlock == null) {
+                            "No se mezclará la voz para proteger el teléfono. " +
+                                (resourceBlock ?: "Presupuesto de memoria no disponible.")
+                        }
+                    }
                     val archivo = BardoUserVoiceMixPipeline.prepareWav(
                         instrumentalWav = archivoInstrumental,
                         voiceWav = if (userVoiceMixAvailable && userVoiceWavPath != null) {
@@ -345,9 +358,10 @@ class BardoTaskService : Service() {
                     getSharedPreferences(PREFS, MODE_PRIVATE).edit()
                         .putString(KEY_STATE, "completed").putString(KEY_MESSAGE, mensajeFinal)
                         .putString(KEY_AUDIO, archivo.absolutePath).putString(KEY_MP3, mp3.absolutePath).putString("lyrics", letra)
+                        .putBoolean(KEY_USER_VOICE_MIXED, userVoiceMixAvailable)
                         .putBoolean("solo", modoSolo).putInt("elapsed", segundos).apply()
                     BardoActivityStore.record(this, taskToken, if (modoSolo) "instrumental" else "cancion", "completed", "validacion", mensajeFinal, 100, mp3.absolutePath)
-                    enviarActualizacion("completed", mensajeFinal, archivo.absolutePath, letra, segundos, mp3.absolutePath)
+                    enviarActualizacion("completed", mensajeFinal, archivo.absolutePath, letra, segundos, mp3.absolutePath, userVoiceMixAvailable)
                     actualizarNotificacion(mensajeFinal, 100)
                     Log.i("BARDO-TaskService", "WAV PCM16 válido: ${archivo.length()} bytes; MP3 válido: ${mp3.length()} bytes")
                 } catch (error: Throwable) {
@@ -420,11 +434,11 @@ class BardoTaskService : Service() {
         enviarActualizacion(estado, mensaje, "", "", 0)
     }
 
-    private fun enviarActualizacion(estado: String, mensaje: String, audio: String, lyrics: String, elapsed: Int, mp3: String = "") {
+    private fun enviarActualizacion(estado: String, mensaje: String, audio: String, lyrics: String, elapsed: Int, mp3: String = "", userVoiceAlreadyMixed: Boolean = false) {
         sendBroadcast(Intent(ACTION_UPDATE).setPackage(packageName).apply {
             putExtra(EXTRA_STATE, estado); putExtra(EXTRA_MESSAGE, mensaje); putExtra(EXTRA_AUDIO, audio)
             putExtra(EXTRA_LYRICS, lyrics); putExtra(EXTRA_SOLO, modoSolo); putExtra(EXTRA_ELAPSED, elapsed)
-            putExtra(EXTRA_MP3, mp3)
+            putExtra(EXTRA_MP3, mp3); putExtra(EXTRA_USER_VOICE_MIXED, userVoiceAlreadyMixed)
         })
     }
 

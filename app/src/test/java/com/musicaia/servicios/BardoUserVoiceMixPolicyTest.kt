@@ -27,6 +27,13 @@ class BardoUserVoiceMixPolicyTest {
     }
 
     @Test
+    fun avoidsMixingVoiceTwiceForNewServiceResultsButKeepsLegacyRecovery() {
+        assertFalse(BardoUserVoiceMixPolicy.shouldPostMixForLegacyResult(true, true))
+        assertTrue(BardoUserVoiceMixPolicy.shouldPostMixForLegacyResult(true, false))
+        assertFalse(BardoUserVoiceMixPolicy.shouldPostMixForLegacyResult(false, false))
+    }
+
+    @Test
     fun instrumentalOnlyNeverRequiresOrMixesVoice() {
         assertNull(BardoUserVoiceMixPolicy.blockReason(true, true, null, false, 0L))
         assertFalse(BardoUserVoiceMixPolicy.shouldMix(true, "/voice.wav"))

@@ -27,4 +27,13 @@ object BardoUserVoiceMixPolicy {
 
     fun shouldMix(instrumentalOnly: Boolean, voicePath: String?): Boolean =
         !instrumentalOnly && !voicePath.isNullOrBlank()
+
+    /**
+     * Older completed tasks may still contain only an instrumental and need
+     * the legacy UI mixer. New service results already contain the PCM mix.
+     */
+    fun shouldPostMixForLegacyResult(
+        requiresUserVoice: Boolean,
+        serviceAlreadyMixedVoice: Boolean
+    ): Boolean = requiresUserVoice && !serviceAlreadyMixedVoice
 }

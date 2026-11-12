@@ -76,6 +76,7 @@ import com.musicaia.modulos.ModuloInstrumental
 import com.musicaia.modulos.litert.EngineLiteRT
 import com.musicaia.modulos.litert.LiteRTLMModule
 import com.musicaia.servicios.BardoTaskService
+import com.musicaia.servicios.BardoUserVoiceMixPolicy
 import android.content.BroadcastReceiver
 import android.content.Intent
 import android.content.IntentFilter
@@ -4674,9 +4675,11 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
      val estado = intent.getStringExtra(BardoTaskService.EXTRA_STATE).orEmpty()
      val mensajeActual = intent.getStringExtra(BardoTaskService.EXTRA_MESSAGE).orEmpty()
      val audioActual = intent.getStringExtra(BardoTaskService.EXTRA_AUDIO).orEmpty()
+     val vozYaMezcladaPorServicio = intent.getBooleanExtra(BardoTaskService.EXTRA_USER_VOICE_MIXED, false)
      getSharedPreferences(BardoTaskService.PREFS, MODE_PRIVATE).edit()
          .putString(BardoTaskService.KEY_STATE, estado)
          .putString(BardoTaskService.KEY_MESSAGE, mensajeActual)
+         .putBoolean(BardoTaskService.KEY_USER_VOICE_MIXED, vozYaMezcladaPorServicio)
          .apply {
              if (audioActual.isNotBlank()) putString(BardoTaskService.KEY_AUDIO, audioActual)
          }
@@ -4703,8 +4706,14 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
              rutaAudio = mp3.takeIf { it.isNotBlank() && File(it).isFile && File(it).length() > 1024L } ?: audio
              rutaMp3Compartir = mp3.takeIf { it.isNotBlank() && File(it).isFile && File(it).length() > 128L }
              btnCompartir.visibility = View.GONE
-             if (requiereMezclaVozUsuario()) mezclarVozUsuario(audio, letra)
-             else archivarTareaEnCarpetaBardo(audio, mp3, letra, solo)
+             if (BardoUserVoiceMixPolicy.shouldPostMixForLegacyResult(
+                     requiereMezclaVozUsuario(), vozYaMezcladaPorServicio
+                 )
+             ) {
+                 mezclarVozUsuario(audio, letra)
+             } else {
+                 archivarTareaEnCarpetaBardo(audio, mp3, letra, solo)
+             }
              btnReproducir.visibility = View.VISIBLE
              btnGuardar.visibility = View.VISIBLE
              val mp3Info = if (rutaAudio != audio) "${File(rutaAudio!!).length()} bytes · MP3 320 kbps" else "MP3 no disponible"
@@ -4820,8 +4829,15 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                  rutaAudio = mp3.takeIf { it.isNotBlank() && File(it).isFile } ?: audio
                  rutaMp3Compartir = mp3.takeIf { it.isNotBlank() && File(it).isFile && File(it).length() > 128L }
                  btnCompartir.visibility = View.GONE
-                 if (requiereMezclaVozUsuario()) mezclarVozUsuario(audio, prefs.getString("lyrics", "").orEmpty())
-                 else archivarTareaEnCarpetaBardo(audio, mp3, prefs.getString("lyrics", "").orEmpty(), prefs.getBoolean("solo", false))
+                 val vozYaMezcladaPorServicio = prefs.getBoolean(BardoTaskService.KEY_USER_VOICE_MIXED, false)
+                 if (BardoUserVoiceMixPolicy.shouldPostMixForLegacyResult(
+                         requiereMezclaVozUsuario(), vozYaMezcladaPorServicio
+                     )
+                 ) {
+                     mezclarVozUsuario(audio, prefs.getString("lyrics", "").orEmpty())
+                 } else {
+                     archivarTareaEnCarpetaBardo(audio, mp3, prefs.getString("lyrics", "").orEmpty(), prefs.getBoolean("solo", false))
+                 }
                  rutaInstrumental = audio
                  btnReproducir.visibility = View.VISIBLE
                  btnGuardar.visibility = View.VISIBLE

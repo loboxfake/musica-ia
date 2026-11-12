@@ -8,6 +8,7 @@ import java.io.RandomAccessFile
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import java.util.concurrent.CancellationException
 import org.junit.Test
 
 class MezclaVozTest {
@@ -254,6 +255,64 @@ class MezclaVozTest {
             assertEquals(0, decoded.muestras[0].toInt())
             assertEquals(3000, decoded.muestras[1].toInt())
             assertEquals(10000, decoded.muestras[2].toInt())
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+
+    @Test
+    fun wavReaderStopsBetweenPcmReadBlocksWhenCancelled() {
+        val dir = createTempDir(prefix = "bardo-wav-cancel-read-")
+        try {
+            val wav = File(dir, "long.wav")
+            AudioUtil.escribirWavMono16(wav.absolutePath, 44100, 20_000) { _, count ->
+                ShortArray(count) { 100 }
+            }
+            var checks = 0
+            try {
+                LectorWav.leer(wav.absolutePath) {
+                    checks += 1
+                    checks >= 3
+                }
+                throw AssertionError("El lector debía interrumpirse entre bloques PCM.")
+            } catch (_: CancellationException) {
+                assertTrue(checks >= 3)
+            }
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun mixerDeletesTemporaryWavWhenCancelledDuringOutput() {
+        val dir = createTempDir(prefix = "bardo-mixer-cancel-write-")
+        try {
+            val voice = File(dir, "voice.wav")
+            val instrumental = File(dir, "instrumental.wav")
+            val output = File(dir, "mixed.wav")
+            AudioUtil.escribirWavMono16(voice.absolutePath, 44100, 20_000) { _, count ->
+                ShortArray(count) { 1000 }
+            }
+            AudioUtil.escribirWavMono16(instrumental.absolutePath, 44100, 20_000) { _, count ->
+                ShortArray(count) { 2000 }
+            }
+            var checks = 0
+            try {
+                MezclaVoz.mezclar(
+                    voice.absolutePath,
+                    instrumental.absolutePath,
+                    output.absolutePath
+                ) {
+                    checks += 1
+                    checks >= 14
+                }
+                throw AssertionError("La mezcla debía cancelarse al escribir su WAV temporal.")
+            } catch (_: CancellationException) {
+                assertTrue(checks >= 14)
+            }
+            assertFalse(output.exists())
+            assertTrue(dir.listFiles().orEmpty().none { it.name.startsWith("bardo_voice_mix_") })
         } finally {
             dir.deleteRecursively()
         }

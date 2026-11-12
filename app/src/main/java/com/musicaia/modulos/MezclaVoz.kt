@@ -20,7 +20,16 @@ object LectorWav {
     const val MAX_FILE_BYTES = 120L * 1024L * 1024L
     private const val MAX_FRAMES_PER_FILE = 32_000_000L
 
-    fun leer(ruta: String): AudioPcm {
+    fun leer(
+        ruta: String,
+        isCancellationRequested: () -> Boolean = { false }
+    ): AudioPcm {
+        fun checkCancellation() {
+            if (isCancellationRequested()) {
+                throw java.util.concurrent.CancellationException("La lectura WAV fue cancelada.")
+            }
+        }
+        checkCancellation()
         val file = File(ruta)
         require(file.isFile) { "no existe el archivo WAV" }
         val fileLength = file.length()
@@ -114,6 +123,7 @@ object LectorWav {
             val bloqueBytes = ByteArray(framesPorBloque * expectedBlockAlign)
             var frameOffset = 0
             while (frameOffset < muestras.size) {
+                checkCancellation()
                 val cantidadFrames = minOf(framesPorBloque, muestras.size - frameOffset)
                 val cantidadBytes = cantidadFrames * expectedBlockAlign
                 input.readFully(bloqueBytes, 0, cantidadBytes)
@@ -183,9 +193,9 @@ object MezclaVoz {
             salidaCanonica != archivoInstrumental.canonicalFile
         ) { "El archivo de salida no puede sobrescribir la voz ni el instrumental originales." }
 
-        val voz = LectorWav.leer(rutaVoz)
+        val voz = LectorWav.leer(rutaVoz, isCancellationRequested)
         comprobarCancelacion()
-        val ins = LectorWav.leer(rutaInstrumental)
+        val ins = LectorWav.leer(rutaInstrumental, isCancellationRequested)
         comprobarCancelacion()
         val frec = ins.frecuencia
         val razon = voz.frecuencia.toDouble() / frec
