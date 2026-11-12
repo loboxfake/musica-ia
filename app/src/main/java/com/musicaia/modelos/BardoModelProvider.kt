@@ -280,24 +280,37 @@ class BardoModelRegistry(providers: List<BardoModelProvider>) {
                         throw cancelled
                     } catch (error: OutOfMemoryError) {
                         failures += provider.descriptor.id + ": memoria insuficiente durante carga o inferencia."
-                        runCatching { provider.unload() }
+                        unloadAfterFailure(provider, error)
                         runCatching { System.gc() }
                     } catch (error: LinkageError) {
                         // Una biblioteca JNI ausente/incompatible invalida este proveedor,
                         // pero permite probar otro proveedor local compatible.
                         failures += provider.descriptor.id + ": enlace nativo no disponible (" +
                             (error.message ?: error.javaClass.simpleName) + ")"
-                        runCatching { provider.unload() }
+                        unloadAfterFailure(provider, error)
                     } catch (error: Exception) {
                         failures += provider.descriptor.id + ": " +
                             (error.message ?: error.javaClass.simpleName)
-                        runCatching { provider.unload() }
+                        unloadAfterFailure(provider, error)
                     }
                 }
                 throw IllegalStateException(
                     "Ningún proveedor pudo completar la petición. " + failures.joinToString("; ")
                 )
             }
+        }
+    }
+
+    private fun unloadAfterFailure(provider: BardoModelProvider, primary: Throwable) {
+        try {
+            provider.unload()
+        } catch (cleanup: Throwable) {
+            if (cleanup !== primary) primary.addSuppressed(cleanup)
+            throw IllegalStateException(
+                "No se pudo liberar de forma segura el proveedor " + provider.descriptor.id +
+                    "; se detiene el fallback para evitar solapar runtimes nativos.",
+                primary
+            )
         }
     }
 
