@@ -6,6 +6,7 @@ import com.musicaia.modelo.Dato
 import java.io.File
 import java.io.RandomAccessFile
 import org.junit.Assert.assertArrayEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import java.util.concurrent.CancellationException
