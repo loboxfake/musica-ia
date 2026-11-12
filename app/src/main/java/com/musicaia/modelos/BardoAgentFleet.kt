@@ -74,7 +74,7 @@ class BardoProviderAgentInvoker(
         get() = provider.descriptor
 
     override fun complete(prompt: String): BardoModelResponse =
-        BardoResourceCoordinator.withTextModel {
+        BardoResourceCoordinator.withTextModel(appContext) {
             val availability = provider.inspect(appContext)
             check(
                 availability.state == BardoModelState.READY ||
