@@ -74,6 +74,42 @@ class BardoGuidedResponseParserTest {
         assertTrue(parsed.updates.isEmpty())
     }
 
+    @Test fun negatedSpanishChangeDoesNotOverwriteAnExistingPreference() {
+        val existing = mapOf("estilo" to "pop")
+        val json = """{"fields":{"style":{"value":"rock","evidence":"rock","change":true}},"reply":"Entendido."}"""
+        val parsed = BardoGuidedResponseParser.parse(
+            json, "No quiero cambiar el estilo a rock", existing
+        )!!
+        assertTrue(parsed.updates.isEmpty())
+    }
+
+    @Test fun negatedEnglishChangeDoesNotOverwriteAnExistingPreference() {
+        val existing = mapOf("estilo" to "pop")
+        val json = """{"fields":{"style":{"value":"rock","evidence":"rock","change":true}},"reply":"Understood."}"""
+        val parsed = BardoGuidedResponseParser.parse(
+            json, "I don't want to change the style to rock", existing
+        )!!
+        assertTrue(parsed.updates.isEmpty())
+    }
+
+    @Test fun affirmativeSpanishChangeStillAllowsAnExplicitPreferenceUpdate() {
+        val existing = mapOf("estilo" to "pop")
+        val json = """{"fields":{"style":{"value":"rock","evidence":"rock","change":true}},"reply":"De acuerdo."}"""
+        val parsed = BardoGuidedResponseParser.parse(
+            json, "Cambia el estilo a rock", existing
+        )!!
+        assertEquals("rock", parsed.updates["estilo"])
+    }
+
+    @Test fun commaSeparatedNoDoesNotCancelAnAffirmativeSpanishCorrection() {
+        val existing = mapOf("estilo" to "pop")
+        val json = """{"fields":{"style":{"value":"rock","evidence":"rock","change":true}},"reply":"De acuerdo."}"""
+        val parsed = BardoGuidedResponseParser.parse(
+            json, "No, quiero cambiar el estilo a rock", existing
+        )!!
+        assertEquals("rock", parsed.updates["estilo"])
+    }
+
     @Test fun normalizesSongLanguageAndRejectsUnsupportedSongLanguages() {
         val spanish = """{"fields":{"language":{"value":"Spanish","evidence":"Spanish"}},"reply":"¿Qué estilo?"}"""
         val french = """{"fields":{"language":{"value":"French","evidence":"French"}},"reply":"Choose Spanish or English."}"""
