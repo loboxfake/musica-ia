@@ -62,6 +62,7 @@ object LectorWav {
 
                 when (id) {
                     "fmt " -> {
+                        require(formato == -1) { "el WAV contiene más de un chunk fmt" }
                         require(tamLong >= 16L) { "chunk fmt incompleto" }
                         input.seek(inicioLong)
                         formato = readUnsignedShortLe(input)
@@ -71,7 +72,8 @@ object LectorWav {
                         blockAlign = readUnsignedShortLe(input)
                         bits = readUnsignedShortLe(input)
                     }
-                    "data" -> if (inicioDatos < 0L) {
+                    "data" -> {
+                        require(inicioDatos < 0L) { "el WAV contiene más de un chunk data" }
                         inicioDatos = inicioLong
                         tamDatos = tamLong
                     }
