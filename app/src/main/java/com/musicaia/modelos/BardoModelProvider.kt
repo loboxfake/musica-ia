@@ -301,6 +301,12 @@ class BardoModelRegistry(providers: List<BardoModelProvider>) {
         }
     }
 
+    fun unloadAll() = BardoResourceCoordinator.withTextModel {
+        synchronized(executionLock) {
+            providersById.values.forEach { provider -> provider.unload() }
+        }
+    }
+
     fun unloadAll(context: Context) = BardoResourceCoordinator.withTextModel(context) {
         synchronized(executionLock) {
             providersById.values.forEach { provider -> provider.unload() }
