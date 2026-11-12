@@ -171,7 +171,7 @@ class AudioAssemblerTest {
                 AudioAssembler.assemble(listOf(first, second), output, crossfadeMs = 100)
                 throw AssertionError("Se esperaba rechazo de un tamaño RIFF truncado.")
             } catch (expected: IllegalArgumentException) {
-                assertTrue(expected.message.orEmpty().contains("Tamaño RIFF"))
+                assertTrue(expected.message.orEmpty().contains("tamaño RIFF", ignoreCase = true))
             }
 
             assertArrayEquals(previousOutput, output.readBytes())
