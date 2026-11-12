@@ -111,6 +111,7 @@ class MainActivity : AppCompatActivity() {
  private var mezclaPistasPendiente: File? = null
  @Volatile private var mezclaPistasEnCurso = false
  @Volatile private var transcripcionAudioEnCurso = false
+ @Volatile private var transcripcionAudioCancelacion: java.util.concurrent.atomic.AtomicBoolean? = null
  private var rutaExportacionTemporal = false
  private var rutaMp3Compartir: String? = null
  private var rutaVoz: String? = null
@@ -2236,13 +2237,15 @@ private fun crearConversacionNueva() {
       BardoActivityStore.record(this, taskId, "analisis_audio", "running", asrMode,
           "Preparando el reconocimiento local en " + language.label + "; sin servicios en la nube.", 5, archivo.absolutePath)
       tvEstado.text = "Preparando transcripción offline en " + language.label + "..."
+      val cancellation = java.util.concurrent.atomic.AtomicBoolean(false)
+      transcripcionAudioCancelacion = cancellation
       val appContext = applicationContext
       Thread({
               val result = runCatching {
                   val modelDir = if (BardoOfflineAsr.isModelInstalled(appContext, language)) {
                       BardoOfflineAsr.modelDirectory(appContext, language)
                   } else {
-                      BardoOfflineAsr.downloadAndInstall(appContext, language) { percentage ->
+                      BardoOfflineAsr.downloadAndInstall(appContext, language, cancelled = cancellation) { percentage ->
                           runOnUiThread {
                               if (!isFinishing && !isDestroyed) tvEstado.text =
                                   "Descargando modelo Vosk " + language.label + ": " + percentage + "% · validación SHA-256 al finalizar"
@@ -2254,7 +2257,7 @@ private fun crearConversacionNueva() {
                       require(resourceBlock == null) {
                           resourceBlock ?: "Los recursos disponibles no permiten ejecutar el ASR de forma segura."
                       }
-                      BardoOfflineAsr.transcribeMediaFile(modelDir, archivo) { percentage ->
+                      BardoOfflineAsr.transcribeMediaFile(modelDir, archivo, cancelled = cancellation) { percentage ->
                       runOnUiThread {
                           if (!isFinishing && !isDestroyed) tvEstado.text =
                               "Transcribiendo audio en " + language.label + ": " + percentage + "%"
@@ -2264,6 +2267,7 @@ private fun crearConversacionNueva() {
               }
               runOnUiThread {
                   transcripcionAudioEnCurso = false
+                  if (transcripcionAudioCancelacion === cancellation) transcripcionAudioCancelacion = null
                   if (isFinishing || isDestroyed) return@runOnUiThread
                   val transcript = result.getOrNull()
                   if (transcript == null) {
@@ -4334,6 +4338,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
  override fun onDestroy() {
      // A generation must not continue loading multi-gigabyte graphs after its Activity disappears.
      cancelacionImagenEnCurso?.set(true)
+     transcripcionAudioCancelacion?.set(true)
      avatarResetRunnable?.let { handler.removeCallbacks(it) }
 
      chatHeightListener?.let { listener ->
