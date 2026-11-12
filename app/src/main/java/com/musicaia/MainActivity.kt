@@ -2958,6 +2958,10 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                  tvEstado.text = "Espera a que termine la inferencia de texto antes de cargar el modelo de imágenes."
                  return@setOnClickListener
              }
+             if (ocupado) {
+                 tvEstado.text = "BARDO está ejecutando una tarea de audio. La generación de imágenes esperará a que termine."
+                 return@setOnClickListener
+             }
              if (transcripcionAudioEnCurso || mezclaPistasEnCurso) {
                  tvEstado.text = "Hay una operación de audio activa. La generación de imágenes esperará para no competir por memoria."
                  return@setOnClickListener
