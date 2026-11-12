@@ -277,7 +277,7 @@ class BardoTaskService : Service() {
                     val nombreBase = "BARDO_${fechaArchivo}_${estiloArchivo}"
                     val mp3 = java.io.File(biblioteca, "$nombreBase.mp3")
                     val temporal = java.io.File(biblioteca, "$nombreBase.mp3.part")
-                    val codificado = Mp3Exporter.encodeWavToMp3(archivo.absolutePath, temporal.absolutePath, 320)
+                    val codificado = Mp3Exporter.encodeValidatedWavToMp3(archivo.absolutePath, temporal.absolutePath, 320)
                     if (!codificado || !temporal.isFile || temporal.length() < 1024L) {
                         temporal.delete()
                         throw IllegalStateException("Falló la conversión WAV a MP3 320 kbps o el archivo resultante no es válido.")
