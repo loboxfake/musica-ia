@@ -321,7 +321,8 @@ class BardoTaskService : Service() {
                 } catch (error: Throwable) {
                     Log.e("BARDO-TaskService", "Falló la tarea de BARDO", error)
                     val estado = BardoTaskLifecyclePolicy.terminalState(cancelacionSolicitada.get(), error)
-                    val mensaje = "${error.javaClass.simpleName}: ${error.message ?: "Error sin detalle"}"
+                    val detalleError = error.message ?: "Error sin detalle"
+                    val mensaje = "${error.javaClass.simpleName}: $detalleError"
                     getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_STATE, estado).putString(KEY_MESSAGE, mensaje).apply()
                     runCatching {
                         BardoActivityStore.record(this, taskToken, if (modoSolo) "instrumental" else "cancion", estado,
