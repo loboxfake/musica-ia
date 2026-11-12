@@ -17,6 +17,8 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.security.MessageDigest
 import java.util.Locale
+import java.util.concurrent.CancellationException
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.zip.ZipInputStream
 
 /** Reconocimiento local de voz en español e inglés para adjuntos decodificables por Android. */
@@ -56,6 +58,12 @@ object BardoOfflineAsr {
     internal fun decoderIdleExpired(lastProgressNanos: Long, nowNanos: Long): Boolean =
         nowNanos - lastProgressNanos >= MAX_DECODER_IDLE_MILLIS * 1_000_000L
 
+    internal fun checkNotCancelled(cancelled: AtomicBoolean?) {
+        if (cancelled?.get() == true) {
+            throw CancellationException("Transcripción offline cancelada.")
+        }
+    }
+
     fun modelDirectory(context: Context, language: Language = Language.SPANISH): File =
         File(File(context.filesDir, "bardo_models"), language.directoryName)
 
@@ -71,8 +79,10 @@ object BardoOfflineAsr {
     fun downloadAndInstall(
         context: Context,
         language: Language = Language.SPANISH,
+        cancelled: AtomicBoolean? = null,
         onProgress: (Int) -> Unit = {}
     ): File {
+        checkNotCancelled(cancelled)
         val target = modelDirectory(context, language)
         if (hasModelLayout(target)) return target
         val parent = target.parentFile ?: error("No se pudo resolver la carpeta del modelo.")
@@ -110,6 +120,7 @@ object BardoOfflineAsr {
                 FileOutputStream(archive).use { output ->
                     val buffer = ByteArray(64 * 1024)
                     while (true) {
+                        checkNotCancelled(cancelled)
                         val count = input.read(buffer)
                         if (count < 0) break
                         copied += count
@@ -131,6 +142,7 @@ object BardoOfflineAsr {
             val rootPath = staging.canonicalPath
             ZipInputStream(archive.inputStream().buffered()).use { zip ->
                 while (true) {
+                    checkNotCancelled(cancelled)
                     val entry = zip.nextEntry ?: break
                     entries++
                     require(entries <= MAX_ARCHIVE_ENTRIES) { "El modelo contiene demasiadas entradas ZIP." }
@@ -151,6 +163,7 @@ object BardoOfflineAsr {
                         FileOutputStream(outputFile).use { output ->
                             val buffer = ByteArray(32 * 1024)
                             while (true) {
+                                checkNotCancelled(cancelled)
                                 val count = zip.read(buffer)
                                 if (count < 0) break
                                 expanded += count
@@ -210,11 +223,17 @@ object BardoOfflineAsr {
     }
 
     /** Decodifica el primer flujo de audio usando códecs Android y transmite PCM a Vosk. */
-    fun transcribeMediaFile(modelDirectory: File, mediaFile: File, onProgress: (Int) -> Unit = {}): String {
+    fun transcribeMediaFile(
+        modelDirectory: File,
+        mediaFile: File,
+        cancelled: AtomicBoolean? = null,
+        onProgress: (Int) -> Unit = {}
+    ): String {
         require(hasModelLayout(modelDirectory)) { "El modelo Vosk no está instalado o está incompleto." }
         require(mediaFile.isFile && mediaFile.length() in 1..MAX_MEDIA_BYTES) {
             "El audio no existe, está vacío o supera el límite de 100 MB."
         }
+        checkNotCancelled(cancelled)
         // Track native resources before constructing the next one. If MediaExtractor
         // construction fails after Vosk has loaded, the model is still closed in finally.
         var model: Model? = null
@@ -276,6 +295,7 @@ object BardoOfflineAsr {
             val info = MediaCodec.BufferInfo()
             var lastCodecProgressNanos = System.nanoTime()
             while (!outputDone) {
+                checkNotCancelled(cancelled)
                 check(!decoderIdleExpired(lastCodecProgressNanos, System.nanoTime())) {
                     "El decodificador de Android no avanzó durante ${MAX_DECODER_IDLE_MILLIS / 1000L} segundos. Se ha detenido la transcripción para no retener recursos indefinidamente."
                 }
@@ -306,6 +326,7 @@ object BardoOfflineAsr {
                     }
                     outputIndex >= 0 -> {
                         if (info.size > 0) {
+                            checkNotCancelled(cancelled)
                             if (sampleRate == 0) applyOutputFormat(codec.outputFormat)
                             val output = codec.getOutputBuffer(outputIndex) ?: error("Búfer de salida no disponible.")
                             val chunk = output.duplicate().order(ByteOrder.LITTLE_ENDIAN).apply {
