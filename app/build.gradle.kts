@@ -120,6 +120,8 @@ dependencies {
     implementation("com.google.mlkit:image-labeling:17.0.9")
     // ASR local; el modelo español es opcional y se instala con autorización del usuario.
     implementation("com.alphacephei:vosk-android:0.3.75")
+    // ONNX Runtime Android para el backend local de modelos DiffSinger.
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.31.1")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")

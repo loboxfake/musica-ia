@@ -18,6 +18,7 @@ class BardoCapabilityRegistryTest {
         assertEquals(BardoCapabilityRegistry.Status.NEEDS_MODEL, items.getValue("general_chat").status)
         assertEquals(BardoCapabilityRegistry.Status.NEEDS_MODEL, items.getValue("autonomous_developer").status)
         assertEquals(BardoCapabilityRegistry.Status.NEEDS_FULL_APK, items.getValue("instrumental").status)
+        assertEquals(BardoCapabilityRegistry.Status.INTEGRATED, items.getValue("voice_engine_runtime").status)
         assertEquals(BardoCapabilityRegistry.Status.NOT_IMPLEMENTED, items.getValue("voice_synthesis").status)
         assertEquals(BardoCapabilityRegistry.Status.NOT_IMPLEMENTED, items.getValue("stem_separation").status)
     }

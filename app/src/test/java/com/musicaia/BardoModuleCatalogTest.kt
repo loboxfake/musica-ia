@@ -82,6 +82,8 @@ class BardoModuleCatalogTest {
         val modules = BardoModuleCatalog.descriptors().associateBy { it.id }
         assertEquals(true, modules.getValue("voice_mix_user").implemented)
         assertEquals("voice_mix_user", modules.getValue("voice_mix_user").capabilityId)
+        assertEquals(true, modules.getValue("voice_engine_runtime").implemented)
+        assertEquals("MIT", modules.getValue("voice_engine_runtime").license)
         assertEquals(false, modules.getValue("voice_synthesis").implemented)
         assertEquals(false, modules.getValue("stem_separation").implemented)
     }
