@@ -123,9 +123,9 @@ class BardoTaskService : Service() {
         when (intent?.action) {
             ACTION_CANCEL -> {
                 if (!ejecutando) {
-                    cancelacionSolicitada.set(true)
-                    publicarEstado("cancelled", "No hay ninguna tarea activa que cancelar.")
-                    stopSelfResult(startId)
+                    // Puede llegar el toque de cancelar justo después de terminar el worker
+                    // y antes de que su cierre en el hilo principal retire la notificación.
+                    if (activeTaskId.isBlank()) stopSelfResult(startId)
                 } else {
                     cancelacionSolicitada.set(true)
                     orquestador.cancelar()
@@ -329,10 +329,12 @@ class BardoTaskService : Service() {
                     }.onFailure { Log.e("BARDO-TaskService", "No se pudo guardar el resultado de la tarea", it) }
                     enviarActualizacion(estado, mensaje, "", "", 0)
                 } finally {
-                    ejecutando = false
                     detenerLatido()
                     runCatching { heartbeatFile.delete() }
                     runCatching { orquestador.stop() }
+                    // Mantener el bloqueo hasta completar toda la limpieza evita
+                    // que una segunda tarea herede el cierre de la anterior.
+                    ejecutando = false
                     android.os.Handler(mainLooper).post {
                         if (BardoTaskLifecyclePolicy.mayFinalize(activeTaskId, taskToken, ejecutando)) {
                             activeTaskId = ""
