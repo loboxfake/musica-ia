@@ -34,60 +34,88 @@ uint32_t read32le(const unsigned char* p) {
 }
 
 bool inspectWav(std::ifstream& input, WavInfo& info) {
+    input.seekg(0, std::ios::end);
+    const std::streamoff fileSize = static_cast<std::streamoff>(input.tellg());
+    if (!input || fileSize < 44) return false;
+    input.clear();
+    input.seekg(0, std::ios::beg);
+
     char riff[4] = {};
+    unsigned char riffSizeBytes[4] = {};
     char wave[4] = {};
-    uint32_t riffSize = 0;
     input.read(riff, 4);
-    input.read(reinterpret_cast<char*>(&riffSize), sizeof(riffSize));
+    input.read(reinterpret_cast<char*>(riffSizeBytes), sizeof(riffSizeBytes));
     input.read(wave, 4);
     if (!input || std::memcmp(riff, "RIFF", 4) != 0 ||
         std::memcmp(wave, "WAVE", 4) != 0) return false;
 
+    const uint32_t riffSize = read32le(riffSizeBytes);
+    const uint64_t riffEnd = 8ULL + static_cast<uint64_t>(riffSize);
+    if (riffSize < 4U || riffEnd > static_cast<uint64_t>(fileSize)) return false;
+
     bool haveFormat = false;
     bool haveData = false;
-    while (input && !(haveFormat && haveData)) {
+    uint32_t byteRate = 0;
+    uint16_t blockAlign = 0;
+    uint64_t offset = 12ULL;
+
+    while (offset < riffEnd) {
+        if (riffEnd - offset < 8ULL ||
+            offset > static_cast<uint64_t>(std::numeric_limits<std::streamoff>::max())) {
+            return false;
+        }
+
+        input.clear();
+        input.seekg(static_cast<std::streamoff>(offset), std::ios::beg);
         char chunkId[4] = {};
-        uint32_t chunkSize = 0;
+        unsigned char chunkSizeBytes[4] = {};
         input.read(chunkId, 4);
-        if (!input) break;
-        input.read(reinterpret_cast<char*>(&chunkSize), sizeof(chunkSize));
+        input.read(reinterpret_cast<char*>(chunkSizeBytes), sizeof(chunkSizeBytes));
         if (!input) return false;
-        const std::streamoff chunkStart = static_cast<std::streamoff>(input.tellg());
+
+        const uint32_t chunkSize = read32le(chunkSizeBytes);
+        const uint64_t chunkStart = offset + 8ULL;
+        const uint64_t chunkEnd = chunkStart + static_cast<uint64_t>(chunkSize);
+        if (chunkEnd < chunkStart || chunkEnd > riffEnd ||
+            chunkEnd > static_cast<uint64_t>(fileSize)) return false;
 
         if (std::memcmp(chunkId, "fmt ", 4) == 0) {
-            if (chunkSize < 16) return false;
+            if (haveFormat || chunkSize < 16U) return false;
             unsigned char fmt[16] = {};
             input.read(reinterpret_cast<char*>(fmt), sizeof(fmt));
             if (!input) return false;
+
             info.format = read16le(fmt);
             info.channels = read16le(fmt + 2);
             info.sampleRate = read32le(fmt + 4);
+            byteRate = read32le(fmt + 8);
+            blockAlign = read16le(fmt + 12);
             info.bitsPerSample = read16le(fmt + 14);
             haveFormat = true;
         } else if (std::memcmp(chunkId, "data", 4) == 0) {
-            info.dataOffset = chunkStart;
+            if (haveData || !haveFormat) return false;
+            info.dataOffset = static_cast<std::streamoff>(chunkStart);
             info.dataBytes = chunkSize;
             haveData = true;
         }
 
-        const std::streamoff next = chunkStart +
-            static_cast<std::streamoff>(chunkSize) +
-            static_cast<std::streamoff>(chunkSize & 1U);
-        input.clear();
-        input.seekg(next, std::ios::beg);
+        const uint64_t next = chunkEnd + static_cast<uint64_t>(chunkSize & 1U);
+        if (next > riffEnd) return false;
+        offset = next;
     }
 
-    input.clear();
-    input.seekg(0, std::ios::end);
-    const std::streamoff fileSize = static_cast<std::streamoff>(input.tellg());
-    if (!haveFormat || !haveData || info.dataOffset < 12 ||
-        info.dataOffset + static_cast<std::streamoff>(info.dataBytes) > fileSize) return false;
-
-    if (info.format != 1 || info.bitsPerSample != 16 ||
+    if (offset != riffEnd || !haveFormat || !haveData ||
+        info.format != 1 || info.bitsPerSample != 16 ||
         (info.channels != 1 && info.channels != 2) ||
         info.sampleRate < 32000 || info.sampleRate > 48000 ||
-        info.dataBytes == 0 ||
-        info.dataBytes % (static_cast<uint32_t>(info.channels) * 2U) != 0) return false;
+        info.dataBytes == 0) return false;
+
+    const uint16_t expectedBlockAlign =
+        static_cast<uint16_t>(info.channels * sizeof(int16_t));
+    const uint64_t expectedByteRate =
+        static_cast<uint64_t>(info.sampleRate) * expectedBlockAlign;
+    if (blockAlign != expectedBlockAlign || byteRate != expectedByteRate ||
+        info.dataBytes % expectedBlockAlign != 0U) return false;
 
     input.clear();
     input.seekg(info.dataOffset, std::ios::beg);
