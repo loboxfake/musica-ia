@@ -121,6 +121,44 @@ class LectorWavMalformedInputTest {
         }
     }
 
+
+    @Test
+    fun rejectsDuplicateFormatAndDataChunksWithoutRejectingReorderedData() {
+        val directory = createTempDir(prefix = "bardo-wav-duplicate-chunks-")
+        try {
+            val base = buildWav(
+                channels = 1,
+                sampleRate = 44100,
+                samples = shortArrayOf(100, 200, 300)
+            )
+            val fmtChunk = base.copyOfRange(12, 36)
+            val dataChunk = base.copyOfRange(36, base.size)
+
+            val duplicateFmtBytes = ByteArray(base.size + fmtChunk.size)
+            System.arraycopy(base, 0, duplicateFmtBytes, 0, 36)
+            System.arraycopy(fmtChunk, 0, duplicateFmtBytes, 36, fmtChunk.size)
+            System.arraycopy(dataChunk, 0, duplicateFmtBytes, 60, dataChunk.size)
+            ByteBuffer.wrap(duplicateFmtBytes).order(ByteOrder.LITTLE_ENDIAN)
+                .putInt(4, duplicateFmtBytes.size - 8)
+            val duplicateFmt = File(directory, "duplicate-fmt.wav")
+            duplicateFmt.writeBytes(duplicateFmtBytes)
+            val fmtError = runCatching { LectorWav.leer(duplicateFmt.absolutePath) }.exceptionOrNull()
+            assertTrue(fmtError is IllegalArgumentException)
+            assertTrue(fmtError?.message.orEmpty().contains("más de un chunk fmt"))
+
+            val duplicateDataBytes = base + dataChunk
+            ByteBuffer.wrap(duplicateDataBytes).order(ByteOrder.LITTLE_ENDIAN)
+                .putInt(4, duplicateDataBytes.size - 8)
+            val duplicateData = File(directory, "duplicate-data.wav")
+            duplicateData.writeBytes(duplicateDataBytes)
+            val dataError = runCatching { LectorWav.leer(duplicateData.absolutePath) }.exceptionOrNull()
+            assertTrue(dataError is IllegalArgumentException)
+            assertTrue(dataError?.message.orEmpty().contains("más de un chunk data"))
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
     private fun buildWav(
         channels: Int,
         sampleRate: Int,
