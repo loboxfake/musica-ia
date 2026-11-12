@@ -1,7 +1,7 @@
 package com.musicaia.servicios
 
 import com.musicaia.modulos.AudioUtil
-import com.musicaia.modulos.LectorWav
+import com.musicaia.modulos.BardoWavHeaderValidator
 import java.io.File
 import java.util.concurrent.CancellationException
 import org.junit.Assert.assertArrayEquals
@@ -35,10 +35,18 @@ class BardoUserVoiceMixPipelineTest {
 
             assertEquals(output.canonicalFile, finalWav.canonicalFile)
             assertTrue(finalWav.isFile && finalWav.length() > 44L)
-            val mixed = LectorWav.leer(finalWav.absolutePath)
-            assertEquals(44100, mixed.frecuencia)
-            assertEquals(8, mixed.muestras.size)
-            assertTrue(mixed.muestras.all { it.toInt() in 1990..2010 })
+            val mixed = BardoWavHeaderValidator.inspect(finalWav)
+            assertEquals(44100, mixed.sampleRate)
+            assertEquals(2, mixed.channels)
+            assertEquals(16, mixed.bitsPerSample)
+            assertEquals(8L * 2L * 2L, mixed.dataBytes)
+            val bytes = finalWav.readBytes()
+            val frameThreeLeft = java.nio.ByteBuffer.wrap(bytes).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+                .getShort(44 + 3 * 4).toInt()
+            val frameThreeRight = java.nio.ByteBuffer.wrap(bytes).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+                .getShort(44 + 3 * 4 + 2).toInt()
+            assertTrue(frameThreeLeft in 1990..2010)
+            assertTrue(frameThreeRight in 1990..2010)
             assertArrayEquals(originalVoice, voice.readBytes())
             assertArrayEquals(originalInstrumental, instrumental.readBytes())
             assertFalse(dir.listFiles().orEmpty().any { it.name.startsWith("bardo_voice_mix_") })

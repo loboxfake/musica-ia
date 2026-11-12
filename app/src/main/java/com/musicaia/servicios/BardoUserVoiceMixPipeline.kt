@@ -2,7 +2,7 @@ package com.musicaia.servicios
 
 import com.musicaia.modulos.BardoWavHeaderValidator
 import com.musicaia.modulos.LectorWav
-import com.musicaia.modulos.MezclaVoz
+import com.musicaia.modulos.BardoStereoVoiceMixer
 import java.io.File
 import java.util.concurrent.CancellationException
 
@@ -43,13 +43,13 @@ object BardoUserVoiceMixPipeline {
         }
         checkCancellation()
 
-        val result = MezclaVoz.mezclar(
-            rutaVoz = voiceWav.absolutePath,
-            rutaInstrumental = instrumentalWav.absolutePath,
-            rutaSalida = outputWav.absolutePath,
+        val result = BardoStereoVoiceMixer.mix(
+            voiceFile = voiceWav,
+            instrumentalFile = instrumentalWav,
+            outputFile = outputWav,
             isCancellationRequested = isCancellationRequested
         )
-        val mixedWav = File(result.rutaWav)
+        val mixedWav = result.output
         if (isCancellationRequested()) {
             // La ruta de salida es exclusiva de esta tarea; las fuentes quedan intactas.
             mixedWav.delete()
