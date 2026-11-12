@@ -1,6 +1,9 @@
 package com.musicaia.modulos
 
 import java.io.File
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 
 /** Exportación PCM WAV -> MP3 mediante LAME nativo, sin servicios ni red. */
 object Mp3Exporter {
@@ -36,7 +39,29 @@ object Mp3Exporter {
         require(input != output) { "La salida MP3 no puede sobrescribir el WAV original." }
         validateInputWav(input)
         check(available) { "El codificador MP3 nativo no está disponible en esta compilación." }
-        return encodeWavToMp3(input.absolutePath, output.absolutePath, bitrateKbps)
+        val directory = output.parentFile ?: File(".")
+        check(directory.isDirectory || directory.mkdirs()) {
+            "No se pudo crear el directorio de salida MP3."
+        }
+        val temporary = File.createTempFile("bardo_mp3_", ".mp3.tmp", directory)
+        try {
+            if (!encodeWavToMp3(input.absolutePath, temporary.absolutePath, bitrateKbps)) {
+                return false
+            }
+            val encodedBytes = temporary.length()
+            if (!temporary.isFile || encodedBytes <= 128L) return false
+            try {
+                Files.move(
+                    temporary.toPath(), output.toPath(),
+                    StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING
+                )
+            } catch (_: AtomicMoveNotSupportedException) {
+                Files.move(temporary.toPath(), output.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            }
+            return output.isFile && output.length() == encodedBytes
+        } finally {
+            temporary.delete()
+        }
     }
 
     /** Codifica WAV PCM16 mono/estéreo a MP3 CBR (128..320 kbps). */
