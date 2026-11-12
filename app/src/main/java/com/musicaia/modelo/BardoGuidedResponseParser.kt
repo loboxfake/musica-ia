@@ -62,18 +62,18 @@ object BardoGuidedResponseParser {
         // A quoted value is not an affirmative preference merely because it appears
         // verbatim in the message. Keep negative creative preferences out of state.
         if (field !in setOf("tema", "estilo", "ambiente", "ritmo", "idioma")) return false
-        val normalizedMessage = java.text.Normalizer.normalize(
-            message.lowercase(Locale.ROOT), java.text.Normalizer.Form.NFD
-        ).replace(Regex("""\\p{Mn}+"""), "")
-        val normalizedEvidence = java.text.Normalizer.normalize(
-            evidence.lowercase(Locale.ROOT), java.text.Normalizer.Form.NFD
-        ).replace(Regex("""\\p{Mn}+"""), "").trim()
+        fun normalize(value: String): String = java.text.Normalizer.normalize(
+            value.lowercase(Locale.ROOT), java.text.Normalizer.Form.NFD
+        ).replace(Regex("""\p{Mn}+"""), "")
+        val normalizedMessage = normalize(message)
+        val normalizedEvidence = normalize(evidence).trim()
         if (normalizedEvidence.isBlank()) return false
         val valuePattern = Regex.escape(normalizedEvidence)
-        return Regex(
-            """\\b(?:no\\s+(?:quiero|deseo|me\\s+gusta|prefiero)|no\\s+quiero\\s+que\\s+sea|i\\s+(?:do\\s+not|don't|dont)\\s+(?:want|like|prefer)|not\\s+looking\\s+for)\\b[^.!?]{0,100}\\b$valuePattern\\b""",
+        val negativePrefix = Regex(
+            """\b(?:no\s+(?:quiero|deseo|me\s+gusta|prefiero)|i\s+(?:do\s+not|don't|dont)\s+(?:want|like|prefer)|not\s+looking\s+for)\b[^.!?]{0,100}\b$valuePattern\b""",
             RegexOption.IGNORE_CASE
-        ).containsMatchIn(normalizedMessage)
+        )
+        return negativePrefix.containsMatchIn(normalizedMessage)
     }
 
     private fun containsExplicitCorrection(message: String): Boolean {
