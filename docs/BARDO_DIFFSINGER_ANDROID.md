@@ -5,15 +5,15 @@
 Esta rama añade la primera capa Android del motor:
 
 - ONNX Runtime Android 1.31.1, fijado en Gradle.
-- Inspector seguro de paquetes DiffSinger: dsconfig.yaml, acústico ONNX, inventario de fonemas, diccionario español dsdict-es.yaml/dsdict.yaml, tabla de idiomas, modelos auxiliares declarados, modelo ONNX del vocoder y compatibilidad de sample_rate/hop_size/FFT/mel.
+- Inspector seguro de paquetes DiffSinger: dsconfig.yaml, acústico ONNX, inventario de fonemas validado (UTF-8 estricto, símbolos únicos, IDs estables y SP obligatorio), diccionario español dsdict-es.yaml/dsdict.yaml, tabla de idiomas, modelos auxiliares declarados, modelo ONNX del vocoder y compatibilidad de sample_rate/hop_size/FFT/mel.
 - Rechazo de rutas que escapen del directorio de la voz y de nombres de paquetes de vocoder inseguros.
 - Prueba de carga de la sesión ONNX acústica con límites conservadores de memoria y cierre determinista de recursos.
-- Constructor de entradas temporales DiffSinger: tokens, silencios SP, duraciones en frames y curva F0 por nota MIDI, con validación de solapamientos y límites.
+- Lector independiente del inventario phonemes.txt: límite de tamaño y número de símbolos, rechazo de duplicados/controles/UTF-8 inválido y asignación de IDs por orden de archivo. El inspector solo acepta voicebanks cuyo inventario sea válido y contenga SP.\n- Constructor de entradas temporales DiffSinger: tokens, silencios SP, duraciones en frames y curva F0 por nota MIDI, con validación de solapamientos y límites.
 - Registro separado del runtime ONNX y de la síntesis cantada.
 
 ## Límites explícitos
 
-Esto NO es todavía un sintetizador cantado completo. Abrir el grafo acústico no ejecuta inferencia. Faltan portar el fonemizador/G2P español, conectar las entradas a los tensores ONNX con los parámetros de cada modelo, ejecutar las inferencias acústica y del vocoder, y ensamblar el WAV. El inspector ya exige que la voicebank aporte el diccionario fonético español y valida la existencia y compatibilidad declarada de los modelos. Por eso `voice_synthesis` permanece `NOT_IMPLEMENTED` y no se habilita el flujo de creación con voz IA.
+Esto NO es todavía un sintetizador cantado completo. Abrir el grafo acústico no ejecuta inferencia. Faltan portar el fonemizador/G2P español, conectar las entradas a los tensores ONNX con los parámetros de cada modelo, ejecutar las inferencias acústica y del vocoder, y ensamblar el WAV. El inspector ya exige que la voicebank aporte el diccionario fonético español y valida el inventario de fonemas y la existencia y compatibilidad declarada de los modelos. Por eso `voice_synthesis` permanece `NOT_IMPLEMENTED` y no se habilita el flujo de creación con voz IA.
 
 La rama activa V2 de OpenUtau Mobile es una referencia técnica Apache-2.0, pero su propia matriz clasifica DiffSinger Android como condicional y su README advierte que la rama está en desarrollo. No se copia ni redistribuye ninguna voicebank de terceros en esta integración. Cada voz deberá tener licencia de uso y redistribución comprobada, además de consentimiento cuando corresponda.
 
