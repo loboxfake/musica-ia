@@ -3476,7 +3476,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
          .putBoolean("image_generation_running", activa)
          .putInt("image_generation_pid", if (activa) android.os.Process.myPid() else 0)
          .putLong("image_generation_started_at", now)
-         .commit()
+         .apply()
  }
 
  private fun hayGeneracionImagenIAActiva(): Boolean {
