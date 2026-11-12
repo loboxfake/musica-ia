@@ -30,6 +30,13 @@ internal fun <T> awaitFuture(future: Future<T>): T {
     }
 }
 
+/** No reintentar en CPU tras una cancelación o una falta real de memoria. */
+internal object LiteRtFallbackPolicy {
+    fun shouldRetryCpu(error: Throwable): Boolean =
+        error !is java.util.concurrent.CancellationException &&
+            error !is OutOfMemoryError
+}
+
 /**
  * Una Engine y una Conversation, siempre serializadas en el mismo hilo.
  * withSession ejecuta una secuencia completa como una sola tarea del executor,
@@ -102,7 +109,7 @@ object EngineLiteRT {
                 // Engine puede reservar memoria nativa antes de que initialize()
                 // termine. Cierra también los candidatos parcialmente inicializados.
                 if (!transferidoAlRuntime) runCatching { candidato?.close() }
-                if (error is OutOfMemoryError) {
+                if (!LiteRtFallbackPolicy.shouldRetryCpu(error)) {
                     cerrarInterno()
                     throw error
                 }
@@ -132,7 +139,7 @@ object EngineLiteRT {
         try {
             return actual.sendMessage(prompt, maxOutputToken = 900).toString()
         } catch (error: Throwable) {
-            if (error is OutOfMemoryError) {
+            if (!LiteRtFallbackPolicy.shouldRetryCpu(error)) {
                 cerrarInterno()
                 throw error
             }
