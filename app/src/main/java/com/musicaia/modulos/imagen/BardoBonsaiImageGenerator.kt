@@ -2,6 +2,7 @@ package com.musicaia.modulos.imagen
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -90,8 +91,13 @@ object BardoBonsaiImageGenerator {
             } finally {
                 bitmap.recycle()
             }
-            check(temporary.isFile && temporary.length() > 100_000L) {
-                "La portada temporal no superó la validación de archivo."
+            check(temporary.isFile && temporary.length() > 1_024L) {
+                "La portada temporal no contiene un PNG válido."
+            }
+            val pngBounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(temporary.absolutePath, pngBounds)
+            check(pngBounds.outWidth == 512 && pngBounds.outHeight == 512) {
+                "La portada PNG no tiene las dimensiones verificadas de 512×512."
             }
             check(!cancelled.get()) { "Generación de imagen cancelada por el usuario." }
             val size = temporary.length()
