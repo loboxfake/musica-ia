@@ -118,7 +118,7 @@ class ModuloInstrumental(
     }
 
     override fun ejecutar(entrada: Dato): Dato =
-        com.musicaia.modelo.BardoResourceCoordinator.withAudioModel {
+        com.musicaia.modelo.BardoResourceCoordinator.withAudioModel(ctx) {
             AudioGenNative.withGenerationSession { ejecutarConSesion(entrada) }
         }
 
