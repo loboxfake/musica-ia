@@ -274,10 +274,20 @@ class BardoModelRegistry(providers: List<BardoModelProvider>) {
                             "El proveedor " + provider.descriptor.id + " no pudo cargarse."
                         }
                         return@synchronized provider.generate(context, request)
+                    } catch (cancelled: java.util.concurrent.CancellationException) {
+                        // La cancelación pertenece a la petición del usuario: nunca debe
+                        // iniciar silenciosamente otro modelo ni prolongar el trabajo.
+                        throw cancelled
                     } catch (error: OutOfMemoryError) {
                         failures += provider.descriptor.id + ": memoria insuficiente durante carga o inferencia."
                         runCatching { provider.unload() }
                         runCatching { System.gc() }
+                    } catch (error: LinkageError) {
+                        // Una biblioteca JNI ausente/incompatible invalida este proveedor,
+                        // pero permite probar otro proveedor local compatible.
+                        failures += provider.descriptor.id + ": enlace nativo no disponible (" +
+                            (error.message ?: error.javaClass.simpleName) + ")"
+                        runCatching { provider.unload() }
                     } catch (error: Exception) {
                         failures += provider.descriptor.id + ": " +
                             (error.message ?: error.javaClass.simpleName)
