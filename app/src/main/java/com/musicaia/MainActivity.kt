@@ -3284,6 +3284,18 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
         return
     }
 
+    if (creacionMusicalEnCurso && BardoIntentRouter.isNegatedCreativeChange(texto)) {
+        val siguiente = siguienteCampoPendiente()
+        val continuacion = if (siguiente != null) {
+            preguntaParaCampo(siguiente)
+        } else {
+            resumenCreacionGuiada()
+        }
+        anexarChat("\nTú: $texto\nBARDO: De acuerdo. No modificaré tus preferencias guardadas porque has indicado que no quieres cambiarlas. $continuacion")
+        actualizarAvatar(BardoAvatarState.IDLE)
+        return
+    }
+
     if (intent == BardoIntentRouter.Intent.CHANGE_CREATION) {
         val requestedField = BardoIntentRouter.requestedFieldChangeWithoutValue(texto)
         if (requestedField != null) {
