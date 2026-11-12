@@ -102,7 +102,7 @@ class BardoWavMultitrackMixerTest {
                 .putInt(4, duplicateDataBytes.size - 8)
             duplicateData.writeBytes(duplicateDataBytes)
 
-            listOf(duplicateFmt, dataBeforeFmt, duplicateData).forEach { invalid ->
+            listOf(duplicateFmt, duplicateData).forEach { invalid ->
                 assertThrows(IllegalArgumentException::class.java) {
                     BardoWavMultitrackMixer.mix(
                         listOf(BardoWavMultitrackMixer.Track(good), BardoWavMultitrackMixer.Track(invalid)),
@@ -110,6 +110,14 @@ class BardoWavMultitrackMixerTest {
                     )
                 }
             }
+
+            val reorderedOutput = File(dir, "valid-data-first-output.wav")
+            val reordered = BardoWavMultitrackMixer.mix(
+                listOf(BardoWavMultitrackMixer.Track(good), BardoWavMultitrackMixer.Track(dataBeforeFmt)),
+                reorderedOutput
+            )
+            assertTrue(reordered.output.isFile)
+            assertEquals(4L, reordered.frames)
         } finally {
             dir.deleteRecursively()
         }
