@@ -58,6 +58,47 @@ class OrquestadorTest {
     }
 
     @Test
+    fun queuedCallbacksFromPreviousExecutionAreDiscarded() {
+        val pendingCallbacks = mutableListOf<() -> Unit>()
+        val orchestrator = Orquestador { callback -> pendingCallbacks += callback }
+        val previousListener = CountingListener()
+        val currentListener = CountingListener()
+
+        orchestrator.setListener(previousListener)
+        orchestrator.ejecutarModulos(
+            listOf(TrackingModule("anterior")),
+            Dato.Texto("entrada")
+        )
+
+        orchestrator.setListener(currentListener)
+        orchestrator.ejecutarModulos(
+            listOf(TrackingModule("actual")),
+            Dato.Texto("entrada")
+        )
+
+        pendingCallbacks.forEach { it() }
+
+        assertEquals("Los callbacks antiguos no deben alcanzar al listener anterior.", 0, previousListener.callbackCount)
+        assertTrue("La ejecución actual debe notificar a su listener.", currentListener.callbackCount > 0)
+    }
+
+    private class CountingListener : Orquestador.ProgresoListener {
+        var callbackCount = 0
+
+        override fun onProgreso(paso: String, progreso: Float, mensaje: String) {
+            callbackCount++
+        }
+
+        override fun onCompletado(resultados: List<Pair<String, Dato>>) {
+            callbackCount++
+        }
+
+        override fun onError(mensaje: String) {
+            callbackCount++
+        }
+    }
+
+    @Test
     fun testTiposModuloEnum() {
         assertEquals(5, TipoModulo.values().size)
         assertTrue(TipoModulo.values().contains(TipoModulo.MEZCLA))
