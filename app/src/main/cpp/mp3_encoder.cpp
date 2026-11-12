@@ -93,7 +93,8 @@ bool inspectWav(std::ifstream& input, WavInfo& info) {
             info.bitsPerSample = read16le(fmt + 14);
             haveFormat = true;
         } else if (std::memcmp(chunkId, "data", 4) == 0) {
-            if (haveData || !haveFormat) return false;
+            // RIFF chunk order is not fixed; format fields are validated after the scan.
+            if (haveData) return false;
             info.dataOffset = static_cast<std::streamoff>(chunkStart);
             info.dataBytes = chunkSize;
             haveData = true;
