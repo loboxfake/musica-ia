@@ -15,6 +15,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BardoModelRegistryTest {
+    private fun testContext(): android.content.Context =
+        object : android.content.ContextWrapper(null) {
+            override fun getNoBackupFilesDir() =
+                java.nio.file.Files.createTempDirectory("bardo-registry-test").toFile()
+        }
+
     private class StubProvider(override val descriptor: BardoModelDescriptor) : BardoModelProvider {
         override fun inspect(context: Context) =
             BardoModelAvailability(BardoModelState.PRESENT_UNVERIFIED, "stub")
@@ -55,7 +61,7 @@ class BardoModelRegistryTest {
         ))
         val registry = BardoModelRegistry(listOf(provider))
         val response = registry.generate(
-            android.content.ContextWrapper(null),
+            testContext(),
             "chat",
             BardoModelRequest("responde")
         )
@@ -87,7 +93,7 @@ class BardoModelRegistryTest {
             override fun unload() = Unit
         }
         val response = BardoModelRegistry(listOf(blocked, qwen)).generate(
-            android.content.ContextWrapper(null), "chat", BardoModelRequest("hola")
+            testContext(), "chat", BardoModelRequest("hola")
         )
         assertEquals("qwen", response.providerId)
         assertEquals("respuesta local", response.text)
@@ -109,7 +115,7 @@ class BardoModelRegistryTest {
             "small", "1", setOf("chat"), BardoModelLocation.LOCAL, "test", null, null, 80
         ))
         val response = BardoModelRegistry(listOf(exhausted, fallback)).generate(
-            android.content.ContextWrapper(null), "chat", BardoModelRequest("hola")
+            testContext(), "chat", BardoModelRequest("hola")
         )
         assertEquals("small", response.providerId)
     }
@@ -149,7 +155,7 @@ class BardoModelRegistryTest {
             "portable", "1", setOf("chat"), BardoModelLocation.LOCAL, "test", null, null, 80
         ))
         val response = BardoModelRegistry(listOf(brokenNative, fallback)).generate(
-            android.content.ContextWrapper(null), "chat", BardoModelRequest("hola")
+            testContext(), "chat", BardoModelRequest("hola")
         )
         assertEquals("portable", response.providerId)
     }
@@ -182,7 +188,7 @@ class BardoModelRegistryTest {
         }
         val result = runCatching {
             BardoModelRegistry(listOf(cancelled, fallback)).generate(
-                android.content.ContextWrapper(null), "chat", BardoModelRequest("hola")
+                testContext(), "chat", BardoModelRequest("hola")
             )
         }
         assertTrue(result.exceptionOrNull() is java.util.concurrent.CancellationException)
