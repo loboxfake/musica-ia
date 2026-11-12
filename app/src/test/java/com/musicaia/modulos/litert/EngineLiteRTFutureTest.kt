@@ -45,4 +45,14 @@ class EngineLiteRTFutureTest {
         assertSame(error, actual?.cause)
         assertEquals("La operación LiteRT falló.", actual?.message)
     }
+
+    @Test fun cancellationAndOutOfMemoryDoNotTriggerGpuToCpuRetry() {
+        assertTrue(!LiteRtFallbackPolicy.shouldRetryCpu(CancellationException("user cancelled")))
+        assertTrue(!LiteRtFallbackPolicy.shouldRetryCpu(OutOfMemoryError("not enough RAM")))
+    }
+
+    @Test fun ordinaryAndNativeLinkageFailuresCanRetryCpu() {
+        assertTrue(LiteRtFallbackPolicy.shouldRetryCpu(IllegalStateException("GPU unavailable")))
+        assertTrue(LiteRtFallbackPolicy.shouldRetryCpu(UnsatisfiedLinkError("GPU driver unavailable")))
+    }
 }
