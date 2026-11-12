@@ -43,7 +43,7 @@ object BardoResourceCoordinator {
             } finally {
                 // Si una operación de primer nivel falla (incluido OOM),
                 // libera cualquier carga parcial del runtime solicitado.
-                val mustRelease = previous == null && !completed
+                val mustRelease = !completed
                 if (mustRelease) {
                     runCatching { releaseRuntime(resource) }
                 }
