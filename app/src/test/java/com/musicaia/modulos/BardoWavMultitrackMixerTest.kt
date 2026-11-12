@@ -3,6 +3,7 @@ package com.musicaia.modulos
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertThrows
@@ -49,14 +50,16 @@ class BardoWavMultitrackMixerTest {
         val output=File(dir,"output.wav")
         createWav(good,16000,shortArrayOf(1000,1000))
         bad.writeBytes(ByteArray(64) { 0x41.toByte() })
+        val previous = byteArrayOf(7, 1, 9, 3, 8)
+        output.writeBytes(previous)
         assertThrows(IllegalArgumentException::class.java) {
             BardoWavMultitrackMixer.mix(
                 listOf(BardoWavMultitrackMixer.Track(good),BardoWavMultitrackMixer.Track(bad)),
                 output
             )
         }
-        assertTrue(!output.exists())
-        assertTrue(!File(dir,"output.wav.tmp").exists())
+        assertArrayEquals(previous, output.readBytes())
+        assertTrue(dir.listFiles().orEmpty().none { it.name.startsWith("bardo_multitrack_") })
     }
 
     @Test fun rejectsSingleTrackAndSilence() {
@@ -64,5 +67,51 @@ class BardoWavMultitrackMixerTest {
         createWav(a,16000,shortArrayOf(0,0,0,0)); createWav(b,16000,shortArrayOf(0,0,0,0))
         assertThrows(IllegalArgumentException::class.java) { BardoWavMultitrackMixer.mix(listOf(BardoWavMultitrackMixer.Track(a)),File(dir,"one.wav")) }
         assertThrows(IllegalArgumentException::class.java) { BardoWavMultitrackMixer.mix(listOf(BardoWavMultitrackMixer.Track(a),BardoWavMultitrackMixer.Track(b)),File(dir,"zero.wav")) }
+    }
+
+    @Test fun rejectsDuplicateAndOutOfOrderChunksUsingTheSharedParser() {
+        val dir = createTempDir(prefix = "bardo-mix-chunk-order-")
+        try {
+            val good = File(dir, "good.wav")
+            val duplicateFmt = File(dir, "duplicate-fmt.wav")
+            val dataBeforeFmt = File(dir, "data-before-fmt.wav")
+            val duplicateData = File(dir, "duplicate-data.wav")
+            createWav(good, 16000, shortArrayOf(1000, 1000, 1000, 1000))
+            val base = good.readBytes()
+            val fmtChunk = base.copyOfRange(12, 36)
+            val dataChunk = base.copyOfRange(36, base.size)
+
+            val duplicateFmtBytes = ByteArray(base.size + fmtChunk.size)
+            System.arraycopy(base, 0, duplicateFmtBytes, 0, 36)
+            System.arraycopy(fmtChunk, 0, duplicateFmtBytes, 36, fmtChunk.size)
+            System.arraycopy(dataChunk, 0, duplicateFmtBytes, 60, dataChunk.size)
+            ByteBuffer.wrap(duplicateFmtBytes).order(ByteOrder.LITTLE_ENDIAN)
+                .putInt(4, duplicateFmtBytes.size - 8)
+            duplicateFmt.writeBytes(duplicateFmtBytes)
+
+            val dataFirstBytes = ByteArray(base.size)
+            System.arraycopy(base, 0, dataFirstBytes, 0, 12)
+            System.arraycopy(dataChunk, 0, dataFirstBytes, 12, dataChunk.size)
+            System.arraycopy(fmtChunk, 0, dataFirstBytes, 12 + dataChunk.size, fmtChunk.size)
+            ByteBuffer.wrap(dataFirstBytes).order(ByteOrder.LITTLE_ENDIAN)
+                .putInt(4, dataFirstBytes.size - 8)
+            dataBeforeFmt.writeBytes(dataFirstBytes)
+
+            val duplicateDataBytes = base + dataChunk
+            ByteBuffer.wrap(duplicateDataBytes).order(ByteOrder.LITTLE_ENDIAN)
+                .putInt(4, duplicateDataBytes.size - 8)
+            duplicateData.writeBytes(duplicateDataBytes)
+
+            listOf(duplicateFmt, dataBeforeFmt, duplicateData).forEach { invalid ->
+                assertThrows(IllegalArgumentException::class.java) {
+                    BardoWavMultitrackMixer.mix(
+                        listOf(BardoWavMultitrackMixer.Track(good), BardoWavMultitrackMixer.Track(invalid)),
+                        File(dir, "must-not-publish-${invalid.name}")
+                    )
+                }
+            }
+        } finally {
+            dir.deleteRecursively()
+        }
     }
 }
