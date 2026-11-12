@@ -196,7 +196,9 @@ object BardoIntentRouter {
                     normalized == "instrumental only" || normalized == "without vocals" -> "solo instrumental"
                 normalized.contains("both vocals and instrumental") -> "ambas (voz e instrumental)"
                 normalized.contains("ambas") || normalized.contains("voz e instrumental") -> "ambas (voz e instrumental)"
-                normalized == "voice" || normalized == "vocals" || normalized == "with vocals" -> "voz"
+                normalized == "voice" || normalized == "vocals" || normalized == "with vocals" ||
+                    normalized == "cantada" || normalized == "cantado" || normalized == "con canto" ||
+                    normalized == "cancion cantada" || normalized == "vocal" -> "voz"
                 else -> value
             }
         }
