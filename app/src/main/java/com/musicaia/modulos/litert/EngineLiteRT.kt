@@ -143,7 +143,10 @@ object EngineLiteRT {
                 cerrarInterno()
                 throw error
             }
-            if (!backendGpu) throw error
+            if (!backendGpu) {
+                cerrarInterno()
+                throw error
+            }
             val path = modelPath ?: throw error
             val cache = cachePath ?: throw error
             cerrarInterno()
@@ -164,8 +167,13 @@ object EngineLiteRT {
                 // Si la inicialización falla, el Engine no llegó al runtime y se
                 // libera explícitamente. Si falló la inferencia por OOM, cerrarInterno
                 // libera la sesión CPU que ya habíamos transferido.
-                if (!transferidoAlRuntime) runCatching { cpu.close() }
-                if (cpuError is OutOfMemoryError) cerrarInterno()
+                if (!transferidoAlRuntime) {
+                    runCatching { cpu.close() }
+                } else {
+                    // A failed CPU inference may leave the conversation unusable
+                    // even when the failure was not an OOM.
+                    cerrarInterno()
+                }
                 throw cpuError
             }
         }
