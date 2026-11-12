@@ -132,4 +132,60 @@ class BardoModelRegistryTest {
         val two = StubProvider(BardoModelDescriptor("same", "2", setOf("chat"), BardoModelLocation.LOCAL, "x", null, null))
         assertTrue(runCatching { BardoModelRegistry(listOf(one, two)) }.isFailure)
     }
+
+    @Test fun fallsBackWhenNativeLibraryLinkageFails() {
+        val brokenNative = object : BardoModelProvider {
+            override val descriptor = BardoModelDescriptor(
+                "broken_jni", "1", setOf("chat"), BardoModelLocation.LOCAL, "test", null, null, 100
+            )
+            override fun inspect(context: Context) =
+                BardoModelAvailability(BardoModelState.PRESENT_UNVERIFIED, "modelo presente")
+            override fun load(context: Context) = true
+            override fun generate(context: Context, request: BardoModelRequest): BardoModelResponse =
+                throw UnsatisfiedLinkError("native runtime unavailable")
+            override fun unload() = Unit
+        }
+        val fallback = StubProvider(BardoModelDescriptor(
+            "portable", "1", setOf("chat"), BardoModelLocation.LOCAL, "test", null, null, 80
+        ))
+        val response = BardoModelRegistry(listOf(brokenNative, fallback)).generate(
+            android.content.ContextWrapper(null), "chat", BardoModelRequest("hola")
+        )
+        assertEquals("portable", response.providerId)
+    }
+
+    @Test fun cancellationDoesNotStartAnotherProvider() {
+        var fallbackCalled = false
+        val cancelled = object : BardoModelProvider {
+            override val descriptor = BardoModelDescriptor(
+                "cancelled", "1", setOf("chat"), BardoModelLocation.LOCAL, "test", null, null, 100
+            )
+            override fun inspect(context: Context) =
+                BardoModelAvailability(BardoModelState.PRESENT_UNVERIFIED, "modelo presente")
+            override fun load(context: Context) = true
+            override fun generate(context: Context, request: BardoModelRequest): BardoModelResponse =
+                throw java.util.concurrent.CancellationException("user cancelled")
+            override fun unload() = Unit
+        }
+        val fallback = object : BardoModelProvider {
+            override val descriptor = BardoModelDescriptor(
+                "must_not_run", "1", setOf("chat"), BardoModelLocation.LOCAL, "test", null, null, 80
+            )
+            override fun inspect(context: Context) =
+                BardoModelAvailability(BardoModelState.PRESENT_UNVERIFIED, "modelo presente")
+            override fun load(context: Context) = true
+            override fun generate(context: Context, request: BardoModelRequest): BardoModelResponse {
+                fallbackCalled = true
+                return BardoModelResponse("incorrect", descriptor.id, descriptor.version, 1L)
+            }
+            override fun unload() = Unit
+        }
+        val result = runCatching {
+            BardoModelRegistry(listOf(cancelled, fallback)).generate(
+                android.content.ContextWrapper(null), "chat", BardoModelRequest("hola")
+            )
+        }
+        assertTrue(result.exceptionOrNull() is java.util.concurrent.CancellationException)
+        assertTrue(!fallbackCalled)
+    }
 }
