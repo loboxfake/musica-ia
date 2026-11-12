@@ -73,6 +73,14 @@ class BardoOfflineAsrTest {
     }
 
     @Test
+    fun emptyNonEosCodecBuffersDoNotResetTheIdleTimeout() {
+        assertFalse(BardoOfflineAsr.decoderOutputAdvances(0, endOfStream = false))
+        assertTrue(BardoOfflineAsr.decoderOutputAdvances(1, endOfStream = false))
+        assertTrue(BardoOfflineAsr.decoderOutputAdvances(0, endOfStream = true))
+        assertTrue(BardoOfflineAsr.decoderOutputAdvances(4096, endOfStream = true))
+    }
+
+    @Test
     fun offlineSpeechCancellationIsCooperativeAndExplicit() {
         BardoOfflineAsr.checkNotCancelled(null)
         BardoOfflineAsr.checkNotCancelled(AtomicBoolean(false))
