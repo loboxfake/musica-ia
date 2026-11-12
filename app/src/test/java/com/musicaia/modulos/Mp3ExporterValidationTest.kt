@@ -4,7 +4,9 @@ import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.file.Files
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -59,6 +61,61 @@ class Mp3ExporterValidationTest {
             }.exceptionOrNull()
             assertTrue(bitrateError is IllegalArgumentException)
             assertTrue(bitrateError?.message.orEmpty().contains("128 y 320"))
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+
+    @Test fun publishesEncodedMp3AtomicallyAndConsumesTheTemporaryFile() {
+        val directory = Files.createTempDirectory("bardo-mp3-publish").toFile()
+        try {
+            val temporary = File(directory, "encoded.part")
+            val output = File(directory, "existing.mp3")
+            val encoded = ByteArray(512) { index -> (index % 127).toByte() }
+            temporary.writeBytes(encoded)
+            output.writeBytes(byteArrayOf(9, 8, 7, 6))
+
+            assertTrue(Mp3Exporter.publishEncodedFile(temporary, output))
+
+            assertArrayEquals(encoded, output.readBytes())
+            assertFalse(temporary.exists())
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test fun refusesShortMp3AndPreservesTheExistingDestination() {
+        val directory = Files.createTempDirectory("bardo-mp3-short").toFile()
+        try {
+            val temporary = File(directory, "short.part")
+            val output = File(directory, "existing.mp3")
+            val previous = byteArrayOf(7, 3, 1, 4, 1, 5)
+            temporary.writeBytes(ByteArray(128) { 1 })
+            output.writeBytes(previous)
+
+            assertFalse(Mp3Exporter.publishEncodedFile(temporary, output))
+
+            assertArrayEquals(previous, output.readBytes())
+            assertTrue(temporary.isFile)
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test fun rejectsUsingTheSameFileAsTemporaryAndFinalMp3() {
+        val directory = Files.createTempDirectory("bardo-mp3-same-path").toFile()
+        try {
+            val file = File(directory, "same.mp3")
+            file.writeBytes(ByteArray(256) { 2 })
+
+            val error = runCatching {
+                Mp3Exporter.publishEncodedFile(file, file)
+            }.exceptionOrNull()
+
+            assertTrue(error is IllegalArgumentException)
+            assertTrue(error?.message.orEmpty().contains("deben ser diferentes"))
+            assertEquals(256L, file.length())
         } finally {
             directory.deleteRecursively()
         }
