@@ -19,7 +19,7 @@ import kotlin.concurrent.withLock
  * procesos, por lo que no quedan leases obsoletos tras un crash.
  */
 object BardoResourceCoordinator {
-    enum class Resource { TEXT_MODEL, AUDIO_MODEL, IMAGE_MODEL }
+    enum class Resource { TEXT_MODEL, AUDIO_MODEL, IMAGE_MODEL, SPEECH_MODEL }
 
     private val transitionLock = ReentrantLock(true)
     private val activeResource = ThreadLocal<Resource?>()
@@ -44,6 +44,10 @@ object BardoResourceCoordinator {
     /** Reserva el runtime pesado de imágenes, incluido frente al proceso :audio. */
     fun <T> withImageModel(context: Context, action: () -> T): T =
         withResource(Resource.IMAGE_MODEL, context, action)
+
+    /** Reserva RAM y motores nativos para reconocimiento Vosk/MediaCodec. */
+    fun <T> withSpeechModel(context: Context, action: () -> T): T =
+        withResource(Resource.SPEECH_MODEL, context, action)
 
     private fun <T> withResource(
         resource: Resource,
@@ -105,7 +109,7 @@ object BardoResourceCoordinator {
         when (requested) {
             Resource.TEXT_MODEL -> AudioGenNative.releaseCachedModels()
             Resource.AUDIO_MODEL -> EngineLiteRT.cerrar()
-            Resource.IMAGE_MODEL -> {
+            Resource.IMAGE_MODEL, Resource.SPEECH_MODEL -> {
                 EngineLiteRT.cerrar()
                 AudioGenNative.releaseCachedModels()
             }
@@ -116,8 +120,8 @@ object BardoResourceCoordinator {
         when (resource) {
             Resource.TEXT_MODEL -> EngineLiteRT.cerrar()
             Resource.AUDIO_MODEL -> AudioGenNative.releaseCachedModels()
-            // The Bonsai pipeline owns and closes its own native runtime.
-            Resource.IMAGE_MODEL -> Unit
+            // Bonsai closes each Interpreter graph; Vosk closes Recognizer and Model.
+            Resource.IMAGE_MODEL, Resource.SPEECH_MODEL -> Unit
         }
     }
 }
