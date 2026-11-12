@@ -62,4 +62,76 @@ class BardoResourceCoordinatorTest {
         }
         assertNull(BardoResourceCoordinator.currentResourceForCurrentThread())
     }
+
+    @Test
+    fun serializesImageInferenceAgainstTextAndAudioModels() {
+        val enteredImage = CountDownLatch(1)
+        val releaseImage = CountDownLatch(1)
+        val textFinished = CountDownLatch(1)
+        val audioFinished = CountDownLatch(1)
+        val active = AtomicInteger(0)
+        val maximum = AtomicInteger(0)
+
+        fun recordEntry() {
+            val now = active.incrementAndGet()
+            maximum.updateAndGet { previous -> maxOf(previous, now) }
+        }
+
+        val image = Thread {
+            BardoResourceCoordinator.withImageModel {
+                recordEntry()
+                assertEquals(
+                    BardoResourceCoordinator.Resource.IMAGE_MODEL,
+                    BardoResourceCoordinator.currentResourceForCurrentThread()
+                )
+                enteredImage.countDown()
+                check(releaseImage.await(3, TimeUnit.SECONDS))
+                active.decrementAndGet()
+            }
+        }
+        image.start()
+        assertTrue(enteredImage.await(2, TimeUnit.SECONDS))
+
+        val text = Thread {
+            BardoResourceCoordinator.withTextModel {
+                recordEntry()
+                active.decrementAndGet()
+                textFinished.countDown()
+            }
+        }
+        val audio = Thread {
+            BardoResourceCoordinator.withAudioModel {
+                recordEntry()
+                active.decrementAndGet()
+                audioFinished.countDown()
+            }
+        }
+        text.start()
+        audio.start()
+
+        Thread.sleep(150)
+        assertEquals("Image inference must hold the exclusive heavy-runtime lease.", 1, maximum.get())
+        assertTrue(!textFinished.await(100, TimeUnit.MILLISECONDS))
+        assertTrue(!audioFinished.await(100, TimeUnit.MILLISECONDS))
+
+        releaseImage.countDown()
+        assertTrue(textFinished.await(3, TimeUnit.SECONDS))
+        assertTrue(audioFinished.await(3, TimeUnit.SECONDS))
+        image.join(1000)
+        text.join(1000)
+        audio.join(1000)
+        assertEquals(1, maximum.get())
+    }
+
+    @Test
+    fun restoresResourceStateAfterImageInference() {
+        assertNull(BardoResourceCoordinator.currentResourceForCurrentThread())
+        BardoResourceCoordinator.withImageModel {
+            assertEquals(
+                BardoResourceCoordinator.Resource.IMAGE_MODEL,
+                BardoResourceCoordinator.currentResourceForCurrentThread()
+            )
+        }
+        assertNull(BardoResourceCoordinator.currentResourceForCurrentThread())
+    }
 }
