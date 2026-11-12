@@ -230,4 +230,37 @@ class BardoGuidedProgressPolicyTest {
     fun rejectsQuestionsWithoutARecognizedFieldLabel() {
         assertTrue(!BardoGuidedProgressPolicy.asksAboutRequiredField("¿Qué prefieres?", "estilo"))
     }
+
+    @Test
+    fun rejectsFavoriteEnglishMusicAsSongLanguageQuestion() {
+        assertTrue(
+            !BardoGuidedProgressPolicy.asksAboutRequiredField(
+                "Do you like English music?",
+                "idioma"
+            )
+        )
+    }
+
+    @Test
+    fun acceptsQuestionsThatExplicitlyAskWhichLanguageTheSongShouldUse() {
+        assertTrue(
+            BardoGuidedProgressPolicy.asksAboutRequiredField(
+                "Would you like the song in English?",
+                "idioma"
+            )
+        )
+        assertTrue(
+            BardoGuidedProgressPolicy.asksAboutRequiredField(
+                "¿La quieres en español?",
+                "idioma"
+            )
+        )
+        assertTrue(
+            BardoGuidedProgressPolicy.asksAboutRequiredField(
+                "Which language would you prefer?",
+                "idioma"
+            )
+        )
+    }
+
 }
