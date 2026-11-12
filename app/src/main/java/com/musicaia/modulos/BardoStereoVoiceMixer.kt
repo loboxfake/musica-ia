@@ -63,8 +63,8 @@ object BardoStereoVoiceMixer {
             outputFile.canonicalFile != instrumentalFile.canonicalFile
         ) { "La salida no puede sobrescribir una pista original." }
 
-        val voice = readPcm(voiceFile, checkCancellation)
-        val instrumental = readPcm(instrumentalFile, checkCancellation)
+        val voice = readPcm(voiceFile, ::checkCancellation)
+        val instrumental = readPcm(instrumentalFile, ::checkCancellation)
         checkCancellation()
 
         val rate = instrumental.sampleRate
