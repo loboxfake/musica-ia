@@ -111,6 +111,32 @@ class BardoGuidedProgressPolicyTest {
     }
 
     @Test
+    fun rejectsAQuestionAboutFavoriteSongsAsAThemePrompt() {
+        assertTrue(
+            !BardoGuidedProgressPolicy.asksAboutRequiredField(
+                "¿Qué canción te gusta?",
+                "tema"
+            )
+        )
+    }
+
+    @Test
+    fun acceptsQuestionsThatAskWhatTheNewSongShouldBeAbout() {
+        assertTrue(
+            BardoGuidedProgressPolicy.asksAboutRequiredField(
+                "¿De qué quieres que trate la canción?",
+                "tema"
+            )
+        )
+        assertTrue(
+            BardoGuidedProgressPolicy.asksAboutRequiredField(
+                "What should the song be about?",
+                "tema"
+            )
+        )
+    }
+
+    @Test
     fun rejectsQuestionsThatOnlyMentionMusicWithoutAskingAboutStyle() {
         assertTrue(
             !BardoGuidedProgressPolicy.asksAboutRequiredField(
