@@ -70,7 +70,7 @@ object BardoResourceCoordinator {
                 processLock = lockChannel.lock()
             }
 
-            releaseOtherRuntime(resource)
+            if (previous == null) releaseOtherRuntime(resource)
             activeResource.set(resource)
             try {
                 action()
@@ -78,7 +78,7 @@ object BardoResourceCoordinator {
                 // Los runtimes se descargan al terminar cada operación. Así una
                 // carga retenida en un proceso no compite por RAM con el siguiente
                 // runtime, que puede ejecutarse en otro proceso Android.
-                runCatching { releaseRuntime(resource) }
+                if (previous == null) runCatching { releaseRuntime(resource) }
                 if (previous == null) activeResource.remove()
                 else activeResource.set(previous)
             }
