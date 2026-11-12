@@ -3018,7 +3018,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
              marcarGeneracionImagenIA(true)
              Thread({
                  val result = runCatching {
-                     com.musicaia.modelo.BardoResourceCoordinator.withImageModel {
+                     com.musicaia.modelo.BardoResourceCoordinator.withImageModel(this) {
                          val reason = BardoResourceBudget.blockingReason(
                              this, BardoCapabilityRegistry.MIN_IMAGE_GENERATION_FREE_MEMORY_BYTES
                          )
