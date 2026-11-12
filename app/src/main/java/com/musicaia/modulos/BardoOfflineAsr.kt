@@ -58,6 +58,9 @@ object BardoOfflineAsr {
     internal fun decoderIdleExpired(lastProgressNanos: Long, nowNanos: Long): Boolean =
         nowNanos - lastProgressNanos >= MAX_DECODER_IDLE_MILLIS * 1_000_000L
 
+    internal fun decoderOutputAdvances(sizeBytes: Int, endOfStream: Boolean): Boolean =
+        sizeBytes > 0 || endOfStream
+
     internal fun checkNotCancelled(cancelled: AtomicBoolean?) {
         if (cancelled?.get() == true) {
             throw CancellationException("Transcripción offline cancelada.")
@@ -346,9 +349,14 @@ object BardoOfflineAsr {
                                 }
                             }
                         }
-                        if ((info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) outputDone = true
+                        val endOfStream = (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0
+                        if (endOfStream) outputDone = true
                         codec.releaseOutputBuffer(outputIndex, false)
-                        lastCodecProgressNanos = System.nanoTime()
+                        // Empty non-EOS buffers are not progress; a stalled codec must
+                        // still hit the idle timeout instead of resetting it forever.
+                        if (decoderOutputAdvances(info.size, endOfStream)) {
+                            lastCodecProgressNanos = System.nanoTime()
+                        }
                     }
                 }
             }
