@@ -22,6 +22,7 @@ import com.musicaia.modelo.BardoCapabilityRegistry
 import com.musicaia.modulos.ModuloInstrumental
 import com.musicaia.modulos.ModuloLetra
 import com.musicaia.modulos.Mp3Exporter
+import com.musicaia.modulos.BardoWavHeaderValidator
 import java.util.concurrent.atomic.AtomicBoolean
 
 /** Tarea local iniciada por el usuario y coordinada por el Orquestador BARDO. */
@@ -72,7 +73,12 @@ class BardoTaskService : Service() {
     }
 
     private val orquestador = Orquestador()
-    private var ejecutando = false
+    @Volatile private var ejecutando = false
+    @Volatile private var latestStartId = 0
+    @Volatile private var activeTaskId = ""
+    private val taskExecutor = java.util.concurrent.Executors.newSingleThreadExecutor { tarea ->
+        Thread(tarea, "BARDO-Task-Worker").apply { isDaemon = true }
+    }
     private var inicioMs = 0L
     private var taskId = ""
     private var modoSolo = false
@@ -113,188 +119,239 @@ class BardoTaskService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        latestStartId = startId
         when (intent?.action) {
             ACTION_CANCEL -> {
-                cancelacionSolicitada.set(true)
-                orquestador.cancelar()
-                publicarEstado("running", "Cancelación solicitada. BARDO terminará la operación nativa en curso y se detendrá de forma segura.")
+                if (!ejecutando) {
+                    cancelacionSolicitada.set(true)
+                    publicarEstado("cancelled", "No hay ninguna tarea activa que cancelar.")
+                    stopSelfResult(startId)
+                } else {
+                    cancelacionSolicitada.set(true)
+                    orquestador.cancelar()
+                    publicarEstado("running", "Cancelación solicitada. BARDO terminará la operación nativa en curso y se detendrá de forma segura.")
+                }
             }
             ACTION_START -> iniciarTarea(intent, startId)
-            else -> stopSelf(startId)
+            else -> stopSelfResult(startId)
         }
         return START_NOT_STICKY
     }
 
     private fun iniciarTarea(intent: Intent, startId: Int) {
-        if (ejecutando) return
-        val prompt = intent.getStringExtra(EXTRA_PROMPT).orEmpty()
+        if (ejecutando) {
+            publicarEstado("running", "BARDO ya está ejecutando una tarea. La nueva solicitud no se ha iniciado.")
+            return
+        }
+        val prompt = intent.getStringExtra(EXTRA_PROMPT).orEmpty().trim()
         val letraManual = intent.getStringExtra(EXTRA_LYRICS_MANUAL).orEmpty()
         modoSolo = intent.getBooleanExtra(EXTRA_SOLO, false)
         pruebaRapida = intent.getBooleanExtra(EXTRA_QUICK_TEST, false)
         if (prompt.isBlank()) {
             publicarEstado("failed", "La descripción de la tarea está vacía.")
-            stopSelf(startId)
+            stopSelfResult(startId)
             return
         }
         val userVoiceMixAvailable = intent.getBooleanExtra(EXTRA_USER_VOICE_MIX, false)
         if (!BardoCapabilityRegistry.manualLyricsCanProceed(modoSolo, letraManual, userVoiceMixAvailable)) {
             val mensaje = BardoCapabilityRegistry.manualLyricsBlockReason()
             val blockedId = java.util.UUID.randomUUID().toString()
-            BardoActivityStore.record(
-                this, blockedId, "cancion", "blocked",
-                "sintesis_vocal_no_disponible", mensaje, 0
-            )
+            runCatching {
+                BardoActivityStore.record(this, blockedId, "cancion", "blocked", "sintesis_vocal_no_disponible", mensaje, 0)
+            }.onFailure { Log.e("BARDO-TaskService", "No se pudo registrar el bloqueo", it) }
             publicarEstado("failed", mensaje)
-            stopSelf(startId)
+            stopSelfResult(startId)
             return
         }
 
         ejecutando = true
         taskId = java.util.UUID.randomUUID().toString()
-        BardoActivityStore.record(this, taskId, if (modoSolo) "instrumental" else "cancion", "running", "inicio", "BARDO ha iniciado una tarea de creación musical.", 0)
+        val taskToken = taskId
+        activeTaskId = taskToken
+        val taskStartId = startId
         cancelacionSolicitada.set(false)
         inicioMs = System.currentTimeMillis()
+        totalPasosAudio = 20
+
+        // Promoción inmediata: no se inspeccionan modelos ni se toca disco antes
+        // de cumplir el plazo de startForegroundService().
+        try {
+            val inicial = construirNotificacion("Preparando módulos locales...", 0)
+            if (Build.VERSION.SDK_INT >= 34) {
+                startForeground(NOTIFICATION_ID, inicial, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+            } else {
+                startForeground(NOTIFICATION_ID, inicial)
+            }
+        } catch (error: Exception) {
+            ejecutando = false
+            val mensaje = "Android no permitió iniciar el servicio de audio en primer plano: " +
+                (error.message ?: error.javaClass.simpleName)
+            getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                .putString(KEY_STATE, "failed").putString(KEY_MESSAGE, mensaje).apply()
+            runCatching {
+                BardoActivityStore.record(this, taskToken, if (modoSolo) "instrumental" else "cancion", "failed", "foreground_service", mensaje, 0)
+            }
+            Log.e("BARDO-TaskService", mensaje, error)
+            stopSelfResult(startId)
+            return
+        }
+
         runCatching { heartbeatFile.writeText(inicioMs.toString()) }
+            .onFailure { Log.w("BARDO-TaskService", "No se pudo iniciar el latido", it) }
         iniciarLatido()
         getSharedPreferences(PREFS, MODE_PRIVATE).edit()
             .putString(KEY_STATE, "running")
             .putString(KEY_MESSAGE, "BARDO prepara los módulos locales.")
             .putLong("started_at", inicioMs)
             .putInt("process_pid", android.os.Process.myPid())
-            .remove(KEY_AUDIO)
-            .remove(KEY_MP3)
-            .apply()
-
-        val inicial = construirNotificacion("Preparando módulos locales...", 0)
-        if (Build.VERSION.SDK_INT >= 34) startForeground(NOTIFICATION_ID, inicial, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
-        else startForeground(NOTIFICATION_ID, inicial)
+            .remove(KEY_AUDIO).remove(KEY_MP3).apply()
 
         val entrada = when {
             modoSolo -> Dato.Texto(prompt)
             letraManual.isNotBlank() -> Dato.Texto("[LETRA_USUARIO]\n$letraManual\n\n[CONTEXTO_CREACION]\n$prompt")
             else -> Dato.Texto(prompt)
         }
-        val plan = try {
-            com.musicaia.modelo.BardoModuleCatalog.createMusicPlan(
-                context = applicationContext,
-                instrumentalOnly = modoSolo,
-                manualLyrics = letraManual.isNotBlank(),
-                prompt = prompt,
-                quickTest = pruebaRapida,
-                onSegmentProgress = { actual, total, detalle ->
-                    totalPasosAudio = total.coerceAtLeast(1)
-                    val transcurrido = ((System.currentTimeMillis() - inicioMs) / 1000L).coerceAtLeast(0L)
-                    val mensaje = "INSTRUMENTAL $actual/$total · ${transcurrido}s · $detalle"
-                    actualizarNotificacion(mensaje, ((actual * 90f) / total).toInt().coerceIn(0, 90))
-                    publicarEstado("running", mensaje)
-                },
-                isCancellationRequested = { cancelacionSolicitada.get() }
-            )
-        } catch (error: Exception) {
+
+        // El hash SHA-256 de modelos grandes y la creación del plan se ejecutan
+        // en el worker, nunca en el hilo principal del proceso :audio.
+        try {
+            taskExecutor.execute {
+                try {
+                    BardoActivityStore.record(this, taskToken, if (modoSolo) "instrumental" else "cancion", "running", "inicio", "BARDO ha iniciado una tarea de creación musical.", 0)
+                    if (cancelacionSolicitada.get()) throw java.util.concurrent.CancellationException("Cancelación solicitada antes de preparar módulos.")
+
+                    val plan = com.musicaia.modelo.BardoModuleCatalog.createMusicPlan(
+                        context = applicationContext,
+                        instrumentalOnly = modoSolo,
+                        manualLyrics = letraManual.isNotBlank(),
+                        prompt = prompt,
+                        quickTest = pruebaRapida,
+                        onSegmentProgress = { actual, total, detalle ->
+                            totalPasosAudio = total.coerceAtLeast(1)
+                            val transcurrido = ((System.currentTimeMillis() - inicioMs) / 1000L).coerceAtLeast(0L)
+                            val mensaje = "INSTRUMENTAL $actual/$total · §{transcurrido}s · $detalle"
+                            actualizarNotificacion(mensaje, ((actual * 90f) / total.coerceAtLeast(1)).toInt().coerceIn(0, 90))
+                            publicarEstado("running", mensaje)
+                        },
+                        isCancellationRequested = { cancelacionSolicitada.get() }
+                    )
+                    if (cancelacionSolicitada.get()) throw java.util.concurrent.CancellationException("Cancelación solicitada durante la preparación.")
+
+                    val modulos = plan.modules
+                    BardoActivityStore.record(this, taskToken, if (modoSolo) "instrumental" else "cancion", "running", "plan_seleccionado",
+                        "Módulos seleccionados desde el registro de capacidades: " + plan.selectedModuleIds.joinToString(" → ") + ".", 8)
+
+                    orquestador.setListener(object : Orquestador.ProgresoListener {
+                        override fun onProgreso(paso: String, progreso: Float, mensaje: String) {
+                            val porcentaje = (progreso * 100f).toInt().coerceIn(0, 100)
+                            actualizarNotificacion("$paso · $mensaje", porcentaje)
+                            publicarEstado("running", "$paso · $mensaje")
+                        }
+                        override fun onCompletado(resultados: List<Pair<String, Dato>>) = Unit
+                        override fun onError(mensaje: String) { Log.e("BARDO-TaskService", mensaje) }
+                    })
+
+                    val resultados = orquestador.ejecutarModulos(modulos, entrada)
+                    if (cancelacionSolicitada.get()) throw java.util.concurrent.CancellationException("Tarea cancelada por el usuario.")
+                    val audio = resultados.lastOrNull()?.second as? Dato.Audio
+                        ?: throw IllegalStateException(if (resultados.isEmpty()) "BARDO no recibió resultados del Core." else "El plan terminó sin producir un WAV instrumental válido.")
+                    val archivo = java.io.File(audio.rutaWav)
+                    val cabecera = BardoWavHeaderValidator.inspect(archivo)
+                    if (cabecera.dataBytes <= 0L) throw IllegalStateException("El WAV no contiene muestras PCM válidas.")
+
+                    val letra = (resultados.firstOrNull { it.first == "letra" }?.second as? Dato.Texto)?.texto.orEmpty()
+                    val segundos = ((System.currentTimeMillis() - inicioMs) / 1000L).coerceAtLeast(0L).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                    getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_AUDIO, audio.rutaWav).apply()
+                    val mensajeMp3 = "WAV PCM16 validado (§{cabecera.sampleRate} Hz, §{cabecera.channels} canales, §{cabecera.dataBytes} bytes de audio). Preparando MP3 320 kbps para Archivo…"
+                    actualizarNotificacion(mensajeMp3, 95)
+                    publicarEstado("running", mensajeMp3)
+                    if (!Mp3Exporter.available) throw IllegalStateException("El WAV se generó, pero el codificador MP3 nativo no está disponible en esta APK.")
+
+                    val biblioteca = java.io.File(filesDir, "biblioteca")
+                    if (!biblioteca.exists() && !biblioteca.mkdirs()) throw IllegalStateException("No se pudo crear la carpeta Archivo de BARDO.")
+                    val marca = System.currentTimeMillis()
+                    val estiloOriginal = Regex("(?i)Estilo\\s*:\\s*([^\\n.]+)").find(prompt)?.groupValues?.get(1) ?: prompt.take(36)
+                    val estiloNormalizado = java.text.Normalizer.normalize(estiloOriginal, java.text.Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "")
+                    val estiloArchivo = Regex("[^A-Za-z0-9]+").replace(estiloNormalizado, "_").trim('_').take(28).ifBlank { "instrumental" }
+                    val fechaArchivo = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmm").withZone(java.time.ZoneId.systemDefault()).format(java.time.Instant.ofEpochMilli(marca))
+                    val nombreBase = "BARDO_§{fechaArchivo}_§{estiloArchivo}"
+                    val mp3 = java.io.File(biblioteca, "$nombreBase.mp3")
+                    val temporal = java.io.File(biblioteca, "$nombreBase.mp3.part")
+                    val codificado = Mp3Exporter.encodeWavToMp3(archivo.absolutePath, temporal.absolutePath, 320)
+                    if (!codificado || !temporal.isFile || temporal.length() < 1024L) {
+                        temporal.delete()
+                        throw IllegalStateException("Falló la conversión WAV a MP3 320 kbps o el archivo resultante no es válido.")
+                    }
+                    if (cancelacionSolicitada.get()) {
+                        temporal.delete()
+                        throw java.util.concurrent.CancellationException("Cancelación solicitada durante la exportación.")
+                    }
+                    if (!temporal.renameTo(mp3)) {
+                        temporal.delete()
+                        throw IllegalStateException("El MP3 se generó, pero no se pudo guardar definitivamente en Archivo.")
+                    }
+
+                    val mp3DurationMs = runCatching {
+                        val retriever = MediaMetadataRetriever()
+                        try {
+                            retriever.setDataSource(mp3.absolutePath)
+                            retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+                        } finally { retriever.release() }
+                    }.getOrDefault(0L)
+                    val minimumMp3DurationMs = if (pruebaRapida) 1_500L else 180_000L
+                    if (mp3DurationMs < minimumMp3DurationMs) {
+                        mp3.delete()
+                        throw IllegalStateException(if (pruebaRapida) "El MP3 de prueba no alcanza 1,5 segundos." else "El MP3 se guardó, pero Android no pudo validar una duración de al menos 3 minutos.")
+                    }
+
+                    val mensajeValidado = "INSTRUMENTAL $totalPasosAudio/$totalPasosAudio · MP3 320 kbps validado (§{mp3DurationMs / 1000L}s, §{mp3.length()} bytes)"
+                    actualizarNotificacion(mensajeValidado, 100)
+                    publicarEstado("running", mensajeValidado)
+                    if (letra.isNotBlank()) java.io.File(biblioteca, "$nombreBase.txt").writeText(letra)
+                    val duracion = mp3DurationMs / 1000L
+                    val mensajeFinal = "MP3 guardado en Archivo · §{duracion / 60} min §{duracion % 60}s · §{mp3.length()} bytes · 320 kbps"
+                    getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                        .putString(KEY_STATE, "completed").putString(KEY_MESSAGE, mensajeFinal)
+                        .putString(KEY_AUDIO, audio.rutaWav).putString(KEY_MP3, mp3.absolutePath).putString("lyrics", letra)
+                        .putBoolean("solo", modoSolo).putInt("elapsed", segundos).apply()
+                    BardoActivityStore.record(this, taskToken, if (modoSolo) "instrumental" else "cancion", "completed", "validacion", mensajeFinal, 100, mp3.absolutePath)
+                    enviarActualizacion("completed", mensajeFinal, audio.rutaWav, letra, segundos, mp3.absolutePath)
+                    actualizarNotificacion(mensajeFinal, 100)
+                    Log.i("BARDO-TaskService", "WAV PCM16 válido: §{archivo.length()} bytes; MP3 válido: §{mp3.length()} bytes")
+                } catch (error: Throwable) {
+                    Log.e("BARDO-TaskService", "Falló la tarea de BARDO", error)
+                    val estado = BardoTaskLifecyclePolicy.terminalState(cancelacionSolicitada.get(), error)
+                    val mensaje = "§{error.javaClass.simpleName}: §{error.message ?: "Error sin detalle"}"
+                    getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_STATE, estado).putString(KEY_MESSAGE, mensaje).apply()
+                    runCatching {
+                        BardoActivityStore.record(this, taskToken, if (modoSolo) "instrumental" else "cancion", estado,
+                            if (estado == "cancelled") "cancelacion" else "fallo", mensaje, null)
+                    }.onFailure { Log.e("BARDO-TaskService", "No se pudo guardar el resultado de la tarea", it) }
+                    enviarActualizacion(estado, mensaje, "", "", 0)
+                } finally {
+                    ejecutando = false
+                    detenerLatido()
+                    runCatching { heartbeatFile.delete() }
+                    runCatching { orquestador.stop() }
+                    android.os.Handler(mainLooper).post {
+                        if (BardoTaskLifecyclePolicy.mayFinalize(activeTaskId, taskToken, ejecutando)) {
+                            activeTaskId = ""
+                            stopForeground(STOP_FOREGROUND_REMOVE)
+                            stopSelfResult(latestStartId.coerceAtLeast(taskStartId))
+                        }
+                    }
+                }
+            }
+        } catch (error: java.util.concurrent.RejectedExecutionException) {
             ejecutando = false
-            val mensaje = "No se pudo preparar el plan de módulos: ${error.message ?: error.javaClass.simpleName}"
-            BardoActivityStore.record(this, taskId, if (modoSolo) "instrumental" else "cancion", "failed", "seleccion_modulos", mensaje, null)
-            publicarEstado("failed", mensaje)
-            stopSelf(startId)
-            return
+            detenerLatido()
+            runCatching { heartbeatFile.delete() }
+            val mensaje = "El ejecutor local de tareas no está disponible: " + (error.message ?: error.javaClass.simpleName)
+            getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_STATE, "failed").putString(KEY_MESSAGE, mensaje).apply()
+            Log.e("BARDO-TaskService", mensaje, error)
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelfResult(startId)
         }
-        val modulos = plan.modules
-        BardoActivityStore.record(
-            this, taskId, if (modoSolo) "instrumental" else "cancion",
-            "running", "plan_seleccionado",
-            "Módulos seleccionados desde el registro de capacidades: ${plan.selectedModuleIds.joinToString(" → ")}.",
-            8
-        )
-
-        orquestador.setListener(object : Orquestador.ProgresoListener {
-            override fun onProgreso(paso: String, progreso: Float, mensaje: String) {
-                val porcentaje = (progreso * 100f).toInt().coerceIn(0, 100)
-                actualizarNotificacion("$paso · $mensaje", porcentaje)
-                publicarEstado("running", "$paso · $mensaje")
-            }
-            override fun onCompletado(resultados: List<Pair<String, Dato>>) = Unit
-            override fun onError(mensaje: String) { Log.e("BARDO-TaskService", mensaje) }
-        })
-
-        Thread({
-            try {
-                val resultados = orquestador.ejecutarModulos(modulos, entrada)
-                val audio = resultados.lastOrNull()?.second as? Dato.Audio
-                    ?: throw IllegalStateException(if (resultados.isEmpty()) "BARDO no recibió resultados del Core." else "El plan terminó sin producir un WAV instrumental válido.")
-                val archivo = java.io.File(audio.rutaWav)
-                if (!archivo.isFile || archivo.length() <= 44L) throw IllegalStateException("El WAV devuelto no existe o está vacío.")
-                if (cancelacionSolicitada.get()) throw java.util.concurrent.CancellationException("Cancelación solicitada por el usuario.")
-                val letra = (resultados.firstOrNull { it.first == "letra" }?.second as? Dato.Texto)?.texto.orEmpty()
-                val segundos = ((System.currentTimeMillis() - inicioMs) / 1000L).toInt()
-                getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_AUDIO, audio.rutaWav).apply()
-                val mensajeMp3 = "WAV validado (${archivo.length()} bytes). Preparando MP3 320 kbps para Archivo…"
-                actualizarNotificacion(mensajeMp3, 95)
-                publicarEstado("running", mensajeMp3)
-                if (!Mp3Exporter.available) throw IllegalStateException("El WAV se generó, pero el codificador MP3 nativo no está disponible en esta APK.")
-                val biblioteca = java.io.File(filesDir, "biblioteca")
-                if (!biblioteca.exists() && !biblioteca.mkdirs()) throw IllegalStateException("No se pudo crear la carpeta Archivo de BARDO.")
-                val marca = System.currentTimeMillis()
-                val estiloOriginal = Regex("(?i)Estilo\\s*:\\s*([^\\n.]+)").find(prompt)?.groupValues?.get(1)
-                    ?: prompt.take(36)
-                val estiloNormalizado = java.text.Normalizer.normalize(estiloOriginal, java.text.Normalizer.Form.NFD)
-                    .replace(Regex("\\p{Mn}+"), "")
-                val estiloArchivo = Regex("[^A-Za-z0-9]+").replace(estiloNormalizado, "_")
-                    .trim('_').take(28).ifBlank { "instrumental" }
-                val fechaArchivo = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmm")
-                    .withZone(java.time.ZoneId.systemDefault()).format(java.time.Instant.ofEpochMilli(marca))
-                val nombreBase = "BARDO_${fechaArchivo}_${estiloArchivo}"
-                val mp3 = java.io.File(biblioteca, "$nombreBase.mp3")
-                val temporal = java.io.File(biblioteca, "$nombreBase.mp3.part")
-                val codificado = Mp3Exporter.encodeWavToMp3(archivo.absolutePath, temporal.absolutePath, 320)
-                if (!codificado || !temporal.isFile || temporal.length() < 1024L) {
-                    temporal.delete()
-                    throw IllegalStateException("Falló la conversión WAV a MP3 320 kbps o el archivo resultante no es válido.")
-                }
-                if (!temporal.renameTo(mp3)) {
-                    temporal.delete()
-                    throw IllegalStateException("El MP3 se generó, pero no se pudo guardar definitivamente en Archivo.")
-                }
-                val mp3DurationMs = runCatching {
-                    val retriever = MediaMetadataRetriever()
-                    try {
-                        retriever.setDataSource(mp3.absolutePath)
-                        retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
-                    } finally { retriever.release() }
-                }.getOrDefault(0L)
-                val minimumMp3DurationMs = if (pruebaRapida) 1_500L else 180_000L
-                if (mp3DurationMs < minimumMp3DurationMs) {
-                    mp3.delete()
-                    throw IllegalStateException(if (pruebaRapida) "El MP3 de prueba no alcanza 1,5 segundos." else "El MP3 se guardó, pero Android no pudo validar una duración de al menos 3 minutos.")
-                }
-                val mensajeValidado = "INSTRUMENTAL $totalPasosAudio/$totalPasosAudio · MP3 320 kbps validado (${mp3DurationMs / 1000L}s, ${mp3.length()} bytes)"
-                actualizarNotificacion(mensajeValidado, 100)
-                publicarEstado("running", mensajeValidado)
-                if (letra.isNotBlank()) java.io.File(biblioteca, "$nombreBase.txt").writeText(letra)
-                val duracion = mp3DurationMs / 1000L
-                val mensajeFinal = "MP3 guardado en Archivo · ${duracion / 60} min ${duracion % 60}s · ${mp3.length()} bytes · 320 kbps"
-                getSharedPreferences(PREFS, MODE_PRIVATE).edit()
-                    .putString(KEY_STATE, "completed").putString(KEY_MESSAGE, mensajeFinal)
-                    .putString(KEY_AUDIO, audio.rutaWav).putString(KEY_MP3, mp3.absolutePath).putString("lyrics", letra)
-                    .putBoolean("solo", modoSolo).putInt("elapsed", segundos).apply()
-                BardoActivityStore.record(this, taskId, if (modoSolo) "instrumental" else "cancion", "completed", "validacion", mensajeFinal, 100, mp3.absolutePath)
-                enviarActualizacion("completed", mensajeFinal, audio.rutaWav, letra, segundos, mp3.absolutePath)
-                actualizarNotificacion(mensajeFinal, 100)
-                Log.i("BARDO-TaskService", "WAV válido: ${archivo.length()} bytes; MP3 válido: ${mp3.length()} bytes")
-            } catch (error: Throwable) {
-                Log.e("BARDO-TaskService", "Falló la tarea de BARDO", error)
-                val estado = if (error.message?.contains("cancel", true) == true) "cancelled" else "failed"
-                publicarEstado(estado, "${error.javaClass.simpleName}: ${error.message ?: "Error sin detalle"}")
-            } finally {
-                ejecutando = false
-                detenerLatido()
-                runCatching { heartbeatFile.delete() }
-                orquestador.stop()
-                android.os.Handler(mainLooper).post {
-                    stopForeground(STOP_FOREGROUND_REMOVE)
-                    stopSelf(startId)
-                }
-            }
-        }, "BARDO-Background-Orchestrator").start()
     }
 
     private fun construirNotificacion(mensaje: String, progreso: Int): Notification {
@@ -339,6 +396,9 @@ class BardoTaskService : Service() {
     override fun onDestroy() {
         detenerLatido()
         heartbeatExecutor.shutdownNow()
+        cancelacionSolicitada.set(true)
+        orquestador.cancelar()
+        taskExecutor.shutdownNow()
         if (ejecutando) getSharedPreferences(PREFS, MODE_PRIVATE).edit()
             .putString(KEY_STATE, "interrupted").putString(KEY_MESSAGE, "Android detuvo el servicio antes de completar la tarea.").apply()
         super.onDestroy()
