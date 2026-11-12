@@ -381,4 +381,40 @@ class BardoGuidedProgressPolicyTest {
         )
     }
 
+
+    @Test
+    fun vocalCreationRejectsUnknownOrContradictoryVoiceSourcesEvenWhenAWavExists() {
+        val base = mapOf(
+            "tema" to "superar obstáculos",
+            "estilo" to "rock",
+            "ambiente" to "esperanzador",
+            "ritmo" to "medio",
+            "idioma" to "Español",
+            "tipo" to "voz"
+        )
+        listOf("ninguna", "sin voz", "voice synthesis", "otra fuente").forEach { source ->
+            assertTrue(
+                "La fuente '$source' no debe aceptarse",
+                BardoCreationReadinessPolicy.blockReason(
+                    base + ("vozFuente" to source),
+                    hasVoiceWav = true
+                )!!.contains("fuente válida")
+            )
+        }
+        assertEquals(
+            null,
+            BardoCreationReadinessPolicy.blockReason(
+                base + ("vozFuente" to "grabada"),
+                hasVoiceWav = true
+            )
+        )
+        assertEquals(
+            null,
+            BardoCreationReadinessPolicy.blockReason(
+                base + ("vozFuente" to "archivo"),
+                hasVoiceWav = true
+            )
+        )
+    }
+
 }

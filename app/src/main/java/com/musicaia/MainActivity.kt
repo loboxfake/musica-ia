@@ -4471,6 +4471,16 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
      archivoVozPropia != null && archivoVozPropia.isFile &&
      archivoVozPropia.length() > 44L &&
      archivoVozPropia.extension.equals("wav", ignoreCase = true)
+ if (!modoSoloInstrumental && letraManual.isBlank()) {
+     val bloqueoPreparacion = BardoCreationReadinessPolicy.blockReason(
+         datosConver,
+         hasVoiceWav = vozPropiaWavValida
+     )
+     if (bloqueoPreparacion != null) {
+         tvEstado.text = bloqueoPreparacion
+         return
+     }
+ }
  if (!BardoCapabilityRegistry.manualLyricsCanProceed(
          modoSoloInstrumental, letraManual, userVoiceAvailable = vozPropiaWavValida
      )) {
