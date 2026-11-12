@@ -45,13 +45,28 @@ object BardoGuidedProgressPolicy {
                 """\b(?:de que|sobre que|que tema|cual es el tema|what topic|which topic|about what|what is (?:the )?(?:song|track) about|what should (?:the )?(?:song|track) be about|what would you like (?:the )?(?:song|track) to be about)\b"""
             ).containsMatchIn(normalized)
         }
+        if (field == "tipo") {
+            // "¿Qué tipo de voz prefieres?" pregunta por el timbre vocal,
+            // no por la decisión obligatoria entre voz/canto e instrumental.
+            if (Regex("""\b(?:tipo de voz|type of voice|which voice|que voz)\b""").containsMatchIn(normalized)) {
+                return false
+            }
+            val asksVocalMode = Regex(
+                """\b(?:voz|vocal|vocals|cantad[ao]|canto|singing|instrumental|sin voz|no vocals|with vocals)\b"""
+            ).containsMatchIn(normalized)
+            val offersBothModes = Regex(
+                """\b(?:o|u|or)\b.*\b(?:instrumental|voz|vocal|cantad[ao]|singing)\b|\b(?:instrumental|voz|vocal|cantad[ao]|singing)\b.*\b(?:o|u|or)\b"""
+            ).containsMatchIn(normalized)
+            return asksVocalMode && (offersBothModes || Regex(
+                """\b(?:con voz|solo instrumental|sin voz|no vocals|with vocals|instrumental only)\b"""
+            ).containsMatchIn(normalized))
+        }
         val terms = when (field) {
             "tema" -> listOf("tema", "theme")
             "estilo" -> listOf("estilo", "style", "genre", "genero")
             "ambiente" -> listOf("ambiente", "mood", "emotion", "emocion", "feeling")
             "ritmo" -> listOf("ritmo", "rhythm", "tempo")
             "idioma" -> listOf("idioma", "language", "espanol", "spanish", "english")
-            "tipo" -> listOf("tipo", "type", "voz", "voice", "vocal", "vocals", "instrumental")
             "vozFuente" -> listOf("archivo", "file", "grabada", "grabado", "grabar", "recording", "record", "microfono", "microphone", "importar", "upload", "subir")
             else -> return false
         }
