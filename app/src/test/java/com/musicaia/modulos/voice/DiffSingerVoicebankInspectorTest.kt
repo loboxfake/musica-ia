@@ -15,6 +15,7 @@ class DiffSingerVoicebankInspectorTest {
         val root = temp.newFolder("voice")
         File(root, "acoustic.onnx").writeBytes(byteArrayOf(1, 2, 3))
         File(root, "phonemes.txt").writeText("SP\na\ne\ni\no\nu\n")
+        File(root, "dsdict-es.yaml").writeText("symbols: []\n")
         File(root, "dsconfig.yaml").writeText(
             "acoustic: acoustic.onnx\nphonemes: phonemes.txt\nvocoder: test-vocoder\nsample_rate: 44100\nhop_size: 512\n"
         )
@@ -24,12 +25,14 @@ class DiffSingerVoicebankInspectorTest {
         return root
     }
 
-    @Test fun acceptsCompletePackageForRuntimeProbeOnly() {
+    @Test fun acceptsCompleteSpanishPackageForRuntimeProbeOnly() {
         val result = DiffSingerVoicebankInspector.inspect(voicebank())
         assertEquals(DiffSingerVoicebankInspector.Status.READY_FOR_RUNTIME_PROBE, result.status)
         assertTrue(result.readyForRuntimeProbe)
         assertEquals(44100, result.sampleRate)
         assertEquals(512, result.hopSize)
+        assertTrue(result.phonemizerDictionary?.name == "dsdict-es.yaml")
+        assertEquals("vocoder.onnx", result.vocoderModel?.name)
     }
 
     @Test fun rejectsMissingAcousticGraph() {
@@ -39,10 +42,29 @@ class DiffSingerVoicebankInspectorTest {
             DiffSingerVoicebankInspector.inspect(root).status)
     }
 
-    @Test fun rejectsMissingVocoderInsteadOfClaimingVoiceIsReady() {
+    @Test fun rejectsMissingSpanishDictionary() {
+        val root = voicebank()
+        File(root, "dsdict-es.yaml").delete()
+        assertEquals(DiffSingerVoicebankInspector.Status.MISSING_PHONEMIZER_DICTIONARY,
+            DiffSingerVoicebankInspector.inspect(root).status)
+    }
+
+    @Test fun rejectsMissingVocoderConfigAndModel() {
         val root = voicebank()
         File(root, "dsvocoder/vocoder.yaml").delete()
         assertEquals(DiffSingerVoicebankInspector.Status.MISSING_VOCODER,
+            DiffSingerVoicebankInspector.inspect(root).status)
+        File(root, "dsvocoder/vocoder.yaml").writeText("model: absent.onnx\n")
+        assertEquals(DiffSingerVoicebankInspector.Status.MISSING_VOCODER_MODEL,
+            DiffSingerVoicebankInspector.inspect(root).status)
+    }
+
+    @Test fun rejectsIncompatibleVocoderParameters() {
+        val root = voicebank()
+        File(root, "dsvocoder/vocoder.yaml").writeText(
+            "model: vocoder.onnx\nsample_rate: 48000\n"
+        )
+        assertEquals(DiffSingerVoicebankInspector.Status.INCOMPATIBLE_VOCODER,
             DiffSingerVoicebankInspector.inspect(root).status)
     }
 
@@ -69,6 +91,13 @@ class DiffSingerVoicebankInspectorTest {
             "acoustic: acoustic.onnx\nphonemes: phonemes.txt\nvocoder: ../outside\n"
         )
         assertEquals(DiffSingerVoicebankInspector.Status.INVALID_CONFIG,
+            DiffSingerVoicebankInspector.inspect(root).status)
+    }
+
+    @Test fun rejectsMissingOptionalAuxiliaryModelWhenDeclared() {
+        val root = voicebank()
+        File(root, "dsconfig.yaml").appendText("dur: duration.onnx\n")
+        assertEquals(DiffSingerVoicebankInspector.Status.MISSING_AUXILIARY_MODEL,
             DiffSingerVoicebankInspector.inspect(root).status)
     }
 }
