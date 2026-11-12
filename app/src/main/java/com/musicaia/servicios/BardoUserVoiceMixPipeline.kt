@@ -58,7 +58,7 @@ object BardoUserVoiceMixPipeline {
         val mixedHeader = BardoWavHeaderValidator.inspect(mixedWav)
         require(
             mixedHeader.dataBytes > 0L &&
-                mixedHeader.sampleRate == result.frecuenciaMuestreo &&
+                mixedHeader.sampleRate == result.sampleRate &&
                 mixedHeader.bitsPerSample == 16
         ) {
             "El WAV mezclado no superó la validación PCM final."

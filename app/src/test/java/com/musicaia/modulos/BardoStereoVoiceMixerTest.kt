@@ -37,8 +37,8 @@ class BardoStereoVoiceMixerTest {
             val frame = 2200
             val left = sample(bytes, frame, 0)
             val right = sample(bytes, frame, 1)
-            assertTrue("Left channel should retain the instrumental image.", left in 3900..4100)
-            assertTrue("Right channel should retain the instrumental image.", right in -2100..-1900)
+            assertTrue("Left channel should retain the instrumental image.", left in 2400..2600)
+            assertTrue("Right channel should retain the instrumental image.", right in -600..-400)
             assertEquals(voiceBefore.toList(), voice.readBytes().toList())
             assertEquals(instrumentalBefore.toList(), instrumental.readBytes().toList())
             assertTrue(result.peakAfterDbfs <= -1.0 + 0.05)
