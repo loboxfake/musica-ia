@@ -138,7 +138,10 @@ class BardoAgentFleetTest {
             }
             override fun unload() = Unit
         }
-        val context = ContextWrapper(null)
+        val lockDirectory = java.nio.file.Files.createTempDirectory("bardo-agent-test").toFile()
+        val context = object : ContextWrapper(null) {
+            override fun getNoBackupFilesDir() = lockDirectory
+        }
         val invoker = BardoProviderAgentInvoker(context, provider)
         val response = invoker.complete("analiza este cambio")
         assertEquals("respuesta protegida", response.text)
