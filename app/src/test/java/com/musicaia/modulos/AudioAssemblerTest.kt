@@ -237,7 +237,7 @@ class AudioAssemblerTest {
             val output = File(directory, "joined.wav")
             // Each clip is below the per-file limit; their combined sample count exceeds
             // the bounded in-memory mixing budget.
-            val frames = 5_333_334
+            val frames = 6_666_667
             writeLargeTestWav(first, frames)
             writeLargeTestWav(second, frames)
             writeLargeTestWav(third, frames)
