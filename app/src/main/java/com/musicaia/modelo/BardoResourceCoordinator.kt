@@ -99,7 +99,7 @@ object BardoResourceCoordinator {
                 } catch (releaseError: Throwable) {
                     val primary = actionFailure
                     if (primary != null) {
-                        primary.addSuppressed(releaseError)
+                        mergeCleanupFailure(primary, releaseError)
                     } else {
                         throw releaseError
                     }
