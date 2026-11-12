@@ -85,7 +85,7 @@ object BardoIntentRouter {
 
         if ("ambiente" !in result) {
             val moodPattern = Regex(
-                """(?i)\b(?:que\s+(?:sea|transmita)|con\s+(?:un\s+)?(?:ambiente|tono|aire|sensaci[oó]n)(?:\s+de)?)\s+(?:muy\s+|bastante\s+|algo\s+)?(alegre|esperanzador[ao]?|esperanza|inspirador[ao]?|inspiraci[oó]n|optimista|positivo|triste|melanc[oó]lic[ao]|[eé]pic[ao]|motivador[ao]|rom[aá]ntic[ao]|oscur[ao]|energ[eé]tic[ao]|tranquil[ao]|nost[aá]lgic[ao]|agresiv[ao]|suave|intens[ao])\b"""
+                """(?i)\b(?:que\s+(?:sea|transmita)|con\s+(?:(?:un|una)\s+)?(?:ambiente|tono|aire|sensaci[oó]n)(?:\s+de)?)\s+(?:muy\s+|bastante\s+|algo\s+)?(alegre|esperanzador[ao]?|esperanza|inspirador[ao]?|inspiraci[oó]n|melancol[ií]a|nostalgia|optimista|positivo|triste|melanc[oó]lic[ao]|[eé]pic[ao]|motivador[ao]|rom[aá]ntic[ao]|oscur[ao]|energ[eé]tic[ao]|tranquil[ao]|nost[aá]lgic[ao]|agresiv[ao]|suave|intens[ao])\b"""
             )
             moodPattern.find(message)?.groupValues?.get(1)?.let { result["ambiente"] = it }
         }
