@@ -35,6 +35,36 @@ class EngineLiteRTFutureTest {
         assertSame(error, actual)
     }
 
+    @Test fun nativeCleanupAttemptsEveryHandleAndPreservesFailures() {
+        val first = IllegalStateException("conversation close failed")
+        val second = UnsatisfiedLinkError("engine close failed")
+        val closed = mutableListOf<String>()
+
+        val actual = runCatching {
+            closeResourcesOrThrow(
+                { closed += "conversation"; throw first },
+                { closed += "engine"; throw second },
+                { closed += "third" }
+            )
+        }.exceptionOrNull()
+
+        assertEquals(listOf("conversation", "engine", "third"), closed)
+        assertSame(first, actual)
+        assertEquals(1, first.suppressed.size)
+        assertSame(second, first.suppressed.single())
+    }
+
+    @Test fun successfulNativeCleanupRunsAllHandles() {
+        val closed = mutableListOf<String>()
+
+        closeResourcesOrThrow(
+            { closed += "conversation" },
+            { closed += "engine" }
+        )
+
+        assertEquals(listOf("conversation", "engine"), closed)
+    }
+
     @Test fun wrapsCheckedFailuresWithTheirOriginalCause() {
         val error = java.io.IOException("model file became unavailable")
         val future = CompletableFuture<String>().also { it.completeExceptionally(error) }
