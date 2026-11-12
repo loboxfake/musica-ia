@@ -4,6 +4,8 @@ import android.media.AudioFormat
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.io.File
+import java.util.concurrent.CancellationException
+import java.util.concurrent.atomic.AtomicBoolean
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
@@ -67,6 +69,19 @@ class BardoOfflineAsrTest {
         val progressAt = startedAt + timeoutNanos - 5_000_000L
         assertFalse(BardoOfflineAsr.decoderIdleExpired(progressAt, startedAt + timeoutNanos))
         assertEquals(60_000L, BardoOfflineAsr.MAX_DECODER_IDLE_MILLIS)
+    }
+
+    @Test
+    fun offlineSpeechCancellationIsCooperativeAndExplicit() {
+        BardoOfflineAsr.checkNotCancelled(null)
+        BardoOfflineAsr.checkNotCancelled(AtomicBoolean(false))
+
+        val cancelled = runCatching {
+            BardoOfflineAsr.checkNotCancelled(AtomicBoolean(true))
+        }.exceptionOrNull()
+
+        assertTrue(cancelled is CancellationException)
+        assertEquals("Transcripción offline cancelada.", cancelled?.message)
     }
 
     @Test
