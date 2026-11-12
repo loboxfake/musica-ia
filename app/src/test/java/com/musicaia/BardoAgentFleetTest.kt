@@ -148,6 +148,29 @@ class BardoAgentFleetTest {
         assertEquals(null, BardoResourceCoordinator.currentResourceForCurrentThread())
     }
 
+    @Test fun providerLinkageFailureIsRecordedAndNextLocalProviderIsTried() {
+        val broken = object : BardoAgentInvoker {
+            override val descriptor = descriptor("broken-native-model")
+            override fun complete(prompt: String): BardoModelResponse {
+                throw UnsatisfiedLinkError("native runtime unavailable")
+            }
+        }
+        val working = FakeInvoker(descriptor("working-local"), "respuesta alternativa")
+        val fleet = BardoAgentFleet(
+            listOf(broken, working),
+            listOf(profile("first", "broken-native-model"), profile("second", "working-local"))
+        )
+
+        val report = fleet.consult(task())
+
+        assertEquals(2, report.attemptedAgents)
+        assertEquals(1, report.successfulAgents)
+        assertFalse(report.contributions.first().succeeded)
+        assertTrue(report.contributions.first().error.orEmpty().contains("native runtime unavailable"))
+        assertEquals(1, working.calls.get())
+        assertEquals("respuesta alternativa", report.successfulContributions.single().content)
+    }
+
     @Test fun cancellationStopsTheFleetInsteadOfBecomingAnAgentFailure() {
         val cancelled = object : BardoAgentInvoker {
             override val descriptor = descriptor("cancelled-model")
