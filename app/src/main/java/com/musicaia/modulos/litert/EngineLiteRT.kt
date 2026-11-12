@@ -37,6 +37,21 @@ internal object LiteRtFallbackPolicy {
             error !is OutOfMemoryError
 }
 
+/** Ejecuta todos los cierres nativos y no oculta ningún fallo de liberación. */
+internal fun closeResourcesOrThrow(vararg closeActions: () -> Unit) {
+    var failure: Throwable? = null
+    closeActions.forEach { action ->
+        try {
+            action()
+        } catch (error: Throwable) {
+            val primary = failure
+            if (primary == null) failure = error
+            else if (primary !== error) primary.addSuppressed(error)
+        }
+    }
+    failure?.let { throw it }
+}
+
 /**
  * Una Engine y una Conversation, siempre serializadas en el mismo hilo.
  * withSession ejecuta una secuencia completa como una sola tarea del executor,
@@ -107,10 +122,23 @@ object EngineLiteRT {
             } catch (error: Throwable) {
                 ultimoError = error
                 // Engine puede reservar memoria nativa antes de que initialize()
-                // termine. Cierra también los candidatos parcialmente inicializados.
-                if (!transferidoAlRuntime) runCatching { candidato?.close() }
-                if (!LiteRtFallbackPolicy.shouldRetryCpu(error)) {
-                    cerrarInterno()
+                // termine. Si no se consigue cerrar el candidato, no se intenta CPU:
+                // la memoria nativa podría seguir ocupada.
+                var cleanupFailed = false
+                if (!transferidoAlRuntime) {
+                    try {
+                        candidato?.close()
+                    } catch (cleanupError: Throwable) {
+                        if (error !== cleanupError) error.addSuppressed(cleanupError)
+                        cleanupFailed = true
+                    }
+                }
+                if (cleanupFailed || !LiteRtFallbackPolicy.shouldRetryCpu(error)) {
+                    try {
+                        cerrarInterno()
+                    } catch (cleanupError: Throwable) {
+                        if (error !== cleanupError) error.addSuppressed(cleanupError)
+                    }
                     throw error
                 }
             }
@@ -128,28 +156,35 @@ object EngineLiteRT {
         executor.submit<String> { generarInterno(prompt, reiniciarConversacion) }.let(::awaitFuture)
 
     private fun generarInterno(prompt: String, reiniciarConversacion: Boolean): String {
-        if (reiniciarConversacion) {
-            val actualEngine = engine
-                ?: throw IllegalStateException("El modelo local no está cargado.")
-            runCatching { conversation?.close() }
-            conversation = actualEngine.createConversation()
-        }
-        val actual = conversation
-            ?: throw IllegalStateException("El modelo local no está cargado.")
         try {
+            if (reiniciarConversacion) {
+                val actualEngine = engine
+                    ?: throw IllegalStateException("El modelo local no está cargado.")
+                val previousConversation = conversation
+                conversation = null
+                previousConversation?.close()
+                conversation = actualEngine.createConversation()
+            }
+            val actual = conversation
+                ?: throw IllegalStateException("El modelo local no está cargado.")
             return actual.sendMessage(prompt, maxOutputToken = 900).toString()
         } catch (error: Throwable) {
-            if (!LiteRtFallbackPolicy.shouldRetryCpu(error)) {
-                cerrarInterno()
-                throw error
-            }
-            if (!backendGpu) {
-                cerrarInterno()
+            if (!LiteRtFallbackPolicy.shouldRetryCpu(error) || !backendGpu) {
+                try {
+                    cerrarInterno()
+                } catch (cleanupError: Throwable) {
+                    if (error !== cleanupError) error.addSuppressed(cleanupError)
+                }
                 throw error
             }
             val path = modelPath ?: throw error
             val cache = cachePath ?: throw error
-            cerrarInterno()
+            try {
+                cerrarInterno()
+            } catch (cleanupError: Throwable) {
+                if (error !== cleanupError) error.addSuppressed(cleanupError)
+                throw error
+            }
             // cerrarInterno limpia referencias; restaurarlas al crear el backend CPU.
             modelPath = path
             cachePath = cache
@@ -164,15 +199,13 @@ object EngineLiteRT {
                 transferidoAlRuntime = true
                 return nuevaConversacion.sendMessage(prompt, maxOutputToken = 900).toString()
             } catch (cpuError: Throwable) {
-                // Si la inicialización falla, el Engine no llegó al runtime y se
-                // libera explícitamente. Si falló la inferencia por OOM, cerrarInterno
-                // libera la sesión CPU que ya habíamos transferido.
-                if (!transferidoAlRuntime) {
-                    runCatching { cpu.close() }
-                } else {
-                    // A failed CPU inference may leave the conversation unusable
-                    // even when the failure was not an OOM.
-                    cerrarInterno()
+                // No ocultar tampoco los fallos al cerrar el candidato CPU o la sesión
+                // CPU que ya había pasado a ser propiedad del runtime.
+                try {
+                    if (!transferidoAlRuntime) cpu.close()
+                    else cerrarInterno()
+                } catch (cleanupError: Throwable) {
+                    if (cpuError !== cleanupError) cpuError.addSuppressed(cleanupError)
                 }
                 throw cpuError
             }
@@ -188,20 +221,44 @@ object EngineLiteRT {
      * Cierre en cola: nunca interrumpe una sesión activa; se ejecuta antes o después
      * de la transacción completa, no entre sus operaciones internas.
      */
-    fun cerrarAsync(onClosed: (() -> Unit)? = null) {
+    fun cerrarAsync(
+        onClosed: (() -> Unit)? = null,
+        onFailure: ((Throwable) -> Unit)? = null
+    ) {
         executor.execute {
-            cerrarInterno()
-            runCatching { onClosed?.invoke() }
+            try {
+                cerrarInterno()
+            } catch (error: Throwable) {
+                android.util.Log.e("BARDO-LiteRT", "No se pudieron liberar todos los recursos nativos de texto.", error)
+                try {
+                    onFailure?.invoke(error)
+                } catch (callbackError: Throwable) {
+                    if (error !== callbackError) error.addSuppressed(callbackError)
+                    android.util.Log.e("BARDO-LiteRT", "Falló el callback de error del cierre nativo.", callbackError)
+                }
+                return@execute
+            }
+            try {
+                onClosed?.invoke()
+            } catch (callbackError: Throwable) {
+                android.util.Log.e("BARDO-LiteRT", "Falló el callback posterior al cierre de LiteRT.", callbackError)
+            }
         }
     }
 
     private fun cerrarInterno() {
-        runCatching { conversation?.close() }
+        val previousConversation = conversation
+        val previousEngine = engine
+        // Clear the logical state even if one native close reports a failure; both
+        // handles are attempted and the cleanup error is propagated to the caller.
         conversation = null
-        runCatching { engine?.close() }
         engine = null
         backendGpu = false
         modelPath = null
         cachePath = null
+        closeResourcesOrThrow(
+            { previousConversation?.close() },
+            { previousEngine?.close() }
+        )
     }
 }
