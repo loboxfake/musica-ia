@@ -42,7 +42,7 @@ object BardoGuidedProgressPolicy {
             // "¿Qué canción te gusta?" menciona música, pero no pregunta
             // por el asunto que debe desarrollar la canción del usuario.
             return Regex(
-                """\\b(?:de que|sobre que|que tema|cual es el tema|what topic|which topic|about what|what is (?:the )?(?:song|track) about|what should (?:the )?(?:song|track) be about|what would you like (?:the )?(?:song|track) to be about)\\b"""
+                """\b(?:de que|sobre que|que tema|cual es el tema|what topic|which topic|about what|what is (?:the )?(?:song|track) about|what should (?:the )?(?:song|track) be about|what would you like (?:the )?(?:song|track) to be about)\b"""
             ).containsMatchIn(normalized)
         }
         val terms = when (field) {
