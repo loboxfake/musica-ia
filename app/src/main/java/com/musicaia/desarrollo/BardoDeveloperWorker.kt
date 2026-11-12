@@ -638,9 +638,28 @@ a pasar validación en otro runner.
             }
             if (retryable) Result.retry() else Result.failure()
         } finally {
-            // Si el proceso muere abruptamente, el PID permite detectar estados running obsoletos.
+            // Esperar al cierre nativo antes de dar por finalizada la tarea: WorkManager
+            // no debe marcar autoestudio como completado mientras el modelo siga residente.
             prefs.edit().putInt("last_auto_study_pid", 0).apply()
-            if (modelStarted) EngineLiteRT.cerrarAsync()
+            if (modelStarted) {
+                try {
+                    EngineLiteRT.cerrar()
+                } catch (cleanupError: Throwable) {
+                    val cleanupMessage = "No se pudieron liberar los recursos nativos del modelo local: " +
+                        (cleanupError.message ?: cleanupError.javaClass.simpleName)
+                    prefs.edit()
+                        .putString("last_auto_study_status", "blocked")
+                        .putString("last_auto_study_message", cleanupMessage)
+                        .apply()
+                    runCatching {
+                        BardoActivityStore.record(
+                            applicationContext, taskId, "autoestudio", "failed",
+                            "liberacion_runtime", cleanupMessage, null, reportFile.absolutePath
+                        )
+                    }
+                    throw cleanupError
+                }
+            }
         }
     }
 
