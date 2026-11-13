@@ -265,8 +265,12 @@ object BardoDiffSingerSpanishDictionary {
                 } catch (error: Exception) {
                     G2pFallback(emptyList(), "${error.javaClass.simpleName}: ${error.message.orEmpty()}")
                 }
-                if (fallback.error != null) g2pErrors += "$word: ${fallback.error}"
-                fallback.phonemes
+                if (fallback.error != null) {
+                    g2pErrors += "$word: ${fallback.error}"
+                    emptyList()
+                } else {
+                    fallback.phonemes
+                }
             }
 
             if (sourcePhones.isEmpty()) {
