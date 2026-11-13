@@ -58,7 +58,7 @@ class BardoSpanishG2pOnnxEngine private constructor(
     }
 
     private fun inferNextToken(sourceTokens: IntArray, targetTokens: IntArray, sourceIndex: Int): Int {
-        OnnxTensor.createTensor(environment, arrayOf(sourceTokens)).use { srcTensor ->
+        return OnnxTensor.createTensor(environment, arrayOf(sourceTokens)).use { srcTensor ->
             OnnxTensor.createTensor(environment, arrayOf(targetTokens)).use { tgtTensor ->
                 OnnxTensor.createTensor(environment, intArrayOf(sourceIndex)).use { stepTensor ->
                     val inputs = mapOf(
