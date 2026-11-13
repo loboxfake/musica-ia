@@ -2273,10 +2273,10 @@ private fun crearConversacionNueva() {
               }
               BardoActivityStore.record(
                   this, taskId, "analisis_musical", "completed", "metricas_dsp",
-                  "Informe DSP local generado. Tempo y tonalidad son estimaciones con confianza explícita.", 100, archivo.absolutePath
+                  "Informe DSP local generado. Tempo y tonalidad son estimaciones con puntuaciones de estabilidad no probabilísticas.", 100, archivo.absolutePath
               )
               anexarChat("\n[INFORME DE ANÁLISIS MUSICAL LOCAL · $nombre]\n$informe\n[FIN DEL INFORME]")
-              tvEstado.text = "Análisis musical terminado. Las estimaciones incluyen su nivel de confianza."
+              tvEstado.text = "Análisis musical terminado. Las estimaciones incluyen una puntuación de estabilidad relativa, no una probabilidad."
               responderChatLibre(
                   "Actúa como analista musical. Interpreta este informe calculado directamente del audio. " +
                       "Distingue mediciones de estimaciones; explica limitaciones y confianza. No inventes género, instrumentos, " +
@@ -2312,11 +2312,11 @@ private fun crearConversacionNueva() {
           report.spectralCentroidHz?.let { append("Centroide espectral: ").append(number(it)).append(" Hz\n") }
           append("Clases de altura dominantes: ").append(dominantNotes).append("\n")
           if (report.estimatedTempoBpm != null) {
-              append("Tempo estimado: ").append(number(report.estimatedTempoBpm)).append(" BPM (confianza ")
+              append("Tempo estimado: ").append(number(report.estimatedTempoBpm)).append("  BPM (puntuación de estabilidad ")
                   .append(number((report.tempoConfidence ?: 0.0) * 100.0)).append("%)\n")
           } else append("Tempo estimado: no concluyente\n")
           if (report.estimatedKey != null) {
-              append("Tonalidad estimada: ").append(report.estimatedKey).append(" (confianza ")
+              append("Tonalidad estimada: ").append(report.estimatedKey).append(" (puntuación de estabilidad relativa: ")
                   .append(number((report.keyConfidence ?: 0.0) * 100.0)).append("%)\n")
           } else append("Tonalidad estimada: no concluyente\n")
           if (report.warnings.isNotEmpty()) {
