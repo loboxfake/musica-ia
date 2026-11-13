@@ -70,4 +70,15 @@ class BardoDiffSingerScoreInputBuilderTest {
         )
         assertTrue(result.f0Hz.all { it == 0f })
     }
+
+    @Test fun rejectsDurationsThatExceedTheFrameAllocationLimitBeforeArrayCreation() {
+        assertThrows(IllegalArgumentException::class.java) {
+            BardoDiffSingerScoreInputBuilder.build(
+                listOf(
+                    BardoDiffSingerScoreInputBuilder.PhonemeNote("a", 0.0, 1.0e12, 60)
+                ),
+                phonemes, 44_100, 512
+            )
+        }
+    }
 }
