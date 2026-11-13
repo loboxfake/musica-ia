@@ -35,6 +35,7 @@ import com.musicaia.modelo.Dato
 import com.musicaia.modulos.GrabadoraWav
 import com.musicaia.modulos.LectorWav
 import com.musicaia.modulos.BardoOfflineAsr
+import com.musicaia.modulos.BardoAtomicFilePublisher
 import com.musicaia.modulos.BardoMusicAnalyzer
 import com.musicaia.modulos.BardoAndroidAudioDecoder
 import com.musicaia.modulos.MezclaVoz
@@ -5178,9 +5179,10 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
              try {
                  require(wav.isFile && wav.length() > 44L) { "El WAV de la tarea ya no está disponible." }
                  val carpetaLocal = directorioBiblioteca()
-                 File(carpetaLocal, "$nombreBase.wav").outputStream().buffered().use { output ->
-                     wav.inputStream().buffered().use { it.copyTo(output) }
-                 }
+                 BardoAtomicFilePublisher.copyAndPublish(
+                     wav,
+                     File(carpetaLocal, "$nombreBase.wav")
+                 )
                  if (mp3.isFile && mp3.length() > 128L) {
                      File(carpetaLocal, "$nombreBase.mp3").outputStream().buffered().use { output ->
                          mp3.inputStream().buffered().use { it.copyTo(output) }
@@ -5252,9 +5254,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
              val marca = System.currentTimeMillis()
              taskIdAnalisis = "bardo-generated-analysis-$marca"
              val destino = File(carpeta, "BARDO_$marca.wav")
-             origen.inputStream().use { entrada ->
-                 destino.outputStream().buffered().use { salida -> entrada.copyTo(salida) }
-             }
+             BardoAtomicFilePublisher.copyAndPublish(origen, destino)
              pasos.firstOrNull { it.first == "letra" && it.second is Dato.Texto }?.let { (_, dato) ->
                  val archivoLetra = File(carpeta, "BARDO_$marca.txt")
                  archivoLetra.writeText((dato as Dato.Texto).texto)
