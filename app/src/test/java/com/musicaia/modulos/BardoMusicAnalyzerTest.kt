@@ -52,6 +52,21 @@ class BardoMusicAnalyzerTest {
     }
 
     @Test
+    fun includesLoudFinalPartialWindowInDynamicRangeEstimate() {
+        val sampleRate = 22_050
+        val wav = createWav(sampleRate = sampleRate, channels = 1, seconds = 1.15) { frame, _ ->
+            val amplitude = if (frame < sampleRate) 1_000.0 else 12_000.0
+            (sin(2.0 * PI * 220.0 * frame / sampleRate) * amplitude).toInt().toShort()
+        }
+        try {
+            val range = BardoMusicAnalyzer.analyze(wav).dynamicRangeDb
+            assertTrue("No se incorporó el último bloque dinámico: $range", range != null && range > 15.0)
+        } finally {
+            wav.delete()
+        }
+    }
+
+    @Test
     fun estimatesRegularPulseNear120Bpm() {
         val wav = createWav(sampleRate = 22_050, channels = 1, seconds = 12.0) { frame, _ ->
             val withinBeat = frame % 11_025
