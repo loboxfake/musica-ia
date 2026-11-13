@@ -150,7 +150,10 @@ object BardoMusicAnalyzer {
             val blockFrames = 8_192
             val bytes = ByteArray(blockFrames * frameBytes)
             var remaining = totalFrames
-            var resamplePhase = 0L
+            val resampler = BardoAnalysisResampler(
+                inputSampleRate = header.sampleRate,
+                outputSampleRate = ANALYSIS_RATE
+            ) { sample -> acceptAnalysisSample(sample) }
             while (remaining > 0L) {
                 val frames = min(blockFrames.toLong(), remaining).toInt()
                 val byteCount = frames * frameBytes
@@ -182,13 +185,9 @@ object BardoMusicAnalyzer {
                         cross += leftNorm * rightNorm
                     }
 
-                    // Remuestreo por retención de muestra, suficiente para el análisis
-                    // de tempo/tonalidad; las métricas de nivel usan siempre el PCM original.
-                    resamplePhase += ANALYSIS_RATE.toLong()
-                    while (resamplePhase >= header.sampleRate.toLong()) {
-                        resamplePhase -= header.sampleRate.toLong()
-                        acceptAnalysisSample(mono.toFloat())
-                    }
+                    // Remuestreo con filtro anti-alias al reducir la frecuencia.
+                    // Las métricas de nivel siguen calculándose sobre el PCM original.
+                    resampler.accept(mono.toFloat())
                 }
                 remaining -= frames
             }
