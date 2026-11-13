@@ -195,6 +195,13 @@ object BardoAndroidAudioDecoder {
             check(stagedFile.length() == 44L + decodedBytes) {
                 "El WAV temporal no contiene exactamente todas las muestras decodificadas."
             }
+            val stagedHeader = BardoWavHeaderValidator.inspect(stagedFile)
+            check(
+                stagedHeader.sampleRate == sampleRate &&
+                    stagedHeader.channels == outputChannels &&
+                    stagedHeader.bitsPerSample == 16 &&
+                    stagedHeader.dataBytes == decodedBytes
+            ) { "La cabecera WAV temporal no coincide con el PCM decodificado." }
             BardoAtomicFilePublisher.publish(stagedFile, destination)
             stagedWav = null
             runCatching { onProgress(100) }
