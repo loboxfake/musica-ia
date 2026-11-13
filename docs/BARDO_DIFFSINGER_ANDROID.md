@@ -8,7 +8,8 @@ Esta rama añade la primera capa Android del motor:
 - Inspector seguro de paquetes DiffSinger: dsconfig.yaml, acústico ONNX, inventario de fonemas validado (UTF-8 estricto, símbolos únicos, IDs estables y SP obligatorio), diccionario español dsdict-es.yaml/dsdict.yaml, tabla de idiomas, modelos auxiliares declarados, modelo ONNX del vocoder y compatibilidad de sample_rate/hop_size/FFT/mel.
 - Rechazo de rutas que escapen del directorio de la voz y de nombres de paquetes de vocoder inseguros.
 - Prueba de carga de la sesión ONNX acústica con límites conservadores de memoria y cierre determinista de recursos.
-- Lector independiente del inventario phonemes.txt: límite de tamaño y número de símbolos, rechazo de duplicados/controles/UTF-8 inválido y asignación de IDs por orden de archivo. El inspector solo acepta voicebanks cuyo inventario sea válido y contenga SP.\n- Constructor de entradas temporales DiffSinger: tokens, silencios SP, duraciones en frames y curva F0 por nota MIDI, con validación de solapamientos y límites.
+- Lector independiente del inventario phonemes.txt: límite de tamaño y número de símbolos, rechazo de duplicados/controles/UTF-8 inválido y asignación de IDs por orden de archivo. El inspector solo acepta voicebanks cuyo inventario sea válido y contenga SP.
+- Constructor de entradas temporales DiffSinger: tokens, silencios SP, duraciones en frames y curva F0 por nota MIDI, con validación de solapamientos y límites.
 - Registro separado del runtime ONNX y de la síntesis cantada.
 
 ## Preparación G2P español
