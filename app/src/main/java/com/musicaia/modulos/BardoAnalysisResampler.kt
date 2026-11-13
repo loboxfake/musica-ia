@@ -34,6 +34,18 @@ internal class BardoAnalysisResampler(
         }
     }
 
+    /** Completa el último intervalo sin perder muestras por el extremo derecho. */
+    fun finish() {
+        if (coefficients.size != 1 || inputSampleRate == outputSampleRate || inputFrameIndex < 0L) return
+        val inputFrameCount = inputFrameIndex + 1L
+        val targetOutputFrameCount =
+            (inputFrameCount * outputSampleRate.toLong() + inputSampleRate - 1L) / inputSampleRate
+        while (nextOutputFrameIndex < targetOutputFrameCount) {
+            onOutput(previousSample)
+            nextOutputFrameIndex++
+        }
+    }
+
     fun accept(sample: Float) {
         if (coefficients.size == 1) {
             if (inputSampleRate == outputSampleRate) {

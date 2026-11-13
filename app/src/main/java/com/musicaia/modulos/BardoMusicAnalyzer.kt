@@ -281,6 +281,7 @@ object BardoMusicAnalyzer {
                 }
                 remaining -= frames
             }
+            resampler.finish()
         }
 
         if (monoSilenceCount > 0 && sqrt(monoSilenceSumSquares / monoSilenceCount) < 0.001) {
