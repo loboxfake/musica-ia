@@ -394,10 +394,35 @@ class BardoMusicAnalyzerTest {
         try {
             val report = BardoMusicAnalyzer.analyze(wav)
             assertTrue(report.stereoCorrelation!! > 0.99)
+            assertEquals(0.0, report.stereoBalanceDb!!, 0.05)
             assertTrue(report.spectralCentroidHz != null && report.spectralCentroidHz in 400.0..480.0)
             assertTrue(report.warnings.none { it.contains("canal izquierdo", true) || it.contains("canal derecho", true) })
         } finally {
             wav.delete()
+        }
+    }
+
+    @Test
+    fun reportsStrongStereoLevelImbalanceAndKeepsMonoBalanceUnavailable() {
+        val wav = createWav(sampleRate = 22_050, channels = 2, seconds = 5.0) { frame, channel ->
+            val value = sin(2.0 * PI * 440.0 * frame / 22_050.0) * 12_000.0
+            if (channel == 0) value.toInt().toShort() else (value * 0.5).toInt().toShort()
+        }
+        try {
+            val report = BardoMusicAnalyzer.analyze(wav)
+            assertEquals(6.02, report.stereoBalanceDb!!, 0.1)
+            assertTrue(report.warnings.any { it.contains("desequilibrio de nivel") })
+        } finally {
+            wav.delete()
+        }
+
+        val mono = createWav(sampleRate = 22_050, channels = 1, seconds = 5.0) { frame, _ ->
+            (sin(2.0 * PI * 440.0 * frame / 22_050.0) * 12_000.0).toInt().toShort()
+        }
+        try {
+            assertNull(BardoMusicAnalyzer.analyze(mono).stereoBalanceDb)
+        } finally {
+            mono.delete()
         }
     }
 
@@ -410,6 +435,7 @@ class BardoMusicAnalyzerTest {
         try {
             val report = BardoMusicAnalyzer.analyze(wav)
             assertTrue(report.stereoCorrelation!! < -0.99)
+            assertEquals(1.94, report.stereoBalanceDb!!, 0.1)
             assertTrue("Las métricas de nivel deben seguir reflejando la suma mono original", report.rmsDbfs in -34.0..-29.0)
             assertTrue("Se perdió el tono de 220 Hz por cancelación mono: ${report.spectralCentroidHz}",
                 report.spectralCentroidHz != null && report.spectralCentroidHz in 200.0..240.0)
