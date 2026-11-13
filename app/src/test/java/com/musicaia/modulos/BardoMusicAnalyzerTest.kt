@@ -214,7 +214,7 @@ class BardoMusicAnalyzerTest {
     }
 
     @Test
-    fun detectsOutOfPhaseStereoAndSilentAudioWithoutInventingTempoOrKey() {
+    fun preservesSpectralContentInOutOfPhaseStereoWithoutInventingTempoOrKey() {
         val wav = createWav(sampleRate = 22_050, channels = 2, seconds = 5.0) { frame, channel ->
             val value = sin(2.0 * PI * 220.0 * frame / 22_050.0) * 12_000.0
             if (channel == 0) value.toInt().toShort() else (-value).toInt().toShort()
@@ -222,8 +222,11 @@ class BardoMusicAnalyzerTest {
         try {
             val report = BardoMusicAnalyzer.analyze(wav)
             assertTrue(report.stereoCorrelation!! < -0.99)
+            assertTrue("Se perdió el tono de 220 Hz por cancelación mono: ${report.spectralCentroidHz}",
+                report.spectralCentroidHz != null && report.spectralCentroidHz in 200.0..240.0)
+            assertEquals(9, report.pitchClassEnergy.indices.maxByOrNull { report.pitchClassEnergy[it] } ?: -1)
             assertNull(report.estimatedTempoBpm)
-            assertNull(report.estimatedKey)
+            assertNull("Una nota aislada no basta para afirmar tonalidad", report.estimatedKey)
             assertTrue(report.warnings.any { it.contains("mono", ignoreCase = true) })
         } finally {
             wav.delete()
