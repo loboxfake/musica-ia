@@ -26,6 +26,7 @@ class BardoMusicAnalyzerTest {
             assertTrue(report.rmsDbfs in -10.0..-8.0)
             assertEquals(9, report.pitchClassEnergy.indices.maxByOrNull { report.pitchClassEnergy[it] } ?: -1)
             assertTrue(report.spectralCentroidHz!! in 400.0..480.0)
+            assertTrue("Una nota aislada no debe presentarse como un acorde", report.chordProgression.isEmpty())
         } finally {
             wav.delete()
         }
@@ -102,6 +103,23 @@ class BardoMusicAnalyzerTest {
             val progression = BardoMusicAnalyzer.analyze(wav).chordProgression
             assertTrue("No se reconoció La menor: $progression", progression.any { it.chord == "La menor" })
             assertTrue("Se etiquetó erróneamente como La mayor: $progression", progression.none { it.chord == "La mayor" })
+        } finally {
+            wav.delete()
+        }
+    }
+
+    @Test
+    fun doesNotLabelAnIsolatedPerfectFifthAsACompleteTriad() {
+        val sampleRate = 22_050
+        val fifth = doubleArrayOf(220.0, 329.63)
+        val wav = createWav(sampleRate = sampleRate, channels = 1, seconds = 8.0) { frame, _ ->
+            val time = frame.toDouble() / sampleRate
+            val value = fifth.sumOf { sin(2.0 * PI * it * time) } / fifth.size
+            (value * 14_000.0).toInt().toShort()
+        }
+        try {
+            val progression = BardoMusicAnalyzer.analyze(wav).chordProgression
+            assertTrue("Un intervalo sin tercera no demuestra un acorde mayor o menor: $progression", progression.isEmpty())
         } finally {
             wav.delete()
         }

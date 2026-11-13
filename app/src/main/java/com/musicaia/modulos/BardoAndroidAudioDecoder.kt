@@ -32,6 +32,7 @@ object BardoAndroidAudioDecoder {
             "El WAV de análisis debe ser un archivo distinto del original."
         }
         var raw: File? = null
+        var stagedWav: File? = null
         var extractor: MediaExtractor? = null
         var codec: MediaCodec? = null
         var codecStarted = false
@@ -44,6 +45,8 @@ object BardoAndroidAudioDecoder {
             }
             val rawFile = File.createTempFile("bardo_decode_", ".pcm.tmp", outputDirectory)
             raw = rawFile
+            val stagedFile = File.createTempFile("bardo_wav_", ".wav.tmp", outputDirectory)
+            stagedWav = stagedFile
             val mediaExtractor = MediaExtractor()
             extractor = mediaExtractor
             mediaExtractor.setDataSource(source.absolutePath)
@@ -188,11 +191,16 @@ object BardoAndroidAudioDecoder {
             require(sampleRate > 0 && decodedBytes > 0L && decodedBytes % (outputChannels * 2L) == 0L) {
                 "Android no produjo muestras PCM completas."
             }
-            writeWav(rawFile, destination, sampleRate, outputChannels, decodedBytes)
+            writeWav(rawFile, stagedFile, sampleRate, outputChannels, decodedBytes)
+            check(stagedFile.length() == 44L + decodedBytes) {
+                "El WAV temporal no contiene exactamente todas las muestras decodificadas."
+            }
+            BardoAtomicFilePublisher.publish(stagedFile, destination)
+            stagedWav = null
             runCatching { onProgress(100) }
         } catch (error: Throwable) {
             primaryFailure = error
-            destination.delete()
+            stagedWav?.delete()
             throw error
         } finally {
             var cleanupFailure: Throwable? = null
@@ -209,6 +217,7 @@ object BardoAndroidAudioDecoder {
             cleanup { codec?.release() }
             cleanup { extractor?.release() }
             raw?.delete()
+            stagedWav?.delete()
             cleanupFailure?.let { throw it }
         }
     }
