@@ -1,0 +1,18 @@
+[
+  {
+    "id": "gemma-4-e2b-it-litertlm",
+    "tipo": "LETRA",
+    "nombre": "Gemma 4 E2B-it LiteRT-LM",
+    "version": "6e5c4f1e395deb959c494953478fa5cec4b8008f",
+    "tamano_mb": 2588.147712,
+    "ram_minima_mb": 8192,
+    "licencia": "Apache-2.0",
+    "uso_comercial": true,
+    "url_descarga": "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/6e5c4f1e395deb959c494953478fa5cec4b8008f/gemma-4-E2B-it.litertlm",
+    "sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+    "motor": "litertlm",
+    "atribucion": "Google / LiteRT Community; Gemma 4 E2B-it.",
+    "licencia_url": "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm",
+    "tamano_bytes": 2588147712
+  }
+]

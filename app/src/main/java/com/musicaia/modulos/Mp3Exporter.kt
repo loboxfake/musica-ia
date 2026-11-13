@@ -1,0 +1,80 @@
+package com.musicaia.modulos
+
+import java.io.File
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+
+/** Exportación PCM WAV -> MP3 mediante LAME nativo, sin servicios ni red. */
+object Mp3Exporter {
+    val available: Boolean = runCatching {
+        System.loadLibrary("mp3encoder")
+    }.isSuccess
+
+    /**
+     * Comprueba la compatibilidad real del WAV con el parser JNI y codifica.
+     * Así se evitan errores genéricos cuando la cabecera es WAV válida pero
+     * su frecuencia/canales no están soportados por esta versión de LAME.
+     */
+    fun validateInputWav(file: File): BardoWavHeader {
+        val header = BardoWavHeaderValidator.inspect(file)
+        require(header.bitsPerSample == 16 && header.channels in 1..2) {
+            "El exportador MP3 solo admite WAV PCM16 mono o estéreo."
+        }
+        require(header.sampleRate in 32_000..48_000) {
+            "El exportador MP3 admite frecuencias de 32 a 48 kHz; el WAV tiene ${header.sampleRate} Hz."
+        }
+        require(header.dataBytes > 0L) { "El WAV no contiene audio PCM." }
+        return header
+    }
+
+    fun encodeValidatedWavToMp3(
+        inputPath: String,
+        outputPath: String,
+        bitrateKbps: Int
+    ): Boolean {
+        require(bitrateKbps in 128..320) { "El bitrate MP3 debe estar entre 128 y 320 kbps." }
+        val input = File(inputPath).canonicalFile
+        val output = File(outputPath).canonicalFile
+        require(input != output) { "La salida MP3 no puede sobrescribir el WAV original." }
+        validateInputWav(input)
+        check(available) { "El codificador MP3 nativo no está disponible en esta compilación." }
+        val directory = output.parentFile ?: File(".")
+        check(directory.isDirectory || directory.mkdirs()) {
+            "No se pudo crear el directorio de salida MP3."
+        }
+        val temporary = File.createTempFile("bardo_mp3_", ".mp3.tmp", directory)
+        try {
+            if (!encodeWavToMp3(input.absolutePath, temporary.absolutePath, bitrateKbps)) {
+                return false
+            }
+            return publishEncodedFile(temporary, output)
+        } finally {
+            temporary.delete()
+        }
+    }
+
+    internal fun publishEncodedFile(temporary: File, output: File): Boolean {
+        require(temporary.canonicalFile != output.canonicalFile) {
+            "El archivo MP3 temporal y la salida deben ser diferentes."
+        }
+        if (!temporary.isFile || temporary.length() <= 128L) return false
+        val encodedBytes = temporary.length()
+        try {
+            Files.move(
+                temporary.toPath(), output.toPath(),
+                StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING
+            )
+        } catch (_: AtomicMoveNotSupportedException) {
+            Files.move(temporary.toPath(), output.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        }
+        return output.isFile && output.length() == encodedBytes
+    }
+
+    /** Codifica WAV PCM16 mono/estéreo a MP3 CBR (128..320 kbps). */
+    external fun encodeWavToMp3(
+        inputPath: String,
+        outputPath: String,
+        bitrateKbps: Int
+    ): Boolean
+}

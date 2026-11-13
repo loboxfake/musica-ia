@@ -1,0 +1,259 @@
+name: BARDO approved main commit
+
+run-name: BARDO main commit · ${{ inputs.candidate_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_id:
+        description: Exact candidate identifier previously validated
+        required: true
+        type: string
+      base_sha:
+        description: Exact main SHA used to create the candidate
+        required: true
+        type: string
+      patch_gzip_b64:
+        description: Exact gzip-compressed patch, Base64 encoded
+        required: true
+        type: string
+      validation_run_id:
+        description: Successful isolated candidate validation run ID
+        required: true
+        type: string
+      approve_main_commit:
+        description: Explicit user approval to commit this exact candidate directly to main
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  actions: write
+  contents: write
+
+# Serialize every integration to avoid concurrent writers. No force-push is ever used.
+concurrency:
+  group: bardo-main-integration-main
+  cancel-in-progress: false
+
+jobs:
+  integrate:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - name: Require explicit approval and validate identifiers
+        env:
+          APPROVE_MAIN_COMMIT: ${{ inputs.approve_main_commit }}
+          CANDIDATE_ID: ${{ inputs.candidate_id }}
+          BASE_SHA: ${{ inputs.base_sha }}
+          VALIDATION_RUN_ID: ${{ inputs.validation_run_id }}
+        run: |
+          set -euo pipefail
+          test "$APPROVE_MAIN_COMMIT" = "true" || {
+            echo "::error::The user has not explicitly approved a commit to main."
+            exit 1
+          }
+          printf '%s' "$CANDIDATE_ID" | grep -Eq '^[0-9a-f]{32}$'
+          printf '%s' "$BASE_SHA" | grep -Eq '^[0-9a-fA-F]{40}$'
+          printf '%s' "$VALIDATION_RUN_ID" | grep -Eq '^[0-9]{6,20}$'
+
+      - name: Verify the exact successful isolated validation run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_ID: ${{ inputs.candidate_id }}
+          BASE_SHA: ${{ inputs.base_sha }}
+          VALIDATION_RUN_ID: ${{ inputs.validation_run_id }}
+        run: |
+          set -euo pipefail
+          validation="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$VALIDATION_RUN_ID")"
+          validation_path="$(jq -r '.path' <<< "$validation" | cut -d@ -f1)"
+          test "$validation_path" = ".github/workflows/bardo-candidate-validation.yml"
+          test "$(jq -r '.event' <<< "$validation")" = "workflow_dispatch"
+          test "$(jq -r '.head_branch' <<< "$validation")" = "main"
+          test "$(jq -r '.status' <<< "$validation")" = "completed"
+          test "$(jq -r '.conclusion' <<< "$validation")" = "success"
+          test "$(jq -r '.head_sha' <<< "$validation")" = "$BASE_SHA"
+          test "$(jq -r '.display_title' <<< "$validation")" = "BARDO candidate validation · $CANDIDATE_ID"
+          test "$(jq -r '.repository.full_name' <<< "$validation")" = "$GITHUB_REPOSITORY"
+          test "$(jq -r '.head_repository.full_name' <<< "$validation")" = "$GITHUB_REPOSITORY"
+
+      - name: Download the report from that exact validation run
+        uses: actions/download-artifact@v4
+        with:
+          name: bardo-candidate-validation-${{ inputs.candidate_id }}
+          path: ${{ runner.temp }}/bardo-validation
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.validation_run_id }}
+
+      - name: Checkout the immutable base commit from main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.base_sha }}
+          fetch-depth: 0
+          persist-credentials: true
+          token: ${{ github.token }}
+
+      - name: Refuse stale main and verify exact patch digest
+        env:
+          BASE_SHA: ${{ inputs.base_sha }}
+          CANDIDATE_ID: ${{ inputs.candidate_id }}
+          PATCH_GZIP_B64: ${{ inputs.patch_gzip_b64 }}
+        run: |
+          set -euo pipefail
+          current_main="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          test "$current_main" = "$BASE_SHA" || {
+            echo "::error::main moved after candidate validation. Nothing will be committed."
+            exit 1
+          }
+          test "$(git rev-parse HEAD)" = "$BASE_SHA"
+          mkdir -p "$RUNNER_TEMP"
+          git show "$BASE_SHA:app/src/main/java/com/musicaia/desarrollo/BardoProtectedPathPolicy.kt" > "$RUNNER_TEMP/bardo-protected-path-policy.kt"
+          git show "$BASE_SHA:.github/scripts/bardo_workflow_guards.py" > "$RUNNER_TEMP/bardo-workflow-guards.py"
+          test -s "$RUNNER_TEMP/bardo-protected-path-policy.kt"
+          test -s "$RUNNER_TEMP/bardo-workflow-guards.py"
+
+          python3 "$RUNNER_TEMP/bardo-workflow-guards.py" decode "$RUNNER_TEMP/bardo-approved.patch"
+          python3 - "$RUNNER_TEMP/bardo-validation-report.txt" <<'PY'
+          import hashlib, os, pathlib, re, sys
+          candidate = os.environ["CANDIDATE_ID"]
+          if not re.fullmatch(r"[0-9a-f]{32}", candidate):
+              raise SystemExit("BARDO_CANDIDATE_ID_INVALID")
+          patch = pathlib.Path(os.environ.get("RUNNER_TEMP", ".")) / "bardo-approved.patch"
+          report_dir = pathlib.Path(os.environ.get("RUNNER_TEMP", ".")) / "bardo-validation"
+          report_candidates = list(report_dir.rglob("candidate-validation-report.txt"))
+          if len(report_candidates) != 1:
+              raise SystemExit("BARDO_VALIDATION_REPORT_MISSING_OR_AMBIGUOUS")
+          report = report_candidates[0].read_text(encoding="utf-8")
+          required = [
+              f"Candidate: {candidate}",
+              f"Base commit: {os.environ['BASE_SHA']}",
+              "Result: SUCCESS",
+          ]
+          if not all(line in report.splitlines() for line in required):
+              raise SystemExit("BARDO_VALIDATION_REPORT_IDENTITY_MISMATCH")
+          expected = re.search(r"^Patch SHA-256: ([0-9a-f]{64})$", report, re.M)
+          actual = hashlib.sha256(patch.read_bytes()).hexdigest()
+          if not expected or expected.group(1) != actual:
+              raise SystemExit("BARDO_PATCH_DIFFERS_FROM_SUCCESSFULLY_VALIDATED_PATCH")
+          changed_section = report.split("Changed files:\n", 1)
+          if len(changed_section) != 2:
+              raise SystemExit("BARDO_CHANGED_FILE_LIST_MISSING")
+          changed_text = changed_section[1].split("Patch SHA-256:", 1)[0]
+          changed = [line.strip() for line in changed_text.splitlines() if line.strip()]
+          if not changed or len(changed) > 30 or len(changed) != len(set(changed)):
+              raise SystemExit("BARDO_CHANGED_FILE_LIST_INVALID")
+          pathlib.Path("bardo-validated-changed-files.txt").write_text("\n".join(changed) + "\n")
+          print(f"Exact candidate {candidate}; patch SHA-256 {actual}; files={len(changed)}")
+          PY
+
+          git apply --check "$RUNNER_TEMP/bardo-approved.patch"
+          git apply "$RUNNER_TEMP/bardo-approved.patch"
+
+      - name: Re-enforce the autonomous path and file policy
+        run: |
+          set -euo pipefail
+          python3 "$RUNNER_TEMP/bardo-workflow-guards.py" check-paths \
+            --policy "$RUNNER_TEMP/bardo-protected-path-policy.kt" \
+            --report /dev/null \
+            --expected bardo-validated-changed-files.txt
+          git diff --check
+
+      - name: Set up Go for Gitleaks
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Prepare the candidate commit locally and scan its complete history
+        id: prepare
+        env:
+          CANDIDATE_ID: ${{ inputs.candidate_id }}
+          BASE_SHA: ${{ inputs.base_sha }}
+          VALIDATION_RUN_ID: ${{ inputs.validation_run_id }}
+        run: |
+          set -euo pipefail
+          mapfile -t changed < bardo-validated-changed-files.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- "${changed[@]}"
+          git diff --cached --check
+          git diff --cached --quiet && {
+            echo "::error::The validated candidate produced no staged changes."
+            exit 1
+          }
+          git commit -m "BARDO: integrate candidate $CANDIDATE_ID" \
+            -m "Validated base: $BASE_SHA" \
+            -m "Isolated validation run: $VALIDATION_RUN_ID"
+          candidate_commit="$(git rev-parse HEAD)"
+          echo "commit_sha=$candidate_commit" >> "$GITHUB_OUTPUT"
+
+          # The candidate is committed only in this ephemeral runner. Scan it before any remote push.
+          go install github.com/zricethezav/gitleaks/v8@v8.24.3
+          "$(go env GOPATH)/bin/gitleaks" git . --log-opts="--all" --redact --exit-code 1 --no-banner
+
+      - name: Run unit tests and compile ARM64 candidate again
+        run: |
+          set -euo pipefail
+          ./gradlew testDebugUnitTest assembleDebug -PbardoTargetAbi=arm64-v8a --no-daemon --stacktrace 2>&1 | tee "$RUNNER_TEMP/bardo-main-commit-tests.log"
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            grep -E "FAILED|Exception|error:|What went wrong" "$RUNNER_TEMP/bardo-main-commit-tests.log" | tail -100 || true
+            exit "$status"
+          fi
+
+      - name: Recheck main and push the prevalidated candidate using a normal fast-forward
+        id: integrate
+        env:
+          BASE_SHA: ${{ inputs.base_sha }}
+          CANDIDATE_ID: ${{ inputs.candidate_id }}
+          VALIDATION_RUN_ID: ${{ inputs.validation_run_id }}
+          CANDIDATE_COMMIT: ${{ steps.prepare.outputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_COMMIT"
+          current_main="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          test "$current_main" = "$BASE_SHA" || {
+            echo "::error::main moved during candidate revalidation. No commit was pushed."
+            exit 1
+          }
+
+          # Deliberately no --force/--force-with-lease: if main moves after the check,
+          # a normal push is rejected rather than overwriting someone else's work.
+          git push origin "HEAD:refs/heads/main"
+
+          git fetch origin main
+          actual_main="$(git rev-parse FETCH_HEAD)"
+          git merge-base --is-ancestor "$CANDIDATE_COMMIT" "$actual_main"
+          {
+            echo "## BARDO · integración en main"
+            echo
+            echo "- Candidato: $CANDIDATE_ID"
+            echo "- Base validada: $BASE_SHA"
+            echo "- Commit incorporado: $CANDIDATE_COMMIT"
+            echo "- main tras el push: $actual_main"
+            echo "- Validación aislada: https://github.com/$GITHUB_REPOSITORY/actions/runs/$VALIDATION_RUN_ID"
+            echo "- Escaneo Gitleaks sobre el candidato antes del push: SUCCESS"
+            echo "- Revalidación en runner: tests Kotlin + APK ARM64"
+            echo "- Push: avance rápido normal; sin force-push, ramas auxiliares ni PR"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "BARDO_MAIN_COMMIT_SHA=$CANDIDATE_COMMIT"
+          echo "BARDO_MAIN_TIP_AFTER_PUSH=$actual_main"
+          echo "commit_sha=$CANDIDATE_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "main_tip_sha=$actual_main" >> "$GITHUB_OUTPUT"
+
+      - name: Trigger explicit validation of the committed main tip
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_MAIN_SHA: ${{ steps.integrate.outputs.main_tip_sha }}
+        run: |
+          set -euo pipefail
+          current_main="$(gh api "repos/$GITHUB_REPOSITORY/branches/main" --jq '.commit.sha')"
+          test "$current_main" = "$EXPECTED_MAIN_SHA" || {
+            echo "::error::main advanced again before validation dispatch. The commit remains in history; validate the current main tip manually."
+            exit 1
+          }
+          gh api --method POST "repos/$GITHUB_REPOSITORY/actions/workflows/bardo-validation.yml/dispatches" -f ref=main
+          echo "Triggered BARDO integration validation for main SHA $EXPECTED_MAIN_SHA."
+          echo "- Main commit: ${{ steps.integrate.outputs.commit_sha }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Validation workflow: https://github.com/$GITHUB_REPOSITORY/actions/workflows/bardo-validation.yml" >> "$GITHUB_STEP_SUMMARY"

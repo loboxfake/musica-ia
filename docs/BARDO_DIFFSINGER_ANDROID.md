@@ -1,0 +1,42 @@
+# BARDO · Integración local DiffSinger para Android
+
+## Estado de esta rama
+
+Esta rama añade la primera capa Android del motor:
+
+- ONNX Runtime Android 1.31.1, fijado en Gradle.
+- Inspector seguro de paquetes DiffSinger: dsconfig.yaml, acústico ONNX, inventario de fonemas validado (UTF-8 estricto, símbolos únicos, IDs estables y SP obligatorio), diccionario español dsdict-es.yaml/dsdict.yaml, tabla de idiomas, modelos auxiliares declarados, modelo ONNX del vocoder y compatibilidad de sample_rate/hop_size/FFT/mel.
+- Rechazo de rutas que escapen del directorio de la voz y de nombres de paquetes de vocoder inseguros.
+- Prueba de carga de la sesión ONNX acústica con límites conservadores de memoria y cierre determinista de recursos.
+- Lector independiente del inventario phonemes.txt: límite de tamaño y número de símbolos, rechazo de duplicados/controles/UTF-8 inválido y asignación de IDs por orden de archivo. El inspector solo acepta voicebanks cuyo inventario sea válido y contenga SP.
+- Constructor de entradas temporales DiffSinger: tokens, silencios SP, duraciones en frames y curva F0 por nota MIDI, con validación de solapamientos y límites.
+- Registro separado del runtime ONNX y de la síntesis cantada.
+
+## Preparación G2P español
+
+- `BardoSpanishG2pCodec` traduce grafemas españoles a IDs de entrada y devuelve los fonemas base a partir de IDs de salida. Rechaza los caracteres que el vocabulario no conoce en vez de descartarlos.
+- `BardoSpanishG2pAutoregressiveDecoder` implementa el ciclo greedy del modelo de referencia: `src`, `tgt`, `t`, token de avance 2 y un máximo de 47 fonemas por palabra. Se prueba sin cargar ONNX.
+- `BardoSpanishG2pOnnxEngine` conecta ese ciclo a ONNX Runtime Android en CPU, limita el modelo a 64 MiB, exige al menos 256 MiB disponibles según la medición suministrada y cierra tensores/resultados por paso.
+- `BardoDiffSingerSpanishG2pResolver` consulta primero las pronunciaciones de `dsdict-es.yaml`; solo para palabras desconocidas consulta el G2P y después aplica los reemplazos de la voicebank (`es/<fonema>` o símbolo directo), rechazando los símbolos que no existen en el inventario.
+- El código del códec adapta el contrato de `SpanishG2p.cs` y `G2pPack.cs` de OpenUtau, cubierto por MIT; su atribución y licencia están en `assets/third_party/THIRD_PARTY_NOTICES.md` y `OpenUtau-MIT.txt`.
+- El parser admite diccionarios de voz con símbolos y reemplazos aunque no incluyan entradas léxicas, para permitir que el G2P aporte todas las pronunciaciones. No se ha incorporado `g2p-es.zip`, sus pesos ONNX, `dict.txt` ni `phones.txt`: la licencia específica de esos recursos no está acreditada. El motor tampoco está conectado a la creación de canciones. Por tanto, G2P real no se considera disponible y la síntesis cantada continúa `NOT_IMPLEMENTED`.
+
+## Límites explícitos
+
+Esto NO es todavía un sintetizador cantado completo. Abrir el grafo acústico no ejecuta inferencia. Falta incorporar un paquete G2P español autorizado y conectar el resultado de sus fonemas al predictor de duración, al acústico y al vocoder, con los parámetros reales de cada voicebank; después se debe ensamblar el WAV. El inspector ya exige que la voicebank aporte el diccionario fonético español y valida el inventario de fonemas, el esquema seguro de símbolos/entradas/reemplazos y la existencia y compatibilidad declarada de los modelos. Por eso `voice_synthesis` permanece `NOT_IMPLEMENTED` y no se habilita el flujo de creación con voz IA.
+
+La rama activa V2 de OpenUtau Mobile es una referencia técnica Apache-2.0, pero su propia matriz clasifica DiffSinger Android como condicional y su README advierte que la rama está en desarrollo. No se copia ni redistribuye ninguna voicebank de terceros en esta integración. Cada voz deberá tener licencia de uso y redistribución comprobada, además de consentimiento cuando corresponda.
+
+## Siguiente puerta de aceptación
+
+1. CI compila y ejecuta pruebas del inspector.
+2. Añadir un paquete DiffSinger de prueba con licencia verificable.
+3. Abrir acústico y vocoder ONNX en ARM64.
+4. Ejecutar una inferencia completa de frase con fonemas españoles y obtener WAV PCM.
+5. Medir memoria, tiempo, temperatura y estabilidad en Xiaomi 11T Pro.
+6. Solo entonces elevar el estado de síntesis y conectarlo al orquestador.
+
+Referencias:
+- OpenUtau Mobile V2: https://github.com/vocoder712/OpenUtauMobile/tree/dev
+- DiffSinger support: https://www.openutau.com/DiffSinger-support/
+- ONNX Runtime Android: https://onnxruntime.ai/docs/install/

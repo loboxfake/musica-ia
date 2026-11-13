@@ -1,0 +1,17 @@
+name: DISABLED — legacy branch consolidation check
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  main_only_policy:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 2
+    steps:
+      - name: Explain disabled legacy workflow
+        run: |
+          echo "Las ramas históricas se conservan como respaldo. No se borran ni se modifican automáticamente."
+          echo "No se han creado ramas, PR, commits ni cambios en main."
