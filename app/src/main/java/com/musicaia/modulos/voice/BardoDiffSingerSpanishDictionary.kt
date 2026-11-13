@@ -69,7 +69,7 @@ object BardoDiffSingerSpanishDictionary {
                 Section.SYMBOLS -> {
                     val symbol = fields["symbol"].orEmpty()
                     val type = fields["type"].orEmpty()
-                    if (!validAtom(symbol) || type !in setOf("vowel", "consonant", "semivowel", "liquid")) {
+                    if (!validAtom(symbol) || type !in setOf("vowel", "consonant", "semivowel", "liquid", "stop", "affricate", "fricative", "aspirate", "nasal")) {
                         errors += "Definición de símbolo inválida cerca de la línea $lineNumber."
                     } else if (symbols.putIfAbsent(symbol, type) != null) {
                         errors += "Símbolo duplicado '$symbol'."
