@@ -245,6 +245,7 @@ class BardoMusicAnalyzerTest {
             assertNull(report.estimatedTempoBpm)
             assertNull("Una nota aislada no basta para afirmar tonalidad", report.estimatedKey)
             assertTrue(report.warnings.any { it.contains("mono", ignoreCase = true) })
+            assertTrue(report.warnings.any { it.contains("canal izquierdo", ignoreCase = true) })
         } finally {
             wav.delete()
         }
