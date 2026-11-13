@@ -190,7 +190,7 @@ object BardoDiffSingerSpanishDictionary {
         finishItem(text.lineSequence().count())
 
         if (symbols.isEmpty()) errors += "El diccionario no define símbolos fonéticos."
-        if (entries.isEmpty()) errors += "El diccionario no contiene pronunciaciones."
+        // Un diccionario solo de símbolos es válido: el G2P externo puede aportar las pronunciaciones.
         if (symbols.size > MAX_SYMBOLS) errors += "El diccionario supera el máximo de símbolos."
         if (entries.size > MAX_ENTRIES) errors += "El diccionario supera el máximo de entradas."
         entries.forEach { (word, phones) ->
