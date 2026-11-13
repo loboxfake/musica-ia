@@ -2305,7 +2305,11 @@ private fun crearConversacionNueva() {
           append("Muestras próximas a saturación: ").append(number(report.clippedSamplePercent, 3)).append("%\n")
           append("Silencio estimado: ").append(number(report.silencePercent)).append("%\n")
           append("Desplazamiento DC: ").append(number(report.dcOffset, 5)).append("\n")
-          report.dynamicRangeDb?.let { append("Rango dinámico aproximado (ventanas RMS): ").append(number(it)).append(" dB\n") }
+          if (report.dynamicRangeDb != null) {
+              append("Rango dinámico aproximado (ventanas RMS): ").append(number(report.dynamicRangeDb)).append(" dB\n")
+          } else {
+              append("Rango dinámico aproximado: no disponible (consulta los avisos técnicos).\n")
+          }
           report.stereoCorrelation?.let { append("Correlación estéreo L/R: ").append(number(it, 3)).append("\n") }
           report.spectralCentroidHz?.let { append("Centroide espectral: ").append(number(it)).append(" Hz\n") }
           if (report.lowBandEnergyPercent != null || report.midBandEnergyPercent != null || report.highBandEnergyPercent != null) {
