@@ -384,6 +384,9 @@ object BardoMusicAnalyzer {
             if (durationRange == null) add("No hay al menos cuatro ventanas de nivel no silencioso para calcular el rango dinámico; el dato se omite.")
             if (durationRange != null && durationRange < 5.0) add("La dinámica medida es reducida; podría haber compresión intensa.")
             if (stereoCorrelation != null && stereoCorrelation < -0.2) add("La correlación estéreo es negativa; comprueba la compatibilidad mono.")
+            if (header.channels == 2 && stereoBalanceDb == null) {
+                add("No se puede calcular el balance de nivel L/R porque al menos un canal no contiene energía suficiente.")
+            }
             if (stereoBalanceDb != null && abs(stereoBalanceDb) >= 3.0) {
                 add("Hay un desequilibrio de nivel entre canales L/R de ${String.format(java.util.Locale.ROOT, "%.1f", abs(stereoBalanceDb))} dB; revisa el panorama y la ganancia estéreo.")
             }
