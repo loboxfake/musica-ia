@@ -69,6 +69,25 @@ class BardoAnalysisResamplerTest {
     }
 
     @Test
+    fun finishIsIdempotentAndDoesNotAddSamplesToDownsampling() {
+        val upsampled = ArrayList<Float>()
+        val upsampler = BardoAnalysisResampler(16_000, 22_050) { upsampled.add(it) }
+        repeat(16_000) { upsampler.accept(0.25f) }
+        upsampler.finish()
+        val finishedCount = upsampled.size
+        upsampler.finish()
+        assertTrue("finish() no debe duplicar la cola", upsampled.size == finishedCount)
+        assertTrue("La salida debe conservar la duración de entrada", finishedCount == 22_050)
+
+        val downsampled = ArrayList<Float>()
+        val downsampler = BardoAnalysisResampler(48_000, 22_050) { downsampled.add(it) }
+        repeat(48_000) { downsampler.accept(0.25f) }
+        val countBeforeFinish = downsampled.size
+        downsampler.finish()
+        assertTrue("finish() no debe alterar el remuestreo FIR", downsampled.size == countBeforeFinish)
+    }
+
+    @Test
     fun preservesSampleCountForEqualRatesAndProducesExpectedUpsampledCount() {
         val sameRate = ArrayList<Float>()
         val identity = BardoAnalysisResampler(22_050, 22_050) { sameRate.add(it) }

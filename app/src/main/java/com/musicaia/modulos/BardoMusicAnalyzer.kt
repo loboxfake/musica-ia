@@ -338,10 +338,24 @@ object BardoMusicAnalyzer {
         val key = if (fftFrames >= 2) estimateKey(chroma) else null
         val chordProgression = estimateChordProgression(chordWindowChroma, duration)
         val centroid = if (centroidPower > EPSILON) centroidWeighted / centroidPower else null
-        val bandPowerTotal = lowBandPower + midBandPower + highBandPower
-        val lowBandPercent = if (bandPowerTotal > EPSILON) 100.0 * lowBandPower / bandPowerTotal else null
-        val midBandPercent = if (bandPowerTotal > EPSILON) 100.0 * midBandPower / bandPowerTotal else null
-        val highBandPercent = if (bandPowerTotal > EPSILON) 100.0 * highBandPower / bandPowerTotal else null
+        // Una banda solo se informa cuando el archivo original contiene
+        // todo su rango. Un Nyquist parcial no debe convertirse en un falso 0%.
+        val lowBandAvailable = sourceNyquistHz >= 250.0
+        val midBandAvailable = sourceNyquistHz >= 2_000.0
+        val highBandAvailable = sourceNyquistHz >= MAX_SPECTRAL_ANALYSIS_HZ
+        val bandPowerTotal =
+            (if (lowBandAvailable) lowBandPower else 0.0) +
+                (if (midBandAvailable) midBandPower else 0.0) +
+                (if (highBandAvailable) highBandPower else 0.0)
+        val lowBandPercent = if (lowBandAvailable && bandPowerTotal > EPSILON) {
+            100.0 * lowBandPower / bandPowerTotal
+        } else null
+        val midBandPercent = if (midBandAvailable && bandPowerTotal > EPSILON) {
+            100.0 * midBandPower / bandPowerTotal
+        } else null
+        val highBandPercent = if (highBandAvailable && bandPowerTotal > EPSILON) {
+            100.0 * highBandPower / bandPowerTotal
+        } else null
         val rolloffTarget = centroidPower * 0.85
         var accumulatedForRolloff = 0.0
         var rolloffBin = -1
@@ -364,6 +378,7 @@ object BardoMusicAnalyzer {
             if (abs(dc) > 0.01) add("Se detecta desplazamiento DC apreciable.")
             if (sourceNyquistHz < MAX_SPECTRAL_ANALYSIS_HZ) {
                 add("El archivo original solo permite analizar el espectro hasta ${sourceNyquistHz.toInt()} Hz; las bandas superiores no contienen información recuperable.")
+                add("Los porcentajes de bandas incompletas se omiten en lugar de mostrarse como 0%.")
             }
             if (tempo == null) add("No se pudo estimar un pulso estable con suficiente confianza.")
             if (key == null) add("No se pudo estimar una tonalidad estable con suficiente confianza.")

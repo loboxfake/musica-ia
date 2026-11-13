@@ -110,6 +110,32 @@ class BardoMusicAnalyzerTest {
     }
 
     @Test
+    fun doesNotReportAnIncompleteHighBandAsZeroForLowSampleRateAudio() {
+        val sampleRate = 8_000
+        val wav = createWav(sampleRate = sampleRate, channels = 1, seconds = 5.0) { frame, _ ->
+            val time = frame.toDouble() / sampleRate
+            val mixed = sin(2.0 * PI * 100.0 * time) +
+                sin(2.0 * PI * 1_000.0 * time) +
+                sin(2.0 * PI * 3_500.0 * time)
+            (mixed * 5_000.0 / 3.0).toInt().toShort()
+        }
+        try {
+            val report = BardoMusicAnalyzer.analyze(wav)
+            assertNotNull("La banda baja completa debe estar disponible", report.lowBandEnergyPercent)
+            assertNotNull("La banda media completa debe estar disponible", report.midBandEnergyPercent)
+            assertNull("No se debe informar una banda alta truncada por Nyquist", report.highBandEnergyPercent)
+            assertEquals(
+                100.0,
+                report.lowBandEnergyPercent!! + report.midBandEnergyPercent!!,
+                0.01
+            )
+            assertTrue(report.warnings.any { it.contains("bandas incompletas") })
+        } finally {
+            wav.delete()
+        }
+    }
+
+    @Test
     fun detectsMinorTriadWithoutRelabelingItAsMajor() {
         val sampleRate = 22_050
         val aMinor = doubleArrayOf(220.00, 261.63, 329.63)
