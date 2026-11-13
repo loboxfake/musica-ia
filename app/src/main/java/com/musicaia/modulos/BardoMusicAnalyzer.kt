@@ -5,6 +5,7 @@ import java.io.RandomAccessFile
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
+import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.ln
 import kotlin.math.log10
@@ -221,8 +222,12 @@ object BardoMusicAnalyzer {
         val durationRange = if (dynamicRms.size >= 4) {
             val sorted = dynamicRms.filter { it > 0.001 }.sorted()
             if (sorted.size >= 4) {
-                val low = sorted[(sorted.lastIndex * 0.10).toInt()]
-                val high = sorted[(sorted.lastIndex * 0.95).toInt()]
+                // Nearest-rank percentiles retain the top tail when only a
+                // few windows exist (important for short intros/outros/transients).
+                val lowIndex = (ceil(sorted.size * 0.10).toInt() - 1).coerceIn(0, sorted.lastIndex)
+                val highIndex = (ceil(sorted.size * 0.95).toInt() - 1).coerceIn(0, sorted.lastIndex)
+                val low = sorted[lowIndex]
+                val high = sorted[highIndex]
                 if (low > 0.0) 20.0 * log10(high / low) else null
             } else null
         } else null
