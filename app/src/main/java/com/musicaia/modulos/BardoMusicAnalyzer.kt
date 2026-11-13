@@ -211,9 +211,19 @@ object BardoMusicAnalyzer {
                         cross += leftNorm * rightNorm
                     }
 
+                    // Para el análisis espectral evitamos que una cancelación
+                    // fuerte entre L/R borre por completo el contenido musical.
+                    // Solo sustituimos la señal mono cuando cae por debajo del
+                    // 25% del canal más intenso; las métricas de nivel y la
+                    // correlación estéreo siguen usando las muestras originales.
+                    val strongestChannel = if (abs(leftNorm) >= abs(rightNorm)) leftNorm else rightNorm
+                    val analysisSample = if (
+                        header.channels == 2 &&
+                        abs(mono) < max(abs(leftNorm), abs(rightNorm)) * 0.25
+                    ) strongestChannel else mono
+
                     // Remuestreo con filtro anti-alias al reducir la frecuencia.
-                    // Las métricas de nivel siguen calculándose sobre el PCM original.
-                    resampler.accept(mono.toFloat())
+                    resampler.accept(analysisSample.toFloat())
                 }
                 remaining -= frames
             }
