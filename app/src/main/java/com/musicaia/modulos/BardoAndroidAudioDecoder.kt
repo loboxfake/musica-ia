@@ -203,51 +203,7 @@ object BardoAndroidAudioDecoder {
         inputChannels: Int,
         outputChannels: Int,
         encoding: Int
-    ): ByteArray {
-        val bytesPerSample = when (encoding) {
-            AudioFormat.ENCODING_PCM_8BIT -> 1
-            AudioFormat.ENCODING_PCM_16BIT -> 2
-            AudioFormat.ENCODING_PCM_24BIT_PACKED -> 3
-            AudioFormat.ENCODING_PCM_32BIT, AudioFormat.ENCODING_PCM_FLOAT -> 4
-            else -> error("Formato PCM no admitido.")
-        }
-        val frameBytes = bytesPerSample * inputChannels
-        require(input.remaining() % frameBytes == 0) { "El búfer PCM termina en mitad de una muestra." }
-        val frames = input.remaining() / frameBytes
-        val source = input.slice().order(ByteOrder.LITTLE_ENDIAN)
-        val result = ByteBuffer.allocate(frames * outputChannels * 2).order(ByteOrder.LITTLE_ENDIAN)
-        repeat(frames) {
-            val values = IntArray(inputChannels)
-            repeat(inputChannels) { channel -> values[channel] = readSample(source, encoding) }
-            if (outputChannels == 2) {
-                result.putShort(values[0].coerceIn(-32768, 32767).toShort())
-                result.putShort(values[1].coerceIn(-32768, 32767).toShort())
-            } else {
-                val selected = if (inputChannels == 1) values[0] else {
-                    // Downmix sencillo para multicanal; se evita fingir que es una mezcla espacial.
-                    values.take( minOf(inputChannels, 8) ).average().toInt()
-                }
-                result.putShort(selected.coerceIn(-32768, 32767).toShort())
-            }
-        }
-        return result.array()
-    }
-
-    private fun readSample(source: ByteBuffer, encoding: Int): Int = when (encoding) {
-        AudioFormat.ENCODING_PCM_8BIT -> ((source.get().toInt() and 0xff) - 128) shl 8
-        AudioFormat.ENCODING_PCM_16BIT -> source.getShort().toInt()
-        AudioFormat.ENCODING_PCM_24BIT_PACKED -> {
-            val raw = (source.get().toInt() and 0xff) or
-                ((source.get().toInt() and 0xff) shl 8) or ((source.get().toInt() and 0xff) shl 16)
-            (if ((raw and 0x800000) != 0) raw or -0x1000000 else raw) shr 8
-        }
-        AudioFormat.ENCODING_PCM_32BIT -> source.getInt() shr 16
-        AudioFormat.ENCODING_PCM_FLOAT -> {
-            val sample = source.getFloat().coerceIn(-1.0f, 1.0f)
-            if (sample <= -1.0f) -32768 else (sample * 32767.0f).toInt()
-        }
-        else -> error("Formato PCM no admitido.")
-    }
+    ): ByteArray = BardoPcm16Converter.convert(input, inputChannels, outputChannels, encoding)
 
     private fun writeWav(raw: File, destination: File, sampleRate: Int, channels: Int, dataBytes: Long) {
         require(dataBytes <= Int.MAX_VALUE.toLong() - 36L) { "El WAV resultante supera el límite RIFF." }
