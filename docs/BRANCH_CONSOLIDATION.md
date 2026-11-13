@@ -22,7 +22,18 @@
 
 ## Ramas históricas
 
-Las ramas de PR #1–#24 que constan como fusionadas son antecedentes; sus cambios integrados ya forman parte de `main`. Las ramas que no aparecen como head de una PR fusionada se consideran **pendientes de auditoría**, no trabajo automáticamente perdido ni trabajo automáticamente integrado. En particular, ramas antiguas de DiffSinger, autonomía y validación de APK deben compararse con `main` antes de reutilizar cualquier commit.
+Las ramas históricas que tienen PR fusionada se conservan como referencia, pero sus cambios de producto ya están integrados en `main`. El registro de PRs confirma:
+- PR #1: correcciones de audio/importación y archivo MP3.
+- PRs #2–#6: base de autonomía, estado veraz, APK unificada y presupuesto por tarea.
+- PRs #11–#13: base Android ONNX, validación DiffSinger y entradas temporales.
+- PRs #14–#20: inventario fonético, diccionario español, protección de overflow y validación estricta.
+- PRs #21–#23: codec G2P español ONNX y correcciones de integración.
+- PR #24: análisis musical offline.
+- PR #25: remuestreo anti-alias y análisis dinámico.
+
+La auditoría de refs detectó ramas antiguas como `bardo/diffsinger-phoneme-inventory`, `bardo/diffsinger-spanish-dictionary`, `bardo/strict-diffsinger-config-keys`, `bardo/spanish-g2p-codec`, `feature/bardo-diffsinger-android-engine` y otras que aparecen como divergentes al compararlas con `main`. Esto es esperable tras fusiones squash: el contador de commits ahead/behind no demuestra por sí solo que haya código nuevo sin integrar. La fuente de verdad es la PR fusionada y la comparación de archivos/contenido. No se deben volver a fusionar esas ramas enteras; solo se rescataría un cambio concreto si se demuestra que no está ya en `main`, aporta valor y pasa revisión y pruebas.
+
+Las ramas de autonomía y APK que aparecen únicamente detrás de `main` no contienen commits exclusivos por delante; son referencias históricas. No se borra ninguna rama. Cualquier rama sin PR fusionada que se descubra en el futuro se clasifica como **pendiente de auditoría**, nunca como perdida ni integrada por suposición.
 
 ## Siguiente paso de consolidación
 
