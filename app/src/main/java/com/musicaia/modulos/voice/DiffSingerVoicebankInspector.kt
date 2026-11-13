@@ -75,7 +75,7 @@ object DiffSingerVoicebankInspector {
             val match = scalarLine.matchEntire(line) ?: return@forEachIndexed
             val key = match.groupValues[1]
             if (!seenKeys.add(key)) {
-                errors += "Clave duplicada '$key' en $label, línea \${index + 1}."
+                errors += "Clave duplicada '$key' en $label, línea ${index + 1}."
                 return@forEachIndexed
             }
             val value = match.groupValues[2].trim().removeSurrounding("\"").removeSurrounding("'")
