@@ -22,8 +22,16 @@ object BardoDiffSingerSpanishDictionary {
         val isValid: Boolean get() = errors.isEmpty() && symbols.isNotEmpty() && entries.isNotEmpty()
     }
     data class ResolvedWord(val text: String, val phonemes: List<String>, val start: Int, val end: Int)
-    data class Resolution(val words: List<ResolvedWord>, val unknownWords: List<String>, val unsupportedPhonemes: List<String>) {
-        val isComplete: Boolean get() = words.isNotEmpty() && unknownWords.isEmpty() && unsupportedPhonemes.isEmpty()
+    data class G2pFallback(val phonemes: List<String>, val error: String? = null)
+    data class Resolution(
+        val words: List<ResolvedWord>,
+        val unknownWords: List<String>,
+        val unsupportedPhonemes: List<String>,
+        val g2pErrors: List<String> = emptyList()
+    ) {
+        val isComplete: Boolean
+            get() = words.isNotEmpty() && unknownWords.isEmpty() &&
+                unsupportedPhonemes.isEmpty() && g2pErrors.isEmpty()
     }
 
     private enum class Section { NONE, SYMBOLS, ENTRIES, REPLACEMENTS }
@@ -224,6 +232,70 @@ object BardoDiffSingerSpanishDictionary {
             }
         }
         return Resolution(words, unknown.distinct(), unsupported.distinct())
+    }
+
+    /**
+     * Resuelve primero el diccionario específico de la voz. Solo las palabras
+     * ausentes usan el G2P base; después se aplican replacements y el fallback
+     * es/<fonema> de DiffSinger, validando cada símbolo contra la voz cargada.
+     */
+    fun resolveLyricsWithG2pFallback(
+        text: String,
+        dictionary: Result,
+        voicePhonemeIds: Map<String, Int>,
+        predict: (String) -> G2pFallback
+    ): Resolution {
+        if (!dictionary.isValid) {
+            return Resolution(emptyList(), emptyList(), listOf("El diccionario español no es válido."))
+        }
+
+        val words = mutableListOf<ResolvedWord>()
+        val unknown = mutableListOf<String>()
+        val unsupported = mutableListOf<String>()
+        val g2pErrors = mutableListOf<String>()
+
+        wordPattern.findAll(Normalizer.normalize(text, Normalizer.Form.NFC)).forEach { match ->
+            val word = normalizeWord(match.value)
+            val dictionaryPhones = dictionary.entries[word]
+            val sourcePhones = if (dictionaryPhones != null) {
+                dictionaryPhones
+            } else {
+                val fallback = try {
+                    predict(word)
+                } catch (error: Exception) {
+                    G2pFallback(emptyList(), "${error.javaClass.simpleName}: ${error.message.orEmpty()}")
+                }
+                if (fallback.error != null) g2pErrors += "$word: ${fallback.error}"
+                fallback.phonemes
+            }
+
+            if (sourcePhones.isEmpty()) {
+                unknown += word
+                return@forEach
+            }
+
+            val mapped = sourcePhones.map { phone ->
+                val replacement = dictionary.replacements[phone]
+                when {
+                    replacement != null && replacement in voicePhonemeIds -> replacement
+                    replacement != null -> {
+                        unsupported += "$word:$phone->$replacement"
+                        ""
+                    }
+                    "es/$phone" in voicePhonemeIds -> "es/$phone"
+                    phone in voicePhonemeIds -> phone
+                    else -> {
+                        unsupported += "$word:$phone"
+                        ""
+                    }
+                }
+            }.filter { it.isNotEmpty() }
+
+            if (mapped.size == sourcePhones.size) {
+                words += ResolvedWord(word, mapped, match.range.first, match.range.last + 1)
+            }
+        }
+        return Resolution(words, unknown.distinct(), unsupported.distinct(), g2pErrors.distinct())
     }
 
     private fun invalid(message: String) = Result(emptyMap(), emptyMap(), emptyMap(), listOf(message))
