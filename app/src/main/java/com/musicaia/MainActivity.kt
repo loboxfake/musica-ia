@@ -2279,9 +2279,7 @@ private fun crearConversacionNueva() {
               tvEstado.text = "Análisis musical terminado. Las estimaciones incluyen una puntuación de estabilidad relativa, no una probabilidad."
               responderChatLibre(
                   "Actúa como analista musical. Interpreta este informe calculado directamente del audio. " +
-                      "Distingue mediciones de estimaciones; explica limitaciones y confianza. No inventes género, instrumentos, " +
-                      "letra, acordes, melodía, estructura ni calidad perceptiva porque este informe no contiene reconocimiento semántico " +
-                      "ni una escucha humana. Señala problemas técnicos respaldados por las métricas y propone comprobaciones auditivas concretas. " +
+                      "Distingue mediciones de estimaciones; explica limitaciones y confianza. No inventes género, instrumentos, letra, melodía, estructura ni calidad perceptiva porque este informe no contiene reconocimiento semántico ni una escucha humana. Distingue las mediciones directas de las estimaciones heurísticas explícitas de acordes, tempo y tonalidad; explica sus límites y nunca las presentes como certezas ni porcentajes de exactitud. Señala problemas técnicos respaldados por las métricas y propone comprobaciones auditivas concretas. " +
                       "Responde en el idioma de la conversación.\n\n$informe",
                   taskId
               )
@@ -2318,22 +2316,22 @@ private fun crearConversacionNueva() {
           if (report.chordProgression.isNotEmpty()) {
               append("Acordes estimados por bloques de 2 s (orientativos): ")
               append(report.chordProgression.joinToString(" · ") { chord ->
-                  String.format(java.util.Locale.ROOT, "%.0f–%.0f s %s (%.0f%%)", chord.startSeconds, chord.endSeconds, chord.chord, chord.score * 100.0)
+                  String.format(java.util.Locale.ROOT, "%.0f–%.0f s %s (ajuste %.2f/1)", chord.startSeconds, chord.endSeconds, chord.chord, chord.score)
               }).append("\n")
           } else append("Acordes: no concluyentes en bloques de 2 s\n")
           if (report.estimatedTempoBpm != null) {
               append("Tempo estimado: ").append(number(report.estimatedTempoBpm)).append("  BPM (puntuación de estabilidad ")
-                  .append(number((report.tempoConfidence ?: 0.0) * 100.0)).append("%)\n")
+                  .append(number(report.tempoConfidence ?: 0.0, 2)).append("%)\n")
           } else append("Tempo estimado: no concluyente\n")
           if (report.estimatedKey != null) {
               append("Tonalidad estimada: ").append(report.estimatedKey).append(" (puntuación de estabilidad relativa: ")
-                  .append(number((report.keyConfidence ?: 0.0) * 100.0)).append("%)\n")
+                  .append(number(report.keyConfidence ?: 0.0, 2)).append("%)\n")
           } else append("Tonalidad estimada: no concluyente\n")
           if (report.warnings.isNotEmpty()) {
               append("Avisos técnicos:\n")
               report.warnings.forEach { append("• ").append(it).append("\n") }
           }
-          append("\nAlcance: análisis matemático local del WAV decodificado. No identifica automáticamente instrumentos, género, letra, acordes ni estructura; no sustituye una escucha.")
+          append("\nAlcance: análisis matemático local del audio decodificado. Los acordes, tempo y tonalidad son estimaciones heurísticas, no certezas; no identifica automáticamente instrumentos, género, letra ni estructura, y no sustituye una escucha humana.")
       }
   }
 
