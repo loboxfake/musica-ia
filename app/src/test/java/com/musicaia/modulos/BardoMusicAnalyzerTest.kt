@@ -67,6 +67,29 @@ class BardoMusicAnalyzerTest {
     }
 
     @Test
+    fun reportsSpectralBandBalanceAnd85PercentRolloffForMixedTones() {
+        val sampleRate = 22_050
+        val wav = createWav(sampleRate = sampleRate, channels = 1, seconds = 5.0) { frame, _ ->
+            val time = frame.toDouble() / sampleRate
+            val mixed = sin(2.0 * PI * 100.0 * time) + sin(2.0 * PI * 1_000.0 * time) + sin(2.0 * PI * 5_000.0 * time)
+            (mixed * 5_000.0 / 3.0).toInt().toShort()
+        }
+        try {
+            val report = BardoMusicAnalyzer.analyze(wav)
+            assertNotNull(report.lowBandEnergyPercent)
+            assertNotNull(report.midBandEnergyPercent)
+            assertNotNull(report.highBandEnergyPercent)
+            assertTrue(report.lowBandEnergyPercent!! in 20.0..45.0)
+            assertTrue(report.midBandEnergyPercent!! in 20.0..45.0)
+            assertTrue(report.highBandEnergyPercent!! in 20.0..45.0)
+            assertTrue(report.spectralRolloff85Hz!! in 4_500.0..5_500.0)
+            assertEquals(100.0, report.lowBandEnergyPercent!! + report.midBandEnergyPercent!! + report.highBandEnergyPercent!!, 0.01)
+        } finally {
+            wav.delete()
+        }
+    }
+
+    @Test
     fun estimatesRegularPulseNear120Bpm() {
         val wav = createWav(sampleRate = 22_050, channels = 1, seconds = 12.0) { frame, _ ->
             val withinBeat = frame % 11_025

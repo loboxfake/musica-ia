@@ -44,6 +44,10 @@ object BardoMusicAnalyzer {
         val dynamicRangeDb: Double?,
         val stereoCorrelation: Double?,
         val spectralCentroidHz: Double?,
+        val lowBandEnergyPercent: Double?,
+        val midBandEnergyPercent: Double?,
+        val highBandEnergyPercent: Double?,
+        val spectralRolloff85Hz: Double?,
         val estimatedTempoBpm: Double?,
         val tempoConfidence: Double?,
         val estimatedKey: String?,
@@ -92,6 +96,10 @@ object BardoMusicAnalyzer {
         var previousEnergy = 0.0
         var centroidWeighted = 0.0
         var centroidPower = 0.0
+        var lowBandPower = 0.0
+        var midBandPower = 0.0
+        var highBandPower = 0.0
+        val accumulatedSpectrum = DoubleArray(FFT_SIZE / 2)
         var fftFrames = 0
 
         fun acceptAnalysisSample(value: Float) {
@@ -136,6 +144,12 @@ object BardoMusicAnalyzer {
                     if (power <= EPSILON) continue
                     centroidWeighted += frequency * power
                     centroidPower += power
+                    accumulatedSpectrum[bin] += power
+                    when {
+                        frequency < 250.0 -> lowBandPower += power
+                        frequency < 2_000.0 -> midBandPower += power
+                        else -> highBandPower += power
+                    }
                     if (frequency <= 1_760.0) {
                         val midi = (69.0 + 12.0 * (ln(frequency / 440.0) / ln(2.0))).toInt()
                         val pitchClass = ((midi % 12) + 12) % 12
@@ -237,6 +251,21 @@ object BardoMusicAnalyzer {
         val normalizedChroma = if (chromaTotal > EPSILON) chroma.map { it / chromaTotal } else List(12) { 0.0 }
         val key = if (fftFrames >= 2) estimateKey(chroma) else null
         val centroid = if (centroidPower > EPSILON) centroidWeighted / centroidPower else null
+        val bandPowerTotal = lowBandPower + midBandPower + highBandPower
+        val lowBandPercent = if (bandPowerTotal > EPSILON) 100.0 * lowBandPower / bandPowerTotal else null
+        val midBandPercent = if (bandPowerTotal > EPSILON) 100.0 * midBandPower / bandPowerTotal else null
+        val highBandPercent = if (bandPowerTotal > EPSILON) 100.0 * highBandPower / bandPowerTotal else null
+        val rolloffTarget = centroidPower * 0.85
+        var accumulatedForRolloff = 0.0
+        var rolloffBin = -1
+        for (bin in accumulatedSpectrum.indices) {
+            accumulatedForRolloff += accumulatedSpectrum[bin]
+            if (accumulatedForRolloff >= rolloffTarget) {
+                rolloffBin = bin
+                break
+            }
+        }
+        val rolloff85 = if (rolloffBin > 0 && fftFrames > 0) rolloffBin.toDouble() * ANALYSIS_RATE / FFT_SIZE else null
 
         val warnings = buildList {
             if (clippingPercent > 0.1) add("Hay muestras cerca de saturación; revisa la ganancia o el limitador.")
@@ -261,6 +290,10 @@ object BardoMusicAnalyzer {
             dynamicRangeDb = durationRange,
             stereoCorrelation = stereoCorrelation,
             spectralCentroidHz = centroid,
+            lowBandEnergyPercent = lowBandPercent,
+            midBandEnergyPercent = midBandPercent,
+            highBandEnergyPercent = highBandPercent,
+            spectralRolloff85Hz = rolloff85,
             estimatedTempoBpm = tempo?.first,
             tempoConfidence = tempo?.second,
             estimatedKey = key?.first,
