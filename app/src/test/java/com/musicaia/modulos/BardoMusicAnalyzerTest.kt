@@ -93,7 +93,7 @@ class BardoMusicAnalyzerTest {
     fun followsSyntheticCToGMajorChordChangeAcrossTwoSecondWindows() {
         val sampleRate = 22_050
         val cMajor = doubleArrayOf(261.63, 329.63, 392.00)
-        val gMajor = doubleArrayOf(196.00, 246.94, 392.00)
+        val gMajor = doubleArrayOf(196.00, 246.94, 293.66)
         val wav = createWav(sampleRate = sampleRate, channels = 1, seconds = 8.0) { frame, _ ->
             val time = frame.toDouble() / sampleRate
             val frequencies = if (time < 4.0) cMajor else gMajor
