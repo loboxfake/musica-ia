@@ -76,7 +76,8 @@ object BardoGuidedProgressPolicy {
         }
         if (field == "ambiente") {
             val asksNaturalMoodQuestion = Regex(
-                """\b(?:que|cual)\s+(?:energia|atmosfera)\s+(?:quieres transmitir|buscas|te gustaria|deberia tener (?:la )?(?:cancion|tema|track))\b|\bcomo quieres que se sienta (?:la )?(?:cancion|tema|track)\b|\bwhat (?:energy|atmosphere) (?:should (?:the )?(?:song|track) have|would you like)\b|\bhow should (?:the )?(?:song|track) feel\b"""            ).containsMatchIn(normalized)
+                """\b(?:que|cual)\s+(?:energia|atmosfera)\s+(?:quieres transmitir|buscas|te gustaria|deberia tener (?:(?:la|el) )?(?:cancion|tema|track))\b|\bcomo quieres que se sienta (?:(?:la|el) )?(?:cancion|tema|track)\b|\bwhat (?:energy|atmosphere) (?:should (?:the )?(?:song|track) have|would you like)\b|\bhow should (?:the )?(?:song|track) feel\b"""
+            ).containsMatchIn(normalized)
             val moodTerms = listOf(
                 "ambiente", "mood", "emotion", "emocion", "feeling",
                 "sentimiento", "sensacion", "tono"
