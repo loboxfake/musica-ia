@@ -22,7 +22,6 @@ internal object BardoPcm16Converter {
     ): ByteArray {
         require(inputChannels in 1..8)
         require(outputChannels == 1 || outputChannels == 2)
-        require(outputChannels == 2 || inputChannels == 1 || inputChannels > 2)
         val bytesPerSample = when (encoding) {
             PCM_8BIT -> 1
             PCM_16BIT -> 2
