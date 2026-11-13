@@ -1,6 +1,9 @@
 package com.musicaia.modulos.voice
 
 import java.io.File
+import java.nio.ByteBuffer
+import java.nio.charset.CodingErrorAction
+import java.nio.charset.StandardCharsets
 import kotlin.math.abs
 
 /**
@@ -42,9 +45,62 @@ object DiffSingerVoicebankInspector {
         val readyForRuntimeProbe: Boolean get() = status == Status.READY_FOR_RUNTIME_PROBE
     }
 
+    private data class ScalarConfig(val values: Map<String, String>, val errors: List<String>)
+
     private val scalarLine = Regex("^\\s*([A-Za-z0-9_]+)\\s*:\\s*(.*?)\\s*$")
     private val packageId = Regex("^[A-Za-z0-9._-]{1,128}$")
     private const val MAX_CONFIG_BYTES = 1024L * 1024L
+
+    /**
+     * Lee escalares YAML simples. Las estructuras ajenas a este contrato se
+     * ignoran, pero las claves repetidas invalidan el archivo para impedir que
+     * una ruta o parámetro se sobrescriba silenciosamente.
+     */
+    private fun parseScalars(file: File, label: String): ScalarConfig {
+        val source = try {
+            val decoder = StandardCharsets.UTF_8.newDecoder()
+                .onMalformedInput(CodingErrorAction.REPORT)
+                .onUnmappableCharacter(CodingErrorAction.REPORT)
+            decoder.decode(ByteBuffer.wrap(file.readBytes())).toString()
+        } catch (_: Exception) {
+            return ScalarConfig(emptyMap(), listOf("$label no contiene UTF-8 válido o no se pudo leer."))
+        }
+
+        val values = linkedMapOf<String, String>()
+        val seenKeys = mutableSetOf<String>()
+        val errors = mutableListOf<String>()
+        source.lineSequence().forEachIndexed { index, raw ->
+            if (raw.startsWith('\t')) {
+                errors += "Indentación YAML con tab no admitida en $label, línea ${index + 1}."
+                return@forEachIndexed
+            }
+            if (raw.firstOrNull() == ' ') return@forEachIndexed
+            val line = stripYamlComment(raw).trim()
+            if (line.isEmpty() || line.startsWith("---")) return@forEachIndexed
+            val match = scalarLine.matchEntire(line) ?: return@forEachIndexed
+            val key = match.groupValues[1]
+            if (!seenKeys.add(key)) {
+                errors += "Clave duplicada '$key' en $label, línea ${index + 1}."
+                return@forEachIndexed
+            }
+            val value = match.groupValues[2].trim().removeSurrounding("\"").removeSurrounding("'")
+            if (value.isNotEmpty() && value != "null" && value != "~") values[key] = value
+        }
+        return ScalarConfig(values.toMap(), errors.distinct())
+    }
+
+    private fun stripYamlComment(raw: String): String {
+        var quote: Char? = null
+        raw.forEachIndexed { index, char ->
+            if ((char == '"' || char == '\'') && (index == 0 || raw[index - 1] != '\\')) {
+                quote = if (quote == char) null else if (quote == null) char else quote
+            }
+            if (char == '#' && quote == null && (index == 0 || raw[index - 1].isWhitespace())) {
+                return raw.substring(0, index)
+            }
+        }
+        return raw
+    }
 
     fun inspect(
         voicebankRoot: File,
@@ -63,20 +119,6 @@ object DiffSingerVoicebankInspector {
             return Inspection(Status.INVALID_CONFIG, root, errors = listOf("dsconfig.yaml supera el límite de tamaño seguro."))
         }
 
-        fun parseScalars(file: File): Map<String, String> {
-            val values = linkedMapOf<String, String>()
-            file.useLines { lines ->
-                lines.forEach { raw ->
-                    val line = raw.substringBefore('#').trim()
-                    if (line.isEmpty() || line.startsWith("---")) return@forEach
-                    val match = scalarLine.matchEntire(line) ?: return@forEach
-                    val value = match.groupValues[2].trim().removeSurrounding("\"").removeSurrounding("'")
-                    if (value.isNotEmpty() && value != "null" && value != "~") values[match.groupValues[1]] = value
-                }
-            }
-            return values
-        }
-
         fun safeChild(base: File, relative: String): File? {
             if (relative.isBlank()) return null
             val canonicalBase = runCatching { base.canonicalFile }.getOrNull() ?: return null
@@ -85,9 +127,11 @@ object DiffSingerVoicebankInspector {
             return candidate.takeIf { it.path.startsWith(prefix) && it.isFile && it.length() > 0L }
         }
 
-        val values = runCatching { parseScalars(config) }.getOrElse {
-            return Inspection(Status.INVALID_CONFIG, root, errors = listOf("No se pudo interpretar dsconfig.yaml."))
+        val parsedConfig = parseScalars(config, "dsconfig.yaml")
+        if (parsedConfig.errors.isNotEmpty()) {
+            return Inspection(Status.INVALID_CONFIG, root, errors = parsedConfig.errors)
         }
+        val values = parsedConfig.values
         val acousticName = values["acoustic"]
         val phonemesName = values["phonemes"] ?: "phonemes.txt"
         val vocoderName = values["vocoder"]
@@ -174,10 +218,12 @@ object DiffSingerVoicebankInspector {
                 sampleRate = sampleRate, hopSize = hopSize,
                 errors = listOf("vocoder.yaml supera el límite de tamaño seguro."))
         }
-        val vocoderValues = runCatching { parseScalars(vocoderConfig) }.getOrElse {
+        val parsedVocoderConfig = parseScalars(vocoderConfig, "vocoder.yaml")
+        if (parsedVocoderConfig.errors.isNotEmpty()) {
             return Inspection(Status.INVALID_CONFIG, root, acoustic, phonemes, dictionary, vocoderConfig,
-                sampleRate = sampleRate, hopSize = hopSize, errors = listOf("No se pudo interpretar vocoder.yaml."))
+                sampleRate = sampleRate, hopSize = hopSize, errors = parsedVocoderConfig.errors)
         }
+        val vocoderValues = parsedVocoderConfig.values
         val vocoderModelName = vocoderValues["model"] ?: "model.onnx"
         val vocoderModel = safeChild(vocoderConfig.parentFile, vocoderModelName)
             ?.takeIf { it.extension.equals("onnx", ignoreCase = true) }

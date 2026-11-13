@@ -118,4 +118,43 @@ class DiffSingerVoicebankInspectorTest {
         assertEquals(DiffSingerVoicebankInspector.Status.MISSING_AUXILIARY_MODEL,
             DiffSingerVoicebankInspector.inspect(root).status)
     }
+
+
+    @Test fun rejectsDuplicateScalarKeysInVoicebankConfig() {
+        val root = voicebank()
+        File(root, "dsconfig.yaml").appendText("acoustic: alternate.onnx\n")
+        val result = DiffSingerVoicebankInspector.inspect(root)
+        assertEquals(DiffSingerVoicebankInspector.Status.INVALID_CONFIG, result.status)
+        assertTrue(result.errors.any { it.contains("Clave duplicada 'acoustic'") })
+    }
+
+    @Test fun rejectsDuplicateScalarKeysInVocoderConfig() {
+        val root = voicebank()
+        File(root, "dsvocoder/vocoder.yaml").writeText(
+            "model: vocoder.onnx\nmodel: alternate.onnx\n"
+        )
+        val result = DiffSingerVoicebankInspector.inspect(root)
+        assertEquals(DiffSingerVoicebankInspector.Status.INVALID_CONFIG, result.status)
+        assertTrue(result.errors.any { it.contains("Clave duplicada 'model'") })
+    }
+
+    @Test fun preservesHashInsideQuotedModelPath() {
+        val root = voicebank()
+        File(root, "acoustic#prod.onnx").writeBytes(byteArrayOf(7, 8, 9))
+        File(root, "dsconfig.yaml").writeText(
+            "acoustic: \"acoustic#prod.onnx\"\nvocoder: test-vocoder\n"
+        )
+        val result = DiffSingerVoicebankInspector.inspect(root)
+        assertEquals(DiffSingerVoicebankInspector.Status.READY_FOR_RUNTIME_PROBE, result.status)
+        assertEquals("acoustic#prod.onnx", result.acousticModel?.name)
+    }
+
+    @Test fun ignoresRepeatedKeysInsideUnsupportedNestedBlocks() {
+        val root = voicebank()
+        File(root, "dsconfig.yaml").appendText(
+            "augmentation_args:\n  first:\n    mode: fast\n  second:\n    mode: slow\n"
+        )
+        val result = DiffSingerVoicebankInspector.inspect(root)
+        assertEquals(DiffSingerVoicebankInspector.Status.READY_FOR_RUNTIME_PROBE, result.status)
+    }
 }
