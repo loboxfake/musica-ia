@@ -92,7 +92,11 @@ object BardoDiffSingerScoreInputBuilder {
             val duration = durationsMs[index]
             require(duration.isFinite() && duration >= 0.0) { "Duración de segmento inválida." }
             accumulatedMs += duration
-            val frame = Math.rint(accumulatedMs / frameMs + 0.5).toInt()
+            val roundedFrame = Math.rint(accumulatedMs / frameMs + 0.5)
+            require(
+                roundedFrame.isFinite() && roundedFrame in 0.0..MAX_TOTAL_FRAMES.toDouble()
+            ) { "La frase excede el límite de $MAX_TOTAL_FRAMES frames." }
+            val frame = roundedFrame.toInt()
             val count = frame - previousFrame
             require(count >= 0) { "El redondeo produjo una duración negativa." }
             previousFrame = frame
