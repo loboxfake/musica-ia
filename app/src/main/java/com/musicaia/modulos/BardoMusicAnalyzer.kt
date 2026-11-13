@@ -171,6 +171,50 @@ object BardoMusicAnalyzer {
             }
         }
 
+        // Primera pasada ligera: decide una sola señal de análisis para todo
+        // el archivo. Si la suma mono cancela casi toda la energía estéreo,
+        // elegimos el canal con más energía de forma consistente. Evita cambiar
+        // de canal muestra a muestra y generar distorsión artificial.
+        var leftPreSquares = 0.0
+        var rightPreSquares = 0.0
+        var monoPreSquares = 0.0
+        RandomAccessFile(file, "r").use { input ->
+            input.seek(header.dataOffset)
+            val blockFrames = 8_192
+            val bytes = ByteArray(blockFrames * frameBytes)
+            var remaining = totalFrames
+            while (remaining > 0L) {
+                val frames = min(blockFrames.toLong(), remaining).toInt()
+                val byteCount = frames * frameBytes
+                input.readFully(bytes, 0, byteCount)
+                var offset = 0
+                repeat(frames) {
+                    val left = decodePcm16(bytes[offset], bytes[offset + 1])
+                    offset += 2
+                    val right = if (header.channels == 2) {
+                        decodePcm16(bytes[offset], bytes[offset + 1]).also { offset += 2 }
+                    } else left
+                    val leftNorm = left / 32768.0
+                    val rightNorm = right / 32768.0
+                    val mono = (leftNorm + rightNorm) * 0.5
+                    leftPreSquares += leftNorm * leftNorm
+                    rightPreSquares += rightNorm * rightNorm
+                    monoPreSquares += mono * mono
+                }
+                remaining -= frames
+            }
+        }
+        val preFrameCount = max(1L, totalFrames).toDouble()
+        val leftPreRms = sqrt(leftPreSquares / preFrameCount)
+        val rightPreRms = sqrt(rightPreSquares / preFrameCount)
+        val monoPreRms = sqrt(monoPreSquares / preFrameCount)
+        val analysisChannel = if (
+            header.channels == 2 &&
+            monoPreRms < max(leftPreRms, rightPreRms) * 0.25
+        ) {
+            if (leftPreRms >= rightPreRms) 0 else 1
+        } else -1
+
         RandomAccessFile(file, "r").use { input ->
             input.seek(header.dataOffset)
             val blockFrames = 8_192
@@ -211,16 +255,14 @@ object BardoMusicAnalyzer {
                         cross += leftNorm * rightNorm
                     }
 
-                    // Para el análisis espectral evitamos que una cancelación
-                    // fuerte entre L/R borre por completo el contenido musical.
-                    // Solo sustituimos la señal mono cuando cae por debajo del
-                    // 25% del canal más intenso; las métricas de nivel y la
-                    // correlación estéreo siguen usando las muestras originales.
-                    val strongestChannel = if (abs(leftNorm) >= abs(rightNorm)) leftNorm else rightNorm
-                    val analysisSample = if (
-                        header.channels == 2 &&
-                        abs(mono) < max(abs(leftNorm), abs(rightNorm)) * 0.25
-                    ) strongestChannel else mono
+                    // En mezclas con cancelación global fuerte usamos un
+                    // único canal de referencia; en el resto conservamos la
+                    // suma mono convencional.
+                    val analysisSample = when (analysisChannel) {
+                        0 -> leftNorm
+                        1 -> rightNorm
+                        else -> mono
+                    }
 
                     // Remuestreo con filtro anti-alias al reducir la frecuencia.
                     resampler.accept(analysisSample.toFloat())
