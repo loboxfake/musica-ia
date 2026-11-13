@@ -17,7 +17,7 @@ object BardoDiffSingerSpanishG2pResolver {
         val dictionary = inspection.spanishDictionary
             ?: return incomplete("La inspección no proporcionó un diccionario español validado.")
 
-        return dictionary.resolveLyricsWithG2pFallback(
+        return BardoDiffSingerSpanishDictionary.resolveLyricsWithG2pFallback(
             lyrics,
             dictionary,
             inspection.phonemeIds
