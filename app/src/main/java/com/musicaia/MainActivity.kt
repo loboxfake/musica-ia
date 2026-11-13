@@ -35,6 +35,8 @@ import com.musicaia.modelo.Dato
 import com.musicaia.modulos.GrabadoraWav
 import com.musicaia.modulos.LectorWav
 import com.musicaia.modulos.BardoOfflineAsr
+import com.musicaia.modulos.BardoMusicAnalyzer
+import com.musicaia.modulos.BardoAndroidAudioDecoder
 import com.musicaia.modulos.MezclaVoz
 import com.musicaia.modulos.ModuloLetra
 import com.musicaia.modelo.Orquestador
@@ -113,6 +115,7 @@ class MainActivity : AppCompatActivity() {
  private var mezclaPistasPendiente: File? = null
  @Volatile private var mezclaPistasEnCurso = false
  @Volatile private var transcripcionAudioEnCurso = false
+ @Volatile private var analisisMusicalEnCurso = false
  @Volatile private var transcripcionAudioCancelacion: java.util.concurrent.atomic.AtomicBoolean? = null
  private var rutaExportacionTemporal = false
  private var rutaMp3Compartir: String? = null
@@ -2194,6 +2197,136 @@ private fun crearConversacionNueva() {
  }
 
 
+  private fun mostrarOpcionesAnalisisAudio(
+      nombre: String, mime: String, archivo: File, taskId: String, metadata: String
+  ) {
+      AlertDialog.Builder(this)
+          .setTitle("Audio importado · $nombre")
+          .setMessage(
+              metadata + "\n\nPuedes realizar un análisis musical del sonido (tempo, tonalidad y calidad técnica) " +
+                  "o transcribir la voz hablada/cantada si hay un modelo ASR instalado. El análisis musical no modifica el original."
+          )
+          .setNegativeButton("Solo conservar", null)
+          .setNeutralButton("Transcribir voz") { _, _ ->
+              confirmarTranscripcionAdjuntoAudio(nombre, mime, archivo, taskId, metadata)
+          }
+          .setPositiveButton("Analizar música") { _, _ ->
+              iniciarAnalisisMusicalAdjunto(nombre, mime, archivo, taskId)
+          }
+          .show()
+  }
+
+  private fun iniciarAnalisisMusicalAdjunto(
+      nombre: String, mime: String, archivo: File, taskId: String
+  ) {
+      if (analisisMusicalEnCurso || transcripcionAudioEnCurso || mezclaPistasEnCurso) {
+          tvEstado.text = "Hay otro proceso de audio activo. Espera a que termine antes de analizar esta canción."
+          return
+      }
+      if (hayGeneracionImagenIAActiva()) {
+          tvEstado.text = "BARDO está generando una imagen local. El análisis musical esperará para no competir por memoria."
+          return
+      }
+      val estadoMusica = getSharedPreferences(BardoTaskService.PREFS, MODE_PRIVATE)
+          .getString(BardoTaskService.KEY_STATE, "").orEmpty()
+      if (estadoMusica == "running") {
+          tvEstado.text = "Hay una generación musical activa. El análisis esperará a que termine para no competir por recursos."
+          return
+      }
+      analisisMusicalEnCurso = true
+      BardoActivityStore.record(
+          this, taskId, "analisis_musical", "running", "decodificacion_y_dsp",
+          "Análisis local de audio: decodificación si hace falta y extracción de métricas musicales.", 5, archivo.absolutePath
+      )
+      tvEstado.text = "Analizando la canción localmente; el archivo original permanece intacto..."
+      Thread({
+          var temporal: File? = null
+          val resultado = runCatching {
+              val extension = archivo.extension.lowercase(java.util.Locale.ROOT)
+              if (extension == "wav") {
+                  val directo = runCatching { BardoMusicAnalyzer.analyze(archivo) }
+                  if (directo.isSuccess) {
+                      directo.getOrThrow()
+                  } else {
+                      temporal = File(cacheDir, "bardo_analysis_${System.currentTimeMillis()}.wav")
+                      BardoAndroidAudioDecoder.decodeToWav(archivo, temporal!!)
+                      BardoMusicAnalyzer.analyze(temporal!!)
+                  }
+              } else {
+                  temporal = File(cacheDir, "bardo_analysis_${System.currentTimeMillis()}.wav")
+                  BardoAndroidAudioDecoder.decodeToWav(archivo, temporal!!)
+                  BardoMusicAnalyzer.analyze(temporal!!)
+              }
+          }
+          val informe = resultado.getOrNull()?.let(::formatearInformeMusical)
+          runOnUiThread {
+              analisisMusicalEnCurso = false
+              temporal?.delete()
+              if (isFinishing || isDestroyed) return@runOnUiThread
+              val report = resultado.getOrNull()
+              if (report == null || informe == null) {
+                  val error = resultado.exceptionOrNull()?.message ?: "No se obtuvo un informe musical."
+                  BardoActivityStore.record(this, taskId, "analisis_musical", "failed", "audio_no_analizado", error, null, archivo.absolutePath)
+                  anexarChat("\nBARDO: He conservado «$nombre», pero no he podido analizar musicalmente el audio: $error. No voy a inventar tempo, tonalidad ni instrumentos.")
+                  tvEstado.text = "Análisis musical no completado; original conservado."
+                  return@runOnUiThread
+              }
+              BardoActivityStore.record(
+                  this, taskId, "analisis_musical", "completed", "metricas_dsp",
+                  "Informe DSP local generado. Tempo y tonalidad son estimaciones con puntuaciones de estabilidad no probabilísticas.", 100, archivo.absolutePath
+              )
+              anexarChat("\n[INFORME DE ANÁLISIS MUSICAL LOCAL · $nombre]\n$informe\n[FIN DEL INFORME]")
+              tvEstado.text = "Análisis musical terminado. Las estimaciones incluyen una puntuación de estabilidad relativa, no una probabilidad."
+              responderChatLibre(
+                  "Actúa como analista musical. Interpreta este informe calculado directamente del audio. " +
+                      "Distingue mediciones de estimaciones; explica limitaciones y confianza. No inventes género, instrumentos, " +
+                      "letra, acordes, melodía, estructura ni calidad perceptiva porque este informe no contiene reconocimiento semántico " +
+                      "ni una escucha humana. Señala problemas técnicos respaldados por las métricas y propone comprobaciones auditivas concretas. " +
+                      "Responde en el idioma de la conversación.\n\n$informe",
+                  taskId
+              )
+          }
+      }, "BARDO-Music-Analysis").start()
+  }
+
+  private fun formatearInformeMusical(report: BardoMusicAnalyzer.Report): String {
+      fun number(value: Double, decimals: Int = 1): String =
+          String.format(java.util.Locale.ROOT, "%.${decimals}f", value)
+      val noteNames = listOf("Do", "Do♯", "Re", "Re♯", "Mi", "Fa", "Fa♯", "Sol", "Sol♯", "La", "La♯", "Si")
+      val dominantNotes = report.pitchClassEnergy.indices
+          .sortedByDescending { report.pitchClassEnergy[it] }
+          .take(3)
+          .joinToString(", ") { noteNames[it] + " " + number(report.pitchClassEnergy[it] * 100.0) + "%" }
+      return buildString {
+          append("Duración: ").append(number(report.durationSeconds)).append(" s\n")
+          append("Formato decodificado: WAV PCM16 · ").append(report.sampleRate).append(" Hz · ")
+              .append(report.channels).append(" canal(es)\n")
+          append("Pico de muestra: ").append(number(report.peakDbfs)).append(" dBFS\n")
+          append("Nivel RMS: ").append(number(report.rmsDbfs)).append(" dBFS\n")
+          append("Factor de cresta: ").append(number(report.crestFactorDb)).append(" dB\n")
+          append("Muestras próximas a saturación: ").append(number(report.clippedSamplePercent, 3)).append("%\n")
+          append("Silencio estimado: ").append(number(report.silencePercent)).append("%\n")
+          append("Desplazamiento DC: ").append(number(report.dcOffset, 5)).append("\n")
+          report.dynamicRangeDb?.let { append("Rango dinámico aproximado (ventanas RMS): ").append(number(it)).append(" dB\n") }
+          report.stereoCorrelation?.let { append("Correlación estéreo L/R: ").append(number(it, 3)).append("\n") }
+          report.spectralCentroidHz?.let { append("Centroide espectral: ").append(number(it)).append(" Hz\n") }
+          append("Clases de altura dominantes: ").append(dominantNotes).append("\n")
+          if (report.estimatedTempoBpm != null) {
+              append("Tempo estimado: ").append(number(report.estimatedTempoBpm)).append("  BPM (puntuación de estabilidad ")
+                  .append(number((report.tempoConfidence ?: 0.0) * 100.0)).append("%)\n")
+          } else append("Tempo estimado: no concluyente\n")
+          if (report.estimatedKey != null) {
+              append("Tonalidad estimada: ").append(report.estimatedKey).append(" (puntuación de estabilidad relativa: ")
+                  .append(number((report.keyConfidence ?: 0.0) * 100.0)).append("%)\n")
+          } else append("Tonalidad estimada: no concluyente\n")
+          if (report.warnings.isNotEmpty()) {
+              append("Avisos técnicos:\n")
+              report.warnings.forEach { append("• ").append(it).append("\n") }
+          }
+          append("\nAlcance: análisis matemático local del WAV decodificado. No identifica automáticamente instrumentos, género, letra, acordes ni estructura; no sustituye una escucha.")
+      }
+  }
+
   private fun confirmarTranscripcionAdjuntoAudio(
       nombre: String, mime: String, archivo: File, taskId: String, metadata: String
   ) {
@@ -2237,7 +2370,7 @@ private fun crearConversacionNueva() {
       metadata: String,
       language: BardoOfflineAsr.Language
   ) {
-      if (mezclaPistasEnCurso || transcripcionAudioEnCurso) {
+      if (mezclaPistasEnCurso || transcripcionAudioEnCurso || analisisMusicalEnCurso) {
           tvEstado.text = "Hay otro proceso de audio activo. La transcripción esperará a que termine."
           return
       }
@@ -2482,8 +2615,8 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                  BardoActivityStore.record(this, taskIdAdjunto, "analisis_audio", "stored", "metadatos_audio", "Metadatos leídos. ASR offline en español disponible cuando se autoriza instalar el modelo.", 30, destino.absolutePath)
                  anexarChat("\nTú: He adjuntado el audio «$nombre».")
                  anexarChat("\nBARDO: $metadata. Puedo intentar decodificarlo con los códecs locales de Android y transcribirlo en español sin conexión. La primera vez necesitaré descargar un modelo de aproximadamente 40 MB; no lo descargaré sin tu autorización.")
-                 tvEstado.text = "Audio importado; transcripción offline disponible con el modelo español."
-                 confirmarTranscripcionAdjuntoAudio(nombre, mime, destino, taskIdAdjunto, metadata)
+                 tvEstado.text = "Audio importado; puedes analizar la música o transcribir la voz sin conexión."
+                 mostrarOpcionesAnalisisAudio(nombre, mime, destino, taskIdAdjunto, metadata)
              }
          }, "BARDO-Audio-Metadata").start()
          return
@@ -2689,7 +2822,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
  private fun prepararMezclaPistasWav(uris: List<Uri>) {
      if (uris.size !in 2..8) { tvEstado.text = "Selecciona entre 2 y 8 pistas WAV."; return }
      if (mezclaPistasEnCurso) return
-     if (transcripcionAudioEnCurso) {
+     if (transcripcionAudioEnCurso || analisisMusicalEnCurso) {
          tvEstado.text = "BARDO está transcribiendo audio. Espera a que termine antes de mezclar pistas."
          return
      }
@@ -5089,11 +5222,16 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
          actualizarBiblioteca()
          return
      }
+     analisisMusicalEnCurso = true
      Thread({
          var destinoFinal: File? = null
+         var informeMusical: String? = null
+         var errorAnalisisMusical: String? = null
+         var taskIdAnalisis = "bardo-generated-analysis-" + System.currentTimeMillis()
          runCatching {
              val carpeta = directorioBiblioteca()
              val marca = System.currentTimeMillis()
+             taskIdAnalisis = "bardo-generated-analysis-$marca"
              val destino = File(carpeta, "BARDO_$marca.wav")
              origen.inputStream().use { entrada ->
                  destino.outputStream().buffered().use { salida -> entrada.copyTo(salida) }
@@ -5112,12 +5250,37 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                      guardarArchivoEnCarpetaBardo(destino, categoria, destino.name, "audio/wav")
                  }.onFailure { Log.e(etiqueta, "No se pudo copiar el WAV a BARDO/$categoria", it) }
              }
+             // El análisis se ejecuta en este hilo trabajador sobre la copia archivada.
+             runCatching { BardoMusicAnalyzer.analyze(destino) }
+                 .onSuccess { informeMusical = formatearInformeMusical(it) }
+                 .onFailure { errorAnalisisMusical = it.message ?: it.javaClass.simpleName }
              Log.i(etiqueta, "Creación archivada: " + destino.name)
          }.onFailure { Log.e(etiqueta, "No se pudo archivar la creación", it) }
          runOnUiThread {
+             analisisMusicalEnCurso = false
              if (isFinishing || isDestroyed) return@runOnUiThread
              destinoFinal?.let { rutaAudio = it.absolutePath }
              actualizarBiblioteca()
+             val informe = informeMusical
+             if (informe != null) {
+                 BardoActivityStore.record(
+                     this, taskIdAnalisis, "analisis_musical", "completed", "analisis_de_creacion_bardo",
+                     "La canción creada por BARDO se ha analizado desde el WAV archivado.", 100, destinoFinal?.absolutePath
+                 )
+                 anexarChat("\n[ANÁLISIS MUSICAL DE TU CREACIÓN]\n$informe\n[FIN DEL INFORME]")
+                 responderChatLibre(
+                     "Interpreta este informe calculado de la canción recién creada por BARDO. Separa mediciones y estimaciones; " +
+                         "no inventes instrumentos, género, letra, acordes ni calidad perceptiva. Señala límites y mejoras respaldadas.\n\n$informe",
+                     taskIdAnalisis
+                 )
+             } else if (destinoFinal != null) {
+                 val error = errorAnalisisMusical ?: "El WAV archivado no pudo analizarse."
+                 BardoActivityStore.record(
+                     this, taskIdAnalisis, "analisis_musical", "failed", "analisis_de_creacion_no_disponible",
+                     error, null, destinoFinal?.absolutePath
+                 )
+                 anexarChat("\nBARDO: La canción se ha guardado, pero su análisis musical automático no se completó: $error.")
+             }
          }
      }, "BARDO-Archivar").start()
  }
