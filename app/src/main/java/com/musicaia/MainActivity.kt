@@ -2311,7 +2311,7 @@ private fun crearConversacionNueva() {
               append("Rango dinámico aproximado: no disponible (consulta los avisos técnicos).\n")
           }
           report.stereoCorrelation?.let { append("Correlación estéreo L/R: ").append(number(it, 3)).append("\n") }
-          report.stereoBalanceDb?.let { append("Balance de nivel L/R: ").append(number(it, 2)).append(" dB (positivo = izquierdo más alto)\\n") }
+          report.stereoBalanceDb?.let { append("Balance de nivel L/R: ").append(number(it, 2)).append(" dB (positivo = izquierdo más alto)\n") }
           report.spectralCentroidHz?.let { append("Centroide espectral: ").append(number(it)).append(" Hz\n") }
           if (report.lowBandEnergyPercent != null || report.midBandEnergyPercent != null || report.highBandEnergyPercent != null) {
               fun band(label: String, value: Double?): String =
