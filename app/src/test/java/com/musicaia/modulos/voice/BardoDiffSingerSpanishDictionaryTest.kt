@@ -237,12 +237,13 @@ class BardoDiffSingerSpanishDictionaryTest {
             "desconocida", parsed, mapOf("a" to 0)
         ) {
             BardoDiffSingerSpanishDictionary.G2pFallback(
-                emptyList(), "modelo G2P no disponible"
+                listOf("a"), "modelo G2P no disponible"
             )
         }
         assertFalse(failed.isComplete)
         assertEquals(listOf("desconocida"), failed.unknownWords)
         assertTrue(failed.g2pErrors.single().contains("modelo G2P no disponible"))
+        assertTrue(failed.words.isEmpty())
 
         val unsupported = BardoDiffSingerSpanishDictionary.resolveLyricsWithG2pFallback(
             "nueva", parsed, mapOf("a" to 0)
