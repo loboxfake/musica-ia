@@ -105,7 +105,7 @@ object BardoDiffSingerSpanishDictionary {
                 return
             }
             val fields = item ?: return
-            if (key in fields || (listKey == key && listValues.isNotEmpty())) {
+            if (key in fields || listKey == key) {
                 errors += "Campo duplicado '$key' en la línea $lineNo."
                 return
             }
@@ -113,6 +113,7 @@ object BardoDiffSingerSpanishDictionary {
                 val parsed = parseInlineList(value)
                 if (parsed.isEmpty()) errors += "Lista de fonemas vacía en la línea $lineNo."
                 fields[key] = parsed.joinToString(" ")
+                listKey = null
             } else if (value.isNotEmpty()) {
                 fields[key] = value
                 listKey = null
