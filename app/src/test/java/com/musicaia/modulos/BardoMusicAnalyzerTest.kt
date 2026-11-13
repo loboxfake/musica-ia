@@ -230,6 +230,21 @@ class BardoMusicAnalyzerTest {
     }
 
     @Test
+    fun keepsNormalInPhaseStereoAsMonoWithoutFallbackWarning() {
+        val wav = createWav(sampleRate = 22_050, channels = 2, seconds = 5.0) { frame, _ ->
+            (sin(2.0 * PI * 440.0 * frame / 22_050.0) * 12_000.0).toInt().toShort()
+        }
+        try {
+            val report = BardoMusicAnalyzer.analyze(wav)
+            assertTrue(report.stereoCorrelation!! > 0.99)
+            assertTrue(report.spectralCentroidHz != null && report.spectralCentroidHz in 400.0..480.0)
+            assertTrue(report.warnings.none { it.contains("canal izquierdo", true) || it.contains("canal derecho", true) })
+        } finally {
+            wav.delete()
+        }
+    }
+
+    @Test
     fun preservesSpectralContentInOutOfPhaseStereoWithoutInventingTempoOrKey() {
         val wav = createWav(sampleRate = 22_050, channels = 2, seconds = 5.0) { frame, channel ->
             val value = sin(2.0 * PI * 220.0 * frame / 22_050.0) * 12_000.0
