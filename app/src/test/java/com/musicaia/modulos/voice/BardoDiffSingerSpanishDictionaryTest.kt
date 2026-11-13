@@ -43,6 +43,31 @@ class BardoDiffSingerSpanishDictionaryTest {
         assertEquals("es/a", parsed.replacements["a"])
     }
 
+    @Test fun acceptsOpenUtauSpanishDictionarySymbolTypes() {
+        val parsed = dictionary(
+            """
+            symbols:
+              - symbol: a
+                type: vowel
+              - symbol: p
+                type: stop
+              - symbol: ch
+                type: affricate
+              - symbol: s
+                type: fricative
+              - symbol: h
+                type: aspirate
+              - symbol: m
+                type: nasal
+            entries:
+              - grapheme: ejemplo
+                phonemes: [a, p, ch, s, h, m]
+            """.trimIndent()
+        )
+        assertTrue(parsed.isValid)
+        assertEquals(6, parsed.symbols.size)
+    }
+
     @Test fun readsBlockPhonemeListsAndNormalizesWords() {
         val parsed = dictionary(
             """
