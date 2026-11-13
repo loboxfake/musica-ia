@@ -78,10 +78,10 @@ class BardoPcm16ConverterTest {
     @Test
     fun rejectsStereoOutputWhenDecoderOnlyProvidedMono() {
         assertThrows(IllegalArgumentException::class.java) {
-            BardoPcm16Converter.convert(
-                ByteBuffer.allocate(2).order(ByteOrder.LITTLE_ENDIAN).putShort(1).flip(),
-                1, 2, BardoPcm16Converter.PCM_16BIT
-            )
+            val mono = ByteBuffer.allocate(2).order(ByteOrder.LITTLE_ENDIAN)
+            mono.putShort(1)
+            mono.flip()
+            BardoPcm16Converter.convert(mono, 1, 2, BardoPcm16Converter.PCM_16BIT)
         }
     }
 
