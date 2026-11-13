@@ -2227,6 +2227,12 @@ private fun crearConversacionNueva() {
           tvEstado.text = "BARDO está generando una imagen local. El análisis musical esperará para no competir por memoria."
           return
       }
+      val estadoMusica = getSharedPreferences(BardoTaskService.PREFS, MODE_PRIVATE)
+          .getString(BardoTaskService.KEY_STATE, "").orEmpty()
+      if (estadoMusica == "running") {
+          tvEstado.text = "Hay una generación musical activa. El análisis esperará a que termine para no competir por recursos."
+          return
+      }
       analisisMusicalEnCurso = true
       BardoActivityStore.record(
           this, taskId, "analisis_musical", "running", "decodificacion_y_dsp",
