@@ -64,4 +64,41 @@ class BardoAtomicFilePublisherTest {
             root.deleteRecursively()
         }
     }
+
+    @Test
+    fun copiesAndPublishesIdenticalBytesWithoutLeavingTemporaryFiles() {
+        val directory = Files.createTempDirectory("bardo-atomic-copy").toFile()
+        try {
+            val source = File(directory, "generated.wav").apply {
+                writeBytes(ByteArray(4096) { (it % 251).toByte() })
+            }
+            val destination = File(directory, "archive.wav").apply { writeText("previous") }
+
+            BardoAtomicFilePublisher.copyAndPublish(source, destination)
+
+            assertEquals(source.length(), destination.length())
+            assertEquals(source.readBytes().toList(), destination.readBytes().toList())
+            assertTrue(source.exists())
+            assertFalse(directory.listFiles().orEmpty().any { it.name.endsWith(".tmp") })
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun rejectsMissingSourceWithoutTouchingPreviousDestination() {
+        val directory = Files.createTempDirectory("bardo-atomic-copy-preserve").toFile()
+        try {
+            val source = File(directory, "missing.wav")
+            val destination = File(directory, "archive.wav").apply { writeText("previous-valid-file") }
+
+            assertThrows(IllegalArgumentException::class.java) {
+                BardoAtomicFilePublisher.copyAndPublish(source, destination)
+            }
+
+            assertEquals("previous-valid-file", destination.readText())
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
 }
