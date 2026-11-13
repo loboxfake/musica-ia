@@ -34,6 +34,22 @@ internal class BardoAnalysisResampler(
         }
     }
 
+    /**
+     * Completa el último intervalo de salida manteniendo la última muestra.
+     * Evita perder hasta una muestra de salida por el extremo derecho del
+     * bloque (por ejemplo, 16 kHz -> 22,05 kHz).
+     */
+    fun finish() {
+        if (coefficients.size != 1 || inputSampleRate == outputSampleRate || inputFrameIndex < 0L) return
+        val inputFrameCount = inputFrameIndex + 1L
+        val targetOutputFrameCount =
+            (inputFrameCount * outputSampleRate.toLong() + inputSampleRate - 1L) / inputSampleRate
+        while (nextOutputFrameIndex < targetOutputFrameCount) {
+            onOutput(previousSample)
+            nextOutputFrameIndex++
+        }
+    }
+
     fun accept(sample: Float) {
         if (coefficients.size == 1) {
             if (inputSampleRate == outputSampleRate) {

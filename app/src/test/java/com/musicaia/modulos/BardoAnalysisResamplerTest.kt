@@ -38,6 +38,7 @@ class BardoAnalysisResamplerTest {
             resampler.accept(sample.toFloat())
         }
 
+        resampler.finish()
         assertTrue("El número de muestras de salida no coincide", output.size == frames * 2)
         val stable = output.drop(100)
         val rms = kotlin.math.sqrt(stable.map { it.toDouble() * it }.average())
@@ -49,6 +50,7 @@ class BardoAnalysisResamplerTest {
         val output = ArrayList<Float>()
         val resampler = BardoAnalysisResampler(11_025, 22_050) { output.add(it) }
         repeat(5) { resampler.accept(it.toFloat()) }
+        resampler.finish()
         assertTrue("La interpolación debe conservar los puntos temporales de entrada", output == listOf(
             0.0f, 0.5f, 1.0f, 1.5f, 2.0f, 2.5f, 3.0f, 3.5f, 4.0f
         ))
@@ -61,6 +63,7 @@ class BardoAnalysisResamplerTest {
         repeat(16_000) { frame ->
             resampler.accept(sin(2.0 * PI * 440.0 * frame / 16_000.0).toFloat())
         }
+        resampler.finish()
         assertTrue("El remuestreo 16 kHz → 22,05 kHz acumuló deriva", output.size == 22_050)
         assertTrue(output.all { it.isFinite() })
     }
@@ -76,6 +79,7 @@ class BardoAnalysisResamplerTest {
         val upsampled = ArrayList<Float>()
         val upsampler = BardoAnalysisResampler(11_025, 22_050) { upsampled.add(it) }
         repeat(1_000) { upsampler.accept(0.5f) }
+        upsampler.finish()
         assertTrue(upsampled.size == 2_000)
 
         val nonIntegerRatio = ArrayList<Float>()
