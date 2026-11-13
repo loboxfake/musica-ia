@@ -334,6 +334,7 @@ object BardoMusicAnalyzer {
         val frameRate = ANALYSIS_RATE.toDouble() / ENERGY_HOP
         val minLag = floor(frameRate * 60.0 / 200.0).toInt().coerceAtLeast(1)
         val maxLag = floor(frameRate * 60.0 / 50.0).toInt()
+        val scores = DoubleArray(min(maxLag, centered.size / 2) + 1)
         var bestLag = -1
         var bestScore = 0.0
         for (lag in minLag..min(maxLag, centered.size / 2)) {
@@ -350,13 +351,25 @@ object BardoMusicAnalyzer {
             val score = if (leftEnergy > EPSILON && rightEnergy > EPSILON) {
                 correlation / sqrt(leftEnergy * rightEnergy)
             } else 0.0
+            scores[lag] = score
             if (score > bestScore) {
                 bestScore = score
                 bestLag = lag
             }
         }
         if (bestLag <= 0 || bestScore < 0.08) return null
-        return (60.0 * frameRate / bestLag) to bestScore.coerceIn(0.0, 1.0)
+
+        // Autocorrelation often gives a stronger peak at 1/2 or 1/3 of the
+        // actual beat period because rounded onset frames align every few
+        // beats. Prefer the fastest plausible candidate whose normalized
+        // correlation remains a substantial fraction of the strongest peak.
+        // This reduces systematic half-tempo errors in fast songs while still
+        // requiring a meaningful periodic relationship.
+        val selectedLag = (minLag until bestLag)
+            .firstOrNull { scores[it] >= bestScore * 0.55 }
+            ?: bestLag
+        val selectedScore = scores[selectedLag]
+        return (60.0 * frameRate / selectedLag) to selectedScore.coerceIn(0.0, 1.0)
     }
 
     private fun estimateKey(chroma: DoubleArray): Pair<String, Double>? {
