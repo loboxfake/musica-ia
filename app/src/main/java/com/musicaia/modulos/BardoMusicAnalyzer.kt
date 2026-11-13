@@ -170,7 +170,8 @@ object BardoMusicAnalyzer {
                     sumSamples += mono
                     sampleCount++
                     peak = max(peak, max(abs(left), abs(right)))
-                    if (abs(left) >= 32_760 || (header.channels == 2 && abs(right) >= 32_760)) clipped++
+                    if (abs(left) >= 32_760) clipped++
+                    if (header.channels == 2 && abs(right) >= 32_760) clipped++
                     totalChannelSamples += if (header.channels == 2) 2L else 1L
 
                     if (header.channels == 2) {
