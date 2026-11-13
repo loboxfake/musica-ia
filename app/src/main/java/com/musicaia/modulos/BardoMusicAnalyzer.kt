@@ -336,6 +336,8 @@ object BardoMusicAnalyzer {
             if (rmsDb < -35.0) add("El nivel medio es muy bajo.")
             if (durationRange != null && durationRange < 5.0) add("La dinámica medida es reducida; podría haber compresión intensa.")
             if (stereoCorrelation != null && stereoCorrelation < -0.2) add("La correlación estéreo es negativa; comprueba la compatibilidad mono.")
+            if (analysisChannel == 0) add("La suma mono cancela parte de la señal; el análisis espectral usa el canal izquierdo como referencia.")
+            if (analysisChannel == 1) add("La suma mono cancela parte de la señal; el análisis espectral usa el canal derecho como referencia.")
             if (abs(dc) > 0.01) add("Se detecta desplazamiento DC apreciable.")
             if (tempo == null) add("No se pudo estimar un pulso estable con suficiente confianza.")
             if (key == null) add("No se pudo estimar una tonalidad estable con suficiente confianza.")
