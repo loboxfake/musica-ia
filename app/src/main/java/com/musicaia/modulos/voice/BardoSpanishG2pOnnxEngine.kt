@@ -13,6 +13,7 @@ import java.io.File
  * descarga pesos, no declara su licencia y no se conecta a ningún servicio.
  */
 class BardoSpanishG2pOnnxEngine private constructor(
+    private val environment: OrtEnvironment,
     private val session: OrtSession
 ) : Closeable {
     private var closed: Boolean = false
@@ -134,7 +135,7 @@ class BardoSpanishG2pOnnxEngine private constructor(
                     )
                 } else {
                     OpenResult(
-                        BardoSpanishG2pOnnxEngine(openedSession),
+                        BardoSpanishG2pOnnxEngine(environment, openedSession),
                         "Sesión G2P ONNX abierta en CPU; metadatos de entrada/salida comprobados. Aún no se ha ejecutado inferencia."
                     )
                 }
