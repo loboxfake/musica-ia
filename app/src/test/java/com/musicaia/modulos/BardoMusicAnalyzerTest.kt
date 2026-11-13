@@ -109,6 +109,26 @@ class BardoMusicAnalyzerTest {
     }
 
     @Test
+    fun clampsLastChordSegmentToActualDurationOfPartialFinalWindow() {
+        val sampleRate = 22_050
+        val cMajor = doubleArrayOf(261.63, 329.63, 392.00)
+        val durationSeconds = 3.25
+        val wav = createWav(sampleRate = sampleRate, channels = 1, seconds = durationSeconds) { frame, _ ->
+            val time = frame.toDouble() / sampleRate
+            val value = cMajor.sumOf { sin(2.0 * PI * it * time) } / cMajor.size
+            (value * 14_000.0).toInt().toShort()
+        }
+        try {
+            val report = BardoMusicAnalyzer.analyze(wav)
+            val segment = report.chordProgression.single { it.chord == "Do mayor" }
+            assertEquals(durationSeconds, segment.endSeconds, 0.001)
+            assertTrue("Un acorde no puede prolongarse más allá del archivo", segment.endSeconds <= report.durationSeconds)
+        } finally {
+            wav.delete()
+        }
+    }
+
+    @Test
     fun doesNotLabelAnIsolatedPerfectFifthAsACompleteTriad() {
         val sampleRate = 22_050
         val fifth = doubleArrayOf(220.0, 329.63)

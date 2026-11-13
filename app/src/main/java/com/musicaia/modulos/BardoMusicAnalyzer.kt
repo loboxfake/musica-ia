@@ -323,7 +323,7 @@ object BardoMusicAnalyzer {
         val chromaTotal = chroma.sum()
         val normalizedChroma = if (chromaTotal > EPSILON) chroma.map { it / chromaTotal } else List(12) { 0.0 }
         val key = if (fftFrames >= 2) estimateKey(chroma) else null
-        val chordProgression = estimateChordProgression(chordWindowChroma)
+        val chordProgression = estimateChordProgression(chordWindowChroma, duration)
         val centroid = if (centroidPower > EPSILON) centroidWeighted / centroidPower else null
         val bandPowerTotal = lowBandPower + midBandPower + highBandPower
         val lowBandPercent = if (bandPowerTotal > EPSILON) 100.0 * lowBandPower / bandPowerTotal else null
@@ -484,7 +484,7 @@ object BardoMusicAnalyzer {
         return (60.0 * frameRate / selectedLag) to selectedScore.coerceIn(0.0, 1.0)
     }
 
-    private fun estimateChordProgression(windows: List<DoubleArray>): List<ChordSegment> {
+    private fun estimateChordProgression(windows: List<DoubleArray>, durationSeconds: Double): List<ChordSegment> {
         val noteNames = arrayOf("Do", "Do♯", "Re", "Re♯", "Mi", "Fa", "Fa♯", "Sol", "Sol♯", "La", "La♯", "Si")
         val candidates = ArrayList<Triple<String, IntArray, DoubleArray>>()
         for (root in 0 until 12) {
@@ -519,7 +519,7 @@ object BardoMusicAnalyzer {
             if (bestScore < 0.58 || bestLabel == null || bestScore - secondScore < 0.025) null
             else ChordSegment(
                 startSeconds = index * CHORD_WINDOW_SECONDS,
-                endSeconds = (index + 1) * CHORD_WINDOW_SECONDS,
+                endSeconds = min((index + 1) * CHORD_WINDOW_SECONDS, durationSeconds),
                 chord = bestLabel,
                 score = bestScore.coerceIn(0.0, 1.0)
             )
