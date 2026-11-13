@@ -194,6 +194,9 @@ object BardoMusicAnalyzer {
             }
         }
 
+        if (energyCount > 0 && sqrt(energySumSquares / energyCount) < 0.001) {
+            silentFrames += energyCount.toLong()
+        }
         val rms = sqrt(sumSquares / max(1L, sampleCount).toDouble())
         val peakLinear = peak / 32768.0
         val peakDb = toDbfs(peakLinear)
