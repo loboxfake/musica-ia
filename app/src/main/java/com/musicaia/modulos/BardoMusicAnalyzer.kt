@@ -495,6 +495,11 @@ object BardoMusicAnalyzer {
     private fun estimateKey(chroma: DoubleArray): Pair<String, Double>? {
         val total = chroma.sum()
         if (total <= EPSILON) return null
+        // Una sola nota sostenida no identifica una tonalidad. Exigimos al
+        // menos tres clases de altura con energía relativa suficiente para
+        // evitar etiquetar una nota aislada como una escala completa.
+        val supportedPitchClasses = chroma.count { it / total >= 0.03 }
+        if (supportedPitchClasses < 3) return null
         val major = doubleArrayOf(6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88)
         val minor = doubleArrayOf(6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17)
         val names = arrayOf("C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B")
