@@ -17,8 +17,9 @@ Esta rama añade la primera capa Android del motor:
 - `BardoSpanishG2pCodec` traduce grafemas españoles a IDs de entrada y devuelve los fonemas base a partir de IDs de salida. Rechaza los caracteres que el vocabulario no conoce en vez de descartarlos.
 - `BardoSpanishG2pAutoregressiveDecoder` implementa el ciclo greedy del modelo de referencia: `src`, `tgt`, `t`, token de avance 2 y un máximo de 47 fonemas por palabra. Se prueba sin cargar ONNX.
 - `BardoSpanishG2pOnnxEngine` conecta ese ciclo a ONNX Runtime Android en CPU, limita el modelo a 64 MiB, exige al menos 256 MiB disponibles según la medición suministrada y cierra tensores/resultados por paso.
+- `BardoDiffSingerSpanishG2pResolver` consulta primero las pronunciaciones de `dsdict-es.yaml`; solo para palabras desconocidas consulta el G2P y después aplica los reemplazos de la voicebank (`es/<fonema>` o símbolo directo), rechazando los símbolos que no existen en el inventario.
 - El código del códec adapta el contrato de `SpanishG2p.cs` y `G2pPack.cs` de OpenUtau, cubierto por MIT; su atribución y licencia están en `assets/third_party/THIRD_PARTY_NOTICES.md` y `OpenUtau-MIT.txt`.
-- No se ha incorporado `g2p-es.zip`, sus pesos ONNX, `dict.txt` ni `phones.txt`: la licencia específica de esos recursos no está acreditada. El motor tampoco está conectado a la creación de canciones. Por tanto, G2P real no se considera disponible y la síntesis cantada continúa `NOT_IMPLEMENTED`.
+- El parser admite diccionarios de voz con símbolos y reemplazos aunque no incluyan entradas léxicas, para permitir que el G2P aporte todas las pronunciaciones. No se ha incorporado `g2p-es.zip`, sus pesos ONNX, `dict.txt` ni `phones.txt`: la licencia específica de esos recursos no está acreditada. El motor tampoco está conectado a la creación de canciones. Por tanto, G2P real no se considera disponible y la síntesis cantada continúa `NOT_IMPLEMENTED`.
 
 ## Límites explícitos
 
