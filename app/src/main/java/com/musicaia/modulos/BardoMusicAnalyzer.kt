@@ -12,6 +12,7 @@ import kotlin.math.log10
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
+import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
 
@@ -28,8 +29,11 @@ object BardoMusicAnalyzer {
     private const val FFT_HOP = 2_048
     private const val ENERGY_HOP = 256
     private const val DYNAMIC_WINDOW = 5_512 // ~250 ms a 22.05 kHz
+    private const val CHORD_WINDOW_SECONDS = 2.0
     private const val MAX_DURATION_SECONDS = 30.0 * 60.0
     private const val EPSILON = 1.0e-12
+
+    data class ChordSegment(val startSeconds: Double, val endSeconds: Double, val chord: String, val score: Double)
 
     data class Report(
         val sampleRate: Int,
@@ -53,6 +57,7 @@ object BardoMusicAnalyzer {
         val estimatedKey: String?,
         val keyConfidence: Double?,
         val pitchClassEnergy: List<Double>,
+        val chordProgression: List<ChordSegment>,
         val warnings: List<String>
     )
 
@@ -89,6 +94,7 @@ object BardoMusicAnalyzer {
         val fftReal = DoubleArray(FFT_SIZE)
         val fftImag = DoubleArray(FFT_SIZE)
         val chroma = DoubleArray(12)
+        val chordWindowChroma = ArrayList<DoubleArray>()
         var ringWrite = 0
         var analysisSamples = 0L
         var energySumSquares = 0.0
@@ -137,6 +143,10 @@ object BardoMusicAnalyzer {
                     fftImag[i] = 0.0
                 }
                 fftInPlace(fftReal, fftImag)
+                val frameMidpointSeconds = (analysisSamples - FFT_SIZE / 2).toDouble() / ANALYSIS_RATE
+                val chordWindowIndex = (frameMidpointSeconds / CHORD_WINDOW_SECONDS).toInt().coerceAtLeast(0)
+                while (chordWindowChroma.size <= chordWindowIndex) chordWindowChroma.add(DoubleArray(12))
+                val frameChroma = chordWindowChroma[chordWindowIndex]
                 for (bin in 1 until FFT_SIZE / 2) {
                     val frequency = bin.toDouble() * ANALYSIS_RATE / FFT_SIZE
                     if (frequency !in 55.0..10_000.0) continue
@@ -151,9 +161,10 @@ object BardoMusicAnalyzer {
                         else -> highBandPower += power
                     }
                     if (frequency <= 1_760.0) {
-                        val midi = (69.0 + 12.0 * (ln(frequency / 440.0) / ln(2.0))).toInt()
+                        val midi = (69.0 + 12.0 * (ln(frequency / 440.0) / ln(2.0))).roundToInt()
                         val pitchClass = ((midi % 12) + 12) % 12
                         chroma[pitchClass] += power
+                        frameChroma[pitchClass] += power
                     }
                 }
                 fftFrames++
@@ -250,6 +261,7 @@ object BardoMusicAnalyzer {
         val chromaTotal = chroma.sum()
         val normalizedChroma = if (chromaTotal > EPSILON) chroma.map { it / chromaTotal } else List(12) { 0.0 }
         val key = if (fftFrames >= 2) estimateKey(chroma) else null
+        val chordProgression = estimateChordProgression(chordWindowChroma)
         val centroid = if (centroidPower > EPSILON) centroidWeighted / centroidPower else null
         val bandPowerTotal = lowBandPower + midBandPower + highBandPower
         val lowBandPercent = if (bandPowerTotal > EPSILON) 100.0 * lowBandPower / bandPowerTotal else null
@@ -299,6 +311,7 @@ object BardoMusicAnalyzer {
             estimatedKey = key?.first,
             keyConfidence = key?.second,
             pitchClassEnergy = normalizedChroma,
+            chordProgression = chordProgression,
             warnings = warnings
         )
     }
@@ -403,6 +416,48 @@ object BardoMusicAnalyzer {
             ?: bestLag
         val selectedScore = scores[selectedLag]
         return (60.0 * frameRate / selectedLag) to selectedScore.coerceIn(0.0, 1.0)
+    }
+
+    private fun estimateChordProgression(windows: List<DoubleArray>): List<ChordSegment> {
+        val noteNames = arrayOf("Do", "Do♯", "Re", "Re♯", "Mi", "Fa", "Fa♯", "Sol", "Sol♯", "La", "La♯", "Si")
+        val candidates = ArrayList<Triple<String, IntArray, DoubleArray>>()
+        for (root in 0 until 12) {
+            val major = doubleArrayOf(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+            val minor = major.copyOf()
+            major[root] = 1.0; major[(root + 4) % 12] = 1.0; major[(root + 7) % 12] = 1.0
+            minor[root] = 1.0; minor[(root + 3) % 12] = 1.0; minor[(root + 7) % 12] = 1.0
+            candidates.add(Triple("${noteNames[root]} mayor", intArrayOf(root, (root + 4) % 12, (root + 7) % 12), major))
+            candidates.add(Triple("${noteNames[root]} menor", intArrayOf(root, (root + 3) % 12, (root + 7) % 12), minor))
+        }
+        return windows.mapIndexedNotNull { index, values ->
+            val total = values.sum()
+            if (total <= EPSILON) return@mapIndexedNotNull null
+            val normalized = DoubleArray(12) { values[it] / total }
+            var bestLabel: String? = null
+            var bestScore = 0.0
+            var secondScore = 0.0
+            for ((label, _, template) in candidates) {
+                var dot = 0.0
+                var norm = 0.0
+                for (note in 0 until 12) {
+                    dot += normalized[note] * template[note]
+                    norm += normalized[note] * normalized[note]
+                }
+                val score = if (norm > EPSILON) dot / sqrt(norm * 3.0) else 0.0
+                if (score > bestScore) {
+                    secondScore = bestScore
+                    bestScore = score
+                    bestLabel = label
+                } else if (score > secondScore) secondScore = score
+            }
+            if (bestScore < 0.58 || bestLabel == null || bestScore - secondScore < 0.025) null
+            else ChordSegment(
+                startSeconds = index * CHORD_WINDOW_SECONDS,
+                endSeconds = (index + 1) * CHORD_WINDOW_SECONDS,
+                chord = bestLabel,
+                score = bestScore.coerceIn(0.0, 1.0)
+            )
+        }
     }
 
     private fun estimateKey(chroma: DoubleArray): Pair<String, Double>? {

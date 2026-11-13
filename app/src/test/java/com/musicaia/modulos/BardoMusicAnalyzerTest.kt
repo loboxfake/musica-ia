@@ -90,6 +90,26 @@ class BardoMusicAnalyzerTest {
     }
 
     @Test
+    fun followsSyntheticCToGMajorChordChangeAcrossTwoSecondWindows() {
+        val sampleRate = 22_050
+        val cMajor = doubleArrayOf(261.63, 329.63, 392.00)
+        val gMajor = doubleArrayOf(196.00, 246.94, 293.66)
+        val wav = createWav(sampleRate = sampleRate, channels = 1, seconds = 8.0) { frame, _ ->
+            val time = frame.toDouble() / sampleRate
+            val frequencies = if (time < 4.0) cMajor else gMajor
+            val value = frequencies.sumOf { sin(2.0 * PI * it * time) } / frequencies.size
+            (value * 14_000.0).toInt().toShort()
+        }
+        try {
+            val progression = BardoMusicAnalyzer.analyze(wav).chordProgression
+            assertTrue("No se detectó Do mayor: $progression", progression.any { it.chord == "Do mayor" && it.startSeconds < 4.0 })
+            assertTrue("No se detectó Sol mayor después del cambio: $progression", progression.any { it.chord == "Sol mayor" && it.startSeconds >= 4.0 })
+        } finally {
+            wav.delete()
+        }
+    }
+
+    @Test
     fun estimatesRegularPulseNear120Bpm() {
         val wav = createWav(sampleRate = 22_050, channels = 1, seconds = 12.0) { frame, _ ->
             val withinBeat = frame % 11_025

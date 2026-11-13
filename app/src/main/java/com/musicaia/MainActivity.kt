@@ -2315,6 +2315,12 @@ private fun crearConversacionNueva() {
           }
           report.spectralRolloff85Hz?.let { append("Rolloff espectral 85%: ").append(number(it)).append(" Hz\n") }
           append("Clases de altura dominantes: ").append(dominantNotes).append("\n")
+          if (report.chordProgression.isNotEmpty()) {
+              append("Acordes estimados por bloques de 2 s (orientativos): ")
+              append(report.chordProgression.joinToString(" · ") { chord ->
+                  String.format(java.util.Locale.ROOT, "%.0f–%.0f s %s (%.0f%%)", chord.startSeconds, chord.endSeconds, chord.chord, chord.score * 100.0)
+              }).append("\n")
+          } else append("Acordes: no concluyentes en bloques de 2 s\n")
           if (report.estimatedTempoBpm != null) {
               append("Tempo estimado: ").append(number(report.estimatedTempoBpm)).append("  BPM (puntuación de estabilidad ")
                   .append(number((report.tempoConfidence ?: 0.0) * 100.0)).append("%)\n")
