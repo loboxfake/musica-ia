@@ -13,6 +13,36 @@ class BardoPcm16ConverterTest {
         }
 
     @Test
+    fun validatesDecodedDurationAndCompletePcmFrames() {
+        BardoPcm16Converter.validateDecodedDuration(
+            dataBytes = 30L * 60L * 44_100L * 2L,
+            sampleRate = 44_100,
+            channels = 1
+        )
+        assertThrows(IllegalArgumentException::class.java) {
+            BardoPcm16Converter.validateDecodedDuration(
+                dataBytes = 30L * 60L * 48_000L * 2L + 2L,
+                sampleRate = 48_000,
+                channels = 1
+            )
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            BardoPcm16Converter.validateDecodedDuration(
+                dataBytes = 3L,
+                sampleRate = 48_000,
+                channels = 2
+            )
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            BardoPcm16Converter.validateDecodedDuration(
+                dataBytes = 4L,
+                sampleRate = 48_000,
+                channels = 3
+            )
+        }
+    }
+
+    @Test
     fun convertsUnsignedEightBitPcmToSignedPcm16() {
         val input = ByteBuffer.wrap(byteArrayOf(0, 0x80.toByte(), 0xff.toByte()))
         assertEquals(listOf(-32768, 0, 32512), shorts(
