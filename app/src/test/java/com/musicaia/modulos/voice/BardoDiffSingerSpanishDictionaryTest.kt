@@ -127,4 +127,42 @@ class BardoDiffSingerSpanishDictionaryTest {
         assertEquals(listOf("sorpresa"), result.unknownWords)
         assertFalse(result.isComplete)
     }
+
+    @Test fun rejectsDuplicateAndUnknownEntryFieldsInsteadOfSilentlyOverwriting() {
+        val parsed = dictionary(
+            """
+            symbols:
+              - symbol: a
+                type: vowel
+            entries:
+              - grapheme: casa
+                grapheme: cosa
+                phonemes: [a]
+                language: es
+            """.trimIndent()
+        )
+        assertFalse(parsed.isValid)
+        assertTrue(parsed.errors.any { it.contains("duplicado") })
+        assertTrue(parsed.errors.any { it.contains("no admitido") })
+    }
+
+    @Test fun rejectsMalformedListItemsAndUnsupportedTopLevelSections() {
+        val parsed = dictionary(
+            """
+            symbols:
+              - symbol: a
+                type: vowel
+            entries:
+              - grapheme: casa
+                phonemes:
+                  - a
+                  - [malformed
+            metadata:
+              version: 1
+            """.trimIndent()
+        )
+        assertFalse(parsed.isValid)
+        assertTrue(parsed.errors.any { it.contains("no admitido") })
+        assertTrue(parsed.errors.any { it.contains("Sección YAML no admitida") })
+    }
 }

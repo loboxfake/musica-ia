@@ -93,6 +93,40 @@ object BardoDiffSingerSpanishDictionary {
             listValues = mutableListOf()
         }
 
+        fun assignField(key: String, value: String, lineNo: Int) {
+            val allowed = when (section) {
+                Section.SYMBOLS -> setOf("symbol", "type")
+                Section.ENTRIES -> setOf("grapheme", "phonemes")
+                Section.REPLACEMENTS -> setOf("from", "to")
+                Section.NONE -> emptySet()
+            }
+            if (key !in allowed) {
+                errors += "Campo '$key' no admitido en la sección $section (línea $lineNo)."
+                return
+            }
+            val fields = item ?: return
+            if (key in fields || listKey == key) {
+                errors += "Campo duplicado '$key' en la línea $lineNo."
+                return
+            }
+            if (key == "phonemes" && value.startsWith("[") && value.endsWith("]")) {
+                val parsed = parseInlineList(value)
+                if (parsed.isEmpty()) errors += "Lista de fonemas vacía en la línea $lineNo."
+                fields[key] = parsed.joinToString(" ")
+                listKey = null
+            } else if (value.isNotEmpty()) {
+                fields[key] = value
+                listKey = null
+            } else {
+                if (key != "phonemes") {
+                    errors += "El campo '$key' no admite una lista en la línea $lineNo."
+                } else {
+                    listKey = key
+                    listValues = mutableListOf()
+                }
+            }
+        }
+
         text.removePrefix("\uFEFF").lineSequence().forEachIndexed { index, raw ->
             val lineNo = index + 1
             val content = stripComment(raw).trimEnd()
@@ -101,11 +135,15 @@ object BardoDiffSingerSpanishDictionary {
             val body = content.trim()
             if (indent == 0 && body.endsWith(":") && !body.startsWith("-")) {
                 finishItem(lineNo)
-                section = when (body.removeSuffix(":").trim()) {
+                val sectionName = body.removeSuffix(":").trim()
+                section = when (sectionName) {
                     "symbols" -> Section.SYMBOLS
                     "entries" -> Section.ENTRIES
                     "replacements" -> Section.REPLACEMENTS
-                    else -> Section.NONE
+                    else -> {
+                        errors += "Sección YAML no admitida '$sectionName' en la línea $lineNo."
+                        Section.NONE
+                    }
                 }
                 return@forEachIndexed
             }
@@ -119,39 +157,27 @@ object BardoDiffSingerSpanishDictionary {
                 }
                 val pair = parsePair(body.removePrefix("- ").trim())
                 if (pair != null) {
-                    if (pair.first == "phonemes" && pair.second.startsWith("[") && pair.second.endsWith("]")) {
-                        item!!["phonemes"] = parseInlineList(pair.second).joinToString(" ")
-                    } else if (pair.second.isNotEmpty()) {
-                        item!![pair.first] = pair.second
+                    assignField(pair.first, pair.second, lineNo)
+                } else if (listKey == "phonemes") {
+                    val phone = unquote(body.removePrefix("- ").trim())
+                    if (!validAtom(phone)) {
+                        errors += "Fonema de lista inválido en la línea $lineNo."
                     } else {
-                        listKey = pair.first
-                        listValues = mutableListOf()
+                        listValues += phone
+                        item!!["phonemes"] = listValues.joinToString(" ")
                     }
-                } else if (listKey != null) {
-                    listValues += unquote(body.removePrefix("- ").trim())
-                    item!![listKey!!] = listValues.joinToString(" ")
+                } else {
+                    errors += "Elemento YAML no admitido en la línea $lineNo."
                 }
                 return@forEachIndexed
             }
 
             val pair = parsePair(body)
             if (pair != null && item != null && indent > itemIndent) {
-                if (pair.first == "phonemes" && pair.second.startsWith("[") && pair.second.endsWith("]")) {
-                    item!!["phonemes"] = parseInlineList(pair.second).joinToString(" ")
-                    listKey = null
-                } else if (pair.second.isNotEmpty()) {
-                    item!![pair.first] = pair.second
-                    listKey = null
-                } else {
-                    listKey = pair.first
-                    listValues = mutableListOf()
-                }
+                assignField(pair.first, pair.second, lineNo)
                 return@forEachIndexed
             }
-            if (body.startsWith("- ") && listKey != null && item != null) {
-                listValues += unquote(body.removePrefix("- ").trim())
-                item!![listKey!!] = listValues.joinToString(" ")
-            }
+            errors += "Estructura YAML no admitida en la línea $lineNo."
         }
         finishItem(text.lineSequence().count())
 
