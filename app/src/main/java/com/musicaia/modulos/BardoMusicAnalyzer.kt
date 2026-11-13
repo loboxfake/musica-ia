@@ -371,6 +371,7 @@ object BardoMusicAnalyzer {
         val warnings = buildList {
             if (clippingPercent > 0.1) add("Hay muestras cerca de saturación; revisa la ganancia o el limitador.")
             if (rmsDb < -35.0) add("El nivel medio es muy bajo.")
+            if (durationRange == null) add("No hay al menos cuatro ventanas de nivel no silencioso para calcular el rango dinámico; el dato se omite.")
             if (durationRange != null && durationRange < 5.0) add("La dinámica medida es reducida; podría haber compresión intensa.")
             if (stereoCorrelation != null && stereoCorrelation < -0.2) add("La correlación estéreo es negativa; comprueba la compatibilidad mono.")
             if (analysisChannel == 0) add("La suma mono cancela parte de la señal; el análisis espectral usa el canal izquierdo como referencia.")
