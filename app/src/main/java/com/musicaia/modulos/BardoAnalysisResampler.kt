@@ -19,6 +19,7 @@ internal class BardoAnalysisResampler(
     private val coefficients: DoubleArray
     private val history = FloatArray(TAP_COUNT)
     private var writeIndex = 0
+    private var phase = 0L
     private var inputFrameIndex = -1L
     private var nextOutputFrameIndex = 0L
     private var previousSample = 0.0f
