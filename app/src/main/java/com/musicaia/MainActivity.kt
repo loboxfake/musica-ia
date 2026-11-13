@@ -2292,32 +2292,32 @@ private fun crearConversacionNueva() {
           .take(3)
           .joinToString(", ") { noteNames[it] + " " + number(report.pitchClassEnergy[it] * 100.0) + "%" }
       return buildString {
-          append("Duración: ").append(number(report.durationSeconds)).append(" s\\n")
+          append("Duración: ").append(number(report.durationSeconds)).append(" s\n")
           append("Formato decodificado: WAV PCM16 · ").append(report.sampleRate).append(" Hz · ")
-              .append(report.channels).append(" canal(es)\\n")
-          append("Pico de muestra: ").append(number(report.peakDbfs)).append(" dBFS\\n")
-          append("Nivel RMS: ").append(number(report.rmsDbfs)).append(" dBFS\\n")
-          append("Factor de cresta: ").append(number(report.crestFactorDb)).append(" dB\\n")
-          append("Muestras próximas a saturación: ").append(number(report.clippedSamplePercent, 3)).append("%\\n")
-          append("Silencio estimado: ").append(number(report.silencePercent)).append("%\\n")
-          append("Desplazamiento DC: ").append(number(report.dcOffset, 5)).append("\\n")
-          report.dynamicRangeDb?.let { append("Rango dinámico aproximado (ventanas RMS): ").append(number(it)).append(" dB\\n") }
-          report.stereoCorrelation?.let { append("Correlación estéreo L/R: ").append(number(it, 3)).append("\\n") }
-          report.spectralCentroidHz?.let { append("Centroide espectral: ").append(number(it)).append(" Hz\\n") }
-          append("Clases de altura dominantes: ").append(dominantNotes).append("\\n")
+              .append(report.channels).append(" canal(es)\n")
+          append("Pico de muestra: ").append(number(report.peakDbfs)).append(" dBFS\n")
+          append("Nivel RMS: ").append(number(report.rmsDbfs)).append(" dBFS\n")
+          append("Factor de cresta: ").append(number(report.crestFactorDb)).append(" dB\n")
+          append("Muestras próximas a saturación: ").append(number(report.clippedSamplePercent, 3)).append("%\n")
+          append("Silencio estimado: ").append(number(report.silencePercent)).append("%\n")
+          append("Desplazamiento DC: ").append(number(report.dcOffset, 5)).append("\n")
+          report.dynamicRangeDb?.let { append("Rango dinámico aproximado (ventanas RMS): ").append(number(it)).append(" dB\n") }
+          report.stereoCorrelation?.let { append("Correlación estéreo L/R: ").append(number(it, 3)).append("\n") }
+          report.spectralCentroidHz?.let { append("Centroide espectral: ").append(number(it)).append(" Hz\n") }
+          append("Clases de altura dominantes: ").append(dominantNotes).append("\n")
           if (report.estimatedTempoBpm != null) {
               append("Tempo estimado: ").append(number(report.estimatedTempoBpm)).append(" BPM (confianza ")
-                  .append(number((report.tempoConfidence ?: 0.0) * 100.0)).append("%)\\n")
-          } else append("Tempo estimado: no concluyente\\n")
+                  .append(number((report.tempoConfidence ?: 0.0) * 100.0)).append("%)\n")
+          } else append("Tempo estimado: no concluyente\n")
           if (report.estimatedKey != null) {
               append("Tonalidad estimada: ").append(report.estimatedKey).append(" (confianza ")
-                  .append(number((report.keyConfidence ?: 0.0) * 100.0)).append("%)\\n")
-          } else append("Tonalidad estimada: no concluyente\\n")
+                  .append(number((report.keyConfidence ?: 0.0) * 100.0)).append("%)\n")
+          } else append("Tonalidad estimada: no concluyente\n")
           if (report.warnings.isNotEmpty()) {
-              append("Avisos técnicos:\\n")
-              report.warnings.forEach { append("• ").append(it).append("\\n") }
+              append("Avisos técnicos:\n")
+              report.warnings.forEach { append("• ").append(it).append("\n") }
           }
-          append("\\nAlcance: análisis matemático local del WAV decodificado. No identifica automáticamente instrumentos, género, letra, acordes ni estructura; no sustituye una escucha.")
+          append("\nAlcance: análisis matemático local del WAV decodificado. No identifica automáticamente instrumentos, género, letra, acordes ni estructura; no sustituye una escucha.")
       }
   }
 
@@ -5218,9 +5218,13 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
      }
      Thread({
          var destinoFinal: File? = null
+         var informeMusical: String? = null
+         var errorAnalisisMusical: String? = null
+         var taskIdAnalisis = "bardo-generated-analysis-" + System.currentTimeMillis()
          runCatching {
              val carpeta = directorioBiblioteca()
              val marca = System.currentTimeMillis()
+             taskIdAnalisis = "bardo-generated-analysis-$marca"
              val destino = File(carpeta, "BARDO_$marca.wav")
              origen.inputStream().use { entrada ->
                  destino.outputStream().buffered().use { salida -> entrada.copyTo(salida) }
@@ -5239,12 +5243,36 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                      guardarArchivoEnCarpetaBardo(destino, categoria, destino.name, "audio/wav")
                  }.onFailure { Log.e(etiqueta, "No se pudo copiar el WAV a BARDO/$categoria", it) }
              }
+             // El análisis se ejecuta en este hilo trabajador sobre la copia archivada.
+             runCatching { BardoMusicAnalyzer.analyze(destino) }
+                 .onSuccess { informeMusical = formatearInformeMusical(it) }
+                 .onFailure { errorAnalisisMusical = it.message ?: it.javaClass.simpleName }
              Log.i(etiqueta, "Creación archivada: " + destino.name)
          }.onFailure { Log.e(etiqueta, "No se pudo archivar la creación", it) }
          runOnUiThread {
              if (isFinishing || isDestroyed) return@runOnUiThread
              destinoFinal?.let { rutaAudio = it.absolutePath }
              actualizarBiblioteca()
+             val informe = informeMusical
+             if (informe != null) {
+                 BardoActivityStore.record(
+                     this, taskIdAnalisis, "analisis_musical", "completed", "analisis_de_creacion_bardo",
+                     "La canción creada por BARDO se ha analizado desde el WAV archivado.", 100, destinoFinal?.absolutePath
+                 )
+                 anexarChat("\n[ANÁLISIS MUSICAL DE TU CREACIÓN]\n$informe\n[FIN DEL INFORME]")
+                 responderChatLibre(
+                     "Interpreta este informe calculado de la canción recién creada por BARDO. Separa mediciones y estimaciones; " +
+                         "no inventes instrumentos, género, letra, acordes ni calidad perceptiva. Señala límites y mejoras respaldadas.\n\n$informe",
+                     taskIdAnalisis
+                 )
+             } else if (destinoFinal != null) {
+                 val error = errorAnalisisMusical ?: "El WAV archivado no pudo analizarse."
+                 BardoActivityStore.record(
+                     this, taskIdAnalisis, "analisis_musical", "failed", "analisis_de_creacion_no_disponible",
+                     error, null, destinoFinal?.absolutePath
+                 )
+                 anexarChat("\nBARDO: La canción se ha guardado, pero su análisis musical automático no se completó: $error.")
+             }
          }
      }, "BARDO-Archivar").start()
  }
