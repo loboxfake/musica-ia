@@ -85,6 +85,32 @@ class BardoMusicAnalyzerTest {
     }
 
     @Test
+    fun avoidsHalfTempoErrorsForFastRegularPulses() {
+        val sampleRate = 22_050
+        for (expectedBpm in listOf(150.0, 160.0, 170.0, 180.0)) {
+            val beatFrames = sampleRate * 60.0 / expectedBpm
+            val wav = createWav(sampleRate = sampleRate, channels = 1, seconds = 12.0) { frame, _ ->
+                val beatIndex = kotlin.math.floor(frame / beatFrames).toInt()
+                val withinBeat = frame - kotlin.math.floor(beatIndex * beatFrames).toInt()
+                if (withinBeat < 900.0) {
+                    (sin(2.0 * PI * 1_000.0 * withinBeat / sampleRate) *
+                        (18_000.0 * (1.0 - withinBeat / 900.0))).toInt().toShort()
+                } else 0
+            }
+            try {
+                val tempo = BardoMusicAnalyzer.analyze(wav).estimatedTempoBpm
+                assertNotNull("No se estimó el pulso de $expectedBpm BPM", tempo)
+                assertTrue(
+                    "Se estimó $tempo BPM para un pulso de $expectedBpm BPM",
+                    kotlin.math.abs(tempo!! - expectedBpm) < 6.0
+                )
+            } finally {
+                wav.delete()
+            }
+        }
+    }
+
+    @Test
     fun detectsOutOfPhaseStereoAndSilentAudioWithoutInventingTempoOrKey() {
         val wav = createWav(sampleRate = 22_050, channels = 2, seconds = 5.0) { frame, channel ->
             val value = sin(2.0 * PI * 220.0 * frame / 22_050.0) * 12_000.0
