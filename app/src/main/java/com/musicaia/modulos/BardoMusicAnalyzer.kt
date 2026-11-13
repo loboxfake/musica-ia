@@ -33,6 +33,7 @@ object BardoMusicAnalyzer {
     private const val CHORD_WINDOW_SECONDS = 2.0
     private const val MAX_DURATION_SECONDS = 30.0 * 60.0
     private const val EPSILON = 1.0e-12
+    private const val MIN_STEREO_BALANCE_RMS = 0.001 // -60 dBFS
 
     data class ChordSegment(val startSeconds: Double, val endSeconds: Double, val chord: String, val score: Double)
 
@@ -324,7 +325,7 @@ object BardoMusicAnalyzer {
             val frameCount = max(1L, totalFrames).toDouble()
             val leftRms = sqrt(leftSquares / frameCount)
             val rightRms = sqrt(rightSquares / frameCount)
-            if (leftRms > EPSILON && rightRms > EPSILON) {
+            if (leftRms > MIN_STEREO_BALANCE_RMS && rightRms > MIN_STEREO_BALANCE_RMS) {
                 20.0 * log10(leftRms / rightRms)
             } else null
         } else null
