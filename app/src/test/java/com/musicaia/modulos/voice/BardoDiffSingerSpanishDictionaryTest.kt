@@ -252,4 +252,29 @@ class BardoDiffSingerSpanishDictionaryTest {
         assertFalse(unsupported.isComplete)
         assertTrue(unsupported.unsupportedPhonemes.contains("nueva:z"))
     }
+
+
+    @Test fun acceptsSymbolOnlyDictionaryWhenG2pFallbackProvidesPronunciations() {
+        val parsed = dictionary(
+            """
+            symbols:
+              - symbol: a
+                type: vowel
+              - symbol: b
+                type: consonant
+            replacements:
+              - from: a
+                to: es/a
+            """.trimIndent()
+        )
+        assertTrue(parsed.isValid)
+        assertTrue(parsed.entries.isEmpty())
+        val result = BardoDiffSingerSpanishDictionary.resolveLyricsWithG2pFallback(
+            "aba", parsed, mapOf("es/a" to 0, "b" to 1)
+        ) {
+            BardoDiffSingerSpanishDictionary.G2pFallback(listOf("es/a", "b", "es/a"))
+        }
+        assertTrue(result.isComplete)
+        assertEquals(listOf("es/a", "b", "es/a"), result.words.single().phonemes)
+    }
 }
