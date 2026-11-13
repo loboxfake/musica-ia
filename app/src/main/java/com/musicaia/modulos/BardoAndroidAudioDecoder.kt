@@ -150,7 +150,11 @@ object BardoAndroidAudioDecoder {
                                 if (sampleRate == 0) applyOutputFormat(decoder.outputFormat)
                                 val output = decoder.getOutputBuffer(outputIndex)
                                     ?: error("Búfer PCM de salida no disponible.")
+                                require(info.offset >= 0 && info.size > 0 &&
+                                    info.offset <= output.capacity() - info.size
+                                ) { "El códec devolvió un rango PCM fuera del búfer." }
                                 val chunk = output.duplicate().order(ByteOrder.LITTLE_ENDIAN).apply {
+                                    clear()
                                     position(info.offset)
                                     limit(info.offset + info.size)
                                 }.slice().order(ByteOrder.LITTLE_ENDIAN)
