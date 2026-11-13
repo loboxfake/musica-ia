@@ -74,6 +74,15 @@ object BardoGuidedProgressPolicy {
             ).containsMatchIn(normalized)
             return asksWhichLanguage || specifiesSongLanguage
         }
+        if (field == "ambiente") {
+            return Regex(
+                """\b(?:que|cual)\s+(?:energia|atmosfera)\s+(?:quieres transmitir|buscas|te gustaria|deberia tener (?:la )?(?:cancion|tema|track))\b|\bcomo quieres que se sienta (?:la )?(?:cancion|tema|track)\b|\bwhat (?:energy|atmosphere) (?:should (?:the )?(?:song|track) have|would you like)\b|\bhow should (?:the )?(?:song|track) feel\b"""
+            ).containsMatchIn(normalized)
+        }
+        if (field == "ritmo" && Regex(
+                """\b(?:la imaginas|la prefieres|la quieres|would you prefer (?:a )?)\s*(?:lenta|rapida|slow|fast)\b|\b(?:slow or fast|fast or slow|what pace|how fast should (?:the )?(?:song|track) be)\b"""
+            ).containsMatchIn(normalized)
+        ) return true
         val terms = when (field) {
             "tema" -> listOf("tema", "theme")
             "estilo" -> listOf("estilo", "style", "genre", "genero", "tipo de musica", "genero musical")
