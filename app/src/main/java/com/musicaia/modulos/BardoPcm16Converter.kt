@@ -56,6 +56,23 @@ internal object BardoPcm16Converter {
         return result.array()
     }
 
+    internal fun validateDecodedDuration(
+        dataBytes: Long,
+        sampleRate: Int,
+        channels: Int,
+        maxDurationSeconds: Long = 30L * 60L
+    ) {
+        require(sampleRate in 8_000..192_000) { "Frecuencia PCM decodificada no válida." }
+        require(channels in 1..2) { "Número de canales PCM de salida no válido." }
+        require(dataBytes > 0L && dataBytes % (channels * 2L) == 0L) {
+            "El PCM decodificado no contiene frames completos."
+        }
+        val frames = dataBytes / (channels * 2L)
+        require(frames <= maxDurationSeconds * sampleRate) {
+            "El audio decodificado supera el límite de 30 minutos."
+        }
+    }
+
     private fun readSample(source: ByteBuffer, encoding: Int): Int = when (encoding) {
         PCM_8BIT -> ((source.get().toInt() and 0xff) - 128) shl 8
         PCM_16BIT -> source.getShort().toInt()
