@@ -148,4 +148,14 @@ class DiffSingerVoicebankInspectorTest {
         assertEquals(DiffSingerVoicebankInspector.Status.READY_FOR_RUNTIME_PROBE, result.status)
         assertEquals("acoustic#prod.onnx", result.acousticModel?.name)
     }
+
+
+    @Test fun ignoresRepeatedKeysInsideUnsupportedNestedBlocks() {
+        val root = voicebank()
+        File(root, "dsconfig.yaml").appendText(
+            "augmentation_args:\\n  first:\\n    mode: fast\\n  second:\\n    mode: slow\\n"
+        )
+        val result = DiffSingerVoicebankInspector.inspect(root)
+        assertEquals(DiffSingerVoicebankInspector.Status.READY_FOR_RUNTIME_PROBE, result.status)
+    }
 }
