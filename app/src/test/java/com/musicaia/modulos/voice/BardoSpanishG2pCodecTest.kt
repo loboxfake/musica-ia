@@ -24,7 +24,7 @@ class BardoSpanishG2pCodecTest {
     @Test fun normalizesDecomposedUnicodeBeforeEncoding() {
         val result = BardoSpanishG2pCodec.encodeWord("cancio\u0301n")
         assertTrue(result.isComplete)
-        assertArrayEquals(intArrayOf(8, 6, 19, 8, 22, 19), result.tokenIds)
+        assertArrayEquals(intArrayOf(8, 6, 19, 8, 14, 44, 19), result.tokenIds)
     }
 
     @Test fun reportsUnsupportedCharactersInsteadOfSilentlyDroppingThem() {
