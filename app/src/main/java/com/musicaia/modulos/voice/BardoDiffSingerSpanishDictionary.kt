@@ -69,7 +69,7 @@ object BardoDiffSingerSpanishDictionary {
                 Section.SYMBOLS -> {
                     val symbol = fields["symbol"].orEmpty()
                     val type = fields["type"].orEmpty()
-                    if (!validAtom(symbol) || type !in setOf("vowel", "consonant", "semivowel", "liquid")) {
+                    if (!validAtom(symbol) || type !in setOf("vowel", "consonant", "semivowel", "liquid", "stop", "affricate", "fricative", "aspirate", "nasal")) {
                         errors += "Definición de símbolo inválida cerca de la línea $lineNumber."
                     } else if (symbols.putIfAbsent(symbol, type) != null) {
                         errors += "Símbolo duplicado '$symbol'."
@@ -138,7 +138,7 @@ object BardoDiffSingerSpanishDictionary {
         text.removePrefix("\uFEFF").lineSequence().forEachIndexed { index, raw ->
             val lineNo = index + 1
             val content = stripComment(raw).trimEnd()
-            if (content.isBlank() || content.trim() == "---") return@forEachIndexed
+            if (content.isBlank() || content.trim() == "---" || content.trim() == "%YAML 1.2") return@forEachIndexed
             val indent = content.takeWhile { it == ' ' }.length
             val body = content.trim()
             if (indent == 0 && body.endsWith(":") && !body.startsWith("-")) {
@@ -163,11 +163,23 @@ object BardoDiffSingerSpanishDictionary {
                     item = linkedMapOf()
                     itemIndent = indent
                 }
-                val pair = parsePair(body.removePrefix("- ").trim())
+                val listItem = body.removePrefix("- ").trim()
+                val pair = parsePair(listItem)
                 if (pair != null) {
                     assignField(pair.first, pair.second, lineNo)
+                } else if (section == Section.SYMBOLS && listItem.startsWith("{") && listItem.endsWith("}")) {
+                    val inlineFields = listItem.removeSurrounding("{", "}").split(',')
+                    if (inlineFields.isEmpty()) {
+                        errors += "Mapa de símbolo vacío en la línea $lineNo."
+                    } else {
+                        inlineFields.forEach { field ->
+                            val inlinePair = parsePair(field.trim())
+                            if (inlinePair == null) errors += "Campo de símbolo inline inválido en la línea $lineNo."
+                            else assignField(inlinePair.first, inlinePair.second, lineNo)
+                        }
+                    }
                 } else if (listKey == "phonemes") {
-                    val phone = unquote(body.removePrefix("- ").trim())
+                    val phone = unquote(listItem)
                     if (!validAtom(phone)) {
                         errors += "Fonema de lista inválido en la línea $lineNo."
                     } else {
@@ -190,7 +202,7 @@ object BardoDiffSingerSpanishDictionary {
         finishItem(text.lineSequence().count())
 
         if (symbols.isEmpty()) errors += "El diccionario no define símbolos fonéticos."
-        if (entries.isEmpty()) errors += "El diccionario no contiene pronunciaciones."
+        // Un diccionario solo de símbolos es válido: el G2P externo puede aportar las pronunciaciones.
         if (symbols.size > MAX_SYMBOLS) errors += "El diccionario supera el máximo de símbolos."
         if (entries.size > MAX_ENTRIES) errors += "El diccionario supera el máximo de entradas."
         entries.forEach { (word, phones) ->
