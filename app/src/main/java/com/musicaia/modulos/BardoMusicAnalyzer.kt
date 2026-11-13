@@ -196,6 +196,11 @@ object BardoMusicAnalyzer {
         if (energyCount > 0 && sqrt(energySumSquares / energyCount) < 0.001) {
             silentFrames += energyCount.toLong()
         }
+        // Conserva la última ventana dinámica si tiene al menos media ventana;
+        // evita perder transitorios finales sin dar demasiado peso a unos pocos samples.
+        if (dynamicCount >= DYNAMIC_WINDOW / 2) {
+            dynamicRms.add(sqrt(dynamicSumSquares / dynamicCount))
+        }
         val rms = sqrt(sumSquares / max(1L, sampleCount).toDouble())
         val peakLinear = peak / 32768.0
         val peakDb = toDbfs(peakLinear)
