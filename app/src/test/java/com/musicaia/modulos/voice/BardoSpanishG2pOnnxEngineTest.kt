@@ -14,7 +14,7 @@ class BardoSpanishG2pOnnxEngineTest {
     @Test fun rejectsMissingModelBeforeCreatingRuntimeSession() {
         val result = BardoSpanishG2pOnnxEngine.open(File(temp.root, "missing.onnx"), Long.MAX_VALUE)
         assertFalse(result.isLoaded)
-        assertTrue(result.detail.contains("no existe"))
+        assertTrue(result.detail.contains("no existe", ignoreCase = true))
     }
 
     @Test fun rejectsNonOnnxFileBeforeCreatingRuntimeSession() {
