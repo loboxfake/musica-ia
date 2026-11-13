@@ -2308,8 +2308,14 @@ private fun crearConversacionNueva() {
           report.dynamicRangeDb?.let { append("Rango dinámico aproximado (ventanas RMS): ").append(number(it)).append(" dB\n") }
           report.stereoCorrelation?.let { append("Correlación estéreo L/R: ").append(number(it, 3)).append("\n") }
           report.spectralCentroidHz?.let { append("Centroide espectral: ").append(number(it)).append(" Hz\n") }
-          if (report.lowBandEnergyPercent != null && report.midBandEnergyPercent != null && report.highBandEnergyPercent != null) {
-              append("Balance espectral (energía): graves 55–250 Hz ").append(number(report.lowBandEnergyPercent)).append("%, medios 250 Hz–2 kHz ").append(number(report.midBandEnergyPercent)).append("%, agudos 2–10 kHz ").append(number(report.highBandEnergyPercent)).append("%\n")
+          if (report.lowBandEnergyPercent != null || report.midBandEnergyPercent != null || report.highBandEnergyPercent != null) {
+              fun band(label: String, value: Double?): String =
+                  if (value == null) "$label: no disponible (Nyquist insuficiente)"
+                  else "$label: ${number(value)}%"
+              append("Balance espectral (energía): ")
+                  .append(band("graves 55–250 Hz", report.lowBandEnergyPercent)).append(", ")
+                  .append(band("medios 250 Hz–2 kHz", report.midBandEnergyPercent)).append(", ")
+                  .append(band("agudos 2–10 kHz", report.highBandEnergyPercent)).append("\n")
           }
           report.spectralRolloff85Hz?.let { append("Rolloff espectral 85%: ").append(number(it)).append(" Hz\n") }
           append("Clases de altura dominantes: ").append(dominantNotes).append("\n")
