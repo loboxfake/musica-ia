@@ -5222,6 +5222,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
          actualizarBiblioteca()
          return
      }
+     analisisMusicalEnCurso = true
      Thread({
          var destinoFinal: File? = null
          var informeMusical: String? = null
@@ -5256,6 +5257,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
              Log.i(etiqueta, "Creación archivada: " + destino.name)
          }.onFailure { Log.e(etiqueta, "No se pudo archivar la creación", it) }
          runOnUiThread {
+             analisisMusicalEnCurso = false
              if (isFinishing || isDestroyed) return@runOnUiThread
              destinoFinal?.let { rutaAudio = it.absolutePath }
              actualizarBiblioteca()
