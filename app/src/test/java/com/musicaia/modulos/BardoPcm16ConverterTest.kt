@@ -76,6 +76,16 @@ class BardoPcm16ConverterTest {
     }
 
     @Test
+    fun rejectsStereoOutputWhenDecoderOnlyProvidedMono() {
+        assertThrows(IllegalArgumentException::class.java) {
+            BardoPcm16Converter.convert(
+                ByteBuffer.allocate(2).order(ByteOrder.LITTLE_ENDIAN).putShort(1).flip(),
+                1, 2, BardoPcm16Converter.PCM_16BIT
+            )
+        }
+    }
+
+    @Test
     fun rejectsPartialFramesAndUnsupportedChannelCounts() {
         assertThrows(IllegalArgumentException::class.java) {
             BardoPcm16Converter.convert(ByteBuffer.wrap(byteArrayOf(1, 2, 3)), 1, 1, BardoPcm16Converter.PCM_16BIT)
