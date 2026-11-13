@@ -228,6 +228,28 @@ class BardoGuidedProgressPolicyTest {
     }
 
     @Test
+    fun acceptsNaturalSpanishSynonymsForStyleMoodAndTempoQuestions() {
+        assertTrue(
+            BardoGuidedProgressPolicy.asksAboutRequiredField(
+                "¿Qué tipo de música prefieres?",
+                "estilo"
+            )
+        )
+        assertTrue(
+            BardoGuidedProgressPolicy.asksAboutRequiredField(
+                "¿Qué sentimiento quieres transmitir?",
+                "ambiente"
+            )
+        )
+        assertTrue(
+            BardoGuidedProgressPolicy.asksAboutRequiredField(
+                "¿Qué velocidad te gustaría para la canción?",
+                "ritmo"
+            )
+        )
+    }
+
+    @Test
     fun rejectsQuestionsWithoutARecognizedFieldLabel() {
         assertTrue(!BardoGuidedProgressPolicy.asksAboutRequiredField("¿Qué prefieres?", "estilo"))
     }
