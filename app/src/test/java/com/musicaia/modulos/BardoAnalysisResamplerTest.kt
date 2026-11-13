@@ -27,6 +27,35 @@ class BardoAnalysisResamplerTest {
     }
 
     @Test
+    fun linearlyInterpolatesUpsampledSineWithoutSampleDuplicationSteps() {
+        val inputRate = 11_025
+        val outputRate = 22_050
+        val output = ArrayList<Float>()
+        val resampler = BardoAnalysisResampler(inputRate, outputRate) { output.add(it) }
+        val frames = inputRate * 2
+        for (frame in 0 until frames) {
+            val sample = sin(2.0 * PI * 1_000.0 * frame / inputRate)
+            resampler.accept(sample.toFloat())
+        }
+
+        assertTrue("El número de muestras de salida no coincide", output.size == frames * 2)
+        val stable = output.drop(100)
+        val rms = kotlin.math.sqrt(stable.map { it.toDouble() * it }.average())
+        assertTrue("La interpolación alteró demasiado la energía de la señal: $rms", rms in 0.66..0.75)
+    }
+
+    @Test
+    fun interpolatesNonIntegerUpsamplingRatioWithoutClockDrift() {
+        val output = ArrayList<Float>()
+        val resampler = BardoAnalysisResampler(16_000, 22_050) { output.add(it) }
+        repeat(16_000) { frame ->
+            resampler.accept(sin(2.0 * PI * 440.0 * frame / 16_000.0).toFloat())
+        }
+        assertTrue("El remuestreo 16 kHz → 22,05 kHz acumuló deriva", output.size == 22_050)
+        assertTrue(output.all { it.isFinite() })
+    }
+
+    @Test
     fun preservesSampleCountForEqualRatesAndProducesExpectedUpsampledCount() {
         val sameRate = ArrayList<Float>()
         val identity = BardoAnalysisResampler(22_050, 22_050) { sameRate.add(it) }

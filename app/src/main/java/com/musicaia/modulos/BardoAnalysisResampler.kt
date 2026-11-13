@@ -20,6 +20,8 @@ internal class BardoAnalysisResampler(
     private val history = FloatArray(TAP_COUNT)
     private var writeIndex = 0
     private var phase = 0L
+    private var previousSample = 0.0f
+    private var hasPreviousSample = false
 
     init {
         require(inputSampleRate in 8_000..192_000)
@@ -33,11 +35,24 @@ internal class BardoAnalysisResampler(
 
     fun accept(sample: Float) {
         if (coefficients.size == 1) {
+            if (inputSampleRate == outputSampleRate) {
+                onOutput(sample)
+                return
+            }
+            if (!hasPreviousSample) {
+                previousSample = sample
+                hasPreviousSample = true
+            }
             phase += outputSampleRate.toLong()
             while (phase >= inputSampleRate.toLong()) {
                 phase -= inputSampleRate.toLong()
-                onOutput(sample)
+                // Interpola entre la muestra anterior y la actual. Evita la
+                // duplicación escalonada que añade armónicos al aumentar Hz.
+                val fraction = (1.0 - phase.toDouble() / outputSampleRate).coerceIn(0.0, 1.0)
+                val interpolated = previousSample + (sample - previousSample) * fraction.toFloat()
+                onOutput(interpolated)
             }
+            previousSample = sample
             return
         }
 
