@@ -90,6 +90,25 @@ class BardoMusicAnalyzerTest {
     }
 
     @Test
+    fun mergesAdjacentWindowsWhenTheSameChordContinues() {
+        val sampleRate = 22_050
+        val cMajor = doubleArrayOf(261.63, 329.63, 392.00)
+        val wav = createWav(sampleRate = sampleRate, channels = 1, seconds = 8.0) { frame, _ ->
+            val time = frame.toDouble() / sampleRate
+            val value = cMajor.sumOf { sin(2.0 * PI * it * time) } / cMajor.size
+            (value * 14_000.0).toInt().toShort()
+        }
+        try {
+            val progression = BardoMusicAnalyzer.analyze(wav).chordProgression
+            assertEquals("Do mayor", progression.single().chord)
+            assertEquals(0.0, progression.single().startSeconds, 0.001)
+            assertEquals(8.0, progression.single().endSeconds, 0.001)
+        } finally {
+            wav.delete()
+        }
+    }
+
+    @Test
     fun followsSyntheticCToGMajorChordChangeAcrossTwoSecondWindows() {
         val sampleRate = 22_050
         val cMajor = doubleArrayOf(261.63, 329.63, 392.00)
