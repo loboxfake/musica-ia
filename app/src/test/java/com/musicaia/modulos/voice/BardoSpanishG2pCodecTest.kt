@@ -64,4 +64,11 @@ class BardoSpanishG2pCodecTest {
         assertTrue(result.phonemes.isEmpty())
         assertEquals(BardoSpanishG2pCodec.MAX_OUTPUT_PHONEMES + 1, result.invalidIds.size)
     }
+
+
+    @Test fun treatsEmptyOutputAsIncomplete() {
+        val result = BardoSpanishG2pCodec.decodeOutputIds(intArrayOf())
+        assertFalse(result.isComplete)
+        assertTrue(result.phonemes.isEmpty())
+    }
 }
