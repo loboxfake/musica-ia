@@ -70,7 +70,7 @@ object DiffSingerVoicebankInspector {
         val seenKeys = mutableSetOf<String>()
         val errors = mutableListOf<String>()
         source.lineSequence().forEachIndexed { index, raw ->
-            if (raw.startsWith('\\t')) {
+            if (raw.startsWith('\t')) {
                 errors += "Indentación YAML con tab no admitida en $label, línea ${index + 1}."
                 return@forEachIndexed
             }
