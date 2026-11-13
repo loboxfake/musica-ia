@@ -98,7 +98,9 @@ object BardoSpanishG2pCodec {
     const val STEP_INPUT_NAME = "t"
     const val START_OR_ADVANCE_TOKEN_ID = 2
     const val FIRST_GRAPHEME_ID = 4
+    const val MAX_GRAPHEME_ID = 46
     const val FIRST_PHONEME_ID = 4
+    const val MAX_PHONEME_ID = 34
     const val MAX_WORD_UTF16_UNITS = 256
     // G2pPack starts tgt with one reserved token and stops while tgt.Length < 48.
     const val MAX_OUTPUT_PHONEMES = 47
