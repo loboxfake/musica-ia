@@ -5,6 +5,7 @@ import java.io.RandomAccessFile
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
+import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.ln
 import kotlin.math.log10
@@ -150,7 +151,10 @@ object BardoMusicAnalyzer {
             val blockFrames = 8_192
             val bytes = ByteArray(blockFrames * frameBytes)
             var remaining = totalFrames
-            var resamplePhase = 0L
+            val resampler = BardoAnalysisResampler(
+                inputSampleRate = header.sampleRate,
+                outputSampleRate = ANALYSIS_RATE
+            ) { sample -> acceptAnalysisSample(sample) }
             while (remaining > 0L) {
                 val frames = min(blockFrames.toLong(), remaining).toInt()
                 val byteCount = frames * frameBytes
@@ -182,13 +186,9 @@ object BardoMusicAnalyzer {
                         cross += leftNorm * rightNorm
                     }
 
-                    // Remuestreo por retención de muestra, suficiente para el análisis
-                    // de tempo/tonalidad; las métricas de nivel usan siempre el PCM original.
-                    resamplePhase += ANALYSIS_RATE.toLong()
-                    while (resamplePhase >= header.sampleRate.toLong()) {
-                        resamplePhase -= header.sampleRate.toLong()
-                        acceptAnalysisSample(mono.toFloat())
-                    }
+                    // Remuestreo con filtro anti-alias al reducir la frecuencia.
+                    // Las métricas de nivel siguen calculándose sobre el PCM original.
+                    resampler.accept(mono.toFloat())
                 }
                 remaining -= frames
             }
@@ -196,6 +196,11 @@ object BardoMusicAnalyzer {
 
         if (energyCount > 0 && sqrt(energySumSquares / energyCount) < 0.001) {
             silentFrames += energyCount.toLong()
+        }
+        // Conserva la última ventana dinámica si tiene al menos media ventana;
+        // evita perder transitorios finales sin dar demasiado peso a unos pocos samples.
+        if (dynamicCount >= DYNAMIC_WINDOW / 2) {
+            dynamicRms.add(sqrt(dynamicSumSquares / dynamicCount))
         }
         val rms = sqrt(sumSquares / max(1L, sampleCount).toDouble())
         val peakLinear = peak / 32768.0
@@ -217,8 +222,12 @@ object BardoMusicAnalyzer {
         val durationRange = if (dynamicRms.size >= 4) {
             val sorted = dynamicRms.filter { it > 0.001 }.sorted()
             if (sorted.size >= 4) {
-                val low = sorted[(sorted.lastIndex * 0.10).toInt()]
-                val high = sorted[(sorted.lastIndex * 0.95).toInt()]
+                // Nearest-rank percentiles retain the top tail when only a
+                // few windows exist (important for short intros/outros/transients).
+                val lowIndex = (ceil(sorted.size * 0.10).toInt() - 1).coerceIn(0, sorted.lastIndex)
+                val highIndex = (ceil(sorted.size * 0.95).toInt() - 1).coerceIn(0, sorted.lastIndex)
+                val low = sorted[lowIndex]
+                val high = sorted[highIndex]
                 if (low > 0.0) 20.0 * log10(high / low) else null
             } else null
         } else null
