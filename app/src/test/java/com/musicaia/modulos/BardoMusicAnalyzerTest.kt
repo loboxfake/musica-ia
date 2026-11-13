@@ -427,6 +427,22 @@ class BardoMusicAnalyzerTest {
     }
 
     @Test
+    fun explainsUnavailableStereoBalanceWhenOneChannelIsSilent() {
+        val wav = createWav(sampleRate = 22_050, channels = 2, seconds = 5.0) { frame, channel ->
+            if (channel == 0) {
+                (sin(2.0 * PI * 440.0 * frame / 22_050.0) * 12_000.0).toInt().toShort()
+            } else 0
+        }
+        try {
+            val report = BardoMusicAnalyzer.analyze(wav)
+            assertNull(report.stereoBalanceDb)
+            assertTrue(report.warnings.any { it.contains("al menos un canal no contiene energía") })
+        } finally {
+            wav.delete()
+        }
+    }
+
+    @Test
     fun preservesSpectralContentInOutOfPhaseStereoWithoutInventingTempoOrKey() {
         val wav = createWav(sampleRate = 22_050, channels = 2, seconds = 5.0) { frame, channel ->
             val value = sin(2.0 * PI * 220.0 * frame / 22_050.0) * 12_000.0
