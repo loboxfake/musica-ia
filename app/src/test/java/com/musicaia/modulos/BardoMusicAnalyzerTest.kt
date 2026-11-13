@@ -32,6 +32,26 @@ class BardoMusicAnalyzerTest {
     }
 
     @Test
+    fun antiAliasFilteringPreventsHighFrequencyFoldoverIn48KhzAudio() {
+        val sampleRate = 48_000
+        val wav = createWav(sampleRate = sampleRate, channels = 1, seconds = 5.0) { frame, _ ->
+            val time = frame.toDouble() / sampleRate
+            val fundamental = sin(2.0 * PI * 1_000.0 * time)
+            val ultrasonicForAnalysis = sin(2.0 * PI * 15_000.0 * time)
+            ((fundamental + ultrasonicForAnalysis) * 10_000.0).toInt().toShort()
+        }
+        try {
+            val report = BardoMusicAnalyzer.analyze(wav)
+            assertTrue(
+                "El componente de 15 kHz se ha plegado al espectro analizado: ${report.spectralCentroidHz}",
+                report.spectralCentroidHz!! in 800.0..1_300.0
+            )
+        } finally {
+            wav.delete()
+        }
+    }
+
+    @Test
     fun estimatesRegularPulseNear120Bpm() {
         val wav = createWav(sampleRate = 22_050, channels = 1, seconds = 12.0) { frame, _ ->
             val withinBeat = frame % 11_025
