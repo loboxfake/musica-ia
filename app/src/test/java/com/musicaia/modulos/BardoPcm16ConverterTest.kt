@@ -43,6 +43,22 @@ class BardoPcm16ConverterTest {
     }
 
     @Test
+    fun conversionDoesNotMutateInputBufferPositionOrLimit() {
+        val input = ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN)
+            .putShort(111).putShort(222).putShort(333).putShort(444)
+        input.position(2)
+        input.limit(6)
+        val originalPosition = input.position()
+        val originalLimit = input.limit()
+
+        assertEquals(listOf(222, 333), shorts(
+            BardoPcm16Converter.convert(input, 1, 1, BardoPcm16Converter.PCM_16BIT)
+        ))
+        assertEquals(originalPosition, input.position())
+        assertEquals(originalLimit, input.limit())
+    }
+
+    @Test
     fun convertsUnsignedEightBitPcmToSignedPcm16() {
         val input = ByteBuffer.wrap(byteArrayOf(0, 0x80.toByte(), 0xff.toByte()))
         assertEquals(listOf(-32768, 0, 32512), shorts(
