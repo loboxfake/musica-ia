@@ -39,6 +39,13 @@ Las ramas de autonomía y APK que aparecen únicamente detrás de `main` no cont
 
 La siguiente tanda de endurecimiento de importación de audio parte de `main` en `6e9054e`. Su alcance es el conversor PCM compartido por el decodificador Android, con tests JVM de PCM 8/16/24/32-bit y float. No toca la UI, generación, voz ni Modo 3. Después de validar, integrar y volver a comprobar el hash protegido, la rama se cierra como trabajo integrado y la siguiente tanda debe partir del nuevo SHA de `main`.
 
+## Tandas paralelas activas en esta revisión
+
+- PR #26 (`bardo/audio-import-hardening-batch`) parte de `6e9054e` y modifica el decodificador PCM, su conversor puro, tests y este registro.
+- PR #27 (`bardo/tempo-estimation-robustness-batch`) parte del mismo SHA y modifica únicamente el estimador de tempo y sus tests.
+- Los dos diffs tienen rutas de código disjuntas. Se validan en paralelo y se integran secuencialmente: primero el endurecimiento del decodificador y después el ajuste de tempo, comprobando de nuevo que el segundo diff sigue limpio contra el nuevo `main`.
+- No se crearán más ramas para subdividir estos mismos cambios. Una vez integradas ambas tandas, la siguiente rama de desarrollo partirá del SHA nuevo de `main` y agrupará el siguiente bloque funcional.
+
 ## Estados que no deben confundirse
 
 1. Código escrito en una rama.
