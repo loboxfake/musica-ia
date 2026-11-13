@@ -43,6 +43,23 @@ class BardoDiffSingerSpanishDictionaryTest {
         assertEquals("es/a", parsed.replacements["a"])
     }
 
+    @Test fun acceptsYaml12DirectiveAndInlineSymbolMappings() {
+        val parsed = dictionary(
+            """
+            %YAML 1.2
+            ---
+            symbols:
+              - {symbol: a, type: vowel}
+              - {symbol: p, type: stop}
+            entries:
+              - grapheme: papá
+                phonemes: [p, a, p, a]
+            """.trimIndent()
+        )
+        assertTrue(parsed.isValid)
+        assertEquals(listOf("p", "a", "p", "a"), parsed.entries["papá"])
+    }
+
     @Test fun acceptsOpenUtauSpanishDictionarySymbolTypes() {
         val parsed = dictionary(
             """
