@@ -24,7 +24,7 @@ object BardoSpanishG2pCodec {
         val phonemes: List<String>,
         val invalidIds: List<Int>
     ) {
-        val isComplete: Boolean get() = invalidIds.isEmpty()
+        val isComplete: Boolean get() = phonemes.isNotEmpty() && invalidIds.isEmpty()
     }
 
     // SpanishG2p.cs drops the first four reserved vocabulary slots.
