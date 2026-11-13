@@ -443,6 +443,21 @@ class BardoMusicAnalyzerTest {
     }
 
     @Test
+    fun treatsNoiseFloorChannelAsUnavailableForStereoBalance() {
+        val wav = createWav(sampleRate = 22_050, channels = 2, seconds = 5.0) { frame, channel ->
+            val amplitude = if (channel == 0) 12_000.0 else 10.0
+            (sin(2.0 * PI * 440.0 * frame / 22_050.0) * amplitude).toInt().toShort()
+        }
+        try {
+            val report = BardoMusicAnalyzer.analyze(wav)
+            assertNull("El canal por debajo de -60 dBFS no debe producir un balance engañoso", report.stereoBalanceDb)
+            assertTrue(report.warnings.any { it.contains("al menos un canal no contiene energía suficiente") })
+        } finally {
+            wav.delete()
+        }
+    }
+
+    @Test
     fun preservesSpectralContentInOutOfPhaseStereoWithoutInventingTempoOrKey() {
         val wav = createWav(sampleRate = 22_050, channels = 2, seconds = 5.0) { frame, channel ->
             val value = sin(2.0 * PI * 220.0 * frame / 22_050.0) * 12_000.0
