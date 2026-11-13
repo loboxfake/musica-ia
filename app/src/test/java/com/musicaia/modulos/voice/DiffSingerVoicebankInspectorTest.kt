@@ -45,7 +45,7 @@ class DiffSingerVoicebankInspectorTest {
 
     @Test fun rejectsInventoryWithoutSilenceTokenBeforeRuntimeProbe() {
         val root = voicebank()
-        File(root, "phonemes.txt").writeText("a\ne\ni\no\nu\n")
+        File(root, "phonemes.txt").writeText("a\\ne\\ni\\no\\nu\\n")
         val result = DiffSingerVoicebankInspector.inspect(root)
         assertEquals(DiffSingerVoicebankInspector.Status.INVALID_PHONEMES, result.status)
         assertFalse(result.readyForRuntimeProbe)
@@ -54,7 +54,7 @@ class DiffSingerVoicebankInspectorTest {
 
     @Test fun rejectsMalformedSpanishDictionaryBeforeRuntimeProbe() {
         val root = voicebank()
-        File(root, "dsdict-es.yaml").writeText("symbols: []\n")
+        File(root, "dsdict-es.yaml").writeText("symbols: []\\n")
         val result = DiffSingerVoicebankInspector.inspect(root)
         assertEquals(DiffSingerVoicebankInspector.Status.INVALID_PHONEMIZER_DICTIONARY, result.status)
         assertFalse(result.readyForRuntimeProbe)
@@ -148,7 +148,6 @@ class DiffSingerVoicebankInspectorTest {
         assertEquals(DiffSingerVoicebankInspector.Status.READY_FOR_RUNTIME_PROBE, result.status)
         assertEquals("acoustic#prod.onnx", result.acousticModel?.name)
     }
-
 
     @Test fun ignoresRepeatedKeysInsideUnsupportedNestedBlocks() {
         val root = voicebank()
