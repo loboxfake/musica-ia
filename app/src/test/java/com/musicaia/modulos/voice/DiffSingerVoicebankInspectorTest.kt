@@ -45,7 +45,7 @@ class DiffSingerVoicebankInspectorTest {
 
     @Test fun rejectsInventoryWithoutSilenceTokenBeforeRuntimeProbe() {
         val root = voicebank()
-        File(root, "phonemes.txt").writeText("a\\ne\\ni\\no\\nu\\n")
+        File(root, "phonemes.txt").writeText("a\ne\ni\no\nu\n")
         val result = DiffSingerVoicebankInspector.inspect(root)
         assertEquals(DiffSingerVoicebankInspector.Status.INVALID_PHONEMES, result.status)
         assertFalse(result.readyForRuntimeProbe)
@@ -54,7 +54,7 @@ class DiffSingerVoicebankInspectorTest {
 
     @Test fun rejectsMalformedSpanishDictionaryBeforeRuntimeProbe() {
         val root = voicebank()
-        File(root, "dsdict-es.yaml").writeText("symbols: []\\n")
+        File(root, "dsdict-es.yaml").writeText("symbols: []\n")
         val result = DiffSingerVoicebankInspector.inspect(root)
         assertEquals(DiffSingerVoicebankInspector.Status.INVALID_PHONEMIZER_DICTIONARY, result.status)
         assertFalse(result.readyForRuntimeProbe)
@@ -122,7 +122,7 @@ class DiffSingerVoicebankInspectorTest {
 
     @Test fun rejectsDuplicateScalarKeysInVoicebankConfig() {
         val root = voicebank()
-        File(root, "dsconfig.yaml").appendText("acoustic: alternate.onnx\\n")
+        File(root, "dsconfig.yaml").appendText("acoustic: alternate.onnx\n")
         val result = DiffSingerVoicebankInspector.inspect(root)
         assertEquals(DiffSingerVoicebankInspector.Status.INVALID_CONFIG, result.status)
         assertTrue(result.errors.any { it.contains("Clave duplicada 'acoustic'") })
@@ -131,7 +131,7 @@ class DiffSingerVoicebankInspectorTest {
     @Test fun rejectsDuplicateScalarKeysInVocoderConfig() {
         val root = voicebank()
         File(root, "dsvocoder/vocoder.yaml").writeText(
-            "model: vocoder.onnx\\nmodel: alternate.onnx\\n"
+            "model: vocoder.onnx\nmodel: alternate.onnx\n"
         )
         val result = DiffSingerVoicebankInspector.inspect(root)
         assertEquals(DiffSingerVoicebankInspector.Status.INVALID_CONFIG, result.status)
@@ -142,7 +142,7 @@ class DiffSingerVoicebankInspectorTest {
         val root = voicebank()
         File(root, "acoustic#prod.onnx").writeBytes(byteArrayOf(7, 8, 9))
         File(root, "dsconfig.yaml").writeText(
-            "acoustic: \\\"acoustic#prod.onnx\\\"\\nvocoder: test-vocoder\\n"
+            "acoustic: \"acoustic#prod.onnx\"\nvocoder: test-vocoder\n"
         )
         val result = DiffSingerVoicebankInspector.inspect(root)
         assertEquals(DiffSingerVoicebankInspector.Status.READY_FOR_RUNTIME_PROBE, result.status)
