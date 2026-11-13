@@ -272,7 +272,7 @@ class BardoDiffSingerSpanishDictionaryTest {
         val result = BardoDiffSingerSpanishDictionary.resolveLyricsWithG2pFallback(
             "aba", parsed, mapOf("es/a" to 0, "b" to 1)
         ) {
-            BardoDiffSingerSpanishDictionary.G2pFallback(listOf("es/a", "b", "es/a"))
+            BardoDiffSingerSpanishDictionary.G2pFallback(listOf("a", "b", "a"))
         }
         assertTrue(result.isComplete)
         assertEquals(listOf("es/a", "b", "es/a"), result.words.single().phonemes)
