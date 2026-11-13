@@ -429,9 +429,9 @@ object BardoMusicAnalyzer {
             candidates.add(Triple("${noteNames[root]} mayor", intArrayOf(root, (root + 4) % 12, (root + 7) % 12), major))
             candidates.add(Triple("${noteNames[root]} menor", intArrayOf(root, (root + 3) % 12, (root + 7) % 12), minor))
         }
-        return windows.mapIndexedNotNull { index, values ->
+        val detected = windows.mapIndexed { index, values ->
             val total = values.sum()
-            if (total <= EPSILON) return@mapIndexedNotNull null
+            if (total <= EPSILON) return@mapIndexed null
             val normalized = DoubleArray(12) { values[it] / total }
             var bestLabel: String? = null
             var bestScore = 0.0
@@ -458,6 +458,28 @@ object BardoMusicAnalyzer {
                 score = bestScore.coerceIn(0.0, 1.0)
             )
         }
+
+        // Une ventanas consecutivas con el mismo acorde para evitar una lista
+        // artificialmente fragmentada; nunca se rellenan huecos sin evidencia.
+        val merged = ArrayList<ChordSegment>()
+        for (segment in detected.filterNotNull()) {
+            val previous = merged.lastOrNull()
+            if (previous != null &&
+                previous.chord == segment.chord &&
+                abs(previous.endSeconds - segment.startSeconds) < 1.0e-6
+            ) {
+                val previousDuration = previous.endSeconds - previous.startSeconds
+                val segmentDuration = segment.endSeconds - segment.startSeconds
+                val duration = previousDuration + segmentDuration
+                merged[merged.lastIndex] = previous.copy(
+                    endSeconds = segment.endSeconds,
+                    score = (previous.score * previousDuration + segment.score * segmentDuration) / duration
+                )
+            } else {
+                merged.add(segment)
+            }
+        }
+        return merged
     }
 
     private fun estimateKey(chroma: DoubleArray): Pair<String, Double>? {
