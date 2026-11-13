@@ -235,15 +235,15 @@ object BardoAndroidAudioDecoder {
 
     private fun readSample(source: ByteBuffer, encoding: Int): Int = when (encoding) {
         AudioFormat.ENCODING_PCM_8BIT -> ((source.get().toInt() and 0xff) - 128) shl 8
-        AudioFormat.ENCODING_PCM_16BIT -> source.short.toInt()
+        AudioFormat.ENCODING_PCM_16BIT -> source.getShort().toInt()
         AudioFormat.ENCODING_PCM_24BIT_PACKED -> {
             val raw = (source.get().toInt() and 0xff) or
                 ((source.get().toInt() and 0xff) shl 8) or ((source.get().toInt() and 0xff) shl 16)
             (if ((raw and 0x800000) != 0) raw or -0x1000000 else raw) shr 8
         }
-        AudioFormat.ENCODING_PCM_32BIT -> source.int shr 16
+        AudioFormat.ENCODING_PCM_32BIT -> source.getInt() shr 16
         AudioFormat.ENCODING_PCM_FLOAT -> {
-            val sample = source.float.coerceIn(-1.0f, 1.0f)
+            val sample = source.getFloat().coerceIn(-1.0f, 1.0f)
             if (sample <= -1.0f) -32768 else (sample * 32767.0f).toInt()
         }
         else -> error("Formato PCM no admitido.")
