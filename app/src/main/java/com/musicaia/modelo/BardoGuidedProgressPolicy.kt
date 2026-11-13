@@ -76,9 +76,9 @@ object BardoGuidedProgressPolicy {
         }
         val terms = when (field) {
             "tema" -> listOf("tema", "theme")
-            "estilo" -> listOf("estilo", "style", "genre", "genero")
-            "ambiente" -> listOf("ambiente", "mood", "emotion", "emocion", "feeling")
-            "ritmo" -> listOf("ritmo", "rhythm", "tempo")
+            "estilo" -> listOf("estilo", "style", "genre", "genero", "tipo de musica", "genero musical")
+            "ambiente" -> listOf("ambiente", "mood", "emotion", "emocion", "feeling", "sentimiento", "sensacion", "tono")
+            "ritmo" -> listOf("ritmo", "rhythm", "tempo", "velocidad", "pulsaciones", "bpm")
             "vozFuente" -> listOf("archivo", "file", "grabada", "grabado", "grabar", "recording", "record", "microfono", "microphone", "importar", "upload", "subir")
             else -> return false
         }
