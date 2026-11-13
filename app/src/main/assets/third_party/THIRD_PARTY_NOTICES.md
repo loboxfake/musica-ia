@@ -25,7 +25,7 @@ BARDO includes an optional on-device text-to-image pipeline based on Bonsai Imag
 
 ## OpenUtau Spanish G2P vocabulary codec
 
-BARDO's Spanish G2P codec and bounded greedy decoder adapt the grapheme/phoneme index tables and the ONNX input-token decoding contract from:
+BARDO's Spanish G2P codec, bounded greedy decoder and voicebank phoneme-remapping flow adapt the token tables and decoding/remapping contract from:
 
 - Project: https://github.com/openutau/OpenUtau
 - Reference files: `OpenUtau.Core/G2p/SpanishG2p.cs`, `OpenUtau.Core/Api/G2pPack.cs`
