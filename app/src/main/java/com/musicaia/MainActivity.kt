@@ -2320,12 +2320,12 @@ private fun crearConversacionNueva() {
               }).append("\n")
           } else append("Acordes: no concluyentes en bloques de 2 s\n")
           if (report.estimatedTempoBpm != null) {
-              append("Tempo estimado: ").append(number(report.estimatedTempoBpm)).append("  BPM (puntuación de estabilidad ")
-                  .append(number(report.tempoConfidence ?: 0.0, 2)).append("%)\n")
+              append("Tempo estimado: ").append(number(report.estimatedTempoBpm)).append("  BPM (autocorrelación normalizada: ")
+                  .append(number(report.tempoConfidence ?: 0.0, 2)).append(")\n")
           } else append("Tempo estimado: no concluyente\n")
           if (report.estimatedKey != null) {
-              append("Tonalidad estimada: ").append(report.estimatedKey).append(" (puntuación de estabilidad relativa: ")
-                  .append(number(report.keyConfidence ?: 0.0, 2)).append("%)\n")
+              append("Tonalidad estimada: ").append(report.estimatedKey).append(" (correlación relativa del perfil: ")
+                  .append(number(report.keyConfidence ?: 0.0, 2)).append(")\n")
           } else append("Tonalidad estimada: no concluyente\n")
           if (report.warnings.isNotEmpty()) {
               append("Avisos técnicos:\n")
