@@ -80,6 +80,8 @@ object BardoMusicAnalyzer {
         var clipped = 0L
         var totalChannelSamples = 0L
         var silentFrames = 0L
+        var monoSilenceSumSquares = 0.0
+        var monoSilenceCount = 0
         var leftSum = 0.0
         var rightSum = 0.0
         var leftSquares = 0.0
@@ -119,7 +121,6 @@ object BardoMusicAnalyzer {
                 val rms = sqrt(energySumSquares / ENERGY_HOP)
                 val onset = max(0.0, rms - previousEnergy)
                 onsetEnvelope.add(onset.toFloat())
-                if (rms < 0.001) silentFrames += ENERGY_HOP.toLong()
                 previousEnergy = rms
                 energySumSquares = 0.0
                 energyCount = 0
@@ -239,6 +240,15 @@ object BardoMusicAnalyzer {
                     val leftNorm = left / 32768.0
                     val rightNorm = right / 32768.0
                     val mono = (leftNorm + rightNorm) * 0.5
+                    monoSilenceSumSquares += mono * mono
+                    monoSilenceCount++
+                    if (monoSilenceCount == ENERGY_HOP) {
+                        if (sqrt(monoSilenceSumSquares / ENERGY_HOP) < 0.001) {
+                            silentFrames += ENERGY_HOP.toLong()
+                        }
+                        monoSilenceSumSquares = 0.0
+                        monoSilenceCount = 0
+                    }
                     sumSquares += mono * mono
                     sumSamples += mono
                     sampleCount++
@@ -271,8 +281,8 @@ object BardoMusicAnalyzer {
             }
         }
 
-        if (energyCount > 0 && sqrt(energySumSquares / energyCount) < 0.001) {
-            silentFrames += energyCount.toLong()
+        if (monoSilenceCount > 0 && sqrt(monoSilenceSumSquares / monoSilenceCount) < 0.001) {
+            silentFrames += monoSilenceCount.toLong()
         }
         // Conserva la última ventana dinámica si tiene al menos media ventana;
         // evita perder transitorios finales sin dar demasiado peso a unos pocos samples.
@@ -352,7 +362,9 @@ object BardoMusicAnalyzer {
             crestFactorDb = crest,
             dcOffset = dc,
             clippedSamplePercent = clippingPercent,
-            silencePercent = 100.0 * silentFrames / max(1L, analysisSamples).toDouble(),
+            // El porcentaje de silencio corresponde a la suma mono original,
+            // igual que RMS y DC; no al canal alternativo usado para el espectro.
+            silencePercent = 100.0 * silentFrames / max(1L, totalFrames).toDouble(),
             dynamicRangeDb = durationRange,
             stereoCorrelation = stereoCorrelation,
             spectralCentroidHz = centroid,

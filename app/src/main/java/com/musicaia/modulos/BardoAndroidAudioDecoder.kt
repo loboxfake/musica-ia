@@ -28,7 +28,7 @@ object BardoAndroidAudioDecoder {
         require(source.isFile && source.length() in 1..MAX_INPUT_BYTES) {
             "El archivo no existe, está vacío o supera el límite de 100 MB."
         }
-        require(source.absolutePath != destination.absolutePath) {
+        require(source.canonicalFile != destination.canonicalFile) {
             "El WAV de análisis debe ser un archivo distinto del original."
         }
         var raw: File? = null

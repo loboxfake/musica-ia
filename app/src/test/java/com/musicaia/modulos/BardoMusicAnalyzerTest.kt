@@ -248,6 +248,24 @@ class BardoMusicAnalyzerTest {
     }
 
     @Test
+    fun silencePercentReflectsMonoCancellationEvenWhenSpectrumUsesOneStereoChannel() {
+        val wav = createWav(sampleRate = 22_050, channels = 2, seconds = 5.0) { frame, channel ->
+            val value = sin(2.0 * PI * 220.0 * frame / 22_050.0) * 12_000.0
+            if (channel == 0) value.toInt().toShort() else (-value).toInt().toShort()
+        }
+        try {
+            val report = BardoMusicAnalyzer.analyze(wav)
+            assertTrue("La suma mono debe seguir reflejando la cancelación completa", report.rmsDbfs <= -100.0)
+            assertEquals(100.0, report.silencePercent, 0.01)
+            assertTrue("El análisis espectral debe conservar una referencia audible de canal",
+                report.spectralCentroidHz != null && report.spectralCentroidHz in 200.0..240.0)
+            assertTrue(report.warnings.any { it.contains("canal izquierdo", ignoreCase = true) })
+        } finally {
+            wav.delete()
+        }
+    }
+
+    @Test
     fun keepsNormalInPhaseStereoAsMonoWithoutFallbackWarning() {
         val wav = createWav(sampleRate = 22_050, channels = 2, seconds = 5.0) { frame, _ ->
             (sin(2.0 * PI * 440.0 * frame / 22_050.0) * 12_000.0).toInt().toShort()
