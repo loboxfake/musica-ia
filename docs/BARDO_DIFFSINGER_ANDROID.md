@@ -11,9 +11,17 @@ Esta rama añade la primera capa Android del motor:
 - Lector independiente del inventario phonemes.txt: límite de tamaño y número de símbolos, rechazo de duplicados/controles/UTF-8 inválido y asignación de IDs por orden de archivo. El inspector solo acepta voicebanks cuyo inventario sea válido y contenga SP.\n- Constructor de entradas temporales DiffSinger: tokens, silencios SP, duraciones en frames y curva F0 por nota MIDI, con validación de solapamientos y límites.
 - Registro separado del runtime ONNX y de la síntesis cantada.
 
+## Preparación G2P español
+
+- `BardoSpanishG2pCodec` traduce grafemas españoles a IDs de entrada y devuelve los fonemas base a partir de IDs de salida. Rechaza los caracteres que el vocabulario no conoce en vez de descartarlos.
+- `BardoSpanishG2pAutoregressiveDecoder` implementa el ciclo greedy del modelo de referencia: `src`, `tgt`, `t`, token de avance 2 y un máximo de 47 fonemas por palabra. Se prueba sin cargar ONNX.
+- `BardoSpanishG2pOnnxEngine` conecta ese ciclo a ONNX Runtime Android en CPU, limita el modelo a 64 MiB, exige al menos 256 MiB disponibles según la medición suministrada y cierra tensores/resultados por paso.
+- El código del códec adapta el contrato de `SpanishG2p.cs` y `G2pPack.cs` de OpenUtau, cubierto por MIT; su atribución y licencia están en `assets/third_party/THIRD_PARTY_NOTICES.md` y `OpenUtau-MIT.txt`.
+- No se ha incorporado `g2p-es.zip`, sus pesos ONNX, `dict.txt` ni `phones.txt`: la licencia específica de esos recursos no está acreditada. El motor tampoco está conectado a la creación de canciones. Por tanto, G2P real no se considera disponible y la síntesis cantada continúa `NOT_IMPLEMENTED`.
+
 ## Límites explícitos
 
-Esto NO es todavía un sintetizador cantado completo. Abrir el grafo acústico no ejecuta inferencia. Falta integrar un G2P español generalizador (la resolución actual solo cubre palabras presentes en el diccionario de la voz), conectar las entradas a los tensores ONNX con los parámetros de cada modelo, ejecutar las inferencias acústica y del vocoder, y ensamblar el WAV. El inspector ya exige que la voicebank aporte el diccionario fonético español y valida el inventario de fonemas, el esquema seguro de símbolos/entradas/reemplazos y la existencia y compatibilidad declarada de los modelos. Por eso `voice_synthesis` permanece `NOT_IMPLEMENTED` y no se habilita el flujo de creación con voz IA.
+Esto NO es todavía un sintetizador cantado completo. Abrir el grafo acústico no ejecuta inferencia. Falta incorporar un paquete G2P español autorizado y conectar el resultado de sus fonemas al predictor de duración, al acústico y al vocoder, con los parámetros reales de cada voicebank; después se debe ensamblar el WAV. El inspector ya exige que la voicebank aporte el diccionario fonético español y valida el inventario de fonemas, el esquema seguro de símbolos/entradas/reemplazos y la existencia y compatibilidad declarada de los modelos. Por eso `voice_synthesis` permanece `NOT_IMPLEMENTED` y no se habilita el flujo de creación con voz IA.
 
 La rama activa V2 de OpenUtau Mobile es una referencia técnica Apache-2.0, pero su propia matriz clasifica DiffSinger Android como condicional y su README advierte que la rama está en desarrollo. No se copia ni redistribuye ninguna voicebank de terceros en esta integración. Cada voz deberá tener licencia de uso y redistribución comprobada, además de consentimiento cuando corresponda.
 
