@@ -24,7 +24,7 @@ class BardoMusicAnalyzerTest {
             assertEquals(1, report.channels)
             assertTrue(report.peakDbfs in -7.0..-5.0)
             assertTrue(report.rmsDbfs in -10.0..-8.0)
-            assertEquals(9, report.pitchClassEnergy.indices.maxByOrNull { report.pitchClassEnergy[it] })
+            assertEquals(9, report.pitchClassEnergy.indices.maxByOrNull { report.pitchClassEnergy[it] } ?: -1)
             assertTrue(report.spectralCentroidHz!! in 400.0..480.0)
         } finally {
             wav.delete()
