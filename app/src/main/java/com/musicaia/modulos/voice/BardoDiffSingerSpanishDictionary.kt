@@ -19,7 +19,7 @@ object BardoDiffSingerSpanishDictionary {
         val replacements: Map<String, String>,
         val errors: List<String>
     ) {
-        val isValid: Boolean get() = errors.isEmpty() && symbols.isNotEmpty() && entries.isNotEmpty()
+        val isValid: Boolean get() = errors.isEmpty() && symbols.isNotEmpty()
     }
     data class ResolvedWord(val text: String, val phonemes: List<String>, val start: Int, val end: Int)
     data class G2pFallback(val phonemes: List<String>, val error: String? = null)
