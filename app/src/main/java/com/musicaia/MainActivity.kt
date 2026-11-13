@@ -2364,7 +2364,7 @@ private fun crearConversacionNueva() {
       metadata: String,
       language: BardoOfflineAsr.Language
   ) {
-      if (mezclaPistasEnCurso || transcripcionAudioEnCurso) {
+      if (mezclaPistasEnCurso || transcripcionAudioEnCurso || analisisMusicalEnCurso) {
           tvEstado.text = "Hay otro proceso de audio activo. La transcripción esperará a que termine."
           return
       }
@@ -2816,7 +2816,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
  private fun prepararMezclaPistasWav(uris: List<Uri>) {
      if (uris.size !in 2..8) { tvEstado.text = "Selecciona entre 2 y 8 pistas WAV."; return }
      if (mezclaPistasEnCurso) return
-     if (transcripcionAudioEnCurso) {
+     if (transcripcionAudioEnCurso || analisisMusicalEnCurso) {
          tvEstado.text = "BARDO está transcribiendo audio. Espera a que termine antes de mezclar pistas."
          return
      }
