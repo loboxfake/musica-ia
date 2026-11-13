@@ -165,4 +165,91 @@ class BardoDiffSingerSpanishDictionaryTest {
         assertTrue(parsed.errors.any { it.contains("Fonema de lista inválido") })
         assertTrue(parsed.errors.any { it.contains("Sección YAML no admitida") })
     }
+
+
+    @Test fun prefersVoiceDictionaryAndUsesG2pOnlyForUnknownWords() {
+        val parsed = dictionary(
+            """
+            symbols:
+              - symbol: a
+                type: vowel
+              - symbol: o
+                type: vowel
+              - symbol: l
+                type: consonant
+            entries:
+              - grapheme: hola
+                phonemes: [o, l, a]
+            replacements:
+              - from: m
+                to: es/m
+            """.trimIndent()
+        )
+        val calls = mutableListOf<String>()
+        val result = BardoDiffSingerSpanishDictionary.resolveLyricsWithG2pFallback(
+            "Hola, mundo!",
+            parsed,
+            mapOf("o" to 0, "l" to 1, "a" to 2, "es/m" to 3, "es/u" to 4, "es/n" to 5, "es/d" to 6)
+        ) { word ->
+            calls += word
+            BardoDiffSingerSpanishDictionary.G2pFallback(listOf("m", "u", "n", "d", "o"))
+        }
+        assertTrue(result.isComplete)
+        assertEquals(listOf("mundo"), calls)
+        assertEquals(listOf("hola", "mundo"), result.words.map { it.text })
+        assertEquals(listOf("o", "l", "a"), result.words[0].phonemes)
+        assertEquals(listOf("es/m", "es/u", "es/n", "es/d", "o"), result.words[1].phonemes)
+    }
+
+    @Test fun doesNotCallG2pWhenExactVoicePronunciationExists() {
+        val parsed = dictionary(
+            """
+            symbols:
+              - symbol: a
+                type: vowel
+            entries:
+              - grapheme: casa
+                phonemes: [a]
+            """.trimIndent()
+        )
+        val result = BardoDiffSingerSpanishDictionary.resolveLyricsWithG2pFallback(
+            "casa", parsed, mapOf("a" to 0)
+        ) {
+            throw IllegalStateException("G2P should not be called")
+        }
+        assertTrue(result.isComplete)
+        assertEquals(listOf("a"), result.words.single().phonemes)
+        assertTrue(result.g2pErrors.isEmpty())
+    }
+
+    @Test fun preservesG2pFailureAndUnsupportedVoicePhonemes() {
+        val parsed = dictionary(
+            """
+            symbols:
+              - symbol: a
+                type: vowel
+            entries:
+              - grapheme: casa
+                phonemes: [a]
+            """.trimIndent()
+        )
+        val failed = BardoDiffSingerSpanishDictionary.resolveLyricsWithG2pFallback(
+            "desconocida", parsed, mapOf("a" to 0)
+        ) {
+            BardoDiffSingerSpanishDictionary.G2pFallback(
+                emptyList(), "modelo G2P no disponible"
+            )
+        }
+        assertFalse(failed.isComplete)
+        assertEquals(listOf("desconocida"), failed.unknownWords)
+        assertTrue(failed.g2pErrors.single().contains("modelo G2P no disponible"))
+
+        val unsupported = BardoDiffSingerSpanishDictionary.resolveLyricsWithG2pFallback(
+            "nueva", parsed, mapOf("a" to 0)
+        ) {
+            BardoDiffSingerSpanishDictionary.G2pFallback(listOf("z"))
+        }
+        assertFalse(unsupported.isComplete)
+        assertTrue(unsupported.unsupportedPhonemes.contains("nueva:z"))
+    }
 }
