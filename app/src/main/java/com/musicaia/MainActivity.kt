@@ -5184,9 +5184,10 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                      File(carpetaLocal, "$nombreBase.wav")
                  )
                  if (mp3.isFile && mp3.length() > 128L) {
-                     File(carpetaLocal, "$nombreBase.mp3").outputStream().buffered().use { output ->
-                         mp3.inputStream().buffered().use { it.copyTo(output) }
-                     }
+                     BardoAtomicFilePublisher.copyAndPublish(
+                         mp3,
+                         File(carpetaLocal, "$nombreBase.mp3")
+                     )
                  }
                  if (letra.isNotBlank()) File(carpetaLocal, "$nombreBase.txt").writeText(letra, Charsets.UTF_8)
                  prefs.edit().putString("last_archived_local_task_key", archiveKey).apply()
