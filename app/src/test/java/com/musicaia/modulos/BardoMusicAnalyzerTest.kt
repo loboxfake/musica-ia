@@ -68,6 +68,23 @@ class BardoMusicAnalyzerTest {
     }
 
     @Test
+    fun explainsWhyDynamicRangeIsUnavailableForVeryShortAudio() {
+        val wav = createWav(sampleRate = 22_050, channels = 1, seconds = 0.5) { frame, _ ->
+            (sin(2.0 * PI * 440.0 * frame / 22_050.0) * 8_000.0).toInt().toShort()
+        }
+        try {
+            val report = BardoMusicAnalyzer.analyze(wav)
+            assertEquals(null, report.dynamicRangeDb)
+            assertTrue(
+                "El informe debe explicar por qué no calcula el rango dinámico",
+                report.warnings.any { it.contains("cuatro ventanas") && it.contains("rango dinámico") }
+            )
+        } finally {
+            wav.delete()
+        }
+    }
+
+    @Test
     fun reportsSpectralBandBalanceAnd85PercentRolloffForMixedTones() {
         val sampleRate = 22_050
         val wav = createWav(sampleRate = sampleRate, channels = 1, seconds = 5.0) { frame, _ ->
