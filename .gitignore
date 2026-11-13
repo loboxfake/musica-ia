@@ -1,7 +1,0 @@
-.gradle/
-/local.properties
-/build/
-*.apk
-/catalogo/modelos/
-*.keystore
-.idea/

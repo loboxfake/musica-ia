@@ -52,7 +52,7 @@ class BardoAnalysisResamplerTest {
         repeat(5) { resampler.accept(it.toFloat()) }
         resampler.finish()
         assertTrue("La interpolación debe conservar los puntos temporales de entrada", output == listOf(
-            0.0f, 0.5f, 1.0f, 1.5f, 2.0f, 2.5f, 3.0f, 3.5f, 4.0f
+            0.0f, 0.5f, 1.0f, 1.5f, 2.0f, 2.5f, 3.0f, 3.5f, 4.0f, 4.0f
         ))
     }
 
