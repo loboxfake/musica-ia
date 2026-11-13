@@ -38,5 +38,10 @@ class BardoAnalysisResamplerTest {
         val upsampler = BardoAnalysisResampler(11_025, 22_050) { upsampled.add(it) }
         repeat(1_000) { upsampler.accept(0.5f) }
         assertTrue(upsampled.size == 2_000)
+
+        val nonIntegerRatio = ArrayList<Float>()
+        val downsampler = BardoAnalysisResampler(48_000, 22_050) { nonIntegerRatio.add(it) }
+        repeat(48_000) { downsampler.accept(0.125f) }
+        assertTrue("El remuestreo acumuló deriva de reloj", nonIntegerRatio.size == 22_050)
     }
 }
