@@ -90,6 +90,47 @@ class BardoMusicAnalyzerTest {
     }
 
     @Test
+    fun detectsMinorTriadWithoutRelabelingItAsMajor() {
+        val sampleRate = 22_050
+        val aMinor = doubleArrayOf(220.00, 261.63, 329.63)
+        val wav = createWav(sampleRate = sampleRate, channels = 1, seconds = 8.0) { frame, _ ->
+            val time = frame.toDouble() / sampleRate
+            val value = aMinor.sumOf { sin(2.0 * PI * it * time) } / aMinor.size
+            (value * 14_000.0).toInt().toShort()
+        }
+        try {
+            val progression = BardoMusicAnalyzer.analyze(wav).chordProgression
+            assertTrue("No se reconoció La menor: $progression", progression.any { it.chord == "La menor" })
+            assertTrue("Se etiquetó erróneamente como La mayor: $progression", progression.none { it.chord == "La mayor" })
+        } finally {
+            wav.delete()
+        }
+    }
+
+    @Test
+    fun doesNotMergeSameChordAcrossAnEvidenceGap() {
+        val sampleRate = 22_050
+        val aMinor = doubleArrayOf(220.00, 261.63, 329.63)
+        val wav = createWav(sampleRate = sampleRate, channels = 1, seconds = 14.0) { frame, _ ->
+            val time = frame.toDouble() / sampleRate
+            if (time in 4.0..8.0) 0.toShort()
+            else {
+                val value = aMinor.sumOf { sin(2.0 * PI * it * time) } / aMinor.size
+                (value * 14_000.0).toInt().toShort()
+            }
+        }
+        try {
+            val segments = BardoMusicAnalyzer.analyze(wav).chordProgression
+                .filter { it.chord == "La menor" }
+            assertEquals("El hueco de silencio debe separar los dos segmentos", 2, segments.size)
+            assertTrue(segments[0].endSeconds < segments[1].startSeconds)
+            assertTrue(segments[1].startSeconds - segments[0].endSeconds >= 2.0)
+        } finally {
+            wav.delete()
+        }
+    }
+
+    @Test
     fun mergesAdjacentWindowsWhenTheSameChordContinues() {
         val sampleRate = 22_050
         val cMajor = doubleArrayOf(261.63, 329.63, 392.00)
