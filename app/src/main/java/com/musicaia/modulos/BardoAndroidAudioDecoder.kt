@@ -31,13 +31,19 @@ object BardoAndroidAudioDecoder {
         require(source.absolutePath != destination.absolutePath) {
             "El WAV de análisis debe ser un archivo distinto del original."
         }
-        val raw = File(destination.parentFile ?: source.parentFile, destination.name + ".pcm.tmp")
+        var raw: File? = null
         var extractor: MediaExtractor? = null
         var codec: MediaCodec? = null
         var codecStarted = false
         var primaryFailure: Throwable? = null
         try {
-            destination.parentFile?.let { check(it.isDirectory || it.mkdirs()) }
+            val outputDirectory = destination.absoluteFile.parentFile
+                ?: error("No se pudo resolver el directorio de salida.")
+            check(outputDirectory.isDirectory || outputDirectory.mkdirs()) {
+                "No se pudo crear el directorio de salida."
+            }
+            val rawFile = File.createTempFile("bardo_decode_", ".pcm.tmp", outputDirectory)
+            raw = rawFile
             val mediaExtractor = MediaExtractor()
             extractor = mediaExtractor
             mediaExtractor.setDataSource(source.absolutePath)
@@ -107,7 +113,7 @@ object BardoAndroidAudioDecoder {
             var lastProgressNanos = System.nanoTime()
             var lastReportedProgress = -1
             val info = MediaCodec.BufferInfo()
-            raw.outputStream().buffered().use { rawOutput ->
+            rawFile.outputStream().buffered().use { rawOutput ->
                 while (!outputDone) {
                     if (cancelled?.get() == true) throw InterruptedException("Análisis cancelado.")
                     check(System.nanoTime() - lastProgressNanos <= IDLE_TIMEOUT_NANOS) {
@@ -153,6 +159,11 @@ object BardoAndroidAudioDecoder {
                                 require(decodedBytes <= MAX_OUTPUT_BYTES) {
                                     "El audio decodificado supera el límite de 300 MB."
                                 }
+                                BardoPcm16Converter.validateDecodedDuration(
+                                    dataBytes = decodedBytes,
+                                    sampleRate = sampleRate,
+                                    channels = outputChannels
+                                )
                                 rawOutput.write(pcm)
                                 if (durationUs > 0L && info.presentationTimeUs > 0L) {
                                     val progress = ((info.presentationTimeUs * 100L) / durationUs).toInt().coerceIn(0, 99)
@@ -173,7 +184,7 @@ object BardoAndroidAudioDecoder {
             require(sampleRate > 0 && decodedBytes > 0L && decodedBytes % (outputChannels * 2L) == 0L) {
                 "Android no produjo muestras PCM completas."
             }
-            writeWav(raw, destination, sampleRate, outputChannels, decodedBytes)
+            writeWav(rawFile, destination, sampleRate, outputChannels, decodedBytes)
             runCatching { onProgress(100) }
         } catch (error: Throwable) {
             primaryFailure = error
@@ -193,7 +204,7 @@ object BardoAndroidAudioDecoder {
             if (codecStarted) cleanup { codec?.stop() }
             cleanup { codec?.release() }
             cleanup { extractor?.release() }
-            raw.delete()
+            raw?.delete()
             cleanupFailure?.let { throw it }
         }
     }
