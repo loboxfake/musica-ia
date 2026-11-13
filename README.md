@@ -18,3 +18,6 @@ Build and device validation are separate: a successful GitHub Actions build does
 - La validación de código, pruebas unitarias y escaneo de secretos se ejecuta con `.github/workflows/bardo-validation.yml`.
 - El modelo Stable Audio y sus assets se preparan mediante `.github/workflows/prepare-audio-model.yml`.
 - Gemma local ya descargado por el usuario debe reutilizarse desde `Descargas/BARDO/Modelos`; no se descarga de nuevo si el archivo verificado está disponible.
+
+
+- Política y estado de consolidación de ramas: `docs/BRANCH_CONSOLIDATION.md`.
