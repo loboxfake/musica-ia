@@ -48,6 +48,8 @@ object BardoMusicAnalyzer {
         val silencePercent: Double,
         val dynamicRangeDb: Double?,
         val stereoCorrelation: Double?,
+        /** Balance L/R en dB; positivo indica que el canal izquierdo es más alto. */
+        val stereoBalanceDb: Double?,
         val spectralCentroidHz: Double?,
         val lowBandEnergyPercent: Double?,
         val midBandEnergyPercent: Double?,
@@ -318,6 +320,14 @@ object BardoMusicAnalyzer {
                 (covariance / sqrt(leftVariance * rightVariance)).coerceIn(-1.0, 1.0)
             } else null
         } else null
+        val stereoBalanceDb = if (header.channels == 2) {
+            val frameCount = max(1L, totalFrames).toDouble()
+            val leftRms = sqrt(leftSquares / frameCount)
+            val rightRms = sqrt(rightSquares / frameCount)
+            if (leftRms > EPSILON && rightRms > EPSILON) {
+                20.0 * log10(leftRms / rightRms)
+            } else null
+        } else null
 
         val durationRange = if (dynamicRms.size >= 4) {
             val sorted = dynamicRms.filter { it > 0.001 }.sorted()
@@ -374,6 +384,9 @@ object BardoMusicAnalyzer {
             if (durationRange == null) add("No hay al menos cuatro ventanas de nivel no silencioso para calcular el rango dinámico; el dato se omite.")
             if (durationRange != null && durationRange < 5.0) add("La dinámica medida es reducida; podría haber compresión intensa.")
             if (stereoCorrelation != null && stereoCorrelation < -0.2) add("La correlación estéreo es negativa; comprueba la compatibilidad mono.")
+            if (stereoBalanceDb != null && abs(stereoBalanceDb) >= 3.0) {
+                add("Hay un desequilibrio de nivel entre canales L/R de ${String.format(java.util.Locale.ROOT, "%.1f", abs(stereoBalanceDb))} dB; revisa el panorama y la ganancia estéreo.")
+            }
             if (analysisChannel == 0) add("La suma mono cancela parte de la señal; el análisis espectral usa el canal izquierdo como referencia.")
             if (analysisChannel == 1) add("La suma mono cancela parte de la señal; el análisis espectral usa el canal derecho como referencia.")
             if (abs(dc) > 0.01) add("Se detecta desplazamiento DC apreciable.")
@@ -399,6 +412,7 @@ object BardoMusicAnalyzer {
             silencePercent = 100.0 * silentFrames / max(1L, totalFrames).toDouble(),
             dynamicRangeDb = durationRange,
             stereoCorrelation = stereoCorrelation,
+            stereoBalanceDb = stereoBalanceDb,
             spectralCentroidHz = centroid,
             lowBandEnergyPercent = lowBandPercent,
             midBandEnergyPercent = midBandPercent,
