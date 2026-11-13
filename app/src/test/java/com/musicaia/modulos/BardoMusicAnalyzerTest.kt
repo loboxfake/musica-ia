@@ -74,11 +74,29 @@ class BardoMusicAnalyzerTest {
         }
         try {
             val report = BardoMusicAnalyzer.analyze(wav)
-            assertEquals(null, report.dynamicRangeDb)
+            assertNull(report.dynamicRangeDb)
             assertTrue(
                 "El informe debe explicar por qué no calcula el rango dinámico",
                 report.warnings.any { it.contains("cuatro ventanas") && it.contains("rango dinámico") }
             )
+        } finally {
+            wav.delete()
+        }
+    }
+
+    @Test
+    fun calculatesDynamicRangeWhenExactlyFourCompleteWindowsAreAvailable() {
+        val wav = createWav(sampleRate = 22_050, channels = 1, seconds = 1.0) { frame, _ ->
+            val amplitude = if (frame < 11_025) 2_000.0 else 10_000.0
+            (sin(2.0 * PI * 440.0 * frame / 22_050.0) * amplitude).toInt().toShort()
+        }
+        try {
+            val report = BardoMusicAnalyzer.analyze(wav)
+            assertTrue(
+                "Cuatro ventanas completas y no silenciosas deben bastar: ${report.dynamicRangeDb}",
+                report.dynamicRangeDb != null
+            )
+            assertTrue(report.warnings.none { it.contains("cuatro ventanas") })
         } finally {
             wav.delete()
         }
