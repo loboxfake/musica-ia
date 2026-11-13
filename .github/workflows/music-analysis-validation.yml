@@ -4,11 +4,6 @@ on:
   pull_request:
     branches:
       - main
-  push:
-    branches:
-      - bardo/music-analysis-engine
-      - bardo/music-analysis-quality-batch
-      - bardo/audio-import-hardening-batch
 
 permissions:
   contents: read
