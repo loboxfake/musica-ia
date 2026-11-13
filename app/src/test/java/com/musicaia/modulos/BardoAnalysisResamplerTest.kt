@@ -45,6 +45,16 @@ class BardoAnalysisResamplerTest {
     }
 
     @Test
+    fun placesIntegerRatioInterpolatedSamplesAtCorrectTimePositions() {
+        val output = ArrayList<Float>()
+        val resampler = BardoAnalysisResampler(11_025, 22_050) { output.add(it) }
+        repeat(5) { resampler.accept(it.toFloat()) }
+        assertTrue("La interpolación debe conservar los puntos temporales de entrada", output == listOf(
+            0.0f, 0.5f, 1.0f, 1.5f, 2.0f, 2.5f, 3.0f, 3.5f, 4.0f
+        ))
+    }
+
+    @Test
     fun interpolatesNonIntegerUpsamplingRatioWithoutClockDrift() {
         val output = ArrayList<Float>()
         val resampler = BardoAnalysisResampler(16_000, 22_050) { output.add(it) }

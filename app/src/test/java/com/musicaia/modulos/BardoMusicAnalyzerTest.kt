@@ -91,6 +91,25 @@ class BardoMusicAnalyzerTest {
     }
 
     @Test
+    fun limitsSpectralMetricsToTheOriginalFileNyquistFrequency() {
+        val sampleRate = 8_000
+        val wav = createWav(sampleRate = sampleRate, channels = 1, seconds = 5.0) { frame, _ ->
+            (sin(2.0 * PI * 3_500.0 * frame / sampleRate) * 12_000.0).toInt().toShort()
+        }
+        try {
+            val report = BardoMusicAnalyzer.analyze(wav)
+            assertTrue(
+                "El rolloff no puede superar Nyquist del archivo original: " + report.spectralRolloff85Hz,
+                report.spectralRolloff85Hz != null && report.spectralRolloff85Hz!! <= sampleRate / 2.0
+            )
+            assertTrue("Debe advertirse la limitación espectral del archivo",
+                report.warnings.any { it.contains("4000 Hz") })
+        } finally {
+            wav.delete()
+        }
+    }
+
+    @Test
     fun detectsMinorTriadWithoutRelabelingItAsMajor() {
         val sampleRate = 22_050
         val aMinor = doubleArrayOf(220.00, 261.63, 329.63)

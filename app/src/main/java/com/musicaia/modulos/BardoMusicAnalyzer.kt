@@ -25,6 +25,7 @@ import kotlin.math.sqrt
  */
 object BardoMusicAnalyzer {
     private const val ANALYSIS_RATE = 22_050
+    private const val MAX_SPECTRAL_ANALYSIS_HZ = 10_000.0
     private const val FFT_SIZE = 4_096
     private const val FFT_HOP = 2_048
     private const val ENERGY_HOP = 256
@@ -69,6 +70,7 @@ object BardoMusicAnalyzer {
         val frameBytes = header.channels * 2
         val totalFrames = header.dataBytes / frameBytes
         val duration = totalFrames.toDouble() / header.sampleRate
+        val sourceNyquistHz = min(header.sampleRate / 2.0, ANALYSIS_RATE / 2.0)
         require(duration in 0.05..MAX_DURATION_SECONDS) {
             "La duración debe estar entre 0,05 segundos y 30 minutos."
         }
@@ -150,7 +152,7 @@ object BardoMusicAnalyzer {
                 val frameChroma = chordWindowChroma[chordWindowIndex]
                 for (bin in 1 until FFT_SIZE / 2) {
                     val frequency = bin.toDouble() * ANALYSIS_RATE / FFT_SIZE
-                    if (frequency !in 55.0..10_000.0) continue
+                    if (frequency < 55.0 || frequency > min(MAX_SPECTRAL_ANALYSIS_HZ, sourceNyquistHz)) continue
                     val power = fftReal[bin] * fftReal[bin] + fftImag[bin] * fftImag[bin]
                     if (power <= EPSILON) continue
                     centroidWeighted += frequency * power
@@ -359,6 +361,9 @@ object BardoMusicAnalyzer {
             if (analysisChannel == 0) add("La suma mono cancela parte de la señal; el análisis espectral usa el canal izquierdo como referencia.")
             if (analysisChannel == 1) add("La suma mono cancela parte de la señal; el análisis espectral usa el canal derecho como referencia.")
             if (abs(dc) > 0.01) add("Se detecta desplazamiento DC apreciable.")
+            if (sourceNyquistHz < MAX_SPECTRAL_ANALYSIS_HZ) {
+                add("El archivo original solo permite analizar el espectro hasta ${sourceNyquistHz.toInt()} Hz; las bandas superiores no contienen información recuperable.")
+            }
             if (tempo == null) add("No se pudo estimar un pulso estable con suficiente confianza.")
             if (key == null) add("No se pudo estimar una tonalidad estable con suficiente confianza.")
         }

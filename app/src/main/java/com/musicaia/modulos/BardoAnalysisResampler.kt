@@ -19,9 +19,9 @@ internal class BardoAnalysisResampler(
     private val coefficients: DoubleArray
     private val history = FloatArray(TAP_COUNT)
     private var writeIndex = 0
-    private var phase = 0L
+    private var inputFrameIndex = -1L
+    private var nextOutputFrameIndex = 0L
     private var previousSample = 0.0f
-    private var hasPreviousSample = false
 
     init {
         require(inputSampleRate in 8_000..192_000)
@@ -39,18 +39,28 @@ internal class BardoAnalysisResampler(
                 onOutput(sample)
                 return
             }
-            if (!hasPreviousSample) {
+            inputFrameIndex++
+            if (inputFrameIndex == 0L) {
                 previousSample = sample
-                hasPreviousSample = true
+                onOutput(sample)
+                nextOutputFrameIndex = 1L
+                return
             }
-            phase += outputSampleRate.toLong()
-            while (phase >= inputSampleRate.toLong()) {
-                phase -= inputSampleRate.toLong()
-                // Interpola entre la muestra anterior y la actual. Evita la
-                // duplicación escalonada que añade armónicos al aumentar Hz.
-                val fraction = (1.0 - phase.toDouble() / outputSampleRate).coerceIn(0.0, 1.0)
+            // Sitúa cada salida en t = índiceSalida * FsEntrada/FsSalida.
+            // Se emiten todas las posiciones que ya quedan entre la muestra
+            // anterior y la actual; así no se duplica la muestra anterior ni
+            // se desplaza medio periodo al interpolar ratios enteros.
+            val currentPositionNumerator = inputFrameIndex * outputSampleRate.toLong()
+            while (nextOutputFrameIndex * inputSampleRate.toLong() <= currentPositionNumerator) {
+                val outputPositionNumerator = nextOutputFrameIndex * inputSampleRate.toLong()
+                val previousPositionNumerator = (inputFrameIndex - 1L) * outputSampleRate.toLong()
+                val fraction = (
+                    (outputPositionNumerator - previousPositionNumerator).toDouble() /
+                        outputSampleRate.toDouble()
+                    ).coerceIn(0.0, 1.0)
                 val interpolated = previousSample + (sample - previousSample) * fraction.toFloat()
                 onOutput(interpolated)
+                nextOutputFrameIndex++
             }
             previousSample = sample
             return
