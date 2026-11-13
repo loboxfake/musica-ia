@@ -162,7 +162,7 @@ class BardoDiffSingerSpanishDictionaryTest {
             """.trimIndent()
         )
         assertFalse(parsed.isValid)
-        assertTrue(parsed.errors.any { it.contains("no admitido") })
+        assertTrue(parsed.errors.any { it.contains("Fonema de lista inválido") })
         assertTrue(parsed.errors.any { it.contains("Sección YAML no admitida") })
     }
 }
