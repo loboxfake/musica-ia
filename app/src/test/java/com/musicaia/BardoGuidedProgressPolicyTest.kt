@@ -250,6 +250,44 @@ class BardoGuidedProgressPolicyTest {
     }
 
     @Test
+    fun acceptsNaturalQuestionsAboutSongEnergyAndAtmosphere() {
+        assertTrue(
+            BardoGuidedProgressPolicy.asksAboutRequiredField(
+                "¿Qué atmósfera debería tener la canción?",
+                "ambiente"
+            )
+        )
+        assertTrue(
+            BardoGuidedProgressPolicy.asksAboutRequiredField(
+                "¿Cómo quieres que se sienta el tema?",
+                "ambiente"
+            )
+        )
+        assertTrue(
+            BardoGuidedProgressPolicy.asksAboutRequiredField(
+                "What energy should the track have?",
+                "ambiente"
+            )
+        )
+    }
+
+    @Test
+    fun acceptsNaturalSlowOrFastQuestionsAsRhythmPrompts() {
+        assertTrue(
+            BardoGuidedProgressPolicy.asksAboutRequiredField(
+                "¿La imaginas lenta o rápida?",
+                "ritmo"
+            )
+        )
+        assertTrue(
+            BardoGuidedProgressPolicy.asksAboutRequiredField(
+                "Would you prefer a slow or fast track?",
+                "ritmo"
+            )
+        )
+    }
+
+    @Test
     fun rejectsQuestionsWithoutARecognizedFieldLabel() {
         assertTrue(!BardoGuidedProgressPolicy.asksAboutRequiredField("¿Qué prefieres?", "estilo"))
     }
