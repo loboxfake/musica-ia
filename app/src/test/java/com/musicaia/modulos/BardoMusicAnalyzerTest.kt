@@ -150,6 +150,22 @@ class BardoMusicAnalyzerTest {
     }
 
     @Test
+    fun doesNotInventChordProgressionFromBroadbandNoise() {
+        val sampleRate = 22_050
+        var state = 0x13579BDF
+        val wav = createWav(sampleRate = sampleRate, channels = 1, seconds = 12.0) { _, _ ->
+            state = state * 1_664_525 + 1_013_904_223
+            ((state ushr 16) and 0x7fff).minus(16_384).toShort()
+        }
+        try {
+            val progression = BardoMusicAnalyzer.analyze(wav).chordProgression
+            assertTrue("No se deben inventar acordes sobre ruido de banda ancha: $progression", progression.isEmpty())
+        } finally {
+            wav.delete()
+        }
+    }
+
+    @Test
     fun followsSyntheticCToGMajorChordChangeAcrossTwoSecondWindows() {
         val sampleRate = 22_050
         val cMajor = doubleArrayOf(261.63, 329.63, 392.00)
