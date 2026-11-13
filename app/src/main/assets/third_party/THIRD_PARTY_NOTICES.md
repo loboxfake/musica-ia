@@ -22,3 +22,14 @@ BARDO includes an optional on-device text-to-image pipeline based on Bonsai Imag
 - Android host code: Copyright 2026 Daisuke Majima, Apache-2.0. Original license header retained in the adapted Kotlin files.
 - Runtime: LiteRT 2.1.3 with CPU/XNNPACK; no remote inference.
 - The user explicitly authorizes the optional ~4.27 GB model download inside BARDO. Model graph and tokenizer files are size/SHA-256 checked; the small pipeline metadata is pinned to the immutable model revision and schema-validated.
+
+## OpenUtau Spanish G2P vocabulary codec
+
+BARDO's Spanish G2P token codec adapts the grapheme and phoneme index tables and the ONNX input-token contract from:
+
+- Project: https://github.com/openutau/OpenUtau
+- Reference files: `OpenUtau.Core/G2p/SpanishG2p.cs`, `OpenUtau.Core/Api/G2pPack.cs`
+- License: MIT; the applicable notice is included in `OpenUtau-MIT.txt`.
+
+Only the codec contract is adapted. The upstream `g2p-es.zip` archive, its ONNX weights, dictionary and training data are not included. Their separate redistribution terms have not been verified, so BARDO does not package or claim to provide those weights.
+
