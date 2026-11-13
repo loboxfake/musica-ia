@@ -284,6 +284,16 @@ object BardoMusicAnalyzer {
         if (monoSilenceCount > 0 && sqrt(monoSilenceSumSquares / monoSilenceCount) < 0.001) {
             silentFrames += monoSilenceCount.toLong()
         }
+
+        // Incorpora el último bloque parcial de energía al contorno de ataques.
+        // Antes se descartaba, perdiendo el posible ataque final de la canción.
+        if (energyCount > 0) {
+            val partialRms = sqrt(energySumSquares / energyCount)
+            onsetEnvelope.add(max(0.0, partialRms - previousEnergy).toFloat())
+            previousEnergy = partialRms
+            energySumSquares = 0.0
+            energyCount = 0
+        }
         // Conserva la última ventana dinámica si tiene al menos media ventana;
         // evita perder transitorios finales sin dar demasiado peso a unos pocos samples.
         if (dynamicCount >= DYNAMIC_WINDOW / 2) {

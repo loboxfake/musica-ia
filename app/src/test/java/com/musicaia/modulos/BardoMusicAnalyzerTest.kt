@@ -242,6 +242,27 @@ class BardoMusicAnalyzerTest {
     }
 
     @Test
+    fun includesFinalPartialEnergyBlockWhenEstimatingTempo() {
+        val sampleRate = 22_050
+        val durationSeconds = 12.37
+        val beatFrames = sampleRate / 2
+        val wav = createWav(sampleRate = sampleRate, channels = 1, seconds = durationSeconds) { frame, _ ->
+            val withinBeat = frame % beatFrames
+            if (withinBeat < 900) {
+                (sin(2.0 * PI * 1_000.0 * withinBeat / sampleRate) *
+                    (18_000.0 * (1.0 - withinBeat / 900.0))).toInt().toShort()
+            } else 0
+        }
+        try {
+            val tempo = BardoMusicAnalyzer.analyze(wav).estimatedTempoBpm
+            assertNotNull("No se estimó tempo en un archivo con bloque final parcial", tempo)
+            assertTrue("Tempo incorrecto con cola parcial: $tempo", kotlin.math.abs(tempo!! - 120.0) < 4.0)
+        } finally {
+            wav.delete()
+        }
+    }
+
+    @Test
     fun avoidsHalfTempoErrorsForFastRegularPulses() {
         val sampleRate = 22_050
         for (expectedBpm in listOf(150.0, 160.0, 170.0, 180.0)) {
