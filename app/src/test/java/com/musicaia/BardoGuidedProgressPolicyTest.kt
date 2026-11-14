@@ -458,7 +458,7 @@ class BardoGuidedProgressPolicyTest {
                 BardoCreationReadinessPolicy.blockReason(
                     base + ("vozFuente" to source),
                     hasVoiceWav = true
-                )!!.contains("fuente válida")
+                )!!.contains("fuente de voz válida")
             )
         }
         assertEquals(
