@@ -293,6 +293,7 @@ class BardoGuidedProgressPolicyTest {
         assertTrue(!BardoGuidedProgressPolicy.asksAboutRequiredField("¿Te gusta el ambiente?", "ambiente"))
         assertTrue(!BardoGuidedProgressPolicy.asksAboutRequiredField("¿Te gusta el ritmo?", "ritmo"))
         assertTrue(!BardoGuidedProgressPolicy.asksAboutRequiredField("¿Te gusta el idioma español?", "idioma"))
+        assertTrue(!BardoGuidedProgressPolicy.asksAboutRequiredField("¿Qué archivo prefieres?", "vozFuente"))
     }
 
     @Test
