@@ -371,7 +371,30 @@ class BardoTaskService : Service() {
                         .putString(KEY_AUDIO, archivo.absolutePath).putString(KEY_MP3, mp3.absolutePath).putString("lyrics", letra)
                         .putBoolean(KEY_USER_VOICE_MIXED, userVoiceMixAvailable)
                         .putBoolean("solo", modoSolo).putInt("elapsed", segundos).apply()
-                    BardoActivityStore.record(this, taskToken, if (modoSolo) "instrumental" else "cancion", "completed", "validacion", mensajeFinal, 100, mp3.absolutePath)
+                    recordTaskProgressSafely(
+                        record = {
+                            BardoActivityStore.record(
+                                this,
+                                taskToken,
+                                if (modoSolo) "instrumental" else "cancion",
+                                "completed",
+                                "validacion",
+                                mensajeFinal,
+                                100,
+                                mp3.absolutePath
+                            )
+                        },
+                        onFailure = { error ->
+                            // El archivo ya está validado y publicado: un fallo del
+                            // historial auxiliar no debe convertir una creación válida
+                            // en un estado de tarea fallida.
+                            Log.e(
+                                "BARDO-TaskService",
+                                "La tarea terminó, pero no se pudo guardar el evento final en el historial.",
+                                error
+                            )
+                        }
+                    )
                     enviarActualizacion("completed", mensajeFinal, archivo.absolutePath, letra, segundos, mp3.absolutePath, userVoiceMixAvailable)
                     actualizarNotificacion(mensajeFinal, 100)
                     Log.i("BARDO-TaskService", "WAV PCM16 válido: ${archivo.length()} bytes; MP3 válido: ${mp3.length()} bytes")
