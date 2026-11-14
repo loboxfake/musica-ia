@@ -25,6 +25,12 @@ object BardoUserVoiceMixPolicy {
         return null
     }
 
+    /** Manual lyrics need an actual user recording until local singing synthesis exists. */
+    fun manualLyricsRequiresUserVoice(
+        instrumentalOnly: Boolean,
+        manualLyrics: String
+    ): Boolean = !instrumentalOnly && manualLyrics.isNotBlank()
+
     fun shouldMix(instrumentalOnly: Boolean, voicePath: String?): Boolean =
         !instrumentalOnly && !voicePath.isNullOrBlank()
 
