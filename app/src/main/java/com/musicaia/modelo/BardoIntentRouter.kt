@@ -116,12 +116,19 @@ object BardoIntentRouter {
         } else if ("vozFuente" !in result) {
             val normalized = normalize(message)
             val source = when {
-                Regex("""\b(voz grabada|voz propia grabada|grabare mi voz|grabacion propia)\b""").containsMatchIn(normalized) -> "grabada"
-                Regex("""\b(archivo de voz|voz en un archivo|fichero de voz|importar voz)\b""").containsMatchIn(normalized) -> "archivo"
+                Regex("""\b(voz grabada|voz propia grabada|grabar(?:e|é) mi (?:propia )?voz|mi propia voz grabada|grabacion propia|mi propia grabacion|mi grabacion)\b""")
+                    .containsMatchIn(normalized) -> "grabada"
+                Regex("""\b(archivo de voz|voz en un archivo|fichero de voz|importar voz|subir(?:e|é) (?:un )?archivo de voz)\b""")
+                    .containsMatchIn(normalized) -> "archivo"
                 Regex("""\b(sin voz|ninguna voz|no quiero voz)\b""").containsMatchIn(normalized) -> "ninguna"
                 else -> null
             }
-            if (source != null) result["vozFuente"] = source
+            if (source != null) {
+                result["vozFuente"] = source
+                // Elegir una fuente de voz implica que la creación llevará voz,
+                // salvo que el usuario haya indicado explícitamente otro tipo.
+                if (source != "ninguna" && "tipo" !in result) result["tipo"] = "voz"
+            }
         }
         val englishLabels = Regex(
             """(?i)\b(theme|style|genre|mood|rhythm|language|type|voice source)\s*[:=]\s*(.+?)(?=[,;.!?\n]|$)"""
