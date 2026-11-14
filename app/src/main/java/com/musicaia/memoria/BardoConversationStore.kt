@@ -46,9 +46,13 @@ class BardoConversationStore internal constructor(private val directory: File) {
         val updatedAtEpochMillis: Long
     )
 
-    private val lock = Any()
     private val file = File(directory, "bardo_conversation_history.json")
     private val backup = File(directory, "bardo_conversation_history.json.bak")
+
+    // Activity, servicios y pantallas pueden crear instancias distintas del almacén.
+    // El bloqueo debe compartirse por ruta, no por instancia, para evitar que dos
+    // lectores-modificadores sobrescriban mensajes concurrentes.
+    private val lock = processLocks.computeIfAbsent(file.absoluteFile.canonicalPath) { Any() }
 
     fun createConversation(title: String = "Nueva conversación", now: Long = System.currentTimeMillis()): Conversation =
         synchronized(lock) {
@@ -401,5 +405,10 @@ class BardoConversationStore internal constructor(private val directory: File) {
             temp.copyTo(file, overwrite = true)
             temp.delete()
         }
+    }
+
+
+    companion object {
+        private val processLocks = java.util.concurrent.ConcurrentHashMap<String, Any>()
     }
 }
