@@ -31,7 +31,7 @@ class BardoActivityStoreTest {
 
     private fun root(vararg events: JSONObject) = JSONObject()
         .put("schemaVersion", 1)
-        .put("events", JSONArray().apply { events.forEach(::put) })
+        .put("events", JSONArray().apply { events.forEach { put(it) } })
 
     @Test
     fun damagedPrimaryIsPreservedAndNewEventsCanBeRecorded() {
@@ -64,8 +64,8 @@ class BardoActivityStoreTest {
             assertEquals("recovered", BardoActivityStore.recent(context(directory)).single().id)
             BardoActivityStore.record(context(directory), "task-2", "cancion", "running", "letra", "Evento nuevo")
 
-            val restored = BardoActivityStore.recent(context(directory)).map { it.id }.toSet()
-            assertEquals(setOf("recovered", "nuevo"), restored.intersect(setOf("recovered", "nuevo")))
+            val restored = BardoActivityStore.recent(context(directory)).map { it.message }
+            assertEquals(listOf("Evento nuevo", "Evento recovered"), restored)
             assertTrue(JSONObject(backup.readText()).optJSONArray("events")!!.length() == 1)
         } finally {
             directory.deleteRecursively()
