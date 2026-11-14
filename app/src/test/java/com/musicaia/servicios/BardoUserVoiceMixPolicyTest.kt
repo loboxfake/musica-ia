@@ -21,7 +21,6 @@ class BardoUserVoiceMixPolicyTest {
     }
 
     @Test
-    @Test
     fun manualLyricsRequireARealUserVoiceUnlessInstrumentalOnly() {
         assertTrue(BardoUserVoiceMixPolicy.manualLyricsRequiresUserVoice(false, "Mi letra"))
         assertFalse(BardoUserVoiceMixPolicy.manualLyricsRequiresUserVoice(false, "  "))
