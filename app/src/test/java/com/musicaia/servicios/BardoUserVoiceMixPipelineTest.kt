@@ -117,6 +117,39 @@ class BardoUserVoiceMixPipelineTest {
     }
 
     @Test
+    fun cancellationArrivingAfterAtomicPublishDoesNotDeleteCompletedMix() {
+        val dir = createTempDir(prefix = "bardo-late-cancel-pipeline-")
+        try {
+            val voice = File(dir, "voice.wav")
+            val instrumental = File(dir, "instrumental.wav")
+            val output = File(dir, "mix.wav")
+            AudioUtil.escribirWavMono16(voice.absolutePath, 44100, 8) { _, count ->
+                ShortArray(count) { 1000 }
+            }
+            AudioUtil.escribirWavMono16(instrumental.absolutePath, 44100, 8) { _, count ->
+                ShortArray(count) { 2000 }
+            }
+
+            // La cancelación se activa al aparecer la salida: eso solo ocurre
+            // después de que el mezclador la haya publicado y validado.
+            val result = BardoUserVoiceMixPipeline.prepareWav(
+                instrumentalWav = instrumental,
+                voiceWav = voice,
+                outputWav = output,
+                isCancellationRequested = { output.isFile }
+            )
+
+            assertEquals(output.canonicalFile, result.canonicalFile)
+            assertTrue(output.isFile && output.length() > 44L)
+            val header = BardoWavHeaderValidator.inspect(output)
+            assertEquals(2, header.channels)
+            assertEquals(16, header.bitsPerSample)
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+    @Test
     fun invalidVoiceCannotReplaceExistingOutput() {
         val dir = createTempDir(prefix = "bardo-invalid-pipeline-")
         try {
