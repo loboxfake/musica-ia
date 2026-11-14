@@ -288,6 +288,23 @@ class BardoGuidedProgressPolicyTest {
     }
 
     @Test
+    fun rejectsGenericQuestionsThatOnlyMentionStyleMoodTempoOrLanguage() {
+        assertTrue(!BardoGuidedProgressPolicy.asksAboutRequiredField("¿Te gusta el estilo?", "estilo"))
+        assertTrue(!BardoGuidedProgressPolicy.asksAboutRequiredField("¿Te gusta el ambiente?", "ambiente"))
+        assertTrue(!BardoGuidedProgressPolicy.asksAboutRequiredField("¿Te gusta el ritmo?", "ritmo"))
+        assertTrue(!BardoGuidedProgressPolicy.asksAboutRequiredField("¿Te gusta el idioma español?", "idioma"))
+    }
+
+    @Test
+    fun acceptsExplicitQuestionsForEachCreativePreference() {
+        assertTrue(BardoGuidedProgressPolicy.asksAboutRequiredField("¿Qué estilo musical prefieres?", "estilo"))
+        assertTrue(BardoGuidedProgressPolicy.asksAboutRequiredField("¿Qué emoción quieres transmitir?", "ambiente"))
+        assertTrue(BardoGuidedProgressPolicy.asksAboutRequiredField("¿Qué ritmo te gustaría?", "ritmo"))
+        assertTrue(BardoGuidedProgressPolicy.asksAboutRequiredField("¿En qué idioma quieres la canción?", "idioma"))
+        assertTrue(BardoGuidedProgressPolicy.asksAboutRequiredField("¿Quieres grabar tu voz o importar un archivo?", "vozFuente"))
+    }
+
+    @Test
     fun rejectsQuestionsWithoutARecognizedFieldLabel() {
         assertTrue(!BardoGuidedProgressPolicy.asksAboutRequiredField("¿Qué prefieres?", "estilo"))
     }
