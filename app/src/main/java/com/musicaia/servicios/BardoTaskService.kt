@@ -92,6 +92,8 @@ class BardoTaskService : Service() {
     private var pruebaRapida = false
     private var totalPasosAudio = 20
     private val cancelacionSolicitada = AtomicBoolean(false)
+    // Serializa la última comprobación de cancelación con el commit terminal.
+    private val completionLock = Any()
     // El latido no debe depender del hilo principal: la inferencia nativa puede
     // saturar CPU durante decenas de segundos y provocar falsos "sin vida".
     private val heartbeatExecutor = java.util.concurrent.Executors.newSingleThreadScheduledExecutor { tarea ->
@@ -134,9 +136,18 @@ class BardoTaskService : Service() {
                     // y antes de que su cierre en el hilo principal retire la notificación.
                     if (activeTaskId.isBlank()) stopSelfResult(startId)
                 } else {
-                    cancelacionSolicitada.set(true)
-                    orquestador.cancelar()
-                    publicarEstado("running", "Cancelación solicitada. BARDO terminará la operación nativa en curso y se detendrá de forma segura.")
+                    val completionAlreadyCommitted = synchronized(completionLock) {
+                        getSharedPreferences(PREFS, MODE_PRIVATE).getString(KEY_STATE, "") == "completed"
+                    }
+                    if (!completionAlreadyCommitted) {
+                        synchronized(completionLock) {
+                            cancelacionSolicitada.set(true)
+                        }
+                        orquestador.cancelar()
+                        publicarEstado("running", "Cancelación solicitada. BARDO terminará la operación nativa en curso y se detendrá de forma segura.")
+                    } else {
+                        Log.i("BARDO-TaskService", "Se ignoró una cancelación recibida después de completar la tarea.")
+                    }
                 }
             }
             ACTION_START -> iniciarTarea(intent, startId)
@@ -390,11 +401,23 @@ class BardoTaskService : Service() {
                     }
                     val duracion = mp3DurationMs / 1000L
                     val mensajeFinal = "MP3 guardado en Archivo · ${duracion / 60} min ${duracion % 60}s · ${mp3.length()} bytes · 320 kbps"
-                    getSharedPreferences(PREFS, MODE_PRIVATE).edit()
-                        .putString(KEY_STATE, "completed").putString(KEY_MESSAGE, mensajeFinal)
-                        .putString(KEY_AUDIO, archivo.absolutePath).putString(KEY_MP3, mp3.absolutePath).putString("lyrics", letra)
-                        .putBoolean(KEY_USER_VOICE_MIXED, userVoiceMixAvailable)
-                        .putBoolean("solo", modoSolo).putInt("elapsed", segundos).apply()
+                    synchronized(completionLock) {
+                        try {
+                            BardoTaskLifecyclePolicy.ensureCanCommitCompletion(cancelacionSolicitada.get())
+                        } catch (cancelled: java.util.concurrent.CancellationException) {
+                            // La tarea no se confirma como completada: retirar sus
+                            // artefactos recién creados para no dejar una falsa canción final.
+                            mp3.delete()
+                            java.io.File(biblioteca, "$nombreBase.txt").delete()
+                            archivo.delete()
+                            throw cancelled
+                        }
+                        getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                            .putString(KEY_STATE, "completed").putString(KEY_MESSAGE, mensajeFinal)
+                            .putString(KEY_AUDIO, archivo.absolutePath).putString(KEY_MP3, mp3.absolutePath).putString("lyrics", letra)
+                            .putBoolean(KEY_USER_VOICE_MIXED, userVoiceMixAvailable)
+                            .putBoolean("solo", modoSolo).putInt("elapsed", segundos).apply()
+                    }
                     recordTaskProgressSafely(
                         record = {
                             BardoActivityStore.record(
