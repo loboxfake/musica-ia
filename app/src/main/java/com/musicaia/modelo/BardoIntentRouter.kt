@@ -40,7 +40,7 @@ object BardoIntentRouter {
             "ambiente", "emoci[oó]n", "tono", "ritmo", "tempo", "idioma", "lengua", "tipo"
         ).joinToString("|")
         val labelled = Regex(
-            """(?i)\b($aliases)\b\s*(?::|=|\b(?:es|de|del)\b)?\s+(.+?)(?=(?:[,;.!?\n]|\s+\by\s+(?=(?:con\s+)?(?:ritmo|tempo|idioma|voz|estilo|ambiente)\b)|\s+\b(?:$aliases)\b\s*(?:[:=]|\s+))|$)"""
+            """(?i)\b($aliases)\b\s*(?::|=|\b(?:es|de|del)\b)?\s+(.+?)(?=(?:[,;.!?\n]|\s+\by\s+(?=(?:con\s+)?(?:ritmo|tempo|idioma|voz|estilo|ambiente)\b)|\s+\by?\s*\ben\s+(?=(?:espa[nñ]ol|castellano|ingl[eé]s|franc[eé]s|italiano|portugu[eé]s|alem[aá]n)\b)|\s+\b(?:$aliases)\b\s*(?:[:=]|\s+))|$)"""
         )
         labelled.findAll(message).forEach { match ->
             val alias = normalize(match.groupValues[1]).replace(Regex("\\s+"), " ")
