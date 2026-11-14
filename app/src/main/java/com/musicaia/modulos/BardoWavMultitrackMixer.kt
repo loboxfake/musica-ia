@@ -58,6 +58,7 @@ object BardoWavMultitrackMixer {
         val outputDirectory = output.absoluteFile.parentFile ?: File(".")
         check(outputDirectory.isDirectory || outputDirectory.mkdirs()) { "No se pudo crear la salida." }
         val temp = File.createTempFile("bardo_multitrack_", ".wav.tmp", outputDirectory)
+        var peakAfterLinear = 0.0
         try {
             FileOutputStream(temp).use { stream ->
                 stream.write(header(rate, 2, dataSize.toInt()))
@@ -67,8 +68,10 @@ object BardoWavMultitrackMixer {
                     val samples = render(pcm, cursor, count)
                     val bytes = ByteBuffer.allocate(samples.size * 2).order(ByteOrder.LITTLE_ENDIAN)
                     samples.forEach { sample ->
-                        val v = (sample * normalization).coerceIn(-target, target)
-                        bytes.putShort((v * 32768.0).toInt().coerceIn(-32768, 32767).toShort())
+                        val limited = limitPeak(sample * normalization, target)
+                        val pcm16 = (limited * 32768.0).toInt().coerceIn(-32768, 32767)
+                        peakAfterLinear = maxOf(peakAfterLinear, abs(pcm16 / 32768.0))
+                        bytes.putShort(pcm16.toShort())
                     }
                     stream.write(bytes.array(), 0, bytes.position())
                     cursor += count
@@ -91,7 +94,7 @@ object BardoWavMultitrackMixer {
             require(output.isFile && output.length() == 44L + dataSize) {
                 "La salida publicada no coincide con el WAV temporal verificado."
             }
-            return Result(output, rate, frames, pcm.size, db(peak), db(peak * normalization), db(normalization))
+            return Result(output, rate, frames, pcm.size, db(peak), db(peakAfterLinear), db(normalization))
         } finally { temp.delete() }
     }
 
@@ -160,5 +163,20 @@ object BardoWavMultitrackMixer {
             putShort(align.toShort()); putShort(16.toShort()); put("data".toByteArray(Charsets.US_ASCII)); putInt(size)
         }.array()
     }
+    /**
+     * Limitador suave con techo real en TARGET_PEAK_DBFS.
+     * Mantiene linealidad por debajo del inicio de rodilla y comprime
+     * progresivamente los picos altos sin el recorte duro de PCM16.
+     */
+    private fun limitPeak(sample: Double, ceiling: Double): Double {
+        val magnitude = abs(sample)
+        val kneeStart = ceiling * 0.8
+        val limited = if (magnitude <= kneeStart) magnitude else {
+            ceiling - (ceiling - kneeStart) *
+                kotlin.math.exp(-(magnitude - kneeStart) / (ceiling - kneeStart))
+        }
+        return kotlin.math.sign(sample) * limited
+    }
+
     private fun db(v:Double)=if(v<=1e-12) -120.0 else 20.0*ln(v)/ln(10.0)
 }
