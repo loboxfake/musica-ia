@@ -113,8 +113,45 @@ class BardoQwen2LiteRtProvider : BardoModelProvider {
         }
         val text = EngineLiteRT.withSession {
             if (!estaCargado(model.absolutePath)) {
-                check(inicializar(model.absolutePath, File(context.cacheDir, "bardo-litert-cache").absolutePath)) {
-                    "No se pudo cargar Qwen2."
+                // No basta con confiar en load(): otro módulo puede haber cerrado
+                // el runtime entre la carga y esta sesión. Revalidar archivo y RAM
+                // dentro de la misma transacción que inicializa y ejecuta el modelo.
+                check(model.isFile) {
+                    "Qwen2 no está instalado. El archivo original se conserva."
+                }
+                check(model.length() == BardoQwen2LiteRtModule.EXPECTED_SIZE_BYTES) {
+                    "El tamaño de Qwen2 no coincide con el manifiesto; no se cargará."
+                }
+                val actualHash = BardoQwen2LiteRtModule.sha256(model)
+                check(actualHash.equals(BardoQwen2LiteRtModule.EXPECTED_SHA256, ignoreCase = true)) {
+                    "El SHA-256 de Qwen2 no coincide. El archivo original se conserva."
+                }
+                val beforeLoadBlock = BardoResourceBudget.blockingReason(
+                    context,
+                    BardoCapabilityRegistry.MIN_QWEN_FREE_MEMORY_BYTES
+                )
+                check(beforeLoadBlock == null) {
+                    beforeLoadBlock ?: "Los recursos del dispositivo no permiten cargar Qwen2."
+                }
+                val afterHashBlock = BardoResourceBudget.blockingReason(
+                    context,
+                    BardoCapabilityRegistry.MIN_QWEN_FREE_MEMORY_BYTES
+                )
+                check(afterHashBlock == null) {
+                    afterHashBlock ?: "Los recursos cambiaron durante la verificación de Qwen2."
+                }
+                check(inicializar(
+                    model.absolutePath,
+                    File(context.cacheDir, "bardo-litert-cache").absolutePath
+                )) { "No se pudo cargar Qwen2." }
+                runCatching {
+                    BardoCapabilityEvidenceStore.recordShaVerified(
+                        context, "qwen2", model, BardoQwen2LiteRtModule.EXPECTED_SHA256,
+                        actualHash
+                    )
+                    BardoCapabilityEvidenceStore.recordLoadSucceeded(
+                        context, "qwen2", model, BardoQwen2LiteRtModule.EXPECTED_SHA256
+                    )
                 }
             }
             generar(
