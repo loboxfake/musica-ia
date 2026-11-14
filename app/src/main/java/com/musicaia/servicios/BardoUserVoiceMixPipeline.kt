@@ -49,12 +49,10 @@ object BardoUserVoiceMixPipeline {
             outputFile = outputWav,
             isCancellationRequested = isCancellationRequested
         )
+        // El mezclador comprueba la cancelación hasta antes de publicar atómicamente.
+        // Una vez publicado el destino, la operación ya está completada: no se debe
+        // borrar la salida porque una cancelación tardía podría destruir una versión válida.
         val mixedWav = result.output
-        if (isCancellationRequested()) {
-            // La ruta de salida es exclusiva de esta tarea; las fuentes quedan intactas.
-            mixedWav.delete()
-            throw CancellationException("La mezcla de voz fue cancelada.")
-        }
         val mixedHeader = BardoWavHeaderValidator.inspect(mixedWav)
         require(
             mixedHeader.dataBytes > 0L &&
