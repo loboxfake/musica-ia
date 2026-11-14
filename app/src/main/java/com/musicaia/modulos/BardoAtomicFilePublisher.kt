@@ -68,7 +68,11 @@ internal object BardoAtomicFilePublisher {
      * Copia un archivo completo a un temporal junto al destino y solo entonces lo publica.
      * Si la copia falla, el destino anterior no se toca.
      */
-    fun copyAndPublish(source: File, destination: File) {
+    fun copyAndPublish(
+        source: File,
+        destination: File,
+        isCancellationRequested: () -> Boolean = { false }
+    ) {
         require(source.isFile && source.length() > 0L) {
             "El archivo de origen no existe o está vacío."
         }
@@ -76,7 +80,7 @@ internal object BardoAtomicFilePublisher {
             "El origen y el destino deben ser distintos."
         }
         val parent = destination.absoluteFile.parentFile
-            ?: error("No se pudo resolver el directorio de destino.")
+            ?: error("No se pudo resolver el carpeta de destino.")
         require(parent.isDirectory) {
             "El directorio de destino no existe."
         }
@@ -84,10 +88,24 @@ internal object BardoAtomicFilePublisher {
         val staged = Files.createTempFile(parent.toPath(), ".bardo-copy-", ".tmp").toFile()
         try {
             source.inputStream().buffered().use { input ->
-                staged.outputStream().buffered().use { output -> input.copyTo(output) }
+                staged.outputStream().buffered().use { output ->
+                    val buffer = ByteArray(64 * 1024)
+                    while (true) {
+                        if (isCancellationRequested()) {
+                            throw java.util.concurrent.CancellationException("Copia de WAV cancelada antes de publicar.")
+                        }
+                        val count = input.read(buffer)
+                        if (count < 0) break
+                        output.write(buffer, 0, count)
+                    }
+                    output.flush()
+                }
             }
             check(staged.length() == source.length()) {
                 "La copia temporal no coincide con el tamaño del archivo de origen."
+            }
+            if (isCancellationRequested()) {
+                throw java.util.concurrent.CancellationException("Copia de WAV cancelada antes de publicar.")
             }
             publish(staged, destination)
         } finally {
