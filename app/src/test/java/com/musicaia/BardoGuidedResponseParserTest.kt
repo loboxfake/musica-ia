@@ -180,4 +180,29 @@ class BardoGuidedResponseParserTest {
         assertNull(BardoGuidedResponseParser.parse("not JSON", "hello", emptyMap()))
         assertNull(BardoGuidedResponseParser.parse("""{"fields":{},"reply":""}""", "hello", emptyMap()))
     }
+
+    @Test
+    fun correctionOfAnotherFieldCannotOverwriteTheExistingStyle() {
+        val existing = mapOf("estilo" to "pop")
+        val json = """{"fields":{"style":{"value":"rock","evidence":"rock","change":true}},"reply":"Entendido."}"""
+        val parsed = BardoGuidedResponseParser.parse(
+            json,
+            "Cambia el tema a resiliencia y quiero rock",
+            existing
+        )!!
+        assertTrue(parsed.updates.isEmpty())
+    }
+
+    @Test
+    fun explicitCorrectionOfTheNamedFieldStillReplacesItsExistingValue() {
+        val existing = mapOf("estilo" to "pop")
+        val json = """{"fields":{"style":{"value":"rock","evidence":"rock","change":true}},"reply":"Entendido."}"""
+        val parsed = BardoGuidedResponseParser.parse(
+            json,
+            "Cambia el estilo a rock",
+            existing
+        )!!
+        assertEquals("rock", parsed.updates["estilo"])
+    }
+
 }
