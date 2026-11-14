@@ -20,14 +20,14 @@ class BardoTaskLifecyclePolicyTest {
         assertTrue(BardoTaskLifecyclePolicy.mayFinalize("task-a", "task-a", false))
         assertFalse(BardoTaskLifecyclePolicy.mayFinalize("task-b", "task-a", false))
         assertFalse(BardoTaskLifecyclePolicy.mayFinalize("task-a", "task-a", true))
-        assertFalse(BardoTaskLifecyclePolicy.may
+        assertFalse(BardoTaskLifecyclePolicy.mayFinalize("", "task-a", false))
+    }
+
     @Test
     fun refusesToCommitCompletionAfterCancellationWasRequested() {
         assertThrows(CancellationException::class.java) {
             BardoTaskLifecyclePolicy.ensureCanCommitCompletion(true)
         }
         BardoTaskLifecyclePolicy.ensureCanCommitCompletion(false)
-    }
-Finalize("", "task-a", false))
     }
 }
