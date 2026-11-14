@@ -8,6 +8,26 @@ import com.musicaia.modulos.litert.BardoQwen2LiteRtModule
 import com.musicaia.modulos.litert.EngineLiteRT
 import java.io.File
 
+/**
+ * Valida el artefacto fijado antes de permitir una inicialización nativa.
+ * Se mantiene independiente del contexto Android para probar límites y hash.
+ */
+internal fun validateBardoQwenModelFile(
+    model: File,
+    expectedSizeBytes: Long,
+    expectedSha256: String
+): String {
+    require(model.isFile) { "Qwen2 no está instalado. El archivo original se conserva." }
+    require(model.length() == expectedSizeBytes) {
+        "El tamaño de Qwen2 no coincide con el manifiesto; no se cargará."
+    }
+    val actualHash = BardoQwen2LiteRtModule.sha256(model)
+    require(actualHash.equals(expectedSha256, ignoreCase = true)) {
+        "El SHA-256 de Qwen2 no coincide. El archivo original se conserva."
+    }
+    return actualHash
+}
+
 /** Proveedor local ligero; se usa como alternativa cuando Gemma no cabe en la RAM disponible. */
 class BardoQwen2LiteRtProvider : BardoModelProvider {
     override val descriptor = BardoModelDescriptor(
@@ -116,16 +136,11 @@ class BardoQwen2LiteRtProvider : BardoModelProvider {
                 // No basta con confiar en load(): otro módulo puede haber cerrado
                 // el runtime entre la carga y esta sesión. Revalidar archivo y RAM
                 // dentro de la misma transacción que inicializa y ejecuta el modelo.
-                check(model.isFile) {
-                    "Qwen2 no está instalado. El archivo original se conserva."
-                }
-                check(model.length() == BardoQwen2LiteRtModule.EXPECTED_SIZE_BYTES) {
-                    "El tamaño de Qwen2 no coincide con el manifiesto; no se cargará."
-                }
-                val actualHash = BardoQwen2LiteRtModule.sha256(model)
-                check(actualHash.equals(BardoQwen2LiteRtModule.EXPECTED_SHA256, ignoreCase = true)) {
-                    "El SHA-256 de Qwen2 no coincide. El archivo original se conserva."
-                }
+                val actualHash = validateBardoQwenModelFile(
+                    model,
+                    BardoQwen2LiteRtModule.EXPECTED_SIZE_BYTES,
+                    BardoQwen2LiteRtModule.EXPECTED_SHA256
+                )
                 val beforeLoadBlock = BardoResourceBudget.blockingReason(
                     context,
                     BardoCapabilityRegistry.MIN_QWEN_FREE_MEMORY_BYTES
