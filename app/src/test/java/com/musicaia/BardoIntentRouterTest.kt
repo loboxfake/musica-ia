@@ -225,4 +225,16 @@ class BardoIntentRouterTest {
         assertEquals("archivo", fields["vozFuente"])
     }
 
+    @Test
+    fun extractsThemeMoodTempoAndLanguageFromOneNaturalRequestWithoutMixingThem() {
+        val fields = BardoIntentRouter.extractProvidedFields(
+            "Una canción sobre superar obstáculos y seguir adelante que transmita esperanza, con ritmo rápido y en español"
+        )
+
+        assertEquals("superar obstáculos y seguir adelante", fields["tema"])
+        assertEquals("esperanza", fields["ambiente"])
+        assertEquals("rápido", fields["ritmo"])
+        assertEquals("Español", fields["idioma"])
+    }
+
 }
