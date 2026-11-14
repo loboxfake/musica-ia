@@ -1784,55 +1784,78 @@ private fun crearConversacionNueva() {
      tvEstadoVoz.text = "Importando archivo de voz..."
      Thread({
          val resultado = runCatching {
-             contentResolver.openInputStream(uri)?.use { source ->
-                 destino.outputStream().buffered().use { output ->
-                     val buffer = ByteArray(64 * 1024)
-                     var total = 0L
-                     while (true) {
-                         val read = source.read(buffer)
-                         if (read < 0) break
-                         total += read
-                         require(total <= 100L * 1024L * 1024L) { "El archivo de voz supera el límite de 100 MB." }
-                         output.write(buffer, 0, read)
-                     }
-                 }
-             } ?: throw IllegalStateException("No se pudo abrir el audio seleccionado.")
-             require(destino.isFile && destino.length() > 44L) { "El archivo de voz está vacío o incompleto." }
-             destino
-         }
-         runOnUiThread {
-             if (isFinishing || isDestroyed) {
-                 destino.delete()
-                 BardoActivityStore.record(
-                     this, taskId, "archivo_voz", "cancelled", "activity_closed",
-                     "Importación descartada porque la pantalla se cerró antes de confirmarla.", null
-                 )
-                 return@runOnUiThread
-             }
-             val archivo = resultado.getOrNull()
-             if (archivo == null) {
-                 destino.delete()
-                 val error = resultado.exceptionOrNull()?.message ?: "Error desconocido."
-                 BardoActivityStore.record(this, taskId, "archivo_voz", "failed", "importacion", error, null)
-                 tvEstadoVoz.text = "No se pudo cargar el archivo de voz: $error"
-             } else {
-                 rutaVoz = archivo.absolutePath
-                 val mimeVoz = when (extension) {
-                     "wav" -> "audio/wav"
-                     "mp3" -> "audio/mpeg"
-                     "m4a" -> "audio/mp4"
-                     "flac" -> "audio/flac"
-                     "ogg" -> "audio/ogg"
-                     "aac" -> "audio/aac"
-                     else -> "application/octet-stream"
-                 }
-                 archivarVozUsuario(archivo, mimeVoz)
-                 BardoActivityStore.record(this, taskId, "archivo_voz", "completed", "importacion", "Muestra vocal importada: $nombre", 100, archivo.absolutePath)
-                 tvEstadoVoz.text = "Muestra vocal importada: $nombre"
-                 actualizarUI()
-             }
-         }
-     }, "BARDO-Voice-Import").start()
+              contentResolver.openInputStream(uri)?.use { source ->
+                  destino.outputStream().buffered().use { output ->
+                      val buffer = ByteArray(64 * 1024)
+                      var total = 0L
+                      while (true) {
+                          val read = source.read(buffer)
+                          if (read < 0) break
+                          total += read
+                          require(total <= 100L * 1024L * 1024L) { "El archivo de voz supera el límite de 100 MB." }
+                          output.write(buffer, 0, read)
+                      }
+                  }
+              } ?: throw IllegalStateException("No se pudo abrir el audio seleccionado.")
+              require(destino.isFile && destino.length() > 44L) { "El archivo de voz está vacío o incompleto." }
+
+              // El mezclador necesita WAV PCM16. Conservamos el original y normalizamos
+              // localmente los formatos comprimidos (y WAV no compatible) con MediaCodec.
+              val wavCompatible = if (extension == "wav") {
+                  runCatching {
+                      val comprobacion = LectorWav.leer(destino.absolutePath)
+                      require(comprobacion.muestras.isNotEmpty()) { "El WAV no contiene muestras PCM." }
+                      destino
+                  }.getOrNull()
+              } else null
+              val wavFinal = wavCompatible ?: File(
+                  destino.parentFile,
+                  destino.nameWithoutExtension + "_pcm16.wav"
+              ).also { salida ->
+                  BardoAndroidAudioDecoder.decodeToWav(destino, salida)
+              }
+              Pair(destino, wavFinal)
+          }
+          runOnUiThread {
+              if (isFinishing || isDestroyed) {
+                  destino.delete()
+                  resultado.getOrNull()?.second?.takeIf { it != destino }?.delete()
+                  BardoActivityStore.record(
+                      this, taskId, "archivo_voz", "cancelled", "activity_closed",
+                      "Importación descartada porque la pantalla se cerró antes de confirmarla.", null
+                  )
+                  return@runOnUiThread
+              }
+              val archivos = resultado.getOrNull()
+              if (archivos == null) {
+                  destino.delete()
+                  val error = resultado.exceptionOrNull()?.message ?: "Error desconocido."
+                  BardoActivityStore.record(this, taskId, "archivo_voz", "failed", "importacion", error, null)
+                  tvEstadoVoz.text = "No se pudo cargar o convertir la voz a WAV PCM16: $error"
+              } else {
+                  val original = archivos.first
+                  val archivoWav = archivos.second
+                  rutaVoz = archivoWav.absolutePath
+                  val mimeVoz = when (extension) {
+                      "wav" -> "audio/wav"
+                      "mp3" -> "audio/mpeg"
+                      "m4a" -> "audio/mp4"
+                      "flac" -> "audio/flac"
+                      "ogg" -> "audio/ogg"
+                      "aac" -> "audio/aac"
+                      else -> "application/octet-stream"
+                  }
+                  archivarVozUsuario(original, mimeVoz)
+                  if (archivoWav != original) archivarVozUsuario(archivoWav, "audio/wav")
+                  BardoActivityStore.record(
+                      this, taskId, "archivo_voz", "completed", "importacion_y_conversion",
+                      "Original conservado; voz normalizada localmente a WAV PCM16.", 100, archivoWav.absolutePath
+                  )
+                  tvEstadoVoz.text = "Muestra vocal lista en WAV PCM16: ${archivoWav.name}"
+                  actualizarUI()
+              }
+          }
+          }, "BARDO-Voice-Import").start()
  }
 
  private fun archivarVozUsuario(origen: File, mimeType: String) {
