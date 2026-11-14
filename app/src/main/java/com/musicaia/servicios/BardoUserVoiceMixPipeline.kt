@@ -29,7 +29,24 @@ object BardoUserVoiceMixPipeline {
         require(instrumentalHeader.dataBytes > 0L) {
             "El instrumental no contiene muestras PCM válidas."
         }
-        if (voiceWav == null) return instrumentalWav
+        if (voiceWav == null) {
+            require(instrumentalWav.canonicalFile != outputWav.canonicalFile) {
+                "El destino WAV debe ser distinto del instrumental original."
+            }
+            BardoAtomicFilePublisher.copyAndPublish(
+                source = instrumentalWav,
+                destination = outputWav,
+                isCancellationRequested = isCancellationRequested
+            )
+            val archivedHeader = BardoWavHeaderValidator.inspect(outputWav)
+            require(
+                archivedHeader.dataBytes == instrumentalHeader.dataBytes &&
+                    archivedHeader.sampleRate == instrumentalHeader.sampleRate &&
+                    archivedHeader.channels == instrumentalHeader.channels &&
+                    archivedHeader.bitsPerSample == instrumentalHeader.bitsPerSample
+            ) { "El WAV archivado no coincide con el instrumental original." }
+            return outputWav
+        }
 
         require(voiceWav.canonicalFile != instrumentalWav.canonicalFile) {
             "La grabación de voz y el instrumental deben ser archivos distintos."
