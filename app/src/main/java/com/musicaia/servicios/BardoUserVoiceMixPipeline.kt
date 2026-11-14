@@ -1,6 +1,7 @@
 package com.musicaia.servicios
 
 import com.musicaia.modulos.BardoWavHeaderValidator
+import com.musicaia.modulos.BardoAtomicFilePublisher
 import com.musicaia.modulos.LectorWav
 import com.musicaia.modulos.BardoStereoVoiceMixer
 import java.io.File
