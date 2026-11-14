@@ -91,13 +91,13 @@ object BardoActivityStore {
         val target = file(context)
         val lockFile = File(target.parentFile, "bardo_activity_timeline.lock")
         java.io.RandomAccessFile(lockFile, "rw").channel.use { channel ->
-            channel.lock().use {
+            channel.lock().use fileLock@{
                 val source = when {
                     isValid(target) -> target
                     isValid(backup(target)) -> backup(target)
-                    else -> return@use emptyList<Event>()
+                    else -> return@fileLock emptyList<Event>()
                 }
-                val events = readValidRoot(source).optJSONArray("events") ?: return@use emptyList<Event>()
+                val events = readValidRoot(source).optJSONArray("events") ?: return@fileLock emptyList<Event>()
                 (0 until events.length()).mapNotNull { index ->
                     val item = events.optJSONObject(index) ?: return@mapNotNull null
                     Event(
