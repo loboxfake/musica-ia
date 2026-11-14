@@ -98,7 +98,20 @@ object BardoGuidedResponseParser {
             .replace(value.lowercase(Locale.ROOT).trim(), " ")
         val source = normalize(message)
         val quote = normalize(evidence)
-        return quote.length >= 2 && source.contains(quote)
+        if (quote.length < 2) return false
+        var start = source.indexOf(quote)
+        while (start >= 0) {
+            val end = start + quote.length
+            val first = quote.first()
+            val last = quote.last()
+            val before = source.getOrNull(start - 1)
+            val after = source.getOrNull(end)
+            val leftBoundary = !first.isLetterOrDigit() || before == null || !before.isLetterOrDigit()
+            val rightBoundary = !last.isLetterOrDigit() || after == null || !after.isLetterOrDigit()
+            if (leftBoundary && rightBoundary) return true
+            start = source.indexOf(quote, start + 1)
+        }
+        return false
     }
 
     private fun normalizeValue(field: String, raw: String): String? {
