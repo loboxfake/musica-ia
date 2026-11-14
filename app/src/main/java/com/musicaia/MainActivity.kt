@@ -4123,27 +4123,56 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
      }
  }
 
+ private fun archivoVozWavSeleccionado(): File? {
+     val archivo = rutaVoz?.let(::File) ?: return null
+     return archivo.takeIf {
+         it.isFile && it.length() > 44L && it.extension.equals("wav", ignoreCase = true)
+     }
+ }
+
+ private fun vozPropiaDisponibleParaCreacion(
+     instrumentalOnly: Boolean,
+     letraManual: String
+ ): Boolean {
+     if (instrumentalOnly) return false
+     if (archivoVozWavSeleccionado() == null) return false
+     if (BardoUserVoiceMixPolicy.manualLyricsRequiresUserVoice(instrumentalOnly, letraManual)) {
+         // In "Mi letra", choosing a WAV is the explicit source of the vocal performance.
+         return true
+     }
+     if (!BardoIntentRouter.requiresUserVoice(datosConver["tipo"].orEmpty())) return false
+     return datosConver["vozFuente"].orEmpty().trim().lowercase(java.util.Locale.ROOT) in
+         setOf("grabada", "archivo")
+ }
+
  private fun actualizarUI() {
      val esModoLetra = grupoModo.checkedRadioButtonId == R.id.modoLetra
-     val vozWavDisponible = rutaVoz?.let(::File)?.let { archivo ->
-         archivo.isFile && archivo.length() > 44L &&
-             archivo.extension.equals("wav", ignoreCase = true)
-     } == true
+     val letraManual = if (esModoLetra) editLetra.text.toString().trim() else ""
+     val vozWavDisponible = vozPropiaDisponibleParaCreacion(
+         modoSoloInstrumental, letraManual
+     )
      val bloqueoConversacion = if (!modoSoloInstrumental && !esModoLetra) {
          BardoCreationReadinessPolicy.blockReason(datosConver, vozWavDisponible)
      } else {
          null
      }
+     val bloqueoLetra = if (esModoLetra && letraManual.isNotBlank() && !vozWavDisponible) {
+         BardoCapabilityRegistry.manualLyricsBlockReason()
+     } else {
+         null
+     }
      val datosListos = when {
          modoSoloInstrumental -> editPromptInstrumental.text.toString().isNotBlank()
-         esModoLetra -> editLetra.text.toString().isNotBlank()
+         esModoLetra -> letraManual.isNotBlank() && vozWavDisponible
          else -> bloqueoConversacion == null
      }
      // No bloquear por ausencia del motor de audio aquí: crearCancion() debe
      // informar esa limitación concreta. Sí bloqueamos datos incompatibles con
      // el modo vocal elegido, para no presentar como lista una creación imposible.
      btnCrear.isEnabled = !ocupado && datosListos
-     if (bloqueoConversacion != null) {
+     if (bloqueoLetra != null) {
+         tvEstado.text = bloqueoLetra
+     } else if (bloqueoConversacion != null) {
          tvEstado.text = bloqueoConversacion
      } else if (modoSoloInstrumental && datosListos && !AudioGenNative.available) {
          tvEstado.text = "Descripción completa, pero esta APK ligera no incluye el motor de audio. Hace falta la compilación offline completa."
@@ -4639,17 +4668,9 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
      return
  }
  val letraManual = if (grupoModo.checkedRadioButtonId == R.id.modoLetra) editLetra.text.toString().trim() else ""
- val tipoRequiereVozPropia = !modoSoloInstrumental &&
-     BardoIntentRouter.requiresUserVoice(datosConver["tipo"].orEmpty())
- val fuenteVozPropia = datosConver["vozFuente"].orEmpty()
- val archivoVozPropia = rutaVoz?.let(::File)
- val vozPropiaWavValida = tipoRequiereVozPropia &&
-     fuenteVozPropia.isNotBlank() &&
-     !fuenteVozPropia.contains("ningun", ignoreCase = true) &&
-     !fuenteVozPropia.contains("sin voz", ignoreCase = true) &&
-     archivoVozPropia != null && archivoVozPropia.isFile &&
-     archivoVozPropia.length() > 44L &&
-     archivoVozPropia.extension.equals("wav", ignoreCase = true)
+ val vozPropiaWavValida = vozPropiaDisponibleParaCreacion(
+     modoSoloInstrumental, letraManual
+ )
  if (!modoSoloInstrumental && letraManual.isBlank()) {
      val bloqueoPreparacion = BardoCreationReadinessPolicy.blockReason(
          datosConver,
