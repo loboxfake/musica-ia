@@ -9,4 +9,10 @@ internal object BardoTaskLifecyclePolicy {
 
     fun mayFinalize(activeTaskId: String, finishingTaskId: String, taskRunning: Boolean): Boolean =
         activeTaskId.isNotBlank() && activeTaskId == finishingTaskId && !taskRunning
+
+    fun ensureCanCommitCompletion(cancellationRequested: Boolean) {
+        if (cancellationRequested) {
+            throw CancellationException("Cancelación solicitada antes de confirmar la tarea.")
+        }
+    }
 }
