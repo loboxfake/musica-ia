@@ -116,7 +116,7 @@ object BardoIntentRouter {
         } else if ("vozFuente" !in result) {
             val normalized = normalize(message)
             val source = when {
-                Regex("""\b(voz grabada|voz propia grabada|grabar(?:e|é) mi (?:propia )?voz|mi propia voz grabada|grabacion propia|mi propia grabacion|mi grabacion)\b""")
+                Regex("""\b(voz grabada|voz propia grabada|grabar(?:e)? mi (?:propia )?voz|mi propia voz grabada|grabacion propia|mi propia grabacion|mi grabacion)\b""")
                     .containsMatchIn(normalized) -> "grabada"
                 Regex("""\b(archivo de voz|voz en un archivo|fichero de voz|importar voz|subir(?:e|é) (?:un )?archivo de voz)\b""")
                     .containsMatchIn(normalized) -> "archivo"
