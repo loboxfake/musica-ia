@@ -35,6 +35,34 @@ class BardoWavMultitrackMixerTest {
         assertTrue(result.peakAfterDbfs<=-0.9)
     }
 
+    @Test fun highLevelSumUsesSoftLimitingAndReportsTheMeasuredOutputPeak() {
+        val dir = createTempDir(prefix = "bardo-mix-limiter-")
+        try {
+            val a = File(dir, "a.wav")
+            val b = File(dir, "b.wav")
+            val output = File(dir, "limited.wav")
+            createWav(a, 16000, ShortArray(256) { 30000 })
+            createWav(b, 16000, ShortArray(256) { 30000 })
+            val result = BardoWavMultitrackMixer.mix(
+                listOf(
+                    BardoWavMultitrackMixer.Track(a, gainDb = 6.0),
+                    BardoWavMultitrackMixer.Track(b, gainDb = 6.0)
+                ),
+                output
+            )
+            val pcm = ByteBuffer.wrap(output.readBytes()).order(ByteOrder.LITTLE_ENDIAN)
+            var measuredPeak = 0
+            for (index in 0 until result.frames.toInt() * 2) {
+                measuredPeak = maxOf(measuredPeak, kotlin.math.abs(pcm.getShort(44 + index * 2).toInt()))
+            }
+            val measuredDbfs = 20.0 * kotlin.math.log10(measuredPeak / 32768.0)
+            assertTrue("El limitador debe mantener el techo de -1 dBFS.", measuredDbfs <= -0.99)
+            assertTrue("La mezcla fuerte no debe aplanarse a escala completa.", measuredPeak < Short.MAX_VALUE)
+            assertEquals(measuredDbfs, result.peakAfterDbfs, 0.01)
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
     @Test fun rejectsDifferentRatesAndInvalidPan() {
         val dir=createTempDir(prefix="bardo-mix-invalid-"); val a=File(dir,"a.wav"); val b=File(dir,"b.wav")
         createWav(a,16000,shortArrayOf(1000,1000)); createWav(b,44100,shortArrayOf(1000,1000))
