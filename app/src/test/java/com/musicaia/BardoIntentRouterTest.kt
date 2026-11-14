@@ -194,4 +194,35 @@ class BardoIntentRouterTest {
         assertFalse(BardoIntentRouter.requiresUserVoice("instrumental"))
         assertFalse(BardoIntentRouter.requiresUserVoice("instrumental sin voz"))
     }
+    @Test
+    fun naturalVoiceRecordingRequestsSetBothVoiceTypeAndSource() {
+        listOf(
+            "Quiero grabar mi propia voz",
+            "Usaré mi voz grabada",
+            "Voy a usar mi propia grabación"
+        ).forEach { request ->
+            val fields = BardoIntentRouter.extractProvidedFields(request)
+            assertEquals("voz", fields["tipo"])
+            assertEquals("grabada", fields["vozFuente"])
+            assertEquals(null, BardoIntentRouter.nextRequiredField(
+                mapOf(
+                    "tema" to "superar obstáculos",
+                    "estilo" to "rock",
+                    "ambiente" to "esperanza",
+                    "ritmo" to "medio",
+                    "idioma" to "Español"
+                ) + fields
+            ))
+        }
+    }
+
+    @Test
+    fun importingAVoiceFileAlsoSelectsVoiceCreation() {
+        val fields = BardoIntentRouter.extractProvidedFields(
+            "Quiero importar un archivo de voz"
+        )
+        assertEquals("voz", fields["tipo"])
+        assertEquals("archivo", fields["vozFuente"])
+    }
+
 }
