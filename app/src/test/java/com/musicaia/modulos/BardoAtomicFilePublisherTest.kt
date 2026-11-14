@@ -86,6 +86,33 @@ class BardoAtomicFilePublisherTest {
     }
 
     @Test
+    fun cancellationDuringCopyKeepsPreviousDestinationAndRemovesStagingFile() {
+        val directory = Files.createTempDirectory("bardo-atomic-copy-cancel").toFile()
+        try {
+            val source = File(directory, "generated.wav").apply {
+                writeBytes(ByteArray(256 * 1024) { (it % 239).toByte() })
+            }
+            val destination = File(directory, "archive.wav").apply { writeText("previous-valid-file") }
+            val previous = destination.readBytes()
+            var checks = 0
+
+            assertThrows(java.util.concurrent.CancellationException::class.java) {
+                BardoAtomicFilePublisher.copyAndPublish(source, destination) {
+                    checks++
+                    checks >= 2
+                }
+            }
+
+            assertTrue(checks >= 2)
+            assertEquals(previous.toList(), destination.readBytes().toList())
+            assertTrue(source.isFile)
+            assertFalse(directory.listFiles().orEmpty().any { it.name.startsWith(".bardo-copy-") })
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
     fun writesTextAndPublishesOnlyTheCompleteUtf8Content() {
         val directory = Files.createTempDirectory("bardo-atomic-text").toFile()
         try {
