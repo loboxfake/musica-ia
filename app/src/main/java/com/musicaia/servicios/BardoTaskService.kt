@@ -430,7 +430,24 @@ class BardoTaskService : Service() {
             mensaje.contains("Gemma", true) || mensaje.contains("letra", true) -> "letra"
             else -> "orquestacion"
         }
-        BardoActivityStore.record(this, taskId.ifBlank { "task-unknown" }, if (modoSolo) "instrumental" else "cancion", estado, etapa, mensaje, progreso)
+        recordTaskProgressSafely(
+            record = {
+                BardoActivityStore.record(
+                    this,
+                    taskId.ifBlank { "task-unknown" },
+                    if (modoSolo) "instrumental" else "cancion",
+                    estado,
+                    etapa,
+                    mensaje,
+                    progreso
+                )
+            },
+            onFailure = { error ->
+                // El historial es auxiliar: un disco lleno o un JSON no disponible
+                // nunca debe abortar la generación de audio ni impedir la UI.
+                Log.e("BARDO-TaskService", "No se pudo guardar el progreso; la tarea continúa.", error)
+            }
+        )
         enviarActualizacion(estado, mensaje, "", "", 0)
     }
 
