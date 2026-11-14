@@ -2,6 +2,8 @@ package com.musicaia.memoria
 
 import java.io.File
 import java.nio.file.Files
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -12,6 +14,48 @@ class BardoConversationStoreTest {
     private fun newStore(): Pair<BardoConversationStore, File> {
         val directory = Files.createTempDirectory("bardo-history-test").toFile()
         return BardoConversationStore(directory) to directory
+    }
+
+    @Test
+    fun serializesConcurrentAppendsAcrossSeparateStoreInstances() {
+        val (firstStore, directory) = newStore()
+        val conversation = firstStore.createConversation("Escritura concurrente")
+        val secondStore = BardoConversationStore(directory)
+        val stores = listOf(firstStore, secondStore)
+        val workers = 6
+        val messagesPerWorker = 30
+        val ready = CountDownLatch(workers)
+        val start = CountDownLatch(1)
+        val executor = Executors.newFixedThreadPool(workers)
+        try {
+            val futures = (0 until workers).map { worker ->
+                executor.submit {
+                    ready.countDown()
+                    check(start.await(5, java.util.concurrent.TimeUnit.SECONDS))
+                    repeat(messagesPerWorker) { index ->
+                        stores[worker % stores.size].append(
+                            conversation.id,
+                            role = "user",
+                            content = "worker-$worker-message-$index"
+                        )
+                    }
+                }
+            }
+            assertTrue(ready.await(5, java.util.concurrent.TimeUnit.SECONDS))
+            start.countDown()
+            futures.forEach { it.get(30, java.util.concurrent.TimeUnit.SECONDS) }
+
+            val messages = firstStore.messages(conversation.id)
+            assertEquals(workers * messagesPerWorker, messages.size)
+            assertEquals(
+                workers * messagesPerWorker,
+                messages.map { it.id }.toSet().size
+            )
+        } finally {
+            start.countDown()
+            executor.shutdownNow()
+            directory.deleteRecursively()
+        }
     }
 
     @Test
