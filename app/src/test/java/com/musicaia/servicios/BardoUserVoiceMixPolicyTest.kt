@@ -21,6 +21,14 @@ class BardoUserVoiceMixPolicyTest {
     }
 
     @Test
+    @Test
+    fun manualLyricsRequireARealUserVoiceUnlessInstrumentalOnly() {
+        assertTrue(BardoUserVoiceMixPolicy.manualLyricsRequiresUserVoice(false, "Mi letra"))
+        assertFalse(BardoUserVoiceMixPolicy.manualLyricsRequiresUserVoice(false, "  "))
+        assertFalse(BardoUserVoiceMixPolicy.manualLyricsRequiresUserVoice(true, "Mi letra"))
+    }
+
+    @Test
     fun validVoicePathRequestsAnActualMix() {
         assertNull(BardoUserVoiceMixPolicy.blockReason(false, true, "/voice.wav", true, 100L))
         assertTrue(BardoUserVoiceMixPolicy.shouldMix(false, "/voice.wav"))
