@@ -86,6 +86,38 @@ class BardoAtomicFilePublisherTest {
     }
 
     @Test
+    fun writesTextAndPublishesOnlyTheCompleteUtf8Content() {
+        val directory = Files.createTempDirectory("bardo-atomic-text").toFile()
+        try {
+            val destination = File(directory, "lyrics.txt").apply { writeText("letra anterior") }
+            val content = "Canción: superar obstáculos\nVerso: seguir adelante"
+
+            BardoAtomicFilePublisher.writeTextAndPublish(content, destination)
+
+            assertEquals(content, destination.readText(Charsets.UTF_8))
+            assertFalse(directory.listFiles().orEmpty().any { it.name.endsWith(".tmp") })
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun rejectsEmptyTextWithoutTouchingPreviousDestination() {
+        val directory = Files.createTempDirectory("bardo-atomic-empty-text").toFile()
+        try {
+            val destination = File(directory, "lyrics.txt").apply { writeText("letra anterior") }
+
+            assertThrows(IllegalArgumentException::class.java) {
+                BardoAtomicFilePublisher.writeTextAndPublish("  \n", destination)
+            }
+
+            assertEquals("letra anterior", destination.readText())
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
     fun rejectsMissingSourceWithoutTouchingPreviousDestination() {
         val directory = Files.createTempDirectory("bardo-atomic-copy-preserve").toFile()
         try {
