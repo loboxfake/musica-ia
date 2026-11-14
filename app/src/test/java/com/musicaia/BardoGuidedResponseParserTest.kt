@@ -30,6 +30,20 @@ class BardoGuidedResponseParserTest {
         assertTrue(parsed.updates.isEmpty())
     }
 
+    @Test
+    fun evidenceMustNotMatchOnlyAnAccidentalSubstringInsideAnotherWord() {
+        val json = """{"fields":{"theme":{"value":"art","evidence":"art"}},"reply":"¿Qué estilo?"}"""
+        val parsed = BardoGuidedResponseParser.parse(json, "I want a party song", emptyMap())!!
+        assertTrue(parsed.updates.isEmpty())
+    }
+
+    @Test
+    fun evidenceAtWholeWordBoundariesIsAccepted() {
+        val json = """{"fields":{"theme":{"value":"party","evidence":"party"}},"reply":"¿Qué estilo?"}"""
+        val parsed = BardoGuidedResponseParser.parse(json, "I want a party song", emptyMap())!!
+        assertEquals("party", parsed.updates["tema"])
+    }
+
     @Test fun negativeSpanishPreferenceIsNotStoredAsANewCreativeValue() {
         val json = """{"fields":{"style":{"value":"rock","evidence":"rock"}},"reply":"Entendido."}"""
         val parsed = BardoGuidedResponseParser.parse(json, "No quiero rock", emptyMap())!!
