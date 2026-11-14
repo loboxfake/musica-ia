@@ -61,10 +61,10 @@ object BardoIntentRouter {
         if ("tema" !in result) {
             val genres = "rock\\s+alternativo|rock|pop|rap|hip[- ]?hop|trap|reggaeton|metal|indie|electr[oó]nica|house|techno|jazz|blues|soul|funk|reggae|folk|country|flamenco|salsa|bachata|cumbia|merengue|synthwave|lo[- ]?fi|l[oó]fi|ambient|punk|disco|trance|dnb|orquestal|cinem[aá]tico"
             val themeAfterGenre = Regex(
-                """(?i)\b(?:una\s+)?canci[oó]n\s+de\s+(?:$genres)\s+(?:sobre|acerca\s+de|que\s+trate\s+de|que\s+hable\s+de)\s+(.+?)(?=[,;.!?\n]|$)"""
+                """(?i)\b(?:una\s+)?canci[oó]n\s+de\s+(?:$genres)\s+(?:sobre|acerca\s+de|que\s+trate\s+de|que\s+hable\s+de)\s+(.+?)(?=[,;.!?\n]|\s+(?:que\s+(?:transmita|sea|tenga|vaya)|con\s+(?:un\s+)?(?:ritmo|ambiente|voz)|en\s+(?:espa[nñ]ol|castellano|ingl[eé]s)|(?:estilo|ambiente|ritmo|idioma|tipo)\s*[:=])|$)"""
             ).find(message)?.groupValues?.get(1)?.trim()
             val theme = themeAfterGenre ?: Regex(
-                """(?i)^\s*(?:(?:quiero|necesito|hazme|crea)\s+)?(?:una\s+)?canci[oó]n\s+(?:sobre|acerca\s+de|que\s+trate\s+de|que\s+hable\s+de|de)\s+(.+?)(?=[,;.!?\n]|$)"""
+                """(?i)^\s*(?:(?:quiero|necesito|hazme|crea)\s+)?(?:una\s+)?canci[oó]n\s+(?:sobre|acerca\s+de|que\s+trate\s+de|que\s+hable\s+de|de)\s+(.+?)(?=[,;.!?\n]|\s+(?:que\s+(?:transmita|sea|tenga|vaya)|con\s+(?:un\s+)?(?:ritmo|ambiente|voz)|en\s+(?:espa[nñ]ol|castellano|ingl[eé]s)|(?:estilo|ambiente|ritmo|idioma|tipo)\s*[:=])|$)"""
             ).find(message)?.groupValues?.get(1)?.trim()
             if (!theme.isNullOrBlank()) result["tema"] = theme
         }
