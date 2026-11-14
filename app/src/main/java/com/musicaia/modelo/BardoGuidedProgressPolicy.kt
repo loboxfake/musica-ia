@@ -91,7 +91,7 @@ object BardoGuidedProgressPolicy {
         }
         if (field == "vozFuente") {
             return Regex(
-                """\b(?:quieres|prefieres|vas\s+a|usar|grabar|importar|adjuntar|subir)\b.{0,65}\b(?:voz|archivo|grabacion|microfono)\b|\b(?:would\s+you\s+like|will\s+you|do\s+you\s+want)\b.{0,65}\b(?:record|upload|import|attach|voice\s+file|recording)\b"""
+                """\b(?:quieres|prefieres|vas\s+a|usar|grabar|importar|adjuntar|subir)\b.{0,65}\b(?:voz|grabacion|microfono)\b|\b(?:archivo|fichero)\s+de\s+voz\b|\b(?:would\s+you\s+like|will\s+you|do\s+you\s+want)\b.{0,65}\b(?:record|upload|import|attach|voice\s+file|recording)\b"""
             ).containsMatchIn(normalized)
         }
         val terms = when (field) {
