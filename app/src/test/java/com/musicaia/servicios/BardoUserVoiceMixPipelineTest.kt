@@ -56,11 +56,11 @@ class BardoUserVoiceMixPipelineTest {
     }
 
     @Test
-    fun instrumentalPathIsReturnedUnchangedWhenNoVoiceWasSelected() {
+    fun instrumentalIsAtomicallyArchivedWhenNoVoiceWasSelected() {
         val dir = createTempDir(prefix = "bardo-instrumental-pipeline-")
         try {
             val instrumental = File(dir, "instrumental.wav")
-            val output = File(dir, "unused-mix.wav")
+            val output = File(dir, "library-instrumental.wav")
             AudioUtil.escribirWavMono16(instrumental.absolutePath, 44100, 8) { _, count ->
                 ShortArray(count) { 2000 }
             }
@@ -72,9 +72,43 @@ class BardoUserVoiceMixPipelineTest {
                 outputWav = output
             )
 
-            assertEquals(instrumental.canonicalFile, finalWav.canonicalFile)
-            assertFalse(output.exists())
+            assertEquals(output.canonicalFile, finalWav.canonicalFile)
+            assertTrue(output.isFile && output.length() > 44L)
+            assertArrayEquals(original, output.readBytes())
             assertArrayEquals(original, instrumental.readBytes())
+            assertFalse(dir.listFiles().orEmpty().any { it.name.startsWith(".bardo-copy-") })
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun cancellationDuringInstrumentalArchivePreservesPreviousOutputAndOriginal() {
+        val dir = createTempDir(prefix = "bardo-cancel-instrumental-archive-")
+        try {
+            val instrumental = File(dir, "instrumental.wav")
+            val output = File(dir, "library-instrumental.wav").apply { writeText("previous-valid-output") }
+            AudioUtil.escribirWavMono16(instrumental.absolutePath, 44100, 8) { _, count ->
+                ShortArray(count) { 2000 }
+            }
+            val original = instrumental.readBytes()
+            val previousOutput = output.readBytes()
+
+            try {
+                BardoUserVoiceMixPipeline.prepareWav(
+                    instrumentalWav = instrumental,
+                    voiceWav = null,
+                    outputWav = output,
+                    isCancellationRequested = { true }
+                )
+                throw AssertionError("Se esperaba cancelación.")
+            } catch (_: CancellationException) {
+                // Esperado: la publicación no debe iniciarse.
+            }
+
+            assertArrayEquals(previousOutput, output.readBytes())
+            assertArrayEquals(original, instrumental.readBytes())
+            assertFalse(dir.listFiles().orEmpty().any { it.name.startsWith(".bardo-copy-") })
         } finally {
             dir.deleteRecursively()
         }
