@@ -25,7 +25,7 @@ object BardoActivityStore {
     )
 
     private const val MAX_EVENTS = 1000
-    private const val MAX_FILE_BYTES = 8L * 1024L * 1024L
+    private const val MAX_FILE_BYTES = 32L * 1024L * 1024L
     private const val SCHEMA_VERSION = 1
     private val lock = Any()
 
@@ -62,14 +62,14 @@ object BardoActivityStore {
                 val events = root.optJSONArray("events") ?: JSONArray()
                 val event = JSONObject()
                     .put("id", UUID.randomUUID().toString())
-                    .put("taskId", taskId)
-                    .put("category", category)
-                    .put("state", state)
-                    .put("stage", stage)
+                    .put("taskId", taskId.take(160))
+                    .put("category", category.take(80))
+                    .put("state", state.take(40))
+                    .put("stage", stage.take(120))
                     .put("message", message.take(4000))
                     .put("timestamp", System.currentTimeMillis())
                 if (progress != null) event.put("progress", progress.coerceIn(0, 100))
-                if (!artifact.isNullOrBlank()) event.put("artifact", artifact)
+                if (!artifact.isNullOrBlank()) event.put("artifact", artifact.take(1000))
                 events.put(event)
 
                 val bounded = JSONArray()
@@ -125,10 +125,11 @@ object BardoActivityStore {
             for (index in 0 until events.length()) {
                 val item = events.optJSONObject(index) ?: return@runCatching false
                 if (item.optString("id").isBlank()) return@runCatching false
-                if (item.optString("taskId").isBlank()) return@runCatching false
-                if (item.optString("category").isBlank()) return@runCatching false
-                if (item.optString("state").isBlank()) return@runCatching false
-                if (item.optString("stage").isBlank()) return@runCatching false
+                if (item.optString("taskId").isBlank() || item.optString("taskId").length > 160) return@runCatching false
+                if (item.optString("category").isBlank() || item.optString("category").length > 80) return@runCatching false
+                if (item.optString("state").isBlank() || item.optString("state").length > 40) return@runCatching false
+                if (item.optString("stage").isBlank() || item.optString("stage").length > 120) return@runCatching false
+                if (item.optString("artifact").length > 1000) return@runCatching false
                 if (!item.has("timestamp") || item.optLong("timestamp") <= 0L) return@runCatching false
                 if (item.optString("message").length > 4000) return@runCatching false
                 if (item.has("progress") && (item.optInt("progress", -1) !in 0..100)) return@runCatching false
