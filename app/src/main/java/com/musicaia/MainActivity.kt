@@ -5189,7 +5189,7 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
                          File(carpetaLocal, "$nombreBase.mp3")
                      )
                  }
-                 if (letra.isNotBlank()) File(carpetaLocal, "$nombreBase.txt").writeText(letra, Charsets.UTF_8)
+                 if (letra.isNotBlank()) BardoAtomicFilePublisher.writeTextAndPublish(letra, File(carpetaLocal, "$nombreBase.txt"))
                  prefs.edit().putString("last_archived_local_task_key", archiveKey).apply()
              } catch (error: Throwable) {
                  errorLocal = error
@@ -5257,11 +5257,14 @@ private fun procesarAdjuntoCopiado(nombre: String, mime: String, destino: File) 
              val destino = File(carpeta, "BARDO_$marca.wav")
              BardoAtomicFilePublisher.copyAndPublish(origen, destino)
              pasos.firstOrNull { it.first == "letra" && it.second is Dato.Texto }?.let { (_, dato) ->
-                 val archivoLetra = File(carpeta, "BARDO_$marca.txt")
-                 archivoLetra.writeText((dato as Dato.Texto).texto)
-                 if (uriCarpetaBardo != null) runCatching {
-                     guardarArchivoEnCarpetaBardo(archivoLetra, "Proyectos", archivoLetra.name, "text/plain")
-                 }.onFailure { Log.e(etiqueta, "No se pudo copiar la letra a BARDO/Proyectos", it) }
+                 val textoLetra = (dato as Dato.Texto).texto
+                 if (textoLetra.isNotBlank()) {
+                     val archivoLetra = File(carpeta, "BARDO_$marca.txt")
+                     BardoAtomicFilePublisher.writeTextAndPublish(textoLetra, archivoLetra)
+                     if (uriCarpetaBardo != null) runCatching {
+                         guardarArchivoEnCarpetaBardo(archivoLetra, "Proyectos", archivoLetra.name, "text/plain")
+                     }.onFailure { Log.e(etiqueta, "No se pudo copiar la letra a BARDO/Proyectos", it) }
+                 }
              }
              destinoFinal = destino
              if (uriCarpetaBardo != null) {
