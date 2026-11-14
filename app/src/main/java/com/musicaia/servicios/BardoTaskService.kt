@@ -136,13 +136,17 @@ class BardoTaskService : Service() {
                     // y antes de que su cierre en el hilo principal retire la notificación.
                     if (activeTaskId.isBlank()) stopSelfResult(startId)
                 } else {
-                    val completionAlreadyCommitted = synchronized(completionLock) {
-                        getSharedPreferences(PREFS, MODE_PRIVATE).getString(KEY_STATE, "") == "completed"
-                    }
-                    if (!completionAlreadyCommitted) {
-                        synchronized(completionLock) {
+                    val cancellationAccepted = synchronized(completionLock) {
+                        val completionAlreadyCommitted =
+                            getSharedPreferences(PREFS, MODE_PRIVATE).getString(KEY_STATE, "") == "completed"
+                        if (completionAlreadyCommitted) {
+                            false
+                        } else {
                             cancelacionSolicitada.set(true)
+                            true
                         }
+                    }
+                    if (cancellationAccepted) {
                         orquestador.cancelar()
                         publicarEstado("running", "Cancelación solicitada. BARDO terminará la operación nativa en curso y se detendrá de forma segura.")
                     } else {
