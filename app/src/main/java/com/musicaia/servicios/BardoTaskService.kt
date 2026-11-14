@@ -240,7 +240,19 @@ class BardoTaskService : Service() {
         try {
             taskExecutor.execute {
                 try {
-                    BardoActivityStore.record(this, taskToken, if (modoSolo) "instrumental" else "cancion", "running", "inicio", "BARDO ha iniciado una tarea de creación musical.", 0)
+                    recordTaskProgressSafely(
+                        record = {
+                            BardoActivityStore.record(
+                                this, taskToken,
+                                if (modoSolo) "instrumental" else "cancion",
+                                "running", "inicio",
+                                "BARDO ha iniciado una tarea de creación musical.", 0
+                            )
+                        },
+                        onFailure = { error ->
+                            Log.e("BARDO-TaskService", "No se pudo registrar el inicio; la tarea continúa.", error)
+                        }
+                    )
                     if (cancelacionSolicitada.get()) throw java.util.concurrent.CancellationException("Cancelación solicitada antes de preparar módulos.")
 
                     val plan = com.musicaia.modelo.BardoModuleCatalog.createMusicPlan(
@@ -261,8 +273,20 @@ class BardoTaskService : Service() {
                     if (cancelacionSolicitada.get()) throw java.util.concurrent.CancellationException("Cancelación solicitada durante la preparación.")
 
                     val modulos = plan.modules
-                    BardoActivityStore.record(this, taskToken, if (modoSolo) "instrumental" else "cancion", "running", "plan_seleccionado",
-                        "Módulos seleccionados desde el registro de capacidades: " + plan.selectedModuleIds.joinToString(" → ") + ".", 8)
+                    recordTaskProgressSafely(
+                        record = {
+                            BardoActivityStore.record(
+                                this, taskToken,
+                                if (modoSolo) "instrumental" else "cancion",
+                                "running", "plan_seleccionado",
+                                "Módulos seleccionados desde el registro de capacidades: " +
+                                    plan.selectedModuleIds.joinToString(" → ") + ".", 8
+                            )
+                        },
+                        onFailure = { error ->
+                            Log.e("BARDO-TaskService", "No se pudo registrar el plan; la tarea continúa.", error)
+                        }
+                    )
 
                     orquestador.setListener(object : Orquestador.ProgresoListener {
                         override fun onProgreso(paso: String, progreso: Float, mensaje: String) {
