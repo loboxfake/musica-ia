@@ -46,6 +46,25 @@ internal object BardoAtomicFilePublisher {
     }
 
     /**
+     * Escribe texto en un temporal del mismo directorio y lo publica al terminar.
+     * Un fallo durante la escritura conserva intacta la versión anterior.
+     */
+    fun writeTextAndPublish(content: String, destination: File) {
+        require(content.isNotBlank()) { "El contenido de texto está vacío." }
+        val parent = destination.absoluteFile.parentFile
+            ?: error("No se pudo resolver el directorio de destino.")
+        require(parent.isDirectory) { "El directorio de destino no existe." }
+
+        val staged = Files.createTempFile(parent.toPath(), ".bardo-text-", ".tmp").toFile()
+        try {
+            staged.writeText(content, Charsets.UTF_8)
+            publish(staged, destination)
+        } finally {
+            if (staged.exists()) staged.delete()
+        }
+    }
+
+    /**
      * Copia un archivo completo a un temporal junto al destino y solo entonces lo publica.
      * Si la copia falla, el destino anterior no se toca.
      */
