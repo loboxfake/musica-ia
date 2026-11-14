@@ -1803,8 +1803,10 @@ private fun crearConversacionNueva() {
               // localmente los formatos comprimidos (y WAV no compatible) con MediaCodec.
               val wavCompatible = if (extension == "wav") {
                   runCatching {
-                      val comprobacion = LectorWav.leer(destino.absolutePath)
-                      require(comprobacion.muestras.isNotEmpty()) { "El WAV no contiene muestras PCM." }
+                      val cabecera = BardoWavHeaderValidator.inspect(destino)
+                      require(cabecera.channels in 1..2) {
+                          "El WAV multicanal se normalizará a mono para la mezcla vocal."
+                      }
                       destino
                   }.getOrNull()
               } else null
