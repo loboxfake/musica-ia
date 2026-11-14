@@ -49,4 +49,19 @@ class BardoTaskProgressTest {
         assertSame(reporter, propagated)
         assertTrue(propagated !== original)
     }
+
+    @Test
+    fun terminalHistoryFailureDoesNotUndoPublishedTaskCompletion() {
+        val taskState = "completed"
+        var reported: Exception? = null
+        val historyFailure = IOException("history storage unavailable")
+
+        recordTaskProgressSafely(
+            record = { throw historyFailure },
+            onFailure = { reported = it }
+        )
+
+        assertEquals("completed", taskState)
+        assertSame(historyFailure, reported)
+    }
 }
