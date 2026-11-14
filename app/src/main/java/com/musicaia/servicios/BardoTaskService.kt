@@ -24,6 +24,7 @@ import com.musicaia.modulos.ModuloInstrumental
 import com.musicaia.modulos.ModuloLetra
 import com.musicaia.modulos.Mp3Exporter
 import com.musicaia.modulos.BardoWavHeaderValidator
+import com.musicaia.modulos.BardoAtomicFilePublisher
 import java.util.concurrent.atomic.AtomicBoolean
 
 /** Tarea local iniciada por el usuario y coordinada por el Orquestador BARDO. */
@@ -331,9 +332,14 @@ class BardoTaskService : Service() {
                         temporal.delete()
                         throw java.util.concurrent.CancellationException("Cancelación solicitada durante la exportación.")
                     }
-                    if (!temporal.renameTo(mp3)) {
+                    try {
+                        BardoAtomicFilePublisher.publish(temporal, mp3)
+                    } catch (error: Exception) {
                         temporal.delete()
-                        throw IllegalStateException("El MP3 se generó, pero no se pudo guardar definitivamente en Archivo.")
+                        throw IllegalStateException(
+                            "El MP3 se generó, pero no se pudo publicar de forma segura en Archivo.",
+                            error
+                        )
                     }
 
                     val mp3DurationMs = runCatching {
@@ -352,7 +358,12 @@ class BardoTaskService : Service() {
                     val mensajeValidado = "INSTRUMENTAL $totalPasosAudio/$totalPasosAudio · MP3 320 kbps validado (${mp3DurationMs / 1000L}s, ${mp3.length()} bytes)"
                     actualizarNotificacion(mensajeValidado, 100)
                     publicarEstado("running", mensajeValidado)
-                    if (letra.isNotBlank()) java.io.File(biblioteca, "$nombreBase.txt").writeText(letra)
+                    if (letra.isNotBlank()) {
+                        BardoAtomicFilePublisher.writeTextAndPublish(
+                            letra,
+                            java.io.File(biblioteca, "$nombreBase.txt")
+                        )
+                    }
                     val duracion = mp3DurationMs / 1000L
                     val mensajeFinal = "MP3 guardado en Archivo · ${duracion / 60} min ${duracion % 60}s · ${mp3.length()} bytes · 320 kbps"
                     getSharedPreferences(PREFS, MODE_PRIVATE).edit()
