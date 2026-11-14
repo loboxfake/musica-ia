@@ -67,31 +67,31 @@ object BardoGuidedProgressPolicy {
             // No basta con mencionar "idioma": la pregunta debe pedir la lengua
             // de la canción o proponer una elección explícita para esa canción.
             val asksWhichLanguage = Regex(
-                """\\b(?:que|cual)\\s+(?:idioma|lengua)\\b|\\b(?:en\\s+que)\\s+(?:idioma|lengua)\\b|\\b(?:which|what)\\s+language\\b"""
+                """\b(?:que|cual)\s+(?:idioma|lengua)\b|\b(?:en\s+que)\s+(?:idioma|lengua)\b|\b(?:which|what)\s+language\b"""
             ).containsMatchIn(normalized)
             val offersSongLanguage = Regex(
-                """\\b(?:la|el|esta|this|the)\\s+(?:quieres|prefieres|imaginas|want|would\\s+you\\s+like)\\b.{0,45}\\b(?:en|in)\\s+(?:espanol|spanish|english|ingles)\\b|\\b(?:en|in)\\s+(?:espanol|spanish|english|ingles)\\b"""
+                """\b(?:la|el|esta|this|the)\s+(?:quieres|prefieres|imaginas|want|would\s+you\s+like)\b.{0,45}\b(?:en|in)\s+(?:espanol|spanish|english|ingles)\b|\b(?:en|in)\s+(?:espanol|spanish|english|ingles)\b"""
             ).containsMatchIn(normalized)
             return asksWhichLanguage || offersSongLanguage
         }
         if (field == "estilo") {
             return Regex(
-                """\\b(?:que|cual)\\s+(?:estilo|genero|tipo\\s+de\\s+musica)\\b|\\b(?:which|what)\\s+(?:musical\\s+)?(?:style|genre)\\b|\\bwhat\\s+kind\\s+of\\s+music\\b"""
+                """\b(?:que|cual)\s+(?:estilo|genero|tipo\s+de\s+musica)\b|\b(?:which|what)\s+(?:musical\s+)?(?:style|genre)\b|\bwhat\s+kind\s+of\s+music\b"""
             ).containsMatchIn(normalized)
         }
         if (field == "ambiente") {
             return Regex(
-                """\\b(?:que|cual)\\s+(?:ambiente|emocion|sentimiento|sensacion|tono|energia|atmosfera)\\b.{0,55}\\b(?:quieres|buscas|te\\s+gustaria|deberia|should|would)\\b|\\bcomo\\s+quieres\\s+que\\s+se\\s+sienta\\b|\\bwhat\\s+(?:mood|emotion|feeling|energy|atmosphere)\\b|\\bhow\\s+should\\s+(?:the\\s+)?(?:song|track)\\s+feel\\b"""
+                """\b(?:que|cual)\s+(?:ambiente|emocion|sentimiento|sensacion|tono|energia|atmosfera)\b.{0,55}\b(?:quieres|buscas|te\s+gustaria|deberia|should|would)\b|\bcomo\s+quieres\s+que\s+se\s+sienta\b|\bwhat\s+(?:mood|emotion|feeling|energy|atmosphere)\b|\bhow\s+should\s+(?:the\s+)?(?:song|track)\s+feel\b"""
             ).containsMatchIn(normalized)
         }
         if (field == "ritmo") {
             return Regex(
-                """\\b(?:que|cual)\\s+(?:ritmo|tempo|velocidad)\\b|\\b(?:what|which)\\s+(?:tempo|pace|speed|rhythm)\\b|\\b(?:la\\s+imaginas|la\\s+prefieres|la\\s+quieres)\\s*(?:lenta|rapida|slow|fast)\\b|\\b(?:would\\s+you\\s+prefer\\s+(?:a\\s+)?)?(?:slow\\s+or\\s+fast|fast\\s+or\\s+slow)\\b|\\bhow\\s+fast\\s+should\\s+(?:the\\s+)?(?:song|track)\\s+be\\b"""
+                """\b(?:que|cual)\s+(?:ritmo|tempo|velocidad)\b|\b(?:what|which)\s+(?:tempo|pace|speed|rhythm)\b|\b(?:la\s+imaginas|la\s+prefieres|la\s+quieres)\s*(?:lenta|rapida|slow|fast)\b|\b(?:would\s+you\s+prefer\s+(?:a\s+)?)?(?:slow\s+or\s+fast|fast\s+or\s+slow)\b|\bhow\s+fast\s+should\s+(?:the\s+)?(?:song|track)\s+be\b"""
             ).containsMatchIn(normalized)
         }
         if (field == "vozFuente") {
             return Regex(
-                """\\b(?:quieres|prefieres|vas\\s+a|usar|grabar|importar|adjuntar|subir)\\b.{0,65}\\b(?:voz|archivo|grabacion|microfono)\\b|\\b(?:would\\s+you\\s+like|will\\s+you|do\\s+you\\s+want)\\b.{0,65}\\b(?:record|upload|import|attach|voice\\s+file|recording)\\b"""
+                """\b(?:quieres|prefieres|vas\s+a|usar|grabar|importar|adjuntar|subir)\b.{0,65}\b(?:voz|archivo|grabacion|microfono)\b|\b(?:would\s+you\s+like|will\s+you|do\s+you\s+want)\b.{0,65}\b(?:record|upload|import|attach|voice\s+file|recording)\b"""
             ).containsMatchIn(normalized)
         }
         val terms = when (field) {
