@@ -38,6 +38,7 @@ class BardoKnowledgeStoreTest {
             File(directory, "${entry.id}.txt").writeText("contenido manipulado")
             assertTrue(store.search("contenido manipulado").isEmpty())
             assertFalse(store.allForPrompt().contains("contenido manipulado"))
+            assertTrue("Una referencia alterada no debe aparecer en la biblioteca", store.list().isEmpty())
         } finally {
             directory.deleteRecursively()
         }
@@ -98,4 +99,57 @@ class BardoKnowledgeStoreTest {
             directory.deleteRecursively()
         }
     }
+
+    @Test
+    fun separateInstancesSerializeConcurrentImportsAndClearOperations() {
+        val directory = Files.createTempDirectory("bardo-knowledge-concurrency").toFile()
+        val first = BardoKnowledgeStore(directory)
+        val second = BardoKnowledgeStore(directory)
+        val workers = 5
+        val ready = java.util.concurrent.CountDownLatch(workers)
+        val start = java.util.concurrent.CountDownLatch(1)
+        val executor = java.util.concurrent.Executors.newFixedThreadPool(workers)
+        try {
+            val futures = (0 until workers).map { worker ->
+                executor.submit {
+                    ready.countDown()
+                    check(start.await(5, java.util.concurrent.TimeUnit.SECONDS))
+                    repeat(35) { index ->
+                        if (worker == workers - 1 && index % 3 == 0) {
+                            second.clearAll()
+                        } else {
+                            val store = if (worker % 2 == 0) first else second
+                            store.importText(
+                                "Referencia $worker-$index",
+                                "worker-$worker.txt",
+                                "Contenido íntegro del trabajador $worker, elemento $index"
+                            )
+                        }
+                    }
+                }
+            }
+            assertTrue(ready.await(5, java.util.concurrent.TimeUnit.SECONDS))
+            start.countDown()
+            futures.forEach { it.get(30, java.util.concurrent.TimeUnit.SECONDS) }
+
+            // Cada ficha publicada debe tener su documento correspondiente y una
+            // huella correcta; nunca debe quedar una ficha huérfana por clear/import.
+            directory.listFiles { file -> file.isFile && file.extension == "json" }.orEmpty().forEach { metadataFile ->
+                val metadata = JSONObject(metadataFile.readText(Charsets.UTF_8))
+                val id = metadata.getString("id")
+                val dataFile = File(directory, "$id.txt")
+                assertTrue("Falta el documento de $id", dataFile.isFile)
+                val digest = MessageDigest.getInstance("SHA-256")
+                    .digest(dataFile.readBytes())
+                    .joinToString("") { "%02x".format(it) }
+                assertEquals(metadata.getString("sha256"), digest)
+            }
+            assertTrue(directory.listFiles().orEmpty().none { it.name.endsWith(".tmp") })
+        } finally {
+            start.countDown()
+            executor.shutdownNow()
+            directory.deleteRecursively()
+        }
+    }
+
 }
