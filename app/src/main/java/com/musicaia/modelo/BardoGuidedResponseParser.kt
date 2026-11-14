@@ -50,7 +50,7 @@ object BardoGuidedResponseParser {
             val existing = existingFields[spec.appName].orEmpty().trim()
             val isChange = item.optBoolean("change", false)
             if (existing.isNotBlank() && !existing.equals(value, ignoreCase = true)) {
-                if (!isChange || !containsExplicitCorrection(latestUserMessage)) return@forEach
+                if (!isChange || !containsExplicitCorrection(latestUserMessage, spec.appName)) return@forEach
             }
             if (value.length > spec.maxLength) return@forEach
             updates[spec.appName] = value
@@ -76,15 +76,33 @@ object BardoGuidedResponseParser {
         return negativePrefix.containsMatchIn(normalizedMessage)
     }
 
-    private fun containsExplicitCorrection(message: String): Boolean {
+    private fun containsExplicitCorrection(message: String, targetField: String): Boolean {
         if (BardoIntentRouter.isNegatedCreativeChange(message)) return false
         val normalized = java.text.Normalizer.normalize(
             message.lowercase(Locale.ROOT),
             java.text.Normalizer.Form.NFD
         ).replace(Regex("""\p{Mn}+"""), "")
-        return Regex(
+        val correction = Regex(
             """\b(?:change|switch|modify|replace|instead|rather|actually|prefer|i prefer|cambiar|cambia|modificar|modifica|reemplazar|sustituir|mejor|prefiero|en vez de|en lugar de|mas bien)\b"""
         ).containsMatchIn(normalized)
+        if (!correction) return false
+
+        // Si el usuario nombra un campo, la corrección no puede cambiar otro.
+        val fieldAliases = mapOf(
+            "tema" to listOf("tema", "theme", "song topic", "story"),
+            "estilo" to listOf("estilo", "style", "genre", "genero", "musical style"),
+            "ambiente" to listOf("ambiente", "mood", "emotion", "emocion", "feeling", "tono"),
+            "ritmo" to listOf("ritmo", "rhythm", "tempo", "pace", "velocidad"),
+            "idioma" to listOf("idioma", "language", "lengua"),
+            "tipo" to listOf("tipo", "type", "voice mode", "instrumental", "vocals"),
+            "vozFuente" to listOf("fuente de voz", "voice source", "voice file", "archivo de voz", "grabacion")
+        )
+        val mentionedFields = fieldAliases.flatMap { (field, aliases) ->
+            aliases.filter { alias ->
+                Regex("""\b""" + Regex.escape(alias) + """\b""").containsMatchIn(normalized)
+            }.map { field }
+        }.toSet()
+        return mentionedFields.isEmpty() || targetField in mentionedFields
     }
     /** Recupera texto libre si el modelo no respeta JSON; no expone JSON malformado. */
     fun extractFreeformReply(raw: String): String? {
