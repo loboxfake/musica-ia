@@ -19,7 +19,9 @@ class BardoKnowledgeStore internal constructor(private val directory: File) {
         val sha256: String
     )
 
-    private val lock = Any()
+    // Las distintas pantallas/servicios pueden crear almacenes independientes para
+    // el mismo directorio. Compartir el lock evita carreras entre import, lectura y borrado.
+    private val lock = processLocks.computeIfAbsent(directory.absoluteFile.canonicalPath) { Any() }
 
     fun importText(title: String, source: String, text: String): Entry = synchronized(lock) {
         require(text.isNotBlank()) { "El documento está vacío." }
@@ -57,6 +59,8 @@ class BardoKnowledgeStore internal constructor(private val directory: File) {
                 Entry(id, json.optString("title"), json.optString("source"),
                     json.optLong("createdAt"), json.optInt("characters"), json.optString("sha256"))
             }.getOrNull() }
+            // No mostrar fichas cuyo documento falte o cuya huella ya no coincida.
+            .filter { entry -> readVerified(entry) != null }
             .sortedByDescending { it.createdAt }
     }
 
@@ -113,4 +117,8 @@ class BardoKnowledgeStore internal constructor(private val directory: File) {
     }
 
     fun clearAll() = synchronized(lock) { directory.listFiles()?.forEach { it.delete() } }
+
+    companion object {
+        private val processLocks = java.util.concurrent.ConcurrentHashMap<String, Any>()
+    }
 }
